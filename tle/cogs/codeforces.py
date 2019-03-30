@@ -2,6 +2,7 @@ import os
 
 import aiohttp
 import discord
+import numpy as np
 from discord.ext import commands
 from matplotlib import pyplot as plt
 
@@ -47,19 +48,15 @@ class Codeforces(commands.Cog):
                         problems.add((name, rating))
 
             ratings = [rating for name, rating in problems]
+            from collections import Counter
+            print(handle, sorted(Counter(ratings).items()))
             allratings.append(ratings)
 
-        # Adjust bin size so it looks good... it still looks kinda bad for > 3 handles
-        if len(handles) == 1:
-            histbins = 30
-        elif len(handles) == 2:
-            histbins = 20
-        else:
-            histbins = 15
-        histrange = (500, 3800)
-
+        # Adjust bin size so it looks nice
+        step = 100 if len(handles) == 1 else 200
+        histbins = np.arange(300, 3800, step)
         plt.clf()
-        plt.hist(allratings, bins=histbins, range=histrange, label=handles)
+        plt.hist(allratings, bins=histbins, label=handles)
         plt.title('Histogram of problems solved on Codeforces')
         plt.xlabel('Problem rating')
         plt.ylabel('Number solved')
