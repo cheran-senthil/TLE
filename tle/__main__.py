@@ -6,6 +6,8 @@ from discord.ext import commands
 
 BOT_TOKEN = environ.get('BOT_TOKEN')
 
+logging.basicConfig(level=logging.INFO)
+
 
 def main():
     if not BOT_TOKEN:

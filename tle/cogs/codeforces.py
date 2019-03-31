@@ -2,6 +2,7 @@ import os
 
 import aiohttp
 import discord
+import logging
 import numpy as np
 from discord.ext import commands
 from matplotlib import pyplot as plt
@@ -33,6 +34,8 @@ class Codeforces(commands.Cog):
                 if 'not found' in respjson['comment']:
                     await ctx.send(f'Invalid handle: *{handle}*')
                 else:
+                    logging.info(f'Request to CF API failed with status {respjson["status"]}'
+                                 f'and comment {respjson["comment"]}')
                     await ctx.send('Codeforces API error :(')
                 return
 
@@ -49,14 +52,19 @@ class Codeforces(commands.Cog):
 
             ratings = [rating for name, rating in problems]
             from collections import Counter
-            print(handle, sorted(Counter(ratings).items()))
+            logging.debug(f'Problems: {handle}, {sorted(Counter(ratings).items())}')
             allratings.append(ratings)
 
         # Adjust bin size so it looks nice
         step = 100 if len(handles) == 1 else 200
         histbins = np.arange(300, 3800, step)
+
+        # matplotlib ignores labels that begin with _
+        # https://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.legend
+        adjusted_handles = [handle.lstrip('_') for handle in handles]
+
         plt.clf()
-        plt.hist(allratings, bins=histbins, label=handles)
+        plt.hist(allratings, bins=histbins, label=adjusted_handles)
         plt.title('Histogram of problems solved on Codeforces')
         plt.xlabel('Problem rating')
         plt.ylabel('Number solved')
