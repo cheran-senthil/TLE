@@ -11,13 +11,9 @@ from matplotlib import pyplot as plt
 
 from discord.ext import commands
 
-def round_rating(rating):
-    rem = rating % 100
-    rating -= rem
-    return rating + 100 if rem >= 50 else rating
-
 API_BASE_URL = 'http://codeforces.com/api/'
 CNT_BASE_URL = 'http://codeforces.com/contest/'
+
 
 class Codeforces(commands.Cog):
 
@@ -35,16 +31,18 @@ class Codeforces(commands.Cog):
             return None
 
     @commands.command(brief='git gud.')
-    async def gitgud(self, ctx, *handles: str):
+    async def gitgud(self, ctx, handle: str):
         """git gud."""
-        if not handles or len(handles) > 1:
-            await ctx.send('Number of handles must be between 1 and 1')
-            return
+
+        def round_rating(rating):
+            rem = rating % 100
+            rating -= rem
+            return rating + 100 if rem >= 50 else rating
 
         probjson = await self.query_api('problemset.problems')
-        respjson = await self.query_api('user.info', {'handles': handles[0]})
-        subsjson = await self.query_api('user.status', {'handle': handles[0]})
-        rating = round_rating(respjson['result'][0]['rating'])
+        infojson = await self.query_api('user.info', {'handles': handle})
+        subsjson = await self.query_api('user.status', {'handle': handle})
+        rating = round_rating(infojson['result'][0]['rating'])
         problems = probjson['result']['problems']
         probs = set()
         for problem in problems:
@@ -58,12 +56,12 @@ class Codeforces(commands.Cog):
             if sub['verdict'] == 'OK' and 'contestId' in problem:
                 solved.add((problem['name'], problem['contestId']))
 
-        gudprobs = [x for x in probs if x not in solved]
-        if not gudprobs:
-            await ctx.send('{} is already too gud :tourist:'.format(handles[0]))
+        unnsolved = list(probs - solved)
+        if not unnsolved:
+            await ctx.send('{} is already too gud'.format(handle))
         else:
-            gudprob = random.choice(gudprobs)
-            await ctx.send('Solve `{}` from {}{} to git gud, {}'.format(gudprob[0], CNT_BASE_URL, gudprob[1], handles[0]))
+            gudprob = random.choice(unnsolved)
+            await ctx.send('Solve `{}` from {}{} to git gud, {}'.format(gudprob[0], CNT_BASE_URL, gudprob[1], handle))
 
     @commands.command(brief='Compare epeens.')
     async def rating(self, ctx, *handles: str):
@@ -117,8 +115,8 @@ class Codeforces(commands.Cog):
         zero_width_space = '\u200b'
         labels = [f'{zero_width_space}{handle} ({rating})' for handle, rating in zip(handles, rate)]
         plt.legend(labels)
-        discordFile = self.get_current_figure_as_file()
-        await ctx.send(file=discordFile)
+        discord_file = self.get_current_figure_as_file()
+        await ctx.send(file=discord_file)
 
     @commands.command(brief='Show histogram of solved problems on CF.')
     async def solved(self, ctx, *handles: str):
@@ -173,17 +171,17 @@ class Codeforces(commands.Cog):
         plt.xlabel('Problem rating')
         plt.ylabel('Number solved')
         plt.legend(loc='upper right')
-        discordFile = self.get_current_figure_as_file()
-        await ctx.send(file=discordFile)
+        discord_file = self.get_current_figure_as_file()
+        await ctx.send(file=discord_file)
 
     @staticmethod
     def get_current_figure_as_file():
         filename = f'tempplot_{time.time()}.png'
         plt.savefig(filename, facecolor=plt.gca().get_facecolor(), bbox_inches='tight', pad_inches=0.25)
         with open(filename, 'rb') as file:
-            discordFile = discord.File(io.BytesIO(file.read()), filename='plot.png')
+            discord_file = discord.File(io.BytesIO(file.read()), filename='plot.png')
         os.remove(filename)
-        return discordFile
+        return discord_file
 
 
 def setup(bot):
