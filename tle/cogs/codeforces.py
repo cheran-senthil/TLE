@@ -17,6 +17,7 @@ def round_rating(rating):
     return rating + 100 if rem >= 50 else rating
 
 API_BASE_URL = 'http://codeforces.com/api/'
+CNT_BASE_URL = 'http://codeforces.com/contest/'
 
 class Codeforces(commands.Cog):
 
@@ -48,15 +49,18 @@ class Codeforces(commands.Cog):
         probs = set()
         for problem in problems:
             if '*special' not in problem['tags'] and 'rating' in problem and problem['rating'] == rating:
-                probs.add(problem['name'])
+                if 'contestId' in problem:
+                    probs.add((problem['name'], problem['contestId']))
 
         solved = set()
         for sub in subsjson['result']:
-            if sub['verdict'] == 'OK':
-                solved.add(sub['problem']['name'])
+            problem = sub['problem']
+            if sub['verdict'] == 'OK' and 'contestId' in problem:
+                solved.add((problem['name'], problem['contestId']))
 
         gudprobs = [x for x in probs if x not in solved]
-        await ctx.send('Solve `{}` to git gud, {}'.format(random.choice(gudprobs), handles[0]))
+        gudprob = random.choice(gudprobs)
+        await ctx.send('Solve `{}` from {}{} to git gud, {}'.format(gudprob[0], CNT_BASE_URL, gudprob[1], handles[0]))
 
     @commands.command(brief='Compare epeens.')
     async def rating(self, ctx, *handles: str):
