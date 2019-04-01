@@ -116,7 +116,7 @@ class Codeforces(commands.Cog):
             for contest in contests:
                 ratings.append(contest['newRating'])
                 times.append(datetime.datetime.fromtimestamp(contest['ratingUpdateTimeSeconds']))
-            plt.plot(times, ratings)
+            plt.plot(times, ratings, linestyle='-', marker='o', markersize=3, markerfacecolor='white', markeredgewidth=0.5)
             rate.append(ratings[-1])
 
         ymin, ymax = plt.gca().get_ylim()
@@ -135,6 +135,9 @@ class Codeforces(commands.Cog):
             plt.axhspan(lo, hi, facecolor=color)
         plt.ylim(ymin, ymax)
         plt.gcf().autofmt_xdate()
+        locs, labels = plt.xticks()
+        for loc in locs:
+            plt.axvspan(loc, loc, facecolor='white')
 
         zero_width_space = '\u200b'
         labels = [f'{zero_width_space}{handle} ({rating})' for handle, rating in zip(handles, rate)]
