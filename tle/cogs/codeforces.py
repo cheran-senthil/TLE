@@ -1,10 +1,10 @@
+import io
 import logging
 import os
 import time
 
 import aiohttp
 import discord
-import numpy as np
 from matplotlib import pyplot as plt
 
 from discord.ext import commands
@@ -62,7 +62,7 @@ class Codeforces(commands.Cog):
 
         # Adjust bin size so it looks nice
         step = 100 if len(handles) == 1 else 200
-        histbins = np.arange(500, 3800, step)
+        histbins = list(range(500, 3800 + step, step))
 
         # matplotlib ignores labels that begin with _
         # https://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.legend
@@ -76,10 +76,17 @@ class Codeforces(commands.Cog):
         plt.xlabel('Problem rating')
         plt.ylabel('Number solved')
         plt.legend(loc='upper right')
+        discordFile = self.get_current_figure_as_file()
+        await ctx.send(file=discordFile)
+
+    @staticmethod
+    def get_current_figure_as_file():
         filename = f'tempplot_{time.time()}.png'
-        plt.savefig(filename)
-        await ctx.send(file=discord.File(filename))
+        plt.savefig(filename, facecolor=plt.gca().get_facecolor(), bbox_inches='tight', pad_inches=0.25)
+        with open(filename, 'rb') as file:
+            discordFile = discord.File(io.BytesIO(file.read()), filename='plot.png')
         os.remove(filename)
+        return discordFile
 
 
 def setup(bot):
