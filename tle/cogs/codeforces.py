@@ -36,6 +36,7 @@ class Codeforces(commands.Cog):
             return
 
         plt.clf()
+        rate = []
         for handle in handles:
             respjson = await self.query_api('user.rating', {'handle': handle})
             if respjson is None:
@@ -57,7 +58,27 @@ class Codeforces(commands.Cog):
                 ratings.append(contest['newRating'])
                 times.append(datetime.datetime.fromtimestamp(contest['ratingUpdateTimeSeconds']))
             plt.plot(times, ratings)
+            rate.append(ratings[-1])
 
+        ymin, ymax = plt.gca().get_ylim()
+        colors = [('#AA0000', 3000, 4000),
+                  ('#FF3333', 2600, 3000),
+                  ('#FF7777', 2400, 2600),
+                  ('#FFBB55', 2300, 2400),
+                  ('#FFCC88', 2100, 2300),
+                  ('#FF88FF', 1900, 2100),
+                  ('#AAAAFF', 1600, 1900),
+                  ('#77DDBB', 1400, 1600),
+                  ('#77FF77', 1200, 1400),
+                  ('#CCCCCC', 0, 1200)]
+
+        for color, lo, hi in colors:
+            plt.axhspan(lo, hi, facecolor=color)
+        plt.ylim(ymin, ymax)
+
+        zero_width_space = '\u200b'
+        labels = [f'{zero_width_space}{handle} ({rating})' for handle, rating in zip(handles, rate)]
+        plt.legend(labels)
         discordFile = self.get_current_figure_as_file()
         await ctx.send(file=discordFile)
 
