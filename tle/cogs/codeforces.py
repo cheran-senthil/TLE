@@ -59,8 +59,11 @@ class Codeforces(commands.Cog):
                 solved.add((problem['name'], problem['contestId']))
 
         gudprobs = [x for x in probs if x not in solved]
-        gudprob = random.choice(gudprobs)
-        await ctx.send('Solve `{}` from {}{} to git gud, {}'.format(gudprob[0], CNT_BASE_URL, gudprob[1], handles[0]))
+        if not gudprobs:
+            await ctx.send('{} is already too gud :tourist:'.format(handles[0]))
+        else:
+            gudprob = random.choice(gudprobs)
+            await ctx.send('Solve `{}` from {}{} to git gud, {}'.format(gudprob[0], CNT_BASE_URL, gudprob[1], handles[0]))
 
     @commands.command(brief='Compare epeens.')
     async def rating(self, ctx, *handles: str):
