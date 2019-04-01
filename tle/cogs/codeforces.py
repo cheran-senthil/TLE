@@ -109,6 +109,7 @@ class Codeforces(commands.Cog):
         for color, lo, hi in colors:
             plt.axhspan(lo, hi, facecolor=color)
         plt.ylim(ymin, ymax)
+        plt.gcf().autofmt_xdate()
 
         zero_width_space = '\u200b'
         labels = [f'{zero_width_space}{handle} ({rating})' for handle, rating in zip(handles, rate)]
