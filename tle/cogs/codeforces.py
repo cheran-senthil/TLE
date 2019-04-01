@@ -3,6 +3,7 @@ import logging
 import os
 import time
 import datetime
+import random
 
 import aiohttp
 import discord
@@ -10,8 +11,12 @@ from matplotlib import pyplot as plt
 
 from discord.ext import commands
 
-API_BASE_URL = 'http://codeforces.com/api/'
+def round_rating(rating):
+    rem = rating % 100
+    rating -= rem
+    return rating + 100 if rem >= 50 else rating
 
+API_BASE_URL = 'http://codeforces.com/api/'
 
 class Codeforces(commands.Cog):
 
@@ -27,6 +32,31 @@ class Codeforces(commands.Cog):
         except aiohttp.ClientConnectionError as e:
             logging.error(f'Request to CF API encountered error: {e}')
             return None
+
+    @commands.command(brief='git gud.')
+    async def gitgud(self, ctx, *handles: str):
+        """git gud."""
+        if not handles or len(handles) > 1:
+            await ctx.send('Number of handles must be between 1 and 1')
+            return
+
+        probjson = await self.query_api('problemset.problems')
+        respjson = await self.query_api('user.info', {'handles': handles[0]})
+        subsjson = await self.query_api('user.status', {'handle': handles[0]})
+        rating = round_rating(respjson['result'][0]['rating'])
+        problems = probjson['result']['problems']
+        probs = set()
+        for problem in problems:
+            if '*special' not in problem['tags'] and 'rating' in problem and problem['rating'] == rating:
+                probs.add(problem['name'])
+
+        solved = set()
+        for sub in subsjson['result']:
+            if sub['verdict'] == 'OK':
+                solved.add(sub['problem']['name'])
+
+        gudprobs = [x for x in probs if x not in solved]
+        await ctx.send('Solve `{}` to git gud, {}'.format(random.choice(gudprobs), handles[0]))
 
     @commands.command(brief='Compare epeens.')
     async def rating(self, ctx, *handles: str):
