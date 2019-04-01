@@ -6,9 +6,9 @@ import datetime
 import random
 
 import aiohttp
-import discord
 from matplotlib import pyplot as plt
 
+import discord
 from discord.ext import commands
 
 API_BASE_URL = 'http://codeforces.com/api/'
@@ -30,38 +30,62 @@ class Codeforces(commands.Cog):
             logging.error(f'Request to CF API encountered error: {e}')
             return None
 
-    @commands.command(brief='git gud.')
+    @commands.command(brief='Recommend a problem')
     async def gitgud(self, ctx, handle: str):
-        """git gud."""
+        """Recommends a problem based on Codeforces rating of the handle provided."""
 
         def round_rating(rating):
             rem = rating % 100
             rating -= rem
             return rating + 100 if rem >= 50 else rating
 
+        # TODO: Implement common framework for CF API error handling
         probjson = await self.query_api('problemset.problems')
         infojson = await self.query_api('user.info', {'handles': handle})
         subsjson = await self.query_api('user.status', {'handle': handle})
-        rating = round_rating(infojson['result'][0]['rating'])
-        problems = probjson['result']['problems']
-        probs = set()
-        for problem in problems:
-            if '*special' not in problem['tags'] and 'rating' in problem and problem['rating'] == rating:
-                if 'contestId' in problem:
-                    probs.add((problem['name'], problem['contestId']))
 
-        solved = set()
+        user_rating = infojson['result'][0].get('rating')
+        if user_rating is None:
+            # Assume unrated is noob
+            user_rating = 500
+        user_rating = round_rating(user_rating)
+        problems = probjson['result']['problems']
+        recommendations = {}
+        for problem in problems:
+            if '*special' not in problem['tags'] and problem.get('rating') == user_rating:
+                if 'contestId' in problem:
+                    name = problem['name']
+                    contestid = problem['contestId']
+                    index = problem['index']
+                    rating = problem['rating']
+                    # Consider (name, rating) as key
+                    recommendations[(name, rating)] = (contestid, index)
+
         for sub in subsjson['result']:
             problem = sub['problem']
-            if sub['verdict'] == 'OK' and 'contestId' in problem:
-                solved.add((problem['name'], problem['contestId']))
+            if sub['verdict'] == 'OK' and 'rating' in problem:
+                name = problem['name']
+                rating = problem['rating']
+                recommendations.pop((name, rating), None)
 
-        unnsolved = list(probs - solved)
-        if not unnsolved:
+        if not recommendations:
             await ctx.send('{} is already too gud'.format(handle))
         else:
-            gudprob = random.choice(unnsolved)
-            await ctx.send('Solve `{}` from {}{} to git gud, {}'.format(gudprob[0], CNT_BASE_URL, gudprob[1], handle))
+            name, rating = random.choice(list(recommendations.keys()))
+            contestid, index = recommendations[(name, rating)]
+            # 'from' and 'count' are for ranklist, query minimum allowed (1) since we do not need it
+            params = {
+                'contestId': contestid,
+                'from': 1,
+                'count': 1,
+            }
+            contestjson = await self.query_api('contest.standings', params)
+            contestname = contestjson['result']['contest']['name']
+            title = f'{index}. {name}'
+            url = f'{CNT_BASE_URL}{contestid}/problem/{index}'
+            desc = f'{contestname}\nRating: {rating}'
+            await ctx.send(f'Recommended problem for `{handle}`',
+                           embed=discord.Embed(title=title, url=url, description=desc))
 
     @commands.command(brief='Compare epeens.')
     async def rating(self, ctx, *handles: str):
