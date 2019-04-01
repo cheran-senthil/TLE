@@ -19,6 +19,15 @@ class Codeforces(commands.Cog):
         self.bot = bot
         self.session = aiohttp.ClientSession()
 
+    async def query_api(self, path, params=None):
+        url = API_BASE_URL + path
+        try:
+            async with self.session.get(url, params=params) as resp:
+                return await resp.json()
+        except aiohttp.ClientConnectionError as e:
+            logging.error(f'Request to CF API encountered error: {e}')
+            return None
+
     @commands.command(brief='Compare epeens.')
     async def rating(self, ctx, *handles: str):
         """Compare epeens."""
@@ -26,15 +35,10 @@ class Codeforces(commands.Cog):
             await ctx.send('Number of handles must be between 1 and 5')
             return
 
-        url = API_BASE_URL + '/user.rating'
         plt.clf()
         for handle in handles:
-            params = {'handle': handle}
-            try:
-                async with self.session.get(url, params=params) as resp:
-                    respjson = await resp.json()
-            except aiohttp.ClientConnectionError as e:
-                logging.error(f'Request to CF API encountered error: {e}')
+            respjson = await self.query_api('user.rating', {'handle': handle})
+            if respjson is None:
                 await ctx.send('Error connecting to Codeforces API')
                 return
 
@@ -54,10 +58,8 @@ class Codeforces(commands.Cog):
                 times.append(datetime.datetime.fromtimestamp(contest['ratingUpdateTimeSeconds']))
             plt.plot(times, ratings)
 
-        filename = f'tempplot_{time.time()}.png'
-        plt.savefig(filename)
-        await ctx.send(file=discord.File(filename))
-        os.remove(filename)
+        discordFile = self.get_current_figure_as_file()
+        await ctx.send(file=discordFile)
 
     @commands.command(brief='Show histogram of solved problems on CF.')
     async def solved(self, ctx, *handles: str):
@@ -66,16 +68,11 @@ class Codeforces(commands.Cog):
             await ctx.send('Number of handles must be between 1 and 5')
             return
 
-        url = API_BASE_URL + '/user.status'
         allratings = []
 
         for handle in handles:
-            params = {'handle': handle}
-            try:
-                async with self.session.get(url, params=params) as resp:
-                    respjson = await resp.json()
-            except aiohttp.ClientConnectionError as e:
-                logging.error(f'Request to CF API encountered error: {e}')
+            respjson = await self.query_api('user.status', {'handle': handle})
+            if respjson is None:
                 await ctx.send('Error connecting to Codeforces API')
                 return
 
