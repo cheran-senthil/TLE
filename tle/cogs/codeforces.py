@@ -1,5 +1,4 @@
 import io
-import logging
 import os
 import time
 import datetime
@@ -11,23 +10,12 @@ from matplotlib import pyplot as plt
 import discord
 from discord.ext import commands
 
-API_BASE_URL = 'http://codeforces.com/api/'
-CNT_BASE_URL = 'http://codeforces.com/contest/'
+from .util import codeforces_api as cf
 
 
 class Codeforces(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.session = aiohttp.ClientSession()
-
-    async def query_api(self, path, params=None):
-        url = API_BASE_URL + path
-        try:
-            async with self.session.get(url, params=params) as resp:
-                return await resp.json()
-        except aiohttp.ClientConnectionError as e:
-            logging.error(f'Request to CF API encountered error: {e}')
-            return None
 
     @commands.command(brief='Recommend a problem')
     async def gitgud(self, ctx, handle: str):
@@ -38,17 +26,26 @@ class Codeforces(commands.Cog):
             rating -= rem
             return rating + 100 if rem >= 50 else rating
 
-        # TODO: Implement common framework for CF API error handling
-        probjson = await self.query_api('problemset.problems')
-        infojson = await self.query_api('user.info', {'handles': handle})
-        subsjson = await self.query_api('user.status', {'handle': handle})
+        try:
+            probresp = await cf.problemset.problems()
+            inforesp = await cf.user.info(handles=[handle])
+            subsresp = await cf.user.status(handle=handle)
+        except aiohttp.ClientConnectionError:
+            await ctx.send('Error connecting to Codeforces API')
+            return
+        except cf.NotFoundError:
+            await ctx.send(f'Handle not found: `{handle}`')
+            return
+        except cf.CodeforcesApiError:
+            await ctx.send('Codeforces API denied the request, please make the handle is valid.')
+            return
 
-        user_rating = infojson['result'][0].get('rating')
+        user_rating = inforesp[0].get('rating')
         if user_rating is None:
             # Assume unrated is noob
             user_rating = 500
         user_rating = round_rating(user_rating)
-        problems = probjson['result']['problems']
+        problems = probresp['problems']
         recommendations = {}
         for problem in problems:
             if '*special' not in problem['tags'] and problem.get('rating') == user_rating:
@@ -60,7 +57,7 @@ class Codeforces(commands.Cog):
                     # Consider (name, rating) as key
                     recommendations[(name, rating)] = (contestid, index)
 
-        for sub in subsjson['result']:
+        for sub in subsresp:
             problem = sub['problem']
             if sub['verdict'] == 'OK' and 'rating' in problem:
                 name = problem['name']
@@ -73,15 +70,10 @@ class Codeforces(commands.Cog):
             name, rating = random.choice(list(recommendations.keys()))
             contestid, index = recommendations[(name, rating)]
             # 'from' and 'count' are for ranklist, query minimum allowed (1) since we do not need it
-            params = {
-                'contestId': contestid,
-                'from': 1,
-                'count': 1,
-            }
-            contestjson = await self.query_api('contest.standings', params)
-            contestname = contestjson['result']['contest']['name']
+            contestresp = await cf.contest.standings(contestid=contestid, from_=1, count=1)
+            contestname = contestresp['contest']['name']
             title = f'{index}. {name}'
-            url = f'{CNT_BASE_URL}{contestid}/problem/{index}'
+            url = f'{cf.CONTEST_BASE_URL}{contestid}/problem/{index}'
             desc = f'{contestname}\nRating: {rating}'
             await ctx.send(
                 f'Recommended problem for `{handle}`', embed=discord.Embed(title=title, url=url, description=desc))
@@ -96,20 +88,18 @@ class Codeforces(commands.Cog):
         plt.clf()
         rate = []
         for handle in handles:
-            respjson = await self.query_api('user.rating', {'handle': handle})
-            if respjson is None:
+            try:
+                contests = await cf.user.rating(handle=handle)
+            except aiohttp.ClientConnectionError:
                 await ctx.send('Error connecting to Codeforces API')
                 return
-
-            if respjson['status'] == 'FAILED':
-                if 'not found' in respjson['comment']:
-                    await ctx.send(f'Handle not found: `{handle}`')
-                else:
-                    logging.info(f'CF API denied request with comment {respjson["comment"]}')
-                    await ctx.send('Codeforces API denied the request, please make sure handles are valid.')
+            except cf.NotFoundError:
+                await ctx.send(f'Handle not found: `{handle}`')
+                return
+            except cf.CodeforcesApiError:
+                await ctx.send('Codeforces API denied the request, please make sure handles are valid.')
                 return
 
-            contests = respjson['result']
             ratings = []
             times = []
             for contest in contests:
@@ -148,20 +138,18 @@ class Codeforces(commands.Cog):
         allratings = []
 
         for handle in handles:
-            respjson = await self.query_api('user.status', {'handle': handle})
-            if respjson is None:
+            try:
+                submissions = await cf.user.status(handle=handle)
+            except aiohttp.ClientConnectionError:
                 await ctx.send('Error connecting to Codeforces API')
                 return
-
-            if respjson['status'] == 'FAILED':
-                if 'not found' in respjson['comment']:
-                    await ctx.send(f'Handle not found: `{handle}`')
-                else:
-                    logging.info(f'CF API denied request with comment {respjson["comment"]}')
-                    await ctx.send('Codeforces API denied the request, please make sure handles are valid.')
+            except cf.NotFoundError:
+                await ctx.send(f'Handle not found: `{handle}`')
+                return
+            except cf.CodeforcesApiError:
+                await ctx.send('Codeforces API denied the request, please make sure handles are valid.')
                 return
 
-            submissions = respjson['result']
             problems = set()
             for submission in submissions:
                 if submission['verdict'] == 'OK':
