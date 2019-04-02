@@ -10,15 +10,30 @@ import discord
 from discord.ext import commands
 from matplotlib import pyplot as plt
 from tle.cogs.util import codeforces_api as cf
+from db_utils.handle_conn import HandleConn
 
 
 class Codeforces(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.conn = HandleConn('handles.db')
+        self.converter = commands.MemberConverter()
+
+    async def Resolve(self, ctx, handle: str):
+        if handle[0] != '!': return handle    
+        member = await self.converter.convert(ctx, handle[1:])
+        res = self.conn.gethandle(member.id)
+        if res is None: raise Exception('bad')
+        return res
 
     @commands.command(brief='Recommend a problem')
     async def gitgud(self, ctx, handle: str, delta: int = 0, tag: str = 'all'):
         """Recommends a problem based on Codeforces rating of the handle provided."""
+        try: 
+            handle = await self.Resolve(ctx, handle)
+        except:
+            await ctx.send('bad handle')
+            return
         try:
             probresp = await cf.problemset.problems()
             inforesp = await cf.user.info(handles=[handle])
@@ -85,6 +100,11 @@ class Codeforces(commands.Cog):
     async def vc(self, ctx, handle: str):
         """Recommends a contest based on Codeforces rating of the handle provided."""
         try:
+            handle = await self.Resolve(ctx, handle)
+        except:
+            await ctx.send('Bad Handle')
+            return
+        try:
             probresp = await cf.problemset.problems()
             subsresp = await cf.user.status(handle=handle)
         except aiohttp.ClientConnectionError:
@@ -124,6 +144,11 @@ class Codeforces(commands.Cog):
         """Compare epeens."""
         if not handles or len(handles) > 5:
             await ctx.send('Number of handles must be between 1 and 5')
+            return
+        try:
+            handles = [await self.Resolve(ctx, h) for h in handles]
+        except:
+            await ctx.send('Bad Handle')
             return
         plt.clf()
 
@@ -180,6 +205,11 @@ class Codeforces(commands.Cog):
         if not handles or len(handles) > 5:
             await ctx.send('Number of handles must be between 1 and 5')
             return
+        try:
+            handles = [await self.Resolve(ctx, h) for h in handles]
+        except:
+            await ctx.send('Bad Handle')
+            return        
 
         allratings = []
 
