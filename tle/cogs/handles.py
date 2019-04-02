@@ -1,52 +1,96 @@
+import logging
+
+import aiohttp
 import discord
 from discord.ext import commands
 from db_utils.handle_conn import HandleConn
 from tabulate import tabulate
 
+from tle.cogs.util import codeforces_api as cf
+
+PROFILE_BASE_URL = 'https://codeforces.com/profile/'
+
+
+def rating2rank(rating):
+    if rating < 1200:
+        return 'Newbie'
+    if rating < 1400:
+        return 'Pupil'
+    if rating < 1600:
+        return 'Specialist'
+    if rating < 1900:
+        return 'Expert'
+    if rating < 2100:
+        return 'Candidate Master'
+    if rating < 2300:
+        return 'Master'
+    if rating < 2400:
+        return 'International Master'
+    if rating < 2600:
+        return 'Grandmaster'
+    if rating < 3000:
+        return 'International Grandmaster'
+    return 'Legendary Grandmaster'
+
+
+def make_profile_embed(member, handle, rating, photo, *, mode):
+    if mode == 'set':
+        desc = f'Handle for **{member.display_name}** successfully set to [**{handle}**]({PROFILE_BASE_URL}{handle})'
+    elif mode == 'get':
+        desc = f'Handle for **{member.display_name}** is currently set to [**{handle}**]({PROFILE_BASE_URL}{handle})'
+    rating = rating or 'Unrated'
+    embed = discord.Embed(description=desc)
+    embed.add_field(name='Rating', value=rating, inline=True)
+    embed.add_field(name='Rank', value=rating2rank(rating), inline=True)
+    embed.set_thumbnail(url=f'http:{photo}')
+    return embed
+
 
 class Handles(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.url = 'https://codeforces.com/profile/{}'
         self.conn = HandleConn('handles.db')
 
     @commands.command(brief='sethandle [name] [handle] (admin-only)')
     @commands.has_role('Admin')
     async def sethandle(self, ctx, member: discord.Member, handle: str):
-        """set handle"""
-        if not handle:
-            await ctx.send('syntax: sethandle [name] [handle]')
-            return
-        if not member:
-            await ctx.send('Member not found!')
-            return
+        """Set Codeforces handle of a user"""
         try:
-            r = self.conn.sethandle(member.id, handle)
-            if r == 1:
-                url = self.url.format(handle)
-                msg = f'sethandle: {member.name} set to {url}'
-            else:
-                msg = 'sethandle: 0 rows affected'
-        except:
-            msg = 'sethandle error!'
-        await ctx.send(msg)
+            info = await cf.user.info(handles=[handle])
+            info = info[0]
+        except aiohttp.ClientConnectionError:
+            await ctx.send('Could not connect to CF API to verify handle')
+            return
+        except cf.NotFoundError:
+            await ctx.send(f'Handle not found: `{handle}`')
+            return
+        except cf.CodeforcesApiError:
+            await ctx.send('Codeforces API denied the request, please make the handle is valid.')
+            return
+
+        rating, photo = info.get('rating'), info['titlePhoto']
+        self.conn.cachehandle(handle, rating, photo)
+        self.conn.sethandle(member.id, handle)
+
+        embed = make_profile_embed(member, handle, rating, photo, mode='set')
+        await ctx.send(embed=embed)
 
     @commands.command(brief='gethandle [name]')
     async def gethandle(self, ctx, member: discord.Member):
-        """get handle"""
-        if not member:
-            await ctx.send('Member not found!')
+        """Show Codeforces handle of a user"""
+        handle = self.conn.gethandle(member.id)
+        if not handle:
+            await ctx.send(f'Handle for user {member.display_name} not found in database')
             return
-        try:
-            res = self.conn.gethandle(member.id)
-            if res:
-                url = self.url.format(res)
-                msg = f'gethandle: {member.name} at {url}'
-            else:
-                msg = f'gethandle: {member.name} not found'
-        except:
-            msg = 'gethandle error!'
-        await ctx.send(msg)
+        res = self.conn.fetch_handle_info(handle)
+        if res is None:
+            # Not cached, should not happen
+            logging.error(f'Handle info for {handle} not cached')
+            return
+
+        rating, photo = res
+        embed = make_profile_embed(member, handle, rating, photo, mode='get')
+        await ctx.send(embed=embed)
 
     @commands.command(brief='removehandle [name] (admin-only)')
     @commands.has_role('Admin')

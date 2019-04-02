@@ -28,6 +28,13 @@ class HandleConn():
         self.conn.commit()
         return rc
 
+    def fetch_handle_info(self, handle):
+        query = '''
+            SELECT rating, photo FROM cf_cache
+            WHERE handle = ?
+        '''
+        return self.conn.execute(query, (handle,)).fetchone()
+
     def getallcache(self):
         query = 'SELECT handle, rating, photo FROM cf_cache'
         return self.conn.execute(query).fetchall()
