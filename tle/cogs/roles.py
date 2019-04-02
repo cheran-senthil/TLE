@@ -33,6 +33,7 @@ class Roles(commands.Cog):
             conn = HandleConn('handles.db')
             res = conn.getallhandles()
             inforesp = await cf.user.info(handles=[t[1] for t in res])
+            await ctx.send('caching handles...')
             try:
                 for i, r in enumerate(inforesp):
                     conn.cachehandle(res[i][1], r['rating'], r['titlePhoto'])
@@ -43,9 +44,8 @@ class Roles(commands.Cog):
             conn.close()
             await ctx.send('error getting data from cf')
             return        
-        
-        await ctx.send('updating roles...')
-        
+    
+        await ctx.send('updating roles...')        
         try:            
             converter = commands.MemberConverter()
             for i, r in enumerate(inforesp):
