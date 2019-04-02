@@ -74,7 +74,7 @@ class Codeforces(commands.Cog):
             if sub['verdict'] == 'OK' and 'rating' in problem:
                 name = problem['name']
                 rating = problem['rating']
-                recommendations.pop((name, rating), None)
+                recommendations[rating].pop((name, rating), None)
 
         for rating, probs in sorted(recommendations.items()):
             if len(probs) > 0:
