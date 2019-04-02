@@ -53,12 +53,12 @@ class Roles(commands.Cog):
                     add = True
                     for role in member.roles:
                         name = role.name.lower()
-                        if name == rank:add = False
+                        if name == rank: add = False
                         elif name in rank2role: rm_list.append(role)
                     if rm_list:
                         await member.remove_roles(*rm_list)
                     if add:
-                        await member.add_roles(rank2role[rank])                            
+                        await member.add_roles(rank2role[rank])
                     # await ctx.send(f'{member} to {rank}')
                 except Exception as e:
                     print(e)
@@ -66,7 +66,7 @@ class Roles(commands.Cog):
             msg = 'update roles completed'
         except Exception as e:
             msg = 'updateroles error!'
-            print(e)        
+            print(e)
         conn.close()
         await session.close()
         await ctx.send(msg)
