@@ -10,8 +10,7 @@ from matplotlib import pyplot as plt
 import discord
 from discord.ext import commands
 
-from .util import codeforces_api as cf
-
+from tle.cogs.util import codeforces_api as cf
 
 class Codeforces(commands.Cog):
     def __init__(self, bot):

@@ -1,30 +1,29 @@
 import discord
 import logging
+
 from discord.ext import commands
-from handle_conn.handle_conn import HandleConn
+from db_utils.handle_conn import HandleConn
 from tabulate import tabulate
 
-import aiohttp
+from tle.cogs.util import codeforces_api as cf
 
 class Handles(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.url = 'https://codeforces.com/profile/{}'
         self.conn = HandleConn('handles.db')
-        self.session = aiohttp.ClientSession()
 
-    # shitty copy paste by okarinn :nauseated_face:
-    async def query_api(self, path, params=None):
-        API_BASE_URL = 'http://codeforces.com/api/'
-        url = API_BASE_URL + path
+    @commands.command(brief='clear cache (admin-only)')
+    @commands.has_role('Admin')    
+    async def clearcache(self, ctx):
         try:
-            async with self.session.get(url, params=params) as resp:
-                return await resp.json()
-        except aiohttp.ClientConnectionError as e:
-            logging.error(f'Request to CF API encountered error: {e}')
-            return None
+            self.conn.clearcache()
+            msg = 'clear cache success'
+        except:
+            msg = 'clear cache error'
+        await ctx.send(msg)
 
-    @commands.command(brief='sethandle [name] [handle]')
+    @commands.command(brief='sethandle [name] [handle] (admin-only)')
     @commands.has_role('Admin')
     async def sethandle(self, ctx, member: discord.Member, handle: str):
         """set handle"""
@@ -78,34 +77,36 @@ class Handles(commands.Cog):
             msg = 'removehandle error!'
         await ctx.send(msg)
 
-    
-    @commands.command(brief="show all handles")
+
+    @commands.command(brief="show all handles")    
     async def showhandles(self, ctx):
-        """ show all handles """
         try:
             converter = commands.MemberConverter()
-            res = self.conn.getallhandles()
-            try: 
-                handleq = ';'.join(t[1] for t in res)
-                infojson = await self.query_api('user.info', {'handles': handleq})
-                result = infojson['result']
-                stuff = [(result[i]['rating'], handle, id) for i, (id, handle) in enumerate(res)]
-                stuff.sort(key = lambda t: (-t[0], t[1]))
-            except:
-                stuff = [('N/A', handle, id) for id, handle in res]
+            res = self.conn.getallhandleswithrating()
+            res.sort(key=lambda r: r[2] if r[2] is not None else -1, reverse=True)
             table = []
-            for rating, handle, id in stuff:
-                try:  # in case the person has left the server
+            for id, handle, rating in res:
+                try: # in case the person has left the server
                     member = await converter.convert(ctx, id)
-                    handledisp = "{} ({})".format(handle, rating)
-                    if member.nick: table.append((member.nick, handledisp))
-                    else: table.append((member.name, handledisp))
-                except:
-                    pass
+                    if rating is None: rating = 'N/A'
+                    hdisp = f'{handle} ({rating})'
+                    name = member.nick if member.nick else member.name
+                    table.append((name, hdisp))
+                except Exception as e:
+                    print(e)
             msg = '```\n{}\n```'.format(
-                tabulate(table, headers=('name', 'handle')))            
-        except:
+                tabulate(table, headers=('name', 'handle'))
+                )
+        except Exception as e:
+            print(e)
             msg = 'showhandles error!'
+        await ctx.send(msg)
+        
+    @commands.command()
+    @commands.has_role('Admin')
+    async def showcache(self, ctx):
+        cache = self.conn.getallcache()
+        msg = '```\n{}\n```'.format(tabulate(cache), headers=('handle','rating','photo'))
         await ctx.send(msg)
 
 def setup(bot):

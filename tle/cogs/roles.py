@@ -1,8 +1,8 @@
 import aiohttp
 import discord
 from discord.ext import commands
-from handle_conn.handle_conn import HandleConn
-
+from db_utils.handle_conn import HandleConn
+from tle.cogs.util import codeforces_api as cf
 
 class Roles(commands.Cog):
     def __init__(self, bot):
@@ -11,13 +11,6 @@ class Roles(commands.Cog):
             'Expert', 'Candidate Master', 'Master', 'International Master',
             'Grandmaster', 'International Grandmaster', 'Legendary Grandmaster'
         ]
-        self.url = 'http://codeforces.com/api/user.info'
-
-    async def query(self, session: aiohttp.ClientSession, handles):
-        params = {'handles': ';'.join(handles)}
-        async with session.get(self.url, params=params) as resp:
-            res = await resp.json()
-            return res['result']
 
     async def FetchRoles(self, ctx):
         converter = commands.RoleConverter()
@@ -25,8 +18,8 @@ class Roles(commands.Cog):
         for r in self.ranks:
             rank2role[r.lower()] = await converter.convert(ctx, r)
         return rank2role
-
-    @commands.command(brief='update roles')
+      
+    @commands.command(brief='update roles (admin-only)')
     @commands.has_role('Admin')
     async def updateroles(self, ctx):
         """update roles"""
@@ -35,19 +28,29 @@ class Roles(commands.Cog):
         except:
             await ctx.send('error fetching roles!')
             return
-        await ctx.send('updating roles...')
+        
         try:
             conn = HandleConn('handles.db')
-            session = aiohttp.ClientSession()
-            converter = commands.MemberConverter()
             res = conn.getallhandles()
-            handle2id = dict((t[1].lower(), t[0]) for t in res)
-            qres = await self.query(session, [t[1] for t in res])
-            for r in qres:
-                handle = r['handle'].lower()
-                id = handle2id[handle]
+            inforesp = await cf.user.info(handles=[t[1] for t in res])
+            try:
+                for i, r in enumerate(inforesp):
+                    conn.cachehandle(res[i][1], r['rating'], r['titlePhoto'])
+            except Exception as e:
+                print(e)
+            conn.close()
+        except:
+            conn.close()
+            await ctx.send('error getting data from cf')
+            return        
+        
+        await ctx.send('updating roles...')
+        
+        try:            
+            converter = commands.MemberConverter()
+            for i, r in enumerate(inforesp):
                 try:
-                    member = await converter.convert(ctx, id)
+                    member = await converter.convert(ctx, res[i][0])
                     rank = r['rank'].lower()
                     rm_list = []
                     add = True
@@ -59,18 +62,13 @@ class Roles(commands.Cog):
                         await member.remove_roles(*rm_list)
                     if add:
                         await member.add_roles(rank2role[rank])
-                    # await ctx.send(f'{member} to {rank}')
                 except Exception as e:
-                    print(e)
-                    pass
+                    print(e)                                
             msg = 'update roles completed'
         except Exception as e:
             msg = 'updateroles error!'
             print(e)
-        conn.close()
-        await session.close()
         await ctx.send(msg)
-
 
 def setup(bot):
     bot.add_cog(Roles(bot))
