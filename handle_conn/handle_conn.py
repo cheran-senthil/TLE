@@ -1,5 +1,6 @@
 import sqlite3
 
+
 class HandleConn():
     def __init__(self, dbfile):
         self.conn = sqlite3.connect(dbfile)
@@ -9,7 +10,7 @@ class HandleConn():
                 handle TEXT 
             )
         ''')
-    
+
     def sethandle(self, id, handle):
         """ returns 1 if set, 0 if not """
         query = '''
@@ -20,12 +21,12 @@ class HandleConn():
         cur.execute(query, (id, handle))
         self.conn.commit()
         return cur.rowcount
-    
+
     def gethandle(self, id):
         """ returns string or None """
         query = 'SELECT handle FROM user_handle WHERE id = ?'
         cur = self.conn.cursor()
-        cur.execute(query, (id,))
+        cur.execute(query, (id, ))
         res = cur.fetchone()
         if res: return res[0]
         return None
@@ -36,4 +37,3 @@ class HandleConn():
         cur = self.conn.cursor()
         cur.execute(query)
         return cur.fetchall()
-

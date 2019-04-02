@@ -3,6 +3,7 @@ from discord.ext import commands
 from handle_conn.handle_conn import HandleConn
 from tabulate import tabulate
 
+
 class Handles(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -57,15 +58,17 @@ class Handles(commands.Cog):
             res = self.conn.getallhandles()
             table = []
             for id, handle in res:
-                try: # in case the person has left the server
+                try:  # in case the person has left the server
                     name = await converter.convert(ctx, id)
                     table.append((name, handle))
                 except:
                     pass
-            msg = '```\n{}\n```'.format(tabulate(table, headers=('name', 'handle')))
-        except Exception  as e:
-            msg = 'showhandles error! {}'.format(e)
+            msg = '```\n{}\n```'.format(
+                tabulate(table, headers=('name', 'handle')))
+        except:
+            msg = 'showhandles error!'
         await ctx.send(msg)
+
 
 def setup(bot):
     bot.add_cog(Handles(bot))
