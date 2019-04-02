@@ -73,8 +73,9 @@ class Handles(commands.Cog):
             table = []
             for id, handle in res:
                 try:  # in case the person has left the server
-                    name = await converter.convert(ctx, id)
-                    table.append((name, handle))
+                    member = await converter.convert(ctx, id)
+                    if member.nick: table.append((member.nick, handle))
+                    else: table.append((member.name, handle))
                 except:
                     pass
             msg = '```\n{}\n```'.format(
