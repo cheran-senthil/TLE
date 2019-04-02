@@ -41,7 +41,6 @@ async def query_api(path, params=None):
 
 
 class contest:
-
     @staticmethod
     async def standings(*, contestid, from_=None, count=None, handles=None, room=None, show_unofficial=None):
         params = {'contestId': contestid}
@@ -59,7 +58,6 @@ class contest:
 
 
 class problemset:
-
     @staticmethod
     async def problems(*, tags=None, problemset_name=None):
         params = {}
@@ -71,7 +69,6 @@ class problemset:
 
 
 class user:
-
     @staticmethod
     async def info(*, handles):
         params = {'handles': ';'.join(handles)}

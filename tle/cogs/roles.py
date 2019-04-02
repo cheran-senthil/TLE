@@ -1,8 +1,9 @@
 import aiohttp
 import discord
-from discord.ext import commands
 from db_utils.handle_conn import HandleConn
+from discord.ext import commands
 from tle.cogs.util import codeforces_api as cf
+
 
 class Roles(commands.Cog):
     def __init__(self, bot):
@@ -18,7 +19,7 @@ class Roles(commands.Cog):
         for r in self.ranks:
             rank2role[r.lower()] = await converter.convert(ctx, r)
         return rank2role
-      
+
     @commands.command(brief='update roles (admin-only)')
     @commands.has_role('Admin')
     async def updateroles(self, ctx):
@@ -28,7 +29,7 @@ class Roles(commands.Cog):
         except:
             await ctx.send('error fetching roles!')
             return
-        
+
         try:
             conn = HandleConn('handles.db')
             res = conn.getallhandles()
@@ -43,10 +44,10 @@ class Roles(commands.Cog):
         except:
             conn.close()
             await ctx.send('error getting data from cf')
-            return        
-    
-        await ctx.send('updating roles...')        
-        try:            
+            return
+
+        await ctx.send('updating roles...')
+        try:
             converter = commands.MemberConverter()
             for i, r in enumerate(inforesp):
                 try:
@@ -63,12 +64,13 @@ class Roles(commands.Cog):
                     if add:
                         await member.add_roles(rank2role[rank])
                 except Exception as e:
-                    print(e)                                
+                    print(e)
             msg = 'update roles completed'
         except Exception as e:
             msg = 'updateroles error!'
             print(e)
         await ctx.send(msg)
+
 
 def setup(bot):
     bot.add_cog(Roles(bot))

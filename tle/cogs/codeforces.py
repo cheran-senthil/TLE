@@ -1,15 +1,14 @@
 import datetime
 import io
+import math
 import os
 import random
 import time
-import math
 
 import aiohttp
 import discord
 from discord.ext import commands
 from matplotlib import pyplot as plt
-
 from tle.cogs.util import codeforces_api as cf
 
 
@@ -64,8 +63,7 @@ class Codeforces(commands.Cog):
             await ctx.send('{} is already too gud'.format(handle))
         else:
             recomlist = [(time, name, rating, contestid, index)
-                         for (name, rating), (contestid, index, time)
-                         in recommendations.items()]
+                         for (name, rating), (contestid, index, time) in recommendations.items()]
             recomlist.sort(key=lambda r: r[0])
             n = len(recomlist)
             # prefer newer problems

@@ -2,10 +2,9 @@ import logging
 
 import aiohttp
 import discord
-from discord.ext import commands
 from db_utils.handle_conn import HandleConn
+from discord.ext import commands
 from tabulate import tabulate
-
 from tle.cogs.util import codeforces_api as cf
 
 PROFILE_BASE_URL = 'https://codeforces.com/profile/'
@@ -117,7 +116,7 @@ class Handles(commands.Cog):
             res.sort(key=lambda r: r[2] if r[2] is not None else -1, reverse=True)
             table = []
             for i, (id, handle, rating) in enumerate(res):
-                try: # in case the person has left the server
+                try:  # in case the person has left the server
                     member = await converter.convert(ctx, id)
                     if rating is None: rating = 'N/A'
                     hdisp = f'{handle} ({rating})'
@@ -125,9 +124,7 @@ class Handles(commands.Cog):
                     table.append((i, name, hdisp))
                 except Exception as e:
                     print(e)
-            msg = '```\n{}\n```'.format(
-                tabulate(table, headers=('#', 'name', 'handle'))
-                )
+            msg = '```\n{}\n```'.format(tabulate(table, headers=('#', 'name', 'handle')))
         except Exception as e:
             print(e)
             msg = 'showhandles error!'
@@ -142,12 +139,12 @@ class Handles(commands.Cog):
         except:
             msg = 'clear cache error'
         await ctx.send(msg)
-        
+
     @commands.command(brief='show cache (admin only)', hidden=True)
     @commands.has_role('Admin')
     async def showcache(self, ctx):
         cache = self.conn.getallcache()
-        msg = '```\n{}\n```'.format(tabulate(cache), headers=('handle','rating','photo'))
+        msg = '```\n{}\n```'.format(tabulate(cache), headers=('handle', 'rating', 'photo'))
         await ctx.send(msg)
 
 

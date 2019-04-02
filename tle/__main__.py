@@ -3,9 +3,8 @@ from os import environ
 from pathlib import Path
 
 import seaborn as sns
-from matplotlib import pyplot as plt
-
 from discord.ext import commands
+from matplotlib import pyplot as plt
 
 
 def setglobaldefaults():
