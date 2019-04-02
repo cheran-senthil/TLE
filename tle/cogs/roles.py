@@ -36,7 +36,6 @@ class Roles(commands.Cog):
             await ctx.send('error fetching roles!')
             return
         await ctx.send('updating roles...')
-        allroles = rank2role.values()
         try:
             conn = HandleConn('handles.db')
             session = aiohttp.ClientSession()
@@ -50,20 +49,27 @@ class Roles(commands.Cog):
                 try:
                     member = await converter.convert(ctx, id)
                     rank = r['rank'].lower()
-                    await member.remove_roles(*allroles)
-                    await member.add_roles(rank2role[rank])
+                    rm_list = []
+                    add = True
+                    for role in member.roles:
+                        name = role.name.lower()
+                        if name == rank:add = False
+                        elif name in rank2role: rm_list.append(role)
+                    if rm_list:
+                        await member.remove_roles(*rm_list)
+                    if add:
+                        await member.add_roles(rank2role[rank])                            
                     # await ctx.send(f'{member} to {rank}')
-                except:
-                    # await ctx.send(f'{handle} skipped')
+                except Exception as e:
+                    print(e)
                     pass
-        except:
-            conn.close()
-            await session.close()
-            await ctx.send('updateroles error!')
-            return
+            msg = 'update roles completed'
+        except Exception as e:
+            msg = 'updateroles error!'
+            print(e)        
         conn.close()
         await session.close()
-        await ctx.send('updateroles completed')
+        await ctx.send(msg)
 
 
 def setup(bot):
