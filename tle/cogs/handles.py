@@ -1,6 +1,4 @@
 import discord
-import logging
-
 from discord.ext import commands
 from db_utils.handle_conn import HandleConn
 from tabulate import tabulate
