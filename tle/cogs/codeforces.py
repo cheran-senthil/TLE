@@ -18,7 +18,7 @@ class Codeforces(commands.Cog):
         self.bot = bot
 
     @commands.command(brief='Recommend a problem')
-    async def gitgud(self, ctx, handle: str):
+    async def gitgud(self, ctx, handle: str, delta : int = 0):
         """Recommends a problem based on Codeforces rating of the handle provided."""
 
         def round_rating(rating):
@@ -44,7 +44,7 @@ class Codeforces(commands.Cog):
         if user_rating is None:
             # Assume unrated is noob
             user_rating = 500
-        user_rating = round_rating(user_rating)
+        user_rating = round_rating(user_rating + delta)
         problems = probresp['problems']
         recommendations = {}
         for problem in problems:
