@@ -37,3 +37,6 @@ class HandleConn():
         cur = self.conn.cursor()
         cur.execute(query)
         return cur.fetchall()
+
+    def close(self):
+        self.conn.close()

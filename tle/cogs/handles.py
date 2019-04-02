@@ -25,7 +25,7 @@ class Handles(commands.Cog):
             r = self.conn.sethandle(member.id, handle)
             if r == 1:
                 url = self.url.format(handle)
-                msg = 'sethandle: {} set to {}'.format(member.name, url)
+                msg = f'sethandle: {member.name} set to {url}'
             else:
                 msg = 'No rows affected'
         except:
@@ -42,9 +42,9 @@ class Handles(commands.Cog):
             res = self.conn.gethandle(member.id)
             if res:
                 url = self.url.format(res)
-                msg = 'gethandle: {} at {}'.format(member.name, url)
+                msg = f'gethandle: {member.name} at {url}'
             else:
-                msg = 'gethandle: {} not found'.format(member.name)
+                msg = f'gethandle: {member.name} not found'
         except:
             msg = 'gethandle error!'
         await ctx.send(msg)
