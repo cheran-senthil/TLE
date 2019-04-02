@@ -4,6 +4,7 @@ import math
 import os
 import random
 import time
+from collections import defaultdict
 
 import aiohttp
 import discord
@@ -20,7 +21,7 @@ class Codeforces(commands.Cog):
         self.converter = commands.MemberConverter()
 
     async def Resolve(self, ctx, handle: str):
-        if handle[0] != '!': return handle    
+        if handle[0] != '!': return handle
         member = await self.converter.convert(ctx, handle[1:])
         res = self.conn.gethandle(member.id)
         if res is None: raise Exception('bad')
@@ -29,7 +30,7 @@ class Codeforces(commands.Cog):
     @commands.command(brief='Recommend a problem')
     async def gitgud(self, ctx, handle: str, delta: int = 0, tag: str = 'all'):
         """Recommends a problem based on Codeforces rating of the handle provided."""
-        try: 
+        try:
             handle = await self.Resolve(ctx, handle)
         except:
             await ctx.send('bad handle')
@@ -53,19 +54,20 @@ class Codeforces(commands.Cog):
             user_rating = 1500  # Assume unrated is not so noob
 
         user_rating = round(user_rating + delta, -2)
-        recommendations = dict()
+        recommendations = defaultdict(dict)
 
         problems = probresp['problems']
         n = 0
         for problem in problems:
-            if '*special' not in problem['tags'] and problem.get('rating') == user_rating:
+            if '*special' not in problem['tags'] and 'rating' in problem:
                 if 'contestId' in problem and (tag == 'all' or tag in problem['tags']):
                     name = problem['name']
                     contestid = problem['contestId']
                     index = problem['index']
                     rating = problem['rating']
-                    recommendations[(name, rating)] = (contestid, index, n)
-                    n = n + 1
+                    if rating >= user_rating:
+                        recommendations[rating][(name, rating)] = (contestid, index, n)
+                        n = n + 1
 
         for sub in subsresp:
             problem = sub['problem']
@@ -73,6 +75,11 @@ class Codeforces(commands.Cog):
                 name = problem['name']
                 rating = problem['rating']
                 recommendations.pop((name, rating), None)
+
+        for rating, probs in sorted(recommendations.items()):
+            if len(probs) > 0:
+                recommendations = probs
+                break
 
         if not recommendations:
             await ctx.send('{} is already too gud'.format(handle))
@@ -209,7 +216,7 @@ class Codeforces(commands.Cog):
             handles = [await self.Resolve(ctx, h) for h in handles]
         except:
             await ctx.send('Bad Handle')
-            return        
+            return
 
         allratings = []
 
