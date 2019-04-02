@@ -26,7 +26,7 @@ class CSES(commands.Cog):
     async def _cache_data(self):
         while True:
             await self._reload()
-            asyncio.sleep(600)
+            await asyncio.sleep(600)
 
     async def _reload(self):
         self.short_placings = defaultdict(list)
