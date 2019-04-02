@@ -57,8 +57,11 @@ class Handles(commands.Cog):
             res = self.conn.getallhandles()
             table = []
             for id, handle in res:
-                name = await converter.convert(ctx, id)
-                table.append((name, handle))
+                try: # in case the person has left the server
+                    name = await converter.convert(ctx, id)
+                    table.append((name, handle))
+                except:
+                    pass
             msg = '```\n{}\n```'.format(tabulate(table, headers=('name', 'handle')))
         except Exception  as e:
             msg = 'showhandles error! {}'.format(e)
