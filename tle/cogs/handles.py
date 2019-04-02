@@ -1,4 +1,5 @@
 import discord
+import logging
 from discord.ext import commands
 from handle_conn.handle_conn import HandleConn
 from tabulate import tabulate
@@ -77,18 +78,21 @@ class Handles(commands.Cog):
             msg = 'removehandle error!'
         await ctx.send(msg)
 
+    
     @commands.command(brief="show all handles")
     async def showhandles(self, ctx):
         """ show all handles """
         try:
             converter = commands.MemberConverter()
             res = self.conn.getallhandles()
-            handles = [t[1] for t in res]
-            handleq = ';'.join(handles)
-            infojson = await self.query_api('user.info', {'handles': handleq})
-            result = infojson['result']
-            stuff = [(result[i]['rating'], handle, id) for i, (id, handle) in enumerate(res)]
-            stuff.sort(key = lambda t: (-t[0], t[1]))
+            try: 
+                handleq = ';'.join(t[1] for t in res)
+                infojson = await self.query_api('user.info', {'handles': handleq})
+                result = infojson['result']
+                stuff = [(result[i]['rating'], handle, id) for i, (id, handle) in enumerate(res)]
+                stuff.sort(key = lambda t: (-t[0], t[1]))
+            except:
+                stuff = [('N/A', handle, id) for id, handle in res]
             table = []
             for rating, handle, id in stuff:
                 try:  # in case the person has left the server
@@ -99,7 +103,7 @@ class Handles(commands.Cog):
                 except:
                     pass
             msg = '```\n{}\n```'.format(
-                tabulate(table, headers=('name', 'handle')))
+                tabulate(table, headers=('name', 'handle')))            
         except:
             msg = 'showhandles error!'
         await ctx.send(msg)
