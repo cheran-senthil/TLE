@@ -3,23 +3,12 @@ from discord.ext import commands
 from db_utils.handle_conn import HandleConn
 from tabulate import tabulate
 
-from tle.cogs.util import codeforces_api as cf
 
 class Handles(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.url = 'https://codeforces.com/profile/{}'
         self.conn = HandleConn('handles.db')
-
-    @commands.command(brief='clear cache (admin-only)')
-    @commands.has_role('Admin')    
-    async def clearcache(self, ctx):
-        try:
-            self.conn.clearcache()
-            msg = 'clear cache success'
-        except:
-            msg = 'clear cache error'
-        await ctx.send(msg)
 
     @commands.command(brief='sethandle [name] [handle] (admin-only)')
     @commands.has_role('Admin')
@@ -59,7 +48,7 @@ class Handles(commands.Cog):
             msg = 'gethandle error!'
         await ctx.send(msg)
 
-    @commands.command(brief='removehandle [name]')
+    @commands.command(brief='removehandle [name] (admin-only)')
     @commands.has_role('Admin')
     async def removehandle(self, ctx, member: discord.Member):
         """ remove handle """
@@ -76,8 +65,7 @@ class Handles(commands.Cog):
             msg = 'removehandle error!'
         await ctx.send(msg)
 
-
-    @commands.command(brief="show all handles")    
+    @commands.command(brief="show all handles")
     async def showhandles(self, ctx):
         try:
             converter = commands.MemberConverter()
@@ -100,13 +88,24 @@ class Handles(commands.Cog):
             print(e)
             msg = 'showhandles error!'
         await ctx.send(msg)
+
+    @commands.command(brief='clear cache (admin-only)', hidden=True)
+    @commands.has_role('Admin')
+    async def clearcache(self, ctx):
+        try:
+            self.conn.clearcache()
+            msg = 'clear cache success'
+        except:
+            msg = 'clear cache error'
+        await ctx.send(msg)
         
-    @commands.command(brief='show cache (admin only)')
+    @commands.command(brief='show cache (admin only)', hidden=True)
     @commands.has_role('Admin')
     async def showcache(self, ctx):
         cache = self.conn.getallcache()
         msg = '```\n{}\n```'.format(tabulate(cache), headers=('handle','rating','photo'))
         await ctx.send(msg)
+
 
 def setup(bot):
     bot.add_cog(Handles(bot))

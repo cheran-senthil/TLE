@@ -9,6 +9,7 @@ import aiohttp
 import discord
 from discord.ext import commands
 from matplotlib import pyplot as plt
+
 from tle.cogs.util import codeforces_api as cf
 
 
@@ -156,19 +157,21 @@ class Codeforces(commands.Cog):
                   ('#FFCC88', 2100, 2300), ('#FF88FF', 1900, 2100), ('#AAAAFF', 1600, 1900), ('#77DDBB', 1400, 1600),
                   ('#77FF77', 1200, 1400), ('#CCCCCC', 0, 1200)]
 
+        bgcolor = plt.gca().get_facecolor()
         for color, lo, hi in colors:
-            plt.axhspan(lo, hi, facecolor=color)
+            plt.axhspan(lo, hi, facecolor=color, alpha=0.8, edgecolor=bgcolor, linewidth=0.5)
 
         plt.ylim(ymin, ymax)
         plt.gcf().autofmt_xdate()
         locs, labels = plt.xticks()
 
         for loc in locs:
-            plt.axvspan(loc, loc, facecolor='white')
+            plt.axvline(loc, color=bgcolor, linewidth=0.5)
 
         zero_width_space = '\u200b'
         labels = [f'{zero_width_space}{handle} ({rating})' for handle, rating in zip(handles, rate)]
-        plt.legend(labels)
+        plt.legend(labels, loc='upper left')
+        plt.title('Rating graph on Codeforces')
 
         discord_file = self.get_current_figure_as_file()
         await ctx.send(file=discord_file)
