@@ -37,7 +37,7 @@ class Codeforces(commands.Cog):
         try:
             probresp = await cf.problemset.problems()
             inforesp = await cf.user.info(handles=[handle])
-            subsresp = await cf.user.status(handle=handle)
+            subsresp = await cf.user.status(handle=handle, count=10000)
         except aiohttp.ClientConnectionError:
             await ctx.send('Error connecting to Codeforces API')
             return
@@ -106,7 +106,7 @@ class Codeforces(commands.Cog):
             return
         try:
             probresp = await cf.problemset.problems()
-            subsresp = await cf.user.status(handle=handle)
+            subsresp = await cf.user.status(handle=handle, count=10000)
         except aiohttp.ClientConnectionError:
             await ctx.send('Error connecting to Codeforces API')
             return
