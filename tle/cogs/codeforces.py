@@ -17,7 +17,7 @@ class Codeforces(commands.Cog):
         self.bot = bot
 
     @commands.command(brief='Recommend a problem')
-    async def gitgud(self, ctx, handle: str, delta : int = 0):
+    async def gitgud(self, ctx, handle: str, delta : int = 0, tag : str = 'all'):
         """Recommends a problem based on Codeforces rating of the handle provided."""
 
         def round_rating(rating):
@@ -48,7 +48,7 @@ class Codeforces(commands.Cog):
         recommendations = {}
         for problem in problems:
             if '*special' not in problem['tags'] and problem.get('rating') == user_rating:
-                if 'contestId' in problem:
+                if 'contestId' in problem and (tag == 'all' or tag in problem['tags']):
                     name = problem['name']
                     contestid = problem['contestId']
                     index = problem['index']
