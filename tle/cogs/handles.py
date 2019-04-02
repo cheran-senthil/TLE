@@ -84,9 +84,8 @@ class Handles(commands.Cog):
         try:
             converter = commands.MemberConverter()
             res = self.conn.getallhandles()
-            handles = [t[1] for t in res]
             try: 
-                handleq = ';'.join(handles)
+                handleq = ';'.join(t[1] for t in res)
                 infojson = await self.query_api('user.info', {'handles': handleq})
                 result = infojson['result']
                 stuff = [(result[i]['rating'], handle, id) for i, (id, handle) in enumerate(res)]
