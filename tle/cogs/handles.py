@@ -63,8 +63,7 @@ class Handles(commands.Cog):
                     table.append((name, handle))
                 except:
                     pass
-            msg = '```\n{}\n```'.format(
-                tabulate(table, headers=('name', 'handle')))
+            msg = '```\n{}\n```'.format(tabulate(table, headers=('name', 'handle')))
         except:
             msg = 'showhandles error!'
         await ctx.send(msg)

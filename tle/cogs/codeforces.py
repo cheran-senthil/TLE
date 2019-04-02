@@ -16,7 +16,6 @@ CNT_BASE_URL = 'http://codeforces.com/contest/'
 
 
 class Codeforces(commands.Cog):
-
     def __init__(self, bot):
         self.bot = bot
         self.session = aiohttp.ClientSession()
@@ -84,8 +83,8 @@ class Codeforces(commands.Cog):
             title = f'{index}. {name}'
             url = f'{CNT_BASE_URL}{contestid}/problem/{index}'
             desc = f'{contestname}\nRating: {rating}'
-            await ctx.send(f'Recommended problem for `{handle}`',
-                           embed=discord.Embed(title=title, url=url, description=desc))
+            await ctx.send(
+                f'Recommended problem for `{handle}`', embed=discord.Embed(title=title, url=url, description=desc))
 
     @commands.command(brief='Compare epeens.')
     async def rating(self, ctx, *handles: str):
@@ -116,20 +115,14 @@ class Codeforces(commands.Cog):
             for contest in contests:
                 ratings.append(contest['newRating'])
                 times.append(datetime.datetime.fromtimestamp(contest['ratingUpdateTimeSeconds']))
-            plt.plot(times, ratings, linestyle='-', marker='o', markersize=3, markerfacecolor='white', markeredgewidth=0.5)
+            plt.plot(
+                times, ratings, linestyle='-', marker='o', markersize=3, markerfacecolor='white', markeredgewidth=0.5)
             rate.append(ratings[-1])
 
         ymin, ymax = plt.gca().get_ylim()
-        colors = [('#AA0000', 3000, 4000),
-                  ('#FF3333', 2600, 3000),
-                  ('#FF7777', 2400, 2600),
-                  ('#FFBB55', 2300, 2400),
-                  ('#FFCC88', 2100, 2300),
-                  ('#FF88FF', 1900, 2100),
-                  ('#AAAAFF', 1600, 1900),
-                  ('#77DDBB', 1400, 1600),
-                  ('#77FF77', 1200, 1400),
-                  ('#CCCCCC', 0, 1200)]
+        colors = [('#AA0000', 3000, 4000), ('#FF3333', 2600, 3000), ('#FF7777', 2400, 2600), ('#FFBB55', 2300, 2400),
+                  ('#FFCC88', 2100, 2300), ('#FF88FF', 1900, 2100), ('#AAAAFF', 1600, 1900), ('#77DDBB', 1400, 1600),
+                  ('#77FF77', 1200, 1400), ('#CCCCCC', 0, 1200)]
 
         for color, lo, hi in colors:
             plt.axhspan(lo, hi, facecolor=color)
