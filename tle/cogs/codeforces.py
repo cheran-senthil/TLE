@@ -34,7 +34,7 @@ class Codeforces(commands.Cog):
 
         user_rating = inforesp[0].get('rating')
         if user_rating is None:
-            user_rating = 1500 # Assume unrated is not so noob
+            user_rating = 1500  # Assume unrated is not so noob
 
         user_rating = round(user_rating + delta, -2)
         recommendations = dict()
@@ -69,7 +69,46 @@ class Codeforces(commands.Cog):
             url = f'{cf.CONTEST_BASE_URL}{contestid}/problem/{index}'
             desc = f'{contestname}\nRating: {rating}'
 
-            await ctx.send(f'Recommended problem for `{handle}`', embed=discord.Embed(title=title, url=url, description=desc))
+            await ctx.send(
+                f'Recommended problem for `{handle}`', embed=discord.Embed(title=title, url=url, description=desc))
+
+    @commands.command(brief='Recommend a contest')
+    async def vc(self, ctx, handle: str):
+        """Recommends a contest based on Codeforces rating of the handle provided."""
+        try:
+            probresp = await cf.problemset.problems()
+            subsresp = await cf.user.status(handle=handle)
+        except aiohttp.ClientConnectionError:
+            await ctx.send('Error connecting to Codeforces API')
+            return
+        except cf.NotFoundError:
+            await ctx.send(f'Handle not found: `{handle}`')
+            return
+        except cf.CodeforcesApiError:
+            await ctx.send('Codeforces API denied the request, please make the handle is valid.')
+            return
+
+        recommendations = set()
+
+        problems = probresp['problems']
+        for problem in problems:
+            if '*special' not in problem['tags'] and problem.get('contestId', 2000) < 2000:
+                recommendations.add(problem['contestId'])
+
+        for sub in subsresp:
+            problem = sub['problem']
+            if 'rating' in problem:
+                recommendations.discard(problem['contestId'])
+
+        if not recommendations:
+            await ctx.send('{} is already too gud'.format(handle))
+        else:
+            contestid = random.choice(list(recommendations))
+            contestresp = await cf.contest.standings(contestid=contestid, from_=1, count=1)
+            contestname = contestresp['contest']['name']
+            url = f'{cf.CONTEST_BASE_URL}{contestid}/'
+
+            await ctx.send(f'Recommended contest for `{handle}`', embed=discord.Embed(title=contestname, url=url))
 
     @commands.command(brief='Compare epeens.')
     async def rating(self, ctx, *handles: str):
@@ -98,7 +137,8 @@ class Codeforces(commands.Cog):
                 ratings.append(contest['newRating'])
                 times.append(datetime.datetime.fromtimestamp(contest['ratingUpdateTimeSeconds']))
 
-            plt.plot(times, ratings, linestyle='-', marker='o', markersize=3, markerfacecolor='white', markeredgewidth=0.5)
+            plt.plot(
+                times, ratings, linestyle='-', marker='o', markersize=3, markerfacecolor='white', markeredgewidth=0.5)
             rate.append(ratings[-1])
 
         ymin, ymax = plt.gca().get_ylim()
