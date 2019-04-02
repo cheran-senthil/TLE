@@ -84,17 +84,17 @@ class Handles(commands.Cog):
             res = self.conn.getallhandleswithrating()
             res.sort(key=lambda r: r[2] if r[2] is not None else -1, reverse=True)
             table = []
-            for id, handle, rating in res:
+            for i, (id, handle, rating) in enumerate(res):
                 try: # in case the person has left the server
                     member = await converter.convert(ctx, id)
                     if rating is None: rating = 'N/A'
                     hdisp = f'{handle} ({rating})'
                     name = member.nick if member.nick else member.name
-                    table.append((name, hdisp))
+                    table.append((i, name, hdisp))
                 except Exception as e:
                     print(e)
             msg = '```\n{}\n```'.format(
-                tabulate(table, headers=('name', 'handle'))
+                tabulate(table, headers=('#', 'name', 'handle'))
                 )
         except Exception as e:
             print(e)
