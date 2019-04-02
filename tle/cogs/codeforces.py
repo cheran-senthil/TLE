@@ -1,30 +1,23 @@
+import datetime
 import io
 import os
-import time
-import datetime
 import random
+import time
 
 import aiohttp
-from matplotlib import pyplot as plt
-
 import discord
 from discord.ext import commands
-
+from matplotlib import pyplot as plt
 from tle.cogs.util import codeforces_api as cf
+
 
 class Codeforces(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
     @commands.command(brief='Recommend a problem')
-    async def gitgud(self, ctx, handle: str, delta : int = 0, tag : str = 'all'):
+    async def gitgud(self, ctx, handle: str, delta: int = 0, tag: str = 'all'):
         """Recommends a problem based on Codeforces rating of the handle provided."""
-
-        def round_rating(rating):
-            rem = rating % 100
-            rating -= rem
-            return rating + 100 if rem >= 50 else rating
-
         try:
             probresp = await cf.problemset.problems()
             inforesp = await cf.user.info(handles=[handle])
@@ -41,11 +34,12 @@ class Codeforces(commands.Cog):
 
         user_rating = inforesp[0].get('rating')
         if user_rating is None:
-            # Assume unrated is noob
-            user_rating = 500
-        user_rating = round_rating(user_rating + delta)
+            user_rating = 1500 # Assume unrated is not so noob
+
+        user_rating = round(user_rating + delta, -2)
+        recommendations = dict()
+
         problems = probresp['problems']
-        recommendations = {}
         for problem in problems:
             if '*special' not in problem['tags'] and problem.get('rating') == user_rating:
                 if 'contestId' in problem and (tag == 'all' or tag in problem['tags']):
@@ -53,7 +47,6 @@ class Codeforces(commands.Cog):
                     contestid = problem['contestId']
                     index = problem['index']
                     rating = problem['rating']
-                    # Consider (name, rating) as key
                     recommendations[(name, rating)] = (contestid, index)
 
         for sub in subsresp:
@@ -71,11 +64,12 @@ class Codeforces(commands.Cog):
             # 'from' and 'count' are for ranklist, query minimum allowed (1) since we do not need it
             contestresp = await cf.contest.standings(contestid=contestid, from_=1, count=1)
             contestname = contestresp['contest']['name']
+
             title = f'{index}. {name}'
             url = f'{cf.CONTEST_BASE_URL}{contestid}/problem/{index}'
             desc = f'{contestname}\nRating: {rating}'
-            await ctx.send(
-                f'Recommended problem for `{handle}`', embed=discord.Embed(title=title, url=url, description=desc))
+
+            await ctx.send(f'Recommended problem for `{handle}`', embed=discord.Embed(title=title, url=url, description=desc))
 
     @commands.command(brief='Compare epeens.')
     async def rating(self, ctx, *handles: str):
@@ -83,8 +77,8 @@ class Codeforces(commands.Cog):
         if not handles or len(handles) > 5:
             await ctx.send('Number of handles must be between 1 and 5')
             return
-
         plt.clf()
+
         rate = []
         for handle in handles:
             try:
@@ -99,13 +93,12 @@ class Codeforces(commands.Cog):
                 await ctx.send('Codeforces API denied the request, please make sure handles are valid.')
                 return
 
-            ratings = []
-            times = []
+            ratings, times = [], []
             for contest in contests:
                 ratings.append(contest['newRating'])
                 times.append(datetime.datetime.fromtimestamp(contest['ratingUpdateTimeSeconds']))
-            plt.plot(
-                times, ratings, linestyle='-', marker='o', markersize=3, markerfacecolor='white', markeredgewidth=0.5)
+
+            plt.plot(times, ratings, linestyle='-', marker='o', markersize=3, markerfacecolor='white', markeredgewidth=0.5)
             rate.append(ratings[-1])
 
         ymin, ymax = plt.gca().get_ylim()
@@ -115,15 +108,18 @@ class Codeforces(commands.Cog):
 
         for color, lo, hi in colors:
             plt.axhspan(lo, hi, facecolor=color)
+
         plt.ylim(ymin, ymax)
         plt.gcf().autofmt_xdate()
         locs, labels = plt.xticks()
+
         for loc in locs:
             plt.axvspan(loc, loc, facecolor='white')
 
         zero_width_space = '\u200b'
         labels = [f'{zero_width_space}{handle} ({rating})' for handle, rating in zip(handles, rate)]
         plt.legend(labels)
+
         discord_file = self.get_current_figure_as_file()
         await ctx.send(file=discord_file)
 
@@ -178,6 +174,7 @@ class Codeforces(commands.Cog):
         plt.xlabel('Problem rating')
         plt.ylabel('Number solved')
         plt.legend(loc='upper right')
+
         discord_file = self.get_current_figure_as_file()
         await ctx.send(file=discord_file)
 
@@ -185,8 +182,10 @@ class Codeforces(commands.Cog):
     def get_current_figure_as_file():
         filename = f'tempplot_{time.time()}.png'
         plt.savefig(filename, facecolor=plt.gca().get_facecolor(), bbox_inches='tight', pad_inches=0.25)
+
         with open(filename, 'rb') as file:
             discord_file = discord.File(io.BytesIO(file.read()), filename='plot.png')
+
         os.remove(filename)
         return discord_file
 
