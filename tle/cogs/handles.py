@@ -60,6 +60,7 @@ class Handles(commands.Cog):
         await ctx.send(msg)
 
     @commands.command(brief='removehandle [name]')
+    @commands.has_role('Admin')
     async def removehandle(self, ctx, member: discord.Member):
         """ remove handle """
         if not member:
@@ -100,7 +101,7 @@ class Handles(commands.Cog):
             msg = 'showhandles error!'
         await ctx.send(msg)
         
-    @commands.command()
+    @commands.command(brief='show cache (admin only)')
     @commands.has_role('Admin')
     async def showcache(self, ctx):
         cache = self.conn.getallcache()
