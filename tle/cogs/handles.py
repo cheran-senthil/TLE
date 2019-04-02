@@ -10,7 +10,7 @@ class Handles(commands.Cog):
         self.url = 'https://codeforces.com/profile/{}'
         self.conn = HandleConn('handles.db')
 
-    @commands.command(brief='sethandle')
+    @commands.command(brief='sethandle [name] [handle]')
     @commands.has_role('Admin')
     async def sethandle(self, ctx, member: discord.Member, handle: str):
         """set handle"""
@@ -20,24 +20,23 @@ class Handles(commands.Cog):
         if not member:
             await ctx.send('Member not found!')
             return
-        msg = None
         try:
             r = self.conn.sethandle(member.id, handle)
             if r == 1:
                 url = self.url.format(handle)
                 msg = f'sethandle: {member.name} set to {url}'
             else:
-                msg = 'No rows affected'
+                msg = 'sethandle: 0 rows affected'
         except:
             msg = 'sethandle error!'
         await ctx.send(msg)
 
-    @commands.command(brief='gethandle')
+    @commands.command(brief='gethandle [name]')
     async def gethandle(self, ctx, member: discord.Member):
         """get handle"""
         if not member:
             await ctx.send('Member not found!')
-        msg = None
+            return
         try:
             res = self.conn.gethandle(member.id)
             if res:
@@ -49,10 +48,25 @@ class Handles(commands.Cog):
             msg = 'gethandle error!'
         await ctx.send(msg)
 
+    @commands.command(brief='removehandle [name]')
+    async def removehandle(self, ctx, member: discord.Member):
+        """ remove handle """
+        if not member:
+            await ctx.send('Member not found!')
+            return
+        try:
+            r = self.conn.removehandle(member.id)
+            if r == 1:
+                msg = f'removehandle: {member.name} removed'
+            else:
+                msg = f'removehandle: {member.name} not found'
+        except:
+            msg = 'removehandle error!'
+        await ctx.send(msg)
+
     @commands.command(brief="show all handles")
     async def showhandles(self, ctx):
         """ show all handles """
-        msg = None
         try:
             converter = commands.MemberConverter()
             res = self.conn.getallhandles()
@@ -63,7 +77,8 @@ class Handles(commands.Cog):
                     table.append((name, handle))
                 except:
                     pass
-            msg = '```\n{}\n```'.format(tabulate(table, headers=('name', 'handle')))
+            msg = '```\n{}\n```'.format(
+                tabulate(table, headers=('name', 'handle')))
         except:
             msg = 'showhandles error!'
         await ctx.send(msg)

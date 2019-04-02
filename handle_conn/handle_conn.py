@@ -7,7 +7,7 @@ class HandleConn():
         self.conn.execute('''
             CREATE TABLE IF NOT EXISTS user_handle(
                 id TEXT PRIMARY KEY,
-                handle TEXT 
+                handle TEXT
             )
         ''')
 
@@ -17,26 +17,27 @@ class HandleConn():
             INSERT OR REPLACE INTO user_handle (id, handle) values
             (?, ?)
         '''
-        cur = self.conn.cursor()
-        cur.execute(query, (id, handle))
+        rc = self.conn.execute(query, (id, handle)).rowcount
         self.conn.commit()
-        return cur.rowcount
+        return rc
 
     def gethandle(self, id):
         """ returns string or None """
         query = 'SELECT handle FROM user_handle WHERE id = ?'
-        cur = self.conn.cursor()
-        cur.execute(query, (id, ))
-        res = cur.fetchone()
-        if res: return res[0]
-        return None
+        res = self.conn.execute(query, (id, )).fetchone()
+        return res[0] if res else None
 
     def getallhandles(self):
         """ returns list of (id, handle) """
         query = 'SELECT id, handle FROM user_handle'
-        cur = self.conn.cursor()
-        cur.execute(query)
-        return cur.fetchall()
+        return self.conn.execute(query).fetchall()
+
+    def removehandle(self, id):
+        """ returns 1 if removed, 0 if not """
+        query = 'DELETE FROM user_handle WHERE id = ?'
+        rc = self.conn.execute(query, (id, )).rowcount
+        self.conn.commit()
+        return rc
 
     def close(self):
         self.conn.close()
