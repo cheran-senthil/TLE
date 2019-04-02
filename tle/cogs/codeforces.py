@@ -3,6 +3,7 @@ import io
 import os
 import random
 import time
+import math
 
 import aiohttp
 import discord
@@ -40,6 +41,7 @@ class Codeforces(commands.Cog):
         recommendations = dict()
 
         problems = probresp['problems']
+        n = 0
         for problem in problems:
             if '*special' not in problem['tags'] and problem.get('rating') == user_rating:
                 if 'contestId' in problem and (tag == 'all' or tag in problem['tags']):
@@ -47,7 +49,8 @@ class Codeforces(commands.Cog):
                     contestid = problem['contestId']
                     index = problem['index']
                     rating = problem['rating']
-                    recommendations[(name, rating)] = (contestid, index)
+                    recommendations[(name, rating)] = (contestid, index, n)
+                    n = n + 1
 
         for sub in subsresp:
             problem = sub['problem']
@@ -59,8 +62,15 @@ class Codeforces(commands.Cog):
         if not recommendations:
             await ctx.send('{} is already too gud'.format(handle))
         else:
-            name, rating = random.choice(list(recommendations.keys()))
-            contestid, index = recommendations[(name, rating)]
+            recomlist = [(time, name, rating, contestid, index)
+                         for (name, rating), (contestid, index, time)
+                         in recommendations.items()]
+            recomlist.sort(key=lambda r: r[0])
+            n = len(recomlist)
+            # prefer newer problems
+            choice = round((n - 1) * (1 - math.sqrt(random.uniform(0, 1))))
+            # problemset is sorted chronologically
+            _, name, rating, contestid, index = recomlist[choice]
             # 'from' and 'count' are for ranklist, query minimum allowed (1) since we do not need it
             contestresp = await cf.contest.standings(contestid=contestid, from_=1, count=1)
             contestname = contestresp['contest']['name']
