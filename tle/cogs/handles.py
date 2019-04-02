@@ -3,12 +3,25 @@ from discord.ext import commands
 from handle_conn.handle_conn import HandleConn
 from tabulate import tabulate
 
+import aiohttp
 
 class Handles(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.url = 'https://codeforces.com/profile/{}'
         self.conn = HandleConn('handles.db')
+        self.session = aiohttp.ClientSession()
+
+    # shitty copy paste by okarinn :nauseated_face:
+    async def query_api(self, path, params=None):
+        API_BASE_URL = 'http://codeforces.com/api/'
+        url = API_BASE_URL + path
+        try:
+            async with self.session.get(url, params=params) as resp:
+                return await resp.json()
+        except aiohttp.ClientConnectionError as e:
+            logging.error(f'Request to CF API encountered error: {e}')
+            return None
 
     @commands.command(brief='sethandle [name] [handle]')
     @commands.has_role('Admin')
@@ -70,12 +83,19 @@ class Handles(commands.Cog):
         try:
             converter = commands.MemberConverter()
             res = self.conn.getallhandles()
+            handles = [t[1] for t in res]
+            handleq = ';'.join(handles)
+            infojson = await self.query_api('user.info', {'handles': handleq})
+            result = infojson['result']
+            stuff = [(result[i]['rating'], handle, id) for i, (id, handle) in enumerate(res)]
+            stuff.sort(key = lambda t: (-t[0], t[1]))
             table = []
-            for id, handle in res:
+            for rating, handle, id in stuff:
                 try:  # in case the person has left the server
                     member = await converter.convert(ctx, id)
-                    if member.nick: table.append((member.nick, handle))
-                    else: table.append((member.name, handle))
+                    handledisp = "{} ({})".format(handle, rating)
+                    if member.nick: table.append((member.nick, handledisp))
+                    else: table.append((member.name, handledisp))
                 except:
                     pass
             msg = '```\n{}\n```'.format(
@@ -83,7 +103,6 @@ class Handles(commands.Cog):
         except:
             msg = 'showhandles error!'
         await ctx.send(msg)
-
 
 def setup(bot):
     bot.add_cog(Handles(bot))
