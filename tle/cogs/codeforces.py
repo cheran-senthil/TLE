@@ -4,7 +4,6 @@ import math
 import os
 import random
 import time
-from collections import defaultdict
 
 import aiohttp
 import discord
@@ -58,34 +57,25 @@ class Codeforces(commands.Cog):
         if upper_bound is None:
             upper_bound = lower_bound + 300
 
-        recommendations = defaultdict(dict)
-        for i, problem in enumerate(probresp['problems']):
-            if '*special' not in problem['tags'] and 'rating' in problem:
-                if 'contestId' in problem and (tag == 'all' or tag in problem['tags']):
-                    contestid = problem['contestId']
-                    index = problem['index']
-                    name = problem['name']
-                    rating = problem['rating']
-                    if lower_bound <= rating <= upper_bound:
-                        recommendations[contestid][index] = (i, contestid, index, name, rating)
+        problems = set()
+        for problem in probresp['problems']:
+            if ('contestId' in problem) and ('rating' in problem):
+                if ('*special' not in problem['tags']) and (tag == 'all' or tag in problem['tags']):
+                    if lower_bound <= problem['rating'] <= upper_bound:
+                        problems.add((problem['contestId'], problem['index'], problem['name'], problem['rating']))
 
         for sub in subsresp:
             problem = sub['problem']
-            if sub['verdict'] == 'OK' and 'contestId' in problem:
-                contestid, index = problem['contestId'], problem['index']
-                recommendations[contestid].pop(index, None)
-
-        problems = []
-        for contest in recommendations.values():
-            problems.extend(contest.values())
+            if ('contestId' in problem) and ('rating' in problem) and (sub['verdict'] == 'OK'):
+                problems.discard((problem['contestId'], problem['index'], problem['name'], problem['rating']))
 
         if not problems:
             await ctx.send('{} is already too gud'.format(handle))
         else:
-            problems.sort()
-            choice = round((len(problems) - 1) * (1 - math.sqrt(random.uniform(0, 1))))  # prefer newer problems
+            problems = sorted(problems)
+            choice = round((len(problems) - 1) * math.sqrt(random.uniform(0, 1)))  # prefer newer problems
 
-            _, contestid, index, name, rating = problems[choice]
+            contestid, index, name, rating = problems[choice]
             contestresp = await cf.contest.standings(contestid=contestid, from_=1, count=1)
             contestname = contestresp['contest']['name']
 
@@ -104,6 +94,7 @@ class Codeforces(commands.Cog):
         except:
             await ctx.send('Bad Handle')
             return
+
         try:
             probresp = await cf.problemset.problems()
             subsresp = await cf.user.status(handle=handle, count=10000)
