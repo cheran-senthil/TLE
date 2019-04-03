@@ -135,8 +135,9 @@ class Codeforces(commands.Cog):
     @commands.command(brief='Compare epeens.')
     async def rating(self, ctx, *handles: str):
         """Compare epeens."""
-        if not handles or len(handles) > 5:
-            await ctx.send('Number of handles must be between 1 and 5')
+        handles = handles or ("!" + str(ctx.author),)
+        if len(handles) > 5:
+            await ctx.send('Number of handles must be at most 5')
             return
         try:
             handles = [await self.Resolve(ctx, h) for h in handles]
@@ -195,8 +196,9 @@ class Codeforces(commands.Cog):
     @commands.command(brief='Show histogram of solved problems on CF.')
     async def solved(self, ctx, *handles: str):
         """Shows a histogram of problems solved on Codeforces for the handles provided."""
-        if not handles or len(handles) > 5:
-            await ctx.send('Number of handles must be between 1 and 5')
+        handles = handles or ("!" + str(ctx.author),)
+        if len(handles) > 5:
+            await ctx.send('Number of handles must be at most 5')
             return
         try:
             handles = [await self.Resolve(ctx, h) for h in handles]
