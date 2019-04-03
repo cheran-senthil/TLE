@@ -33,7 +33,7 @@ class Codeforces(commands.Cog):
     async def gitgud(self, ctx, handle: str = None, tag: str = 'all', lower_bound: int = None, upper_bound: int = None):
         """Recommends a problem based on Codeforces rating of the handle provided."""
         try:
-            handle = await self.Resolve(ctx, handle or "!" + str(ctx.author))
+            handle = await self.Resolve(ctx, handle or '!' + str(ctx.author))
         except:
             await ctx.send('bad handle')
             return
@@ -135,7 +135,7 @@ class Codeforces(commands.Cog):
     @commands.command(brief='Compare epeens.')
     async def rating(self, ctx, *handles: str):
         """Compare epeens."""
-        handles = handles or ("!" + str(ctx.author),)
+        handles = handles or ('!' + str(ctx.author), )
         if len(handles) > 5:
             await ctx.send('Number of handles must be at most 5')
             return
@@ -144,9 +144,10 @@ class Codeforces(commands.Cog):
         except:
             await ctx.send('Bad Handle')
             return
-        plt.clf()
 
+        plt.clf()
         rate = []
+
         for handle in handles:
             try:
                 contests = await cf.user.rating(handle=handle)
@@ -196,7 +197,7 @@ class Codeforces(commands.Cog):
     @commands.command(brief='Show histogram of solved problems on CF.')
     async def solved(self, ctx, *handles: str):
         """Shows a histogram of problems solved on Codeforces for the handles provided."""
-        handles = handles or ("!" + str(ctx.author),)
+        handles = handles or ('!' + str(ctx.author), )
         if len(handles) > 5:
             await ctx.send('Number of handles must be at most 5')
             return
@@ -207,7 +208,6 @@ class Codeforces(commands.Cog):
             return
 
         allratings = []
-
         for handle in handles:
             try:
                 submissions = await cf.user.status(handle=handle)
