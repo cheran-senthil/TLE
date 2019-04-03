@@ -20,10 +20,13 @@ class Codeforces(commands.Cog):
         self.converter = commands.MemberConverter()
 
     async def Resolve(self, ctx, handle: str):
-        if handle[0] != '!': return handle
+        if handle[0] != '!':
+            return handle
+
         member = await self.converter.convert(ctx, handle[1:])
         res = self.conn.gethandle(member.id)
-        if res is None: raise Exception('bad')
+        if res is None:
+            raise Exception('bad')
         return res
 
     @commands.command(brief='Recommend a problem')
@@ -73,7 +76,7 @@ class Codeforces(commands.Cog):
             await ctx.send('{} is already too gud'.format(handle))
         else:
             problems = sorted(problems)
-            choice = round((len(problems) - 1) * math.sqrt(random.uniform(0, 1)))  # prefer newer problems
+            choice = round((len(problems) - 1) * random.random()**0.5)  # prefer newer problems
 
             contestid, index, name, rating = problems[choice]
             contestresp = await cf.contest.standings(contestid=contestid, from_=1, count=1)

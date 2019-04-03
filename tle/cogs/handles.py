@@ -118,7 +118,8 @@ class Handles(commands.Cog):
             for i, (id, handle, rating) in enumerate(res):
                 try:  # in case the person has left the server
                     member = await converter.convert(ctx, id)
-                    if rating is None: rating = 'N/A'
+                    if rating is None:
+                        rating = 'N/A'
                     hdisp = f'{handle} ({rating})'
                     name = member.nick if member.nick else member.name
                     table.append((i, name, hdisp))
