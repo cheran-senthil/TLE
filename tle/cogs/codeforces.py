@@ -35,6 +35,7 @@ class Codeforces(commands.Cog):
         except:
             await ctx.send('bad handle')
             return
+
         try:
             probresp = await cf.problemset.problems()
             inforesp = await cf.user.info(handles=[handle])
@@ -51,47 +52,42 @@ class Codeforces(commands.Cog):
 
         user_rating = inforesp[0].get('rating')
         if user_rating is None:
-            user_rating = 1500  # Assume unrated is not so noob
-
+            user_rating = 1500
         user_rating = round(user_rating + delta, -2)
-        recommendations = defaultdict(dict)
 
-        problems = probresp['problems']
-        n = 0
-        for problem in problems:
+        n, recommendations = 0, defaultdict(dict)
+        for problem in probresp['problems']:
             if '*special' not in problem['tags'] and 'rating' in problem:
                 if 'contestId' in problem and (tag == 'all' or tag in problem['tags']):
-                    name = problem['name']
                     contestid = problem['contestId']
                     index = problem['index']
+                    name = problem['name']
                     rating = problem['rating']
-                    if rating >= user_rating:
-                        recommendations[rating][(name, rating)] = (contestid, index, n)
+                    if user_rating <= rating <= user_rating + 300:
+                        recommendations[contestid][index] = (n, contestid, index, name, rating)
                         n = n + 1
 
         for sub in subsresp:
             problem = sub['problem']
-            if sub['verdict'] == 'OK' and 'rating' in problem:
-                name = problem['name']
-                rating = problem['rating']
-                recommendations[rating].pop((name, rating), None)
+            if sub['verdict'] == 'OK' and 'contestId' in problem:
+                contestid, index = problem['contestId'], problem['index']
+                try:
+                    del recommendations[contestid][index]
+                except KeyError:
+                    pass
 
-        for rating, probs in sorted(recommendations.items()):
-            if len(probs) > 0:
-                recommendations = probs
-                break
+        problems = []
+        for contest in recommendations.values():
+            problems.extend(contest.values())
 
-        if not recommendations:
+        if not problems:
             await ctx.send('{} is already too gud'.format(handle))
         else:
-            recomlist = [(time, name, rating, contestid, index)
-                         for (name, rating), (contestid, index, time) in recommendations.items()]
-            recomlist.sort(key=lambda r: r[0])
-            n = len(recomlist)
+            problems.sort()
             # prefer newer problems
-            choice = round((n - 1) * (1 - math.sqrt(random.uniform(0, 1))))
+            choice = round((len(problems) - 1) * (1 - math.sqrt(random.uniform(0, 1))))
             # problemset is sorted chronologically
-            _, name, rating, contestid, index = recomlist[choice]
+            _, contestid, index, name, rating = problems[choice]
             # 'from' and 'count' are for ranklist, query minimum allowed (1) since we do not need it
             contestresp = await cf.contest.standings(contestid=contestid, from_=1, count=1)
             contestname = contestresp['contest']['name']
@@ -132,8 +128,7 @@ class Codeforces(commands.Cog):
                 recommendations.add(problem['contestId'])
 
         for sub in subsresp:
-            problem = sub['problem']
-            if 'rating' in problem:
+            if 'rating' in sub['problem']:
                 recommendations.discard(problem['contestId'])
 
         if not recommendations:
