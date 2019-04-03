@@ -7,10 +7,13 @@ import time
 
 import aiohttp
 import discord
+import asyncio
 from discord.ext import commands
 from matplotlib import pyplot as plt
 from tle.cogs.util import codeforces_api as cf
 from db_utils.handle_conn import HandleConn
+
+from bisect import bisect_left
 
 
 class Codeforces(commands.Cog):
@@ -18,19 +21,67 @@ class Codeforces(commands.Cog):
         self.bot = bot
         self.conn = HandleConn('handles.db')
         self.converter = commands.MemberConverter()
+        self.problems = None
+        self.problem_ratings = None # for binary search
+        self.contest_names = {}
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        asyncio.create_task(self.cache_problems())
+
+    async def _cache_data(self):
+        while True:
+            await self.cache_problems()
+            await asyncio.sleep(21600)
 
     async def Resolve(self, ctx, handle: str):
         if handle[0] != '!':
             return handle
-
         member = await self.converter.convert(ctx, handle[1:])
         res = self.conn.gethandle(member.id)
         if res is None:
             raise Exception('bad')
         return res
 
+    async def cache_problems(self):
+        try:
+            probresp = await cf.problemset.problems()
+            contests = await cf.contest.list()
+        except aiohttp.ClientConnectionError:
+            print('Error connecting to Codeforces API')
+            return
+        except cf.CodeforcesApiError:
+            print('Codeforces API denied the request, please make the handle is valid.')
+            return
+        def has_metadata(problem):
+            return 'contestId' in problem and 'rating' in problem
+        def is_ok(problem):
+            banned_tags = ['*special']
+            if any(banned in problem['tags'] for banned in banned_tags):
+                return False
+            return True
+
+        def make_tuple(problem):            
+            return (problem['contestId'], problem['index'], problem['name'],
+                    problem['rating'], problem['tags'])
+
+        self.contest_names = dict((contest['id'], contest['name']) for contest in contests)
+
+        self.problems = [
+            make_tuple(prob)
+            for prob in probresp['problems']
+            if has_metadata(prob) and is_ok(prob)
+        ]        
+        self.problems.sort(key=lambda p: p[3])
+        self.problem_ratings = [p[3] for p in self.problems]
+
+    @commands.command(brief='cache all cf problems and contest names')
+    @commands.has_role('Admin')
+    async def cacheproblems(self, ctx):
+        await self.cache_problems()
+
     @commands.command(brief='Recommend a problem')
-    async def gitgud(self, ctx, handle: str = None, tag: str = 'all', lower_bound: int = None, upper_bound: int = None):
+    async def gitgud(self, ctx, handle: str = None, tag: str = None, lower_bound: int = None, upper_bound: int = None):
         """Recommends a problem based on Codeforces rating of the handle provided."""
         try:
             handle = await self.Resolve(ctx, handle or '!' + str(ctx.author))
@@ -39,7 +90,6 @@ class Codeforces(commands.Cog):
             return
 
         try:
-            probresp = await cf.problemset.problems()
             inforesp = await cf.user.info(handles=[handle])
             subsresp = await cf.user.status(handle=handle, count=10000)
         except aiohttp.ClientConnectionError:
@@ -59,38 +109,39 @@ class Codeforces(commands.Cog):
         def has_metadata(problem):
             return 'contestId' in problem and 'rating' in problem
 
-        def is_ok(problem):
-            banned_tags = ['*special']
-            if any(banned in problem['tags'] for banned in banned_tags):
-                return False
-            tag_matches = tag == 'all' or tag in problem['tags']
-            diff_matches = lower_bound <= problem['rating'] <= upper_bound
-            return tag_matches and diff_matches
+        if not self.problems:
+            await self.cache_problems()
+        
+        solved = [sub['problem'] for sub in subsresp if sub['verdict'] == 'OK']
+        solved = set(
+            (prob['contestId'], prob['index'])
+            for prob in solved if has_metadata(prob)
+        )
 
-        def problem_tuple(problem):
-            return (problem['contestId'], problem['index'], problem['name'],
-                    problem['rating'])
+        begin = bisect_left(self.problem_ratings, lower_bound)
+        end = bisect_left(self.problem_ratings, upper_bound+1, lo=begin)
 
-        problems = {
-            problem_tuple(problem)
-            for problem in probresp['problems']
-            if has_metadata(problem) and is_ok(problem)
-        }
-
-        for sub in subsresp:
-            problem = sub['problem']
-            if has_metadata(problem) and sub['verdict'] == 'OK':
-                problems.discard(problem_tuple(problem))
+        if tag:
+            problems = [
+                prob
+                for prob in self.problems[begin:end]
+                    if tag in prob[4] and (prob[0], prob[1]) not in solved
+            ]
+        else:
+            problems = [
+                prob
+                for prob in self.problems[begin:end]
+                    if (prob[0], prob[1]) not in solved
+            ]
 
         if not problems:
             await ctx.send('{} is already too gud'.format(handle))
         else:
-            problems = sorted(problems)
+            problems.sort(key=lambda p: p[0])            
             choice = int(len(problems) * random.random()**0.5)  # prefer newer problems
 
-            contestid, index, name, rating = problems[choice]
-            contestresp = await cf.contest.standings(contestid=contestid, from_=1, count=1)
-            contestname = contestresp['contest']['name']
+            contestid, index, name, rating, _ = problems[choice]
+            contestname = self.contest_names[contestid]
 
             title = f'{index}. {name}'
             url = f'{cf.CONTEST_BASE_URL}{contestid}/problem/{index}'

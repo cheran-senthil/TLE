@@ -56,6 +56,10 @@ class contest:
             params['showUnofficial'] = show_unofficial
         return await query_api('contest.standings', params)
 
+    @staticmethod
+    async def list(*, gym=False):
+        if gym: return await query_api('contest.list', {'gym': 'true'})
+        return await query_api('contest.list', {'gym' : 'false'})
 
 class problemset:
     @staticmethod
