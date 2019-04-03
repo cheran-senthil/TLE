@@ -249,6 +249,93 @@ class Codeforces(commands.Cog):
 
         discord_file = self.get_current_figure_as_file()
         await ctx.send(file=discord_file)
+        
+    @commands.command(brief='Show historical geniosity.')
+    async def geniosity(self, ctx, handle: str, bin_size: int):
+        plt.clf()
+
+        if not bin_size or bin_size <= 0:
+            await ctx.send('Moving average window size must be at least 1.')
+            return
+
+        respjson = await self.query_api('user.status', {'handle': handle})
+        if respjson is None:
+            await ctx.send('Error connecting to Codeforces API')
+            return
+
+        if respjson['status'] == 'FAILED':
+            if 'not found' in respjson['comment']:
+                await ctx.send(f'Handle not found: `{handle}`')
+            else:
+                logging.info(f'CF API denied request with comment {respjson["comment"]}')
+                await ctx.send('Codeforces API denied the request, please make sure handles are valid.')
+            return
+
+        submissions = respjson['result']
+        times = [[], [], []]
+        ratings = [[], [], []]
+        ts, rs = [], []
+        rkey = ['PRACTICE', 'VIRTUAL', 'CONTESTANT']
+        for submission in submissions:
+            if submission['verdict'] == 'OK':
+                problem = submission['problem']
+                # CF problems don't have IDs! Just hope (name, rating) pairs don't clash?
+                name = problem['name']
+                rating = problem.get('rating')
+                t = submission['author']['participantType']
+                startTimeSeconds = submission.get('creationTimeSeconds')
+                if rating:
+                    key = 2
+                    if t == 'PRACTICE': key = 0
+                    elif t == 'VIRTUAL': key = 1
+                    times[key].append(datetime.datetime.fromtimestamp(startTimeSeconds))
+                    ratings[key].append(rating)
+                    ts.append(datetime.datetime.fromtimestamp(startTimeSeconds))
+                    rs.append(rating)
+
+        labels = rkey
+        for i in range(3):
+            plt.scatter(times[i], ratings[i], zorder=10, s = 3)
+
+        ymin, ymax = plt.gca().get_ylim()
+        colors = [('#AA0000', 3000, 4000), ('#FF3333', 2600, 3000), ('#FF7777', 2400, 2600), ('#FFBB55', 2300, 2400),
+                  ('#FFCC88', 2100, 2300), ('#FF88FF', 1900, 2100), ('#AAAAFF', 1600, 1900), ('#77DDBB', 1400, 1600),
+                  ('#77FF77', 1200, 1400), ('#CCCCCC', 0, 1200)]
+
+        plt.title('Solved Problem Rating History on Codeforces')
+        plt.xlabel('Date')
+        plt.ylabel('Rating')
+        labels = ['Practice', 'Virtual', 'Contest']
+        plt.legend(labels, loc='upper left')
+
+        for color, lo, hi in colors:
+            plt.axhspan(lo, hi, facecolor=color, zorder=1)
+        plt.ylim(ymin, ymax)
+        plt.gcf().autofmt_xdate()
+        locs, labels = plt.xticks()
+        for loc in locs:
+            plt.axvspan(loc, loc, facecolor='white')
+        
+        # moving average for loop cancer
+        if len(rs) > bin_size:
+            avg_ts = []
+            avg_rs = []
+            cur_t, cur_r = 0, 0
+            for i in range(bin_size - 1):
+                cur_t += datetime.datetime.timestamp(ts[i])
+                cur_r += rs[i]
+            for i in range(bin_size - 1, len(rs)):
+                cur_t += datetime.datetime.timestamp(ts[i])
+                cur_r += rs[i]
+                avg_ts.append(datetime.datetime.fromtimestamp(cur_t / bin_size))
+                avg_rs.append(cur_r / bin_size)
+                cur_t -= datetime.datetime.timestamp(ts[i - bin_size + 1])
+                cur_r -= rs[i - bin_size + 1]
+            plt.plot(
+                avg_ts, avg_rs, linestyle='-', markerfacecolor='white', markeredgewidth=0.5)
+
+        discord_file = self.get_current_figure_as_file()
+        await ctx.send(file=discord_file)
 
     @staticmethod
     def get_current_figure_as_file():
