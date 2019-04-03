@@ -57,8 +57,7 @@ class Codeforces(commands.Cog):
         upper_bound = upper_bound or lower_bound + 300
 
         def has_metadata(problem):
-            if 'contestId' not in problem or 'rating' not in problem:
-                return False
+            return 'contestId' in problem and 'rating' in problem
 
         def is_ok(problem):
             banned_tags = ['*special']
