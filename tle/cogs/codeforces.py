@@ -81,7 +81,7 @@ class Codeforces(commands.Cog):
         await self.cache_problems()
 
     @commands.command(brief='Recommend a problem')
-    async def gitgud(self, ctx, handle: str = None, tag: str = None, lower_bound: int = None, upper_bound: int = None):
+    async def gitgud(self, ctx, handle: str = None, tag: str = 'all', lower_bound: int = None, upper_bound: int = None):
         """Recommends a problem based on Codeforces rating of the handle provided."""
         try:
             handle = await self.Resolve(ctx, handle or '!' + str(ctx.author))
@@ -121,7 +121,7 @@ class Codeforces(commands.Cog):
         begin = bisect_left(self.problem_ratings, lower_bound)
         end = bisect_left(self.problem_ratings, upper_bound+1, lo=begin)
 
-        if tag:
+        if tag=='all':
             problems = [
                 prob
                 for prob in self.problems[begin:end]
