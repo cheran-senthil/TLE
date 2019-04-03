@@ -52,25 +52,35 @@ class Codeforces(commands.Cog):
             await ctx.send('Codeforces API denied the request, please make the handle is valid.')
             return
 
-        if lower_bound is None:
-            lower_bound = inforesp[0].get('rating')
-            if lower_bound is None:
-                lower_bound = 1500
-            lower_bound = round(lower_bound, -2)
-        if upper_bound is None:
-            upper_bound = lower_bound + 300
+        lower_bound = lower_bound or inforesp[0].get('rating') or 1500
+        lower_bound = round(lower_bound, -2)
+        upper_bound = upper_bound or lower_bound + 300
 
-        problems = set()
-        for problem in probresp['problems']:
-            if ('contestId' in problem) and ('rating' in problem):
-                if ('*special' not in problem['tags']) and (tag == 'all' or tag in problem['tags']):
-                    if lower_bound <= problem['rating'] <= upper_bound:
-                        problems.add((problem['contestId'], problem['index'], problem['name'], problem['rating']))
+        def has_metadata(problem):
+            return 'contestId' in problem and 'rating' in problem
+
+        def is_ok(problem):
+            banned_tags = ['*special']
+            if any(banned in problem['tags'] for banned in banned_tags):
+                return False
+            tag_matches = tag == 'all' or tag in problem['tags']
+            diff_matches = lower_bound <= problem['rating'] <= upper_bound
+            return tag_matches and diff_matches
+
+        def problem_tuple(problem):
+            return (problem['contestId'], problem['index'], problem['name'],
+                    problem['rating'])
+
+        problems = {
+            problem_tuple(problem)
+            for problem in probresp['problems']
+            if has_metadata(problem) and is_ok(problem)
+        }
 
         for sub in subsresp:
             problem = sub['problem']
-            if ('contestId' in problem) and ('rating' in problem) and (sub['verdict'] == 'OK'):
-                problems.discard((problem['contestId'], problem['index'], problem['name'], problem['rating']))
+            if has_metadata(problem) and sub['verdict'] == 'OK':
+                problems.discard(problem_tuple(problem))
 
         if not problems:
             await ctx.send('{} is already too gud'.format(handle))
