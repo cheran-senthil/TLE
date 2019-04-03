@@ -115,7 +115,7 @@ class Codeforces(commands.Cog):
 
         problems = probresp['problems']
         for problem in problems:
-            if '*special' not in problem['tags'] and problem.get('contestId', 2000) < 2000:
+            if ('*special' not in problem['tags']) and (problem.get('contestId', 10000) < 10000):
                 recommendations.add(problem['contestId'])
 
         for sub in subsresp:
@@ -219,17 +219,13 @@ class Codeforces(commands.Cog):
                 await ctx.send('Codeforces API denied the request, please make sure handles are valid.')
                 return
 
-            problems = set()
+            problems = dict()
             for submission in submissions:
-                if submission['verdict'] == 'OK':
-                    problem = submission['problem']
-                    # CF problems don't have IDs! Just hope (name, rating) pairs don't clash?
-                    name = problem['name']
-                    rating = problem.get('rating')
-                    if rating:
-                        problems.add((name, rating))
+                problem = submission['problem']
+                if ('rating' in problem) and (submission['verdict'] == 'OK'):
+                    problems[(problem['contestId'], problem['index'])] = problem['rating']
 
-            ratings = [rating for name, rating in problems]
+            ratings = list(problems.values())
             allratings.append(ratings)
 
         # Adjust bin size so it looks nice
