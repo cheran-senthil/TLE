@@ -76,7 +76,7 @@ class Codeforces(commands.Cog):
             await ctx.send('{} is already too gud'.format(handle))
         else:
             problems = sorted(problems)
-            choice = round((len(problems) - 1) * random.random()**0.5)  # prefer newer problems
+            choice = int(len(problems) * random.random()**0.5)  # prefer newer problems
 
             contestid, index, name, rating = problems[choice]
             contestresp = await cf.contest.standings(contestid=contestid, from_=1, count=1)
