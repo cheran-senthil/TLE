@@ -55,8 +55,8 @@ class Codeforces(commands.Cog):
             user_rating = 1500
         user_rating = round(user_rating + delta, -2)
 
-        n, recommendations = 0, defaultdict(dict)
-        for problem in probresp['problems']:
+        recommendations = defaultdict(dict)
+        for i, problem in enumerate(probresp['problems']):
             if '*special' not in problem['tags'] and 'rating' in problem:
                 if 'contestId' in problem and (tag == 'all' or tag in problem['tags']):
                     contestid = problem['contestId']
@@ -64,8 +64,7 @@ class Codeforces(commands.Cog):
                     name = problem['name']
                     rating = problem['rating']
                     if user_rating <= rating <= user_rating + 300:
-                        recommendations[contestid][index] = (n, contestid, index, name, rating)
-                        n = n + 1
+                        recommendations[contestid][index] = (i, contestid, index, name, rating)
 
         for sub in subsresp:
             problem = sub['problem']
