@@ -55,7 +55,7 @@ class CSES(commands.Cog):
             userpad = user.rjust(maxname)
             hist = [placings[user].count(i + 1) for i in range(5)]
             ranks = ' '.join(f'{count:3d}' for count in hist)
-            S.append(f'{userpad} | {ranks} | {points:3d} points')
+            S.append(f'{userpad} | {ranks} | {points:3d} pts')
 
         header = (maxname + 3) * ' ' + '1st 2nd 3rd 4th 5th'
         return '\n'.join([header] + S)
