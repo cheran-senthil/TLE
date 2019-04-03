@@ -125,13 +125,13 @@ class Codeforces(commands.Cog):
             problems = [
                 prob
                 for prob in self.problems[begin:end]
-                    if tag in prob[4] and (prob[0], prob[1]) not in solved
+                    if (prob[0], prob[1]) not in solved
             ]
         else:
             problems = [
                 prob
                 for prob in self.problems[begin:end]
-                    if (prob[0], prob[1]) not in solved
+                    if tag in prob[4] and (prob[0], prob[1]) not in solved
             ]
 
         if not problems:
