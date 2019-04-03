@@ -30,10 +30,10 @@ class Codeforces(commands.Cog):
         return res
 
     @commands.command(brief='Recommend a problem')
-    async def gitgud(self, ctx, handle: str, tag: str = 'all', lower_bound: int = None, upper_bound: int = None):
+    async def gitgud(self, ctx, handle: str = None, tag: str = 'all', lower_bound: int = None, upper_bound: int = None):
         """Recommends a problem based on Codeforces rating of the handle provided."""
         try:
-            handle = await self.Resolve(ctx, handle)
+            handle = await self.Resolve(ctx, handle or "!" + str(ctx.author))
         except:
             await ctx.send('bad handle')
             return
