@@ -28,7 +28,7 @@ class Codeforces(commands.Cog):
         return res
 
     @commands.command(brief='Recommend a problem')
-    async def gitgud(self, ctx, handle: str, delta: int = 0, tag: str = 'all'):
+    async def gitgud(self, ctx, handle: str, tag: str = 'all', lower_bound: int = None, upper_bound: int = None):
         """Recommends a problem based on Codeforces rating of the handle provided."""
         try:
             handle = await self.Resolve(ctx, handle)
@@ -50,10 +50,13 @@ class Codeforces(commands.Cog):
             await ctx.send('Codeforces API denied the request, please make the handle is valid.')
             return
 
-        user_rating = inforesp[0].get('rating')
-        if user_rating is None:
-            user_rating = 1500
-        user_rating = round(user_rating + delta, -2)
+        if lower_bound is None:
+            lower_bound = inforesp[0].get('rating')
+            if lower_bound is None:
+                lower_bound = 1500
+            lower_bound = round(lower_bound, -2)
+        if upper_bound is None:
+            upper_bound = lower_bound + 300
 
         recommendations = defaultdict(dict)
         for i, problem in enumerate(probresp['problems']):
@@ -63,17 +66,14 @@ class Codeforces(commands.Cog):
                     index = problem['index']
                     name = problem['name']
                     rating = problem['rating']
-                    if user_rating <= rating <= user_rating + 300:
+                    if lower_bound <= rating <= upper_bound:
                         recommendations[contestid][index] = (i, contestid, index, name, rating)
 
         for sub in subsresp:
             problem = sub['problem']
             if sub['verdict'] == 'OK' and 'contestId' in problem:
                 contestid, index = problem['contestId'], problem['index']
-                try:
-                    del recommendations[contestid][index]
-                except KeyError:
-                    pass
+                recommendations[contestid].pop(index, None)
 
         problems = []
         for contest in recommendations.values():
@@ -83,11 +83,9 @@ class Codeforces(commands.Cog):
             await ctx.send('{} is already too gud'.format(handle))
         else:
             problems.sort()
-            # prefer newer problems
-            choice = round((len(problems) - 1) * (1 - math.sqrt(random.uniform(0, 1))))
-            # problemset is sorted chronologically
+            choice = round((len(problems) - 1) * (1 - math.sqrt(random.uniform(0, 1))))  # prefer newer problems
+
             _, contestid, index, name, rating = problems[choice]
-            # 'from' and 'count' are for ranklist, query minimum allowed (1) since we do not need it
             contestresp = await cf.contest.standings(contestid=contestid, from_=1, count=1)
             contestname = contestresp['contest']['name']
 
