@@ -154,7 +154,7 @@ class Codeforces(commands.Cog):
             if lower_bound is None:
                 await ctx.send('Personal cf data not found. Assume rating of 1500.')
                 lower_bound = 1500
-        # lower_bound = round(lower_bound, -2) Do we really need to round?
+        lower_bound = round(lower_bound, -2)
         upper_bound = upper_bound or lower_bound + 300
 
         if not self.problems: # Try once
