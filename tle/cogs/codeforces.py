@@ -197,25 +197,26 @@ class Codeforces(commands.Cog):
             f'Recommended problem for `{handle}`', embed=discord.Embed(title=title, url=url, description=desc))
 
     @commands.command(brief='Recommend a contest')
-    async def vc(self, ctx, handle: str):
+    async def vc(self, ctx, *handles: str):
         """Recommends a contest based on Codeforces rating of the handle provided."""
+        handles = handles or ('!' + str(ctx.author),)
         try:
-            handle = await self.resolve_handle(ctx, handle)
+            handles = [await self.resolve_handle(ctx, h) for h in handles]
         except:
             await ctx.send('Bad Handle')
             return
 
         try:
             problems, _ = await cf.problemset.problems()
-            subs = await cf.user.status(handle=handle, count=10000)
+            usubs = [await cf.user.status(handle=h, count=10000) for h in handles]
         except aiohttp.ClientConnectionError:
             await ctx.send('Error connecting to Codeforces API')
             return
         except cf.NotFoundError:
-            await ctx.send(f'Handle not found: `{handle}`')
+            await ctx.send(f'Handle not found.')
             return
         except cf.InvalidParamError:
-            await ctx.send(f'Not a valid Codeforces handle: `{handle}`')
+            await ctx.send(f'Not a valid Codeforces handle.')
             return
         except cf.CodeforcesApiError:
             await ctx.send('Codeforces API error.')
@@ -227,18 +228,21 @@ class Codeforces(commands.Cog):
             if '*special' not in problem.tags and problem.contestId:
                 recommendations.add(problem.contestId)
 
-        for sub in subs:
-            recommendations.discard(sub.problem.contestId)
+        for subs in usubs:
+            for sub in subs:
+                recommendations.discard(sub.problem.contestId)
 
         if not recommendations:
-            await ctx.send('{} is already too gud'.format(handle))
+            await ctx.send('Unable to recommend a contest')
         else:
-            contestid = random.choice(list(recommendations))
+            numcontests = len(recommendations)
+            choice = max(random.randrange(numcontests), random.randrange(numcontests))
+            contestid = sorted(list(recommendations))[choice]
             # from and count are for ranklist, set to minimum (1) because we only need name
             contest, _, _ = await cf.contest.standings(contestid=contestid, from_=1, count=1)
             url = f'{cf.CONTEST_BASE_URL}{contestid}/'
 
-            await ctx.send(f'Recommended contest for `{handle}`', embed=discord.Embed(title=contest.name, url=url))
+            await ctx.send(f'Recommended contest for `{handles}`', embed=discord.Embed(title=contest.name, url=url))
 
     @commands.command(brief='Compare epeens.')
     async def rating(self, ctx, *handles: str):
