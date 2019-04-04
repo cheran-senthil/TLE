@@ -50,6 +50,9 @@ class Handles(commands.Cog):
             await ctx.send('Codeforces API error.')
             return
 
+        # CF API returns correct handle ignoring case, update to it
+        handle = user.handle
+
         self.conn.cache_cfuser(user)
         self.conn.sethandle(member.id, handle)
 
