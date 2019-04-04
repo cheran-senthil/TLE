@@ -66,7 +66,7 @@ class HandleConn():
         users = self.conn.execute(query).fetchall()
         return [cf.User._make(user) for user in users]
 
-    def clearcache(self):
+    def clear_cache(self):
         query = 'DELETE FROM cf_cache'
         self.conn.execute(query)
         self.conn.commit()
