@@ -1,5 +1,5 @@
 import logging
-
+import time
 import aiohttp
 import discord
 from db_utils.handle_conn import HandleConn
@@ -113,16 +113,6 @@ class Handles(commands.Cog):
         except Exception as e:
             print(e)
             msg = 'showhandles error!'
-        await ctx.send(msg)
-
-    @commands.command(brief='clear cache (admin-only)', hidden=True)
-    @commands.has_role('Admin')
-    async def clearcache(self, ctx):
-        try:
-            self.conn.clearcache()
-            msg = 'clear cache success'
-        except:
-            msg = 'clear cache error'
         await ctx.send(msg)
 
     @commands.command(brief='show cache (admin only)', hidden=True)

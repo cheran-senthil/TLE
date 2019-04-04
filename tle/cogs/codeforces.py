@@ -3,16 +3,18 @@ import io
 import os
 import random
 import time
-
+import json
 import aiohttp
 import discord
 import asyncio
+
 from discord.ext import commands
 from matplotlib import pyplot as plt
 from tle.cogs.util import codeforces_api as cf
 from db_utils.handle_conn import HandleConn
 
 from bisect import bisect_left
+from functools import lru_cache
 
 
 def get_current_figure_as_file():
@@ -25,8 +27,9 @@ def get_current_figure_as_file():
     os.remove(filename)
     return discord_file
 
-
 class Codeforces(commands.Cog):
+    loop = asyncio.get_event_loop()
+
     def __init__(self, bot):
         self.bot = bot
         self.conn = HandleConn('handles.db')
@@ -37,14 +40,52 @@ class Codeforces(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        asyncio.create_task(self.cache_problems())
+        asyncio.create_task(self._cache_data())
+        print('warming up cache...')
+
+    async def regular_cache(self, interval, handle_interval = None):
+        await self.cache_problems()
+        handles = self.conn.getallhandles()
+        print(f'{len(handles)} handles active')
+        if handles:
+            iv = handle_interval or interval/len(handles)
+            for _, h in handles:
+                await self.cache_cfuser_subs(h)
+                await asyncio.sleep(iv)
+        else:
+            await asyncio.sleep(interval)
 
     async def _cache_data(self):
+        await self.regular_cache(1, 0.5)
+        print('initial cache complete. entering regular cache schedule...')
+        three_hours = 10800 # seconds
+        await asyncio.sleep(three_hours//2)
         while True:
+            await self.regular_cache(three_hours)
             await self.cache_problems()
-            await asyncio.sleep(21600)
 
-    async def Resolve(self, ctx, handle: str):
+    @commands.command(brief='update status')
+    @commands.has_role('Admin')
+    async def updatestatus_(self, ctx):
+        active_ids = [m.id for m in ctx.guild.members]
+        rc = self.conn.update_status(active_ids)
+        await ctx.send(f'{rc} members active with handle')    
+        
+    @commands.command(brief='clear cache (admin-only)', hidden=True)
+    @commands.has_role('Admin')
+    async def clearcache_(self, ctx):
+        try:
+            self.conn.clear_cache()
+            self.problems = None
+            self.problem_ratings = None
+            self.contest_names = {}
+            self.get_cached_user.cache_clear()
+            msg = 'clear cache success'
+        except:
+            msg = 'clear cache error'
+        await ctx.send(msg)
+
+    async def resolve_handle(self, ctx, handle: str):
         if handle[0] != '!':
             return handle
         member = await self.converter.convert(ctx, handle[1:])
@@ -61,66 +102,82 @@ class Codeforces(commands.Cog):
             return
         except cf.CodeforcesApiError:
             return
-
         self.contest_names = dict((contest.id, contest.name) for contest in contests)
         banned_tags = ['*special']
         self.problems = [prob for prob in problems if prob.has_metadata() and not prob.has_any_tag_from(banned_tags)]
         self.problems.sort(key=lambda p: p.rating)
         self.problem_ratings = [p.rating for p in self.problems]
 
-    @commands.command(brief='cache all cf problems and contest names')
+    @commands.command(brief='force cache problems, cf handles, and submissions')
     @commands.has_role('Admin')
-    async def cacheproblems(self, ctx):
-        await self.cache_problems()
+    async def forcecache_(self, ctx):
+        await self.regular_cache(1, 0.5)
+        await ctx.send('forcecache_: success')
 
-    @commands.command(brief='Recommend a problem')
-    async def gitgud(self, ctx, handle: str = None, tag: str = 'all', lower_bound: int = None, upper_bound: int = None):
+    async def cache_cfuser_subs(self, handle: str):
+        info = await cf.user.info(handles=[handle])
+        subs = await cf.user.status(handle=handle)
+        info = info[0]
+        solved = [sub.problem for sub in subs if sub.verdict == 'OK']
+        solved = {prob.contest_identifier for prob in solved if prob.has_metadata()}
+        solved = json.dumps(list(solved))
+        stamp = time.time()
+        self.conn.cache_cfuser_full(
+            (handle, info.rating, info.titlePhoto, solved, stamp)
+        )
+        return (stamp, info.rating, solved)
+
+    @lru_cache(maxsize=15)
+    def get_cached_user(self, handle: str):
+        res = self.conn.fetch_cfuser_custom(handle, ['rating', 'solved', 'lastCached'])
+        if res: # cache found in database
+            return [res[2], res[0], set(json.loads(res[1])) if res[1] else None]
+        try: # cache not found in database
+            stamp, rating, solved = loop.run_until_complete(self.cache_cfuser_subs(handle))
+            return [stamp, rating, solved]
+        except: # error fetching data
+            return [None, None, None]
+
+    @commands.command(brief='Recommend a problem. Usage: ;gitgud [tag] [lower] [upper]')
+    async def gitgud(self, ctx, tag: str = 'all', lower_bound: int = None, upper_bound: int = None):
         """Recommends a problem based on Codeforces rating of the handle provided."""
-        try:
-            handle = await self.Resolve(ctx, handle or '!' + str(ctx.author))
-        except:
-            await ctx.send('bad handle')
-            return
-
-        try:
-            info = await cf.user.info(handles=[handle])
-            subs = await cf.user.status(handle=handle)
-        except aiohttp.ClientConnectionError:
-            await ctx.send('Error connecting to Codeforces API')
-            return
-        except cf.NotFoundError:
-            await ctx.send(f'Handle not found: `{handle}`')
-            return
-        except cf.InvalidParamError:
-            await ctx.send(f'Not a valid Codeforces handle: `{handle}`')
-            return
-        except cf.CodeforcesApiError:
-            await ctx.send('Codeforces API error.')
-            return
+        handle = self.conn.gethandle(ctx.message.author.id)
+        rating, solved = None, None
+        if handle:
+            res = self.get_cached_user(handle)
+            stamp, rating, solved = res
+            if not all(res) or time.time() - stamp > 3600:
+                try:
+                    rating, solved, stamp = await self.cache_cfuser_subs(handle)
+                    res[:] = stamp, rating, solved # need to slice [:] for &ref
+                except:
+                    pass
 
         # 1500 is default lower_bound for unrated user
-        lower_bound = lower_bound or info[0].rating or 1500
-        lower_bound = round(lower_bound, -2)
+        # changed this back to if None because 0 -> False (try gitgud all 0 800)        
+        if lower_bound is None:
+            lower_bound = rating
+            if lower_bound is None:
+                await ctx.send('Personal cf data not found. Assume rating of 1500.')
+                lower_bound = 1500
+        # lower_bound = round(lower_bound, -2) Do we really need to round?
         upper_bound = upper_bound or lower_bound + 300
 
-        if not self.problems:
-            # Try once
+        if not self.problems: # Try once
             await self.cache_problems()
-        if not self.problems:
-            # Could not cache problems
-            await ctx.send('Error connecting to Codeforces API')
-            return
-
-        solved = [sub.problem for sub in subs if sub.verdict == 'OK']
-        solved = set(prob.contest_identifier for prob in solved if prob.has_metadata())
+            if not self.problems: # Could not cache problems
+                await ctx.send('Error connecting to Codeforces API')
+                return
 
         begin = bisect_left(self.problem_ratings, lower_bound)
         end = bisect_left(self.problem_ratings, upper_bound + 1, lo=begin)
 
-        problems = [prob for prob in self.problems[begin:end] if prob.contest_identifier not in solved]
+        problems = self.problems[begin:end]
+        tag = tag.lower()
         if tag != 'all':
             problems = [prob for prob in problems if tag in prob.tags]
-
+        if solved:
+            problems = [prob for prob in problems if prob.contest_identifier not in solved]
         if not problems:
             await ctx.send('Sorry, no problem found. Try changing the rating range.')
             return
@@ -129,9 +186,8 @@ class Codeforces(commands.Cog):
         numproblems = len(problems)
         # Choose problems with largest contestId with greater probability (heuristic for newer problems)
         choice = max(random.randrange(numproblems), random.randrange(numproblems))
-
         problem = problems[choice]
-        contestname = self.contest_names[problem.contestId]
+        contestname = self.contest_names.get(problem.contestId)
 
         title = f'{problem.index}. {problem.name}'
         url = f'{cf.CONTEST_BASE_URL}{problem.contestId}/problem/{problem.index}'
@@ -144,7 +200,7 @@ class Codeforces(commands.Cog):
     async def vc(self, ctx, handle: str):
         """Recommends a contest based on Codeforces rating of the handle provided."""
         try:
-            handle = await self.Resolve(ctx, handle)
+            handle = await self.resolve_handle(ctx, handle)
         except:
             await ctx.send('Bad Handle')
             return
@@ -192,7 +248,7 @@ class Codeforces(commands.Cog):
             await ctx.send('Number of handles must be at most 5')
             return
         try:
-            handles = [await self.Resolve(ctx, h) for h in handles]
+            handles = [await self.resolve_handle(ctx, h) for h in handles]
         except:
             await ctx.send('Bad Handle')
             return
@@ -252,7 +308,7 @@ class Codeforces(commands.Cog):
             await ctx.send('Number of handles must be at most 5')
             return
         try:
-            handles = [await self.Resolve(ctx, h) for h in handles]
+            handles = [await self.resolve_handle(ctx, h) for h in handles]
         except:
             await ctx.send('Bad Handle')
             return
