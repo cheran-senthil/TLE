@@ -1,20 +1,22 @@
+import asyncio
 import datetime
 import io
+import json
+import logging
 import os
 import random
 import time
-import json
+from bisect import bisect_left
+from functools import lru_cache
+
 import aiohttp
 import discord
-import asyncio
-
 from discord.ext import commands
 from matplotlib import pyplot as plt
+
 from tle.cogs.util import codeforces_api as cf
 from db_utils.handle_conn import HandleConn
 
-from bisect import bisect_left
-from functools import lru_cache
 
 def get_current_figure_as_file():
     filename = f'tempplot_{time.time()}.png'
@@ -25,6 +27,7 @@ def get_current_figure_as_file():
 
     os.remove(filename)
     return discord_file
+
 
 class Codeforces(commands.Cog):
     def __init__(self, bot):
@@ -38,14 +41,14 @@ class Codeforces(commands.Cog):
     @commands.Cog.listener()
     async def on_ready(self):
         asyncio.create_task(self._cache_data())
-        print('warming up cache...')
+        logging.info('warming up cache...')
 
-    async def regular_cache(self, interval, handle_interval = None):
+    async def regular_cache(self, interval, handle_interval=None):
         await self.cache_problems()
         handles = self.conn.getallhandles()
-        print(f'{len(handles)} handles active')
+        logging.info(f'{len(handles)} handles active')
         if handles:
-            iv = handle_interval or interval/len(handles)
+            iv = handle_interval or interval / len(handles)
             for _, h in handles:
                 await self.cache_cfuser_subs(h)
                 await asyncio.sleep(iv)
@@ -54,9 +57,9 @@ class Codeforces(commands.Cog):
 
     async def _cache_data(self):
         await self.regular_cache(1, 5)
-        print('initial cache complete. entering regular cache schedule...')
-        three_hours = 10800 # seconds
-        await asyncio.sleep(three_hours//2)
+        logging.info('initial cache complete. entering regular cache schedule...')
+        three_hours = 10800  # seconds
+        await asyncio.sleep(three_hours // 2)
         while True:
             await self.regular_cache(three_hours)
             await self.cache_problems()
@@ -101,7 +104,7 @@ class Codeforces(commands.Cog):
             return
         self.contest_names = dict((contest.id, contest.name) for contest in contests)
         banned_tags = ['*special']
-        self.problems = [prob for prob in problems if prob.has_metadata() and not prob.has_any_tag_from(banned_tags)]
+        self.problems = [prob for prob in problems if prob.has_metadata() and not prob.tag_matches(banned_tags)]
         self.problems.sort(key=lambda p: p.rating)
         self.problem_ratings = [p.rating for p in self.problems]
 
@@ -123,18 +126,21 @@ class Codeforces(commands.Cog):
         self.conn.cache_cfuser_full(
             (handle, info.rating, info.titlePhoto, solved, stamp)
         )
-        return (stamp, info.rating, solved)
+        return stamp, info.rating, solved
 
     @lru_cache(maxsize=15)
     def get_cached_user(self, handle: str):
         res = self.conn.fetch_cfuser_custom(handle, ['rating', 'solved', 'lastCached'])
-        if res: # cache found in database
-            return [res[2], res[0], (set(json.loads(res[1])) if res[1] else None) ]
+        if res:  # cache found in database
+            return [res[2], res[0], (set(json.loads(res[1])) if res[1] else None)]
         return [None, None, None]
 
-    @commands.command(brief='Recommend a problem. Usage: ;gitgud [tag] [lower] [upper]')
-    async def gitgud(self, ctx, tag: str = 'all', lower_bound: int = None, upper_bound: int = None):
-        """Recommends a problem based on Codeforces rating of the handle provided."""
+    @commands.command(brief='Recommend a problem. Use "any" to not filter by tags')
+    async def gitgud(self, ctx, tags: str = 'any', lower_bound: int = None, upper_bound: int = None):
+        """Recommends a Codeforces problem.
+        A space separated string of tags is supported. If the tag "any" is present tags will be ignored.
+        Tags will match if they appear as substring in the problem tags.
+        Lower bound defaults to the invoker's user rating. Upper bound defaults to lower bound + 300."""
         handle = self.conn.gethandle(ctx.message.author.id)
         rating, solved = None, None
         if handle:
@@ -143,7 +149,7 @@ class Codeforces(commands.Cog):
             if not all(res) or time.time() - stamp > 3600:
                 try:
                     stamp, rating, solved = await self.cache_cfuser_subs(handle)
-                    res[:] = stamp, rating, solved # need to slice [:] for &ref
+                    res[:] = stamp, rating, solved  # need to slice [:] for &ref
                 except:
                     pass
 
@@ -157,29 +163,23 @@ class Codeforces(commands.Cog):
         lower_bound = round(lower_bound, -2)
         upper_bound = upper_bound or lower_bound + 300
 
-        if not self.problems: # Try once
+        if not self.problems:  # Try once
             await self.cache_problems()
-            if not self.problems: # Could not cache problems
+            if not self.problems:  # Could not cache problems
                 await ctx.send('Error connecting to Codeforces API')
                 return
 
         begin = bisect_left(self.problem_ratings, lower_bound)
         end = bisect_left(self.problem_ratings, upper_bound + 1, lo=begin)
 
-        def tag_check(tag, tags):
-            for t in tags:
-                if tag in t:
-                    return True
-            return False
-
         problems = self.problems[begin:end]
-        tag = tag.lower()
-        if tag != 'all':
-            problems = [prob for prob in problems if tag_check(tag, prob.tags)]
+        tags = tags.lower().split()
+        if 'any' not in tags:
+            problems = [prob for prob in problems if prob.tag_matches(tags)]
         if solved:
             problems = [prob for prob in problems if prob.contest_identifier not in solved]
         if not problems:
-            await ctx.send('Sorry, no problem found. Try changing the rating range.')
+            await ctx.send('Sorry, no problem found. Try changing the search criteria.')
             return
 
         problems.sort(key=lambda p: p.contestId)
@@ -187,14 +187,18 @@ class Codeforces(commands.Cog):
         # Choose problems with largest contestId with greater probability (heuristic for newer problems)
         choice = max(random.randrange(numproblems), random.randrange(numproblems))
         problem = problems[choice]
-        contestname = self.contest_names.get(problem.contestId)
 
         title = f'{problem.index}. {problem.name}'
         url = f'{cf.CONTEST_BASE_URL}{problem.contestId}/problem/{problem.index}'
-        desc = f'{contestname}\nRating: {problem.rating}'
+        desc = self.contest_names.get(problem.contestId)
+        embed = discord.Embed(title=title, url=url, description=desc)
+        embed.add_field(name='Rating', value=problem.rating)
 
-        await ctx.send(
-            f'Recommended problem for `{handle}`', embed=discord.Embed(title=title, url=url, description=desc))
+        if 'any' not in tags:
+            tagslist = ', '.join(problem.tag_matches(tags))
+            embed.add_field(name='Matched tags', value=tagslist)
+
+        await ctx.send(f'Recommended problem for `{handle}`', embed=embed)
 
     @commands.command(brief='Recommend a contest')
     async def vc(self, ctx, *handles: str):
