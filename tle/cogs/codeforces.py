@@ -166,10 +166,16 @@ class Codeforces(commands.Cog):
         begin = bisect_left(self.problem_ratings, lower_bound)
         end = bisect_left(self.problem_ratings, upper_bound + 1, lo=begin)
 
+        def tag_check(tag, tags):
+            for t in tags:
+                if tag in t:
+                    return True
+            return False
+
         problems = self.problems[begin:end]
         tag = tag.lower()
         if tag != 'all':
-            problems = [prob for prob in problems if tag in prob.tags]
+            problems = [prob for prob in problems if tag_check(tag, prob.tags)]
         if solved:
             problems = [prob for prob in problems if prob.contest_identifier not in solved]
         if not problems:
@@ -218,7 +224,7 @@ class Codeforces(commands.Cog):
             return
 
         # TODO: div1 classification is wrong
-        divr = sum([info[i].rating for i in range(len(handles))]) / len(handles)
+        divr = sum([user.rating or 1500 for user in info]) / len(handles)
         divs = 'Div. 3' if divr < 1600 else 'Div. 2' if divr < 2100 else 'Div. 1'
         recommendations = {contest.id for contest in contests if divs in contest.name}
 
