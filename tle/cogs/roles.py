@@ -63,7 +63,7 @@ class Roles(commands.Cog):
                         await member.add_roles(rank2role[rank])
                 except Exception as e:
                     print(e)
-            msg = 'update roles completed'
+            msg = 'Update roles completed. Note: Submissions data are cleared. Call forcecache_ to recache.'
         except Exception as e:
             msg = 'updateroles error!'
             print(e)

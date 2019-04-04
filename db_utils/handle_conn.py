@@ -6,6 +6,7 @@ from tle.cogs.util import codeforces_api as cf
 class HandleConn():
     def __init__(self, dbfile):
         self.conn = sqlite3.connect(dbfile)
+        # status => 0 inactive, 1 active        
         self.conn.execute('''
             CREATE TABLE IF NOT EXISTS user_handle(
                 id TEXT PRIMARY KEY,
@@ -13,6 +14,8 @@ class HandleConn():
                 status INT
             )
         ''')
+        # solved => problem identifier of all solved problems in json dump
+        # lastCached => last time the user was cached
         self.conn.execute('''
             CREATE TABLE IF NOT EXISTS cf_cache(
                 handle TEXT PRIMARY KEY,
