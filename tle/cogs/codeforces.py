@@ -16,7 +16,6 @@ from db_utils.handle_conn import HandleConn
 from bisect import bisect_left
 from functools import lru_cache
 
-
 def get_current_figure_as_file():
     filename = f'tempplot_{time.time()}.png'
     plt.savefig(filename, facecolor=plt.gca().get_facecolor(), bbox_inches='tight', pad_inches=0.25)
@@ -28,8 +27,6 @@ def get_current_figure_as_file():
     return discord_file
 
 class Codeforces(commands.Cog):
-    loop = asyncio.get_event_loop()
-
     def __init__(self, bot):
         self.bot = bot
         self.conn = HandleConn('handles.db')
@@ -39,7 +36,7 @@ class Codeforces(commands.Cog):
         self.contest_names = {}
 
     @commands.Cog.listener()
-    async def on_ready(self):
+    async def on_ready(self):        
         asyncio.create_task(self._cache_data())
         print('warming up cache...')
 
@@ -56,7 +53,7 @@ class Codeforces(commands.Cog):
             await asyncio.sleep(interval)
 
     async def _cache_data(self):
-        await self.regular_cache(1, 0.5)
+        await self.regular_cache(1, 5)
         print('initial cache complete. entering regular cache schedule...')
         three_hours = 10800 # seconds
         await asyncio.sleep(three_hours//2)
@@ -111,7 +108,8 @@ class Codeforces(commands.Cog):
     @commands.command(brief='force cache problems, cf handles, and submissions')
     @commands.has_role('Admin')
     async def forcecache_(self, ctx):
-        await self.regular_cache(1, 0.5)
+        await self.updatestatus_(ctx)
+        await self.regular_cache(1, 5)
         await ctx.send('forcecache_: success')
 
     async def cache_cfuser_subs(self, handle: str):
@@ -131,12 +129,8 @@ class Codeforces(commands.Cog):
     def get_cached_user(self, handle: str):
         res = self.conn.fetch_cfuser_custom(handle, ['rating', 'solved', 'lastCached'])
         if res: # cache found in database
-            return [res[2], res[0], set(json.loads(res[1])) if res[1] else None]
-        try: # cache not found in database
-            stamp, rating, solved = loop.run_until_complete(self.cache_cfuser_subs(handle))
-            return [stamp, rating, solved]
-        except: # error fetching data
-            return [None, None, None]
+            return [res[2], res[0], (set(json.loads(res[1])) if res[1] else None) ]
+        return [None, None, None]
 
     @commands.command(brief='Recommend a problem. Usage: ;gitgud [tag] [lower] [upper]')
     async def gitgud(self, ctx, tag: str = 'all', lower_bound: int = None, upper_bound: int = None):
@@ -148,7 +142,7 @@ class Codeforces(commands.Cog):
             stamp, rating, solved = res
             if not all(res) or time.time() - stamp > 3600:
                 try:
-                    rating, solved, stamp = await self.cache_cfuser_subs(handle)
+                    stamp, rating, solved = await self.cache_cfuser_subs(handle)
                     res[:] = stamp, rating, solved # need to slice [:] for &ref
                 except:
                     pass
