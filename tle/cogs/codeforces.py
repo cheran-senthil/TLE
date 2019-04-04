@@ -233,10 +233,11 @@ class Codeforces(commands.Cog):
             choice = max(random.randrange(numcontests), random.randrange(numcontests))
             contestid = sorted(list(recommendations))[choice]
             # from and count are for ranklist, set to minimum (1) because we only need name
+            str_handles = '`, `'.join(handles)
             contest, _, _ = await cf.contest.standings(contestid=contestid, from_=1, count=1)
             url = f'{cf.CONTEST_BASE_URL}{contestid}/'
 
-            await ctx.send(f'Recommended contest for `{handles}`', embed=discord.Embed(title=contest.name, url=url))
+            await ctx.send(f'Recommended contest for `{str_handles}`', embed=discord.Embed(title=contest.name, url=url))
 
     @commands.command(brief='Compare epeens.')
     async def rating(self, ctx, *handles: str):
