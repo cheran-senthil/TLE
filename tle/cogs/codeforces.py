@@ -217,17 +217,10 @@ class Codeforces(commands.Cog):
             await ctx.send('Codeforces API error.')
             return
 
-        recommendations = set()
-
-        def rtd(r):
-            return 2 if r < 1600 else 1 if r < 2100 else 0
-
         # TODO: div1 classification is wrong
-        recommendations = [
-            {contest.id for contest in contests if 'Div. 1' in contest.name},
-            {contest.id for contest in contests if 'Div. 2' in contest.name},
-            {contest.id for contest in contests if 'Div. 3' in contest.name}
-        ][rtd(sum([info[i].rating for i in range(len(handles))]) / len(handles))]
+        divr = sum([info[i].rating for i in range(len(handles))]) / len(handles)
+        divs = 'Div. 3' if divr < 1600 else 'Div. 2' if divr < 2100 else 'Div. 1'
+        recommendations = {contest.id for contest in contests if divs in contest.name}
 
         for subs in usubs:
             for sub in subs:
