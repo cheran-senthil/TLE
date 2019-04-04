@@ -1,5 +1,3 @@
-import aiohttp
-import discord
 from db_utils.handle_conn import HandleConn
 from discord.ext import commands
 from tle.cogs.util import codeforces_api as cf
@@ -8,16 +6,12 @@ from tle.cogs.util import codeforces_api as cf
 class Roles(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.ranks = [
-            'Expert', 'Candidate Master', 'Master', 'International Master',
-            'Grandmaster', 'International Grandmaster', 'Legendary Grandmaster'
-        ]
 
-    async def FetchRoles(self, ctx):
+    async def make_rank2role(self, ctx):
         converter = commands.RoleConverter()
         rank2role = {}
-        for r in self.ranks:
-            rank2role[r.lower()] = await converter.convert(ctx, r)
+        for rank in cf.RankHelper.get_ranks():
+            rank2role[rank.lower()] = await converter.convert(ctx, rank)
         return rank2role
 
     @commands.command(brief='update roles (admin-only)')
@@ -25,7 +19,7 @@ class Roles(commands.Cog):
     async def updateroles(self, ctx):
         """update roles"""
         try:
-            rank2role = await self.FetchRoles(ctx)
+            rank2role = await self.make_rank2role(ctx)
         except:
             await ctx.send('error fetching roles!')
             return
@@ -33,11 +27,12 @@ class Roles(commands.Cog):
         try:
             conn = HandleConn('handles.db')
             res = conn.getallhandles()
-            inforesp = await cf.user.info(handles=[t[1] for t in res])
+            handles = [handle for _, handle in res]
+            users = await cf.user.info(handles=handles)
             await ctx.send('caching handles...')
             try:
-                for i, r in enumerate(inforesp):
-                    conn.cachehandle(res[i][1], r['rating'], r['titlePhoto'])
+                for user in users:
+                    conn.cache_cfuser(user)
             except Exception as e:
                 print(e)
             conn.close()
@@ -49,16 +44,18 @@ class Roles(commands.Cog):
         await ctx.send('updating roles...')
         try:
             converter = commands.MemberConverter()
-            for i, r in enumerate(inforesp):
+            for (discord_userid, handle), user in zip(res, users):
                 try:
-                    member = await converter.convert(ctx, res[i][0])
-                    rank = r['rank'].lower()
+                    member = await converter.convert(ctx, discord_userid)
+                    rank = user.rank.lower()
                     rm_list = []
                     add = True
                     for role in member.roles:
                         name = role.name.lower()
-                        if name == rank: add = False
-                        elif name in rank2role: rm_list.append(role)
+                        if name == rank:
+                            add = False
+                        elif name in rank2role:
+                            rm_list.append(role)
                     if rm_list:
                         await member.remove_roles(*rm_list)
                     if add:

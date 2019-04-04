@@ -1,6 +1,5 @@
 import datetime
 import io
-import math
 import os
 import random
 import time
@@ -16,13 +15,24 @@ from db_utils.handle_conn import HandleConn
 from bisect import bisect_left
 
 
+def get_current_figure_as_file():
+    filename = f'tempplot_{time.time()}.png'
+    plt.savefig(filename, facecolor=plt.gca().get_facecolor(), bbox_inches='tight', pad_inches=0.25)
+
+    with open(filename, 'rb') as file:
+        discord_file = discord.File(io.BytesIO(file.read()), filename='plot.png')
+
+    os.remove(filename)
+    return discord_file
+
+
 class Codeforces(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.conn = HandleConn('handles.db')
         self.converter = commands.MemberConverter()
         self.problems = None
-        self.problem_ratings = None # for binary search
+        self.problem_ratings = None  # for binary search
         self.contest_names = {}
 
     @commands.Cog.listener()
@@ -45,35 +55,18 @@ class Codeforces(commands.Cog):
 
     async def cache_problems(self):
         try:
-            probresp = await cf.problemset.problems()
+            problems, _ = await cf.problemset.problems()
             contests = await cf.contest.list()
         except aiohttp.ClientConnectionError:
-            print('Error connecting to Codeforces API')
             return
         except cf.CodeforcesApiError:
-            print('Codeforces API denied the request, please make the handle is valid.')
             return
-        def has_metadata(problem):
-            return 'contestId' in problem and 'rating' in problem
-        def is_ok(problem):
-            banned_tags = ['*special']
-            if any(banned in problem['tags'] for banned in banned_tags):
-                return False
-            return True
 
-        def make_tuple(problem):            
-            return (problem['contestId'], problem['index'], problem['name'],
-                    problem['rating'], problem['tags'])
-
-        self.contest_names = dict((contest['id'], contest['name']) for contest in contests)
-
-        self.problems = [
-            make_tuple(prob)
-            for prob in probresp['problems']
-            if has_metadata(prob) and is_ok(prob)
-        ]        
-        self.problems.sort(key=lambda p: p[3])
-        self.problem_ratings = [p[3] for p in self.problems]
+        self.contest_names = dict((contest.id, contest.name) for contest in contests)
+        banned_tags = ['*special']
+        self.problems = [prob for prob in problems if prob.has_metadata() and not prob.has_any_tag_from(banned_tags)]
+        self.problems.sort(key=lambda p: p.rating)
+        self.problem_ratings = [p.rating for p in self.problems]
 
     @commands.command(brief='cache all cf problems and contest names')
     @commands.has_role('Admin')
@@ -81,7 +74,7 @@ class Codeforces(commands.Cog):
         await self.cache_problems()
 
     @commands.command(brief='Recommend a problem')
-    async def gitgud(self, ctx, handle: str = None, tag: str = None, lower_bound: int = None, upper_bound: int = None):
+    async def gitgud(self, ctx, handle: str = None, tag: str = 'all', lower_bound: int = None, upper_bound: int = None):
         """Recommends a problem based on Codeforces rating of the handle provided."""
         try:
             handle = await self.Resolve(ctx, handle or '!' + str(ctx.author))
@@ -90,65 +83,62 @@ class Codeforces(commands.Cog):
             return
 
         try:
-            inforesp = await cf.user.info(handles=[handle])
-            subsresp = await cf.user.status(handle=handle, count=10000)
+            info = await cf.user.info(handles=[handle])
+            subs = await cf.user.status(handle=handle)
         except aiohttp.ClientConnectionError:
             await ctx.send('Error connecting to Codeforces API')
             return
         except cf.NotFoundError:
             await ctx.send(f'Handle not found: `{handle}`')
             return
+        except cf.InvalidParamError:
+            await ctx.send(f'Not a valid Codeforces handle: `{handle}`')
+            return
         except cf.CodeforcesApiError:
-            await ctx.send('Codeforces API denied the request, please make the handle is valid.')
+            await ctx.send('Codeforces API error.')
             return
 
-        lower_bound = lower_bound or inforesp[0].get('rating') or 1500
+        # 1500 is default lower_bound for unrated user
+        lower_bound = lower_bound or info[0].rating or 1500
         lower_bound = round(lower_bound, -2)
         upper_bound = upper_bound or lower_bound + 300
 
-        def has_metadata(problem):
-            return 'contestId' in problem and 'rating' in problem
-
         if not self.problems:
+            # Try once
             await self.cache_problems()
-        
-        solved = [sub['problem'] for sub in subsresp if sub['verdict'] == 'OK']
-        solved = set(
-            (prob['contestId'], prob['index'])
-            for prob in solved if has_metadata(prob)
-        )
+        if not self.problems:
+            # Could not cache problems
+            await ctx.send('Error connecting to Codeforces API')
+            return
+
+        solved = [sub.problem for sub in subs if sub.verdict == 'OK']
+        solved = set(prob.contest_identifier for prob in solved if prob.has_metadata())
 
         begin = bisect_left(self.problem_ratings, lower_bound)
-        end = bisect_left(self.problem_ratings, upper_bound+1, lo=begin)
+        end = bisect_left(self.problem_ratings, upper_bound + 1, lo=begin)
 
-        if tag:
-            problems = [
-                prob
-                for prob in self.problems[begin:end]
-                    if tag in prob[4] and (prob[0], prob[1]) not in solved
-            ]
-        else:
-            problems = [
-                prob
-                for prob in self.problems[begin:end]
-                    if (prob[0], prob[1]) not in solved
-            ]
+        problems = [prob for prob in self.problems[begin:end] if prob.contest_identifier not in solved]
+        if tag != 'all':
+            problems = [prob for prob in problems if tag in prob.tags]
 
         if not problems:
-            await ctx.send('{} is already too gud'.format(handle))
-        else:
-            problems.sort(key=lambda p: p[0])            
-            choice = int(len(problems) * random.random()**0.5)  # prefer newer problems
+            await ctx.send('Sorry, no problem found. Try changing the rating range.')
+            return
 
-            contestid, index, name, rating, _ = problems[choice]
-            contestname = self.contest_names[contestid]
+        problems.sort(key=lambda p: p.contestId)
+        numproblems = len(problems)
+        # Choose problems with largest contestId with greater probability (heuristic for newer problems)
+        choice = max(random.randrange(numproblems), random.randrange(numproblems))
 
-            title = f'{index}. {name}'
-            url = f'{cf.CONTEST_BASE_URL}{contestid}/problem/{index}'
-            desc = f'{contestname}\nRating: {rating}'
+        problem = problems[choice]
+        contestname = self.contest_names[problem.contestId]
 
-            await ctx.send(
-                f'Recommended problem for `{handle}`', embed=discord.Embed(title=title, url=url, description=desc))
+        title = f'{problem.index}. {problem.name}'
+        url = f'{cf.CONTEST_BASE_URL}{problem.contestId}/problem/{problem.index}'
+        desc = f'{contestname}\nRating: {problem.rating}'
+
+        await ctx.send(
+            f'Recommended problem for `{handle}`', embed=discord.Embed(title=title, url=url, description=desc))
 
     @commands.command(brief='Recommend a contest')
     async def vc(self, ctx, handle: str):
@@ -160,43 +150,44 @@ class Codeforces(commands.Cog):
             return
 
         try:
-            probresp = await cf.problemset.problems()
-            subsresp = await cf.user.status(handle=handle, count=10000)
+            problems, _ = await cf.problemset.problems()
+            subs = await cf.user.status(handle=handle, count=10000)
         except aiohttp.ClientConnectionError:
             await ctx.send('Error connecting to Codeforces API')
             return
         except cf.NotFoundError:
             await ctx.send(f'Handle not found: `{handle}`')
             return
+        except cf.InvalidParamError:
+            await ctx.send(f'Not a valid Codeforces handle: `{handle}`')
+            return
         except cf.CodeforcesApiError:
-            await ctx.send('Codeforces API denied the request, please make the handle is valid.')
+            await ctx.send('Codeforces API error.')
             return
 
         recommendations = set()
 
-        problems = probresp['problems']
         for problem in problems:
-            if ('*special' not in problem['tags']) and (problem.get('contestId', 10000) < 10000):
-                recommendations.add(problem['contestId'])
+            if '*special' not in problem.tags and problem.contestId:
+                recommendations.add(problem.contestId)
 
-        for sub in subsresp:
-            if 'rating' in sub['problem']:
-                recommendations.discard(problem['contestId'])
+        for sub in subs:
+            recommendations.discard(sub.problem.contestId)
 
         if not recommendations:
             await ctx.send('{} is already too gud'.format(handle))
         else:
             contestid = random.choice(list(recommendations))
-            contestresp = await cf.contest.standings(contestid=contestid, from_=1, count=1)
-            contestname = contestresp['contest']['name']
+            # from and count are for ranklist, set to minimum (1) because we only need name
+            contest, _, _ = await cf.contest.standings(contestid=contestid, from_=1, count=1)
             url = f'{cf.CONTEST_BASE_URL}{contestid}/'
 
-            await ctx.send(f'Recommended contest for `{handle}`', embed=discord.Embed(title=contestname, url=url))
+            await ctx.send(f'Recommended contest for `{handle}`', embed=discord.Embed(title=contest.name, url=url))
 
     @commands.command(brief='Compare epeens.')
     async def rating(self, ctx, *handles: str):
         """Compare epeens."""
-        handles = handles or ('!' + str(ctx.author), )
+        handles = handles or ('!' + str(ctx.author),)
         if len(handles) > 5:
             await ctx.send('Number of handles must be at most 5')
             return
@@ -211,34 +202,33 @@ class Codeforces(commands.Cog):
 
         for handle in handles:
             try:
-                contests = await cf.user.rating(handle=handle)
+                rating_changes = await cf.user.rating(handle=handle)
             except aiohttp.ClientConnectionError:
                 await ctx.send('Error connecting to Codeforces API')
                 return
             except cf.NotFoundError:
                 await ctx.send(f'Handle not found: `{handle}`')
                 return
+            except cf.InvalidParamError:
+                await ctx.send(f'Not a valid Codeforces handle: `{handle}`')
+                return
             except cf.CodeforcesApiError:
-                await ctx.send('Codeforces API denied the request, please make sure handles are valid.')
+                await ctx.send('Codeforces API error.')
                 return
 
             ratings, times = [], []
-            for contest in contests:
-                ratings.append(contest['newRating'])
-                times.append(datetime.datetime.fromtimestamp(contest['ratingUpdateTimeSeconds']))
+            for rating_change in rating_changes:
+                ratings.append(rating_change.newRating)
+                times.append(datetime.datetime.fromtimestamp(rating_change.ratingUpdateTimeSeconds))
 
             plt.plot(
                 times, ratings, linestyle='-', marker='o', markersize=3, markerfacecolor='white', markeredgewidth=0.5)
             rate.append(ratings[-1])
 
         ymin, ymax = plt.gca().get_ylim()
-        colors = [('#AA0000', 3000, 4000), ('#FF3333', 2600, 3000), ('#FF7777', 2400, 2600), ('#FFBB55', 2300, 2400),
-                  ('#FFCC88', 2100, 2300), ('#FF88FF', 1900, 2100), ('#AAAAFF', 1600, 1900), ('#77DDBB', 1400, 1600),
-                  ('#77FF77', 1200, 1400), ('#CCCCCC', 0, 1200)]
-
         bgcolor = plt.gca().get_facecolor()
-        for color, lo, hi in colors:
-            plt.axhspan(lo, hi, facecolor=color, alpha=0.8, edgecolor=bgcolor, linewidth=0.5)
+        for low, high, color, _ in cf.RankHelper.rank_info:
+            plt.axhspan(low, high, facecolor=color, alpha=0.8, edgecolor=bgcolor, linewidth=0.5)
 
         plt.ylim(ymin, ymax)
         plt.gcf().autofmt_xdate()
@@ -252,13 +242,12 @@ class Codeforces(commands.Cog):
         plt.legend(labels, loc='upper left')
         plt.title('Rating graph on Codeforces')
 
-        discord_file = self.get_current_figure_as_file()
-        await ctx.send(file=discord_file)
+        await ctx.send(file=get_current_figure_as_file())
 
     @commands.command(brief='Show histogram of solved problems on CF.')
     async def solved(self, ctx, *handles: str):
         """Shows a histogram of problems solved on Codeforces for the handles provided."""
-        handles = handles or ('!' + str(ctx.author), )
+        handles = handles or ('!' + str(ctx.author),)
         if len(handles) > 5:
             await ctx.send('Number of handles must be at most 5')
             return
@@ -278,15 +267,18 @@ class Codeforces(commands.Cog):
             except cf.NotFoundError:
                 await ctx.send(f'Handle not found: `{handle}`')
                 return
+            except cf.InvalidParamError:
+                await ctx.send(f'Not a valid Codeforces handle: `{handle}`')
+                return
             except cf.CodeforcesApiError:
-                await ctx.send('Codeforces API denied the request, please make sure handles are valid.')
+                await ctx.send('Codeforces API error.')
                 return
 
             problems = dict()
             for submission in submissions:
-                problem = submission['problem']
-                if ('rating' in problem) and (submission['verdict'] == 'OK'):
-                    problems[(problem['contestId'], problem['index'])] = problem['rating']
+                problem = submission.problem
+                if submission.verdict == 'OK' and problem.rating:
+                    problems[problem.contest_identifier] = problem.rating
 
             ratings = list(problems.values())
             allratings.append(ratings)
@@ -308,19 +300,7 @@ class Codeforces(commands.Cog):
         plt.ylabel('Number solved')
         plt.legend(loc='upper right')
 
-        discord_file = self.get_current_figure_as_file()
-        await ctx.send(file=discord_file)
-
-    @staticmethod
-    def get_current_figure_as_file():
-        filename = f'tempplot_{time.time()}.png'
-        plt.savefig(filename, facecolor=plt.gca().get_facecolor(), bbox_inches='tight', pad_inches=0.25)
-
-        with open(filename, 'rb') as file:
-            discord_file = discord.File(io.BytesIO(file.read()), filename='plot.png')
-
-        os.remove(filename)
-        return discord_file
+        await ctx.send(file=get_current_figure_as_file())
 
 
 def setup(bot):

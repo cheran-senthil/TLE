@@ -40,7 +40,6 @@ def main():
 
     logging.info(f'Cogs loaded...')
     bot.run(token)
-    logging.info(f'Bot running...')
 
 
 if __name__ == '__main__':

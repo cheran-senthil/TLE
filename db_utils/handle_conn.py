@@ -1,4 +1,5 @@
 import sqlite3
+from tle.cogs.util import codeforces_api as cf
 
 
 class HandleConn():
@@ -14,30 +15,34 @@ class HandleConn():
             CREATE TABLE IF NOT EXISTS cf_cache(
                 handle TEXT PRIMARY KEY,
                 rating INTEGER,
-                photo TEXT
+                titlePhoto TEXT
             )
         ''')
 
-    def cachehandle(self, handle, rating, photo):
+    def cache_cfuser(self, user):
         """ return 1 if set, 0 if not """
         query = '''
-            INSERT OR REPLACE INTO cf_cache (handle, rating, photo)
+            INSERT OR REPLACE INTO cf_cache (handle, rating, titlePhoto)
             values (?, ?, ?)
         '''
-        rc = self.conn.execute(query, (handle, rating, photo))
+        rc = self.conn.execute(query, user)
         self.conn.commit()
         return rc
 
-    def fetch_handle_info(self, handle):
+    def fetch_cfuser(self, handle):
         query = '''
-            SELECT rating, photo FROM cf_cache
+            SELECT handle, rating, titlePhoto FROM cf_cache
             WHERE handle = ?
         '''
-        return self.conn.execute(query, (handle,)).fetchone()
+        user = self.conn.execute(query, (handle,)).fetchone()
+        if user:
+            user = cf.User._make(user)
+        return user
 
     def getallcache(self):
-        query = 'SELECT handle, rating, photo FROM cf_cache'
-        return self.conn.execute(query).fetchall()
+        query = 'SELECT handle, rating, titlePhoto FROM cf_cache'
+        users = self.conn.execute(query).fetchall()
+        return [cf.User._make(user) for user in users]
 
     def clearcache(self):
         query = 'DELETE FROM cf_cache'
@@ -57,14 +62,14 @@ class HandleConn():
     def gethandle(self, id):
         """ returns string or None """
         query = 'SELECT handle FROM user_handle WHERE id = ?'
-        res = self.conn.execute(query, (id, )).fetchone()
+        res = self.conn.execute(query, (id,)).fetchone()
         return res[0] if res else None
 
     def getallhandles(self):
         """ returns list of (id, handle) """
         query = 'SELECT id, handle FROM user_handle'
         return self.conn.execute(query).fetchall()
-    
+
     def getallhandleswithrating(self):
         """ returns list of (id, handle, rating) """
         query = '''
@@ -78,7 +83,7 @@ class HandleConn():
     def removehandle(self, id):
         """ returns 1 if removed, 0 if not """
         query = 'DELETE FROM user_handle WHERE id = ?'
-        rc = self.conn.execute(query, (id, )).rowcount
+        rc = self.conn.execute(query, (id,)).rowcount
         self.conn.commit()
         return rc
 

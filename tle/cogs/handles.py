@@ -10,37 +10,17 @@ from tle.cogs.util import codeforces_api as cf
 PROFILE_BASE_URL = 'https://codeforces.com/profile/'
 
 
-def rating2rank(rating):
-    if rating < 1200:
-        return 'Newbie'
-    if rating < 1400:
-        return 'Pupil'
-    if rating < 1600:
-        return 'Specialist'
-    if rating < 1900:
-        return 'Expert'
-    if rating < 2100:
-        return 'Candidate Master'
-    if rating < 2300:
-        return 'Master'
-    if rating < 2400:
-        return 'International Master'
-    if rating < 2600:
-        return 'Grandmaster'
-    if rating < 3000:
-        return 'International Grandmaster'
-    return 'Legendary Grandmaster'
-
-
 def make_profile_embed(member, handle, rating, photo, *, mode):
     if mode == 'set':
         desc = f'Handle for **{member.display_name}** successfully set to [**{handle}**]({PROFILE_BASE_URL}{handle})'
     elif mode == 'get':
         desc = f'Handle for **{member.display_name}** is currently set to [**{handle}**]({PROFILE_BASE_URL}{handle})'
+    else:
+        return None
     rating = rating or 'Unrated'
     embed = discord.Embed(description=desc)
     embed.add_field(name='Rating', value=rating, inline=True)
-    embed.add_field(name='Rank', value=rating2rank(rating), inline=True)
+    embed.add_field(name='Rank', value=cf.RankHelper.rating2rank(rating), inline=True)
     embed.set_thumbnail(url=f'http:{photo}')
     return embed
 
@@ -55,23 +35,25 @@ class Handles(commands.Cog):
     async def sethandle(self, ctx, member: discord.Member, handle: str):
         """Set Codeforces handle of a user"""
         try:
-            info = await cf.user.info(handles=[handle])
-            info = info[0]
+            users = await cf.user.info(handles=[handle])
+            user = users[0]
         except aiohttp.ClientConnectionError:
             await ctx.send('Could not connect to CF API to verify handle')
             return
         except cf.NotFoundError:
             await ctx.send(f'Handle not found: `{handle}`')
             return
+        except cf.InvalidParamError:
+            await ctx.send(f'Not a valid Codeforces handle: `{handle}`')
+            return
         except cf.CodeforcesApiError:
-            await ctx.send('Codeforces API denied the request, please make the handle is valid.')
+            await ctx.send('Codeforces API error.')
             return
 
-        rating, photo = info.get('rating'), info['titlePhoto']
-        self.conn.cachehandle(handle, rating, photo)
+        self.conn.cache_cfuser(user)
         self.conn.sethandle(member.id, handle)
 
-        embed = make_profile_embed(member, handle, rating, photo, mode='set')
+        embed = make_profile_embed(member, handle, user.rating, user.titlePhoto, mode='set')
         await ctx.send(embed=embed)
 
     @commands.command(brief='gethandle [name]')
@@ -81,14 +63,13 @@ class Handles(commands.Cog):
         if not handle:
             await ctx.send(f'Handle for user {member.display_name} not found in database')
             return
-        res = self.conn.fetch_handle_info(handle)
-        if res is None:
+        user = self.conn.fetch_cfuser(handle)
+        if user is None:
             # Not cached, should not happen
             logging.error(f'Handle info for {handle} not cached')
             return
 
-        rating, photo = res
-        embed = make_profile_embed(member, handle, rating, photo, mode='get')
+        embed = make_profile_embed(member, handle, user.rating, user.titlePhoto, mode='get')
         await ctx.send(embed=embed)
 
     @commands.command(brief='removehandle [name] (admin-only)')
@@ -145,7 +126,7 @@ class Handles(commands.Cog):
     @commands.has_role('Admin')
     async def showcache(self, ctx):
         cache = self.conn.getallcache()
-        msg = '```\n{}\n```'.format(tabulate(cache), headers=('handle', 'rating', 'photo'))
+        msg = '```\n{}\n```'.format(tabulate(cache, headers=('handle', 'rating', 'titlePhoto')))
         await ctx.send(msg)
 
 
