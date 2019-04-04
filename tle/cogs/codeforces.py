@@ -36,7 +36,7 @@ class Codeforces(commands.Cog):
         self.contest_names = {}
 
     @commands.Cog.listener()
-    async def on_ready(self):        
+    async def on_ready(self):
         asyncio.create_task(self._cache_data())
         print('warming up cache...')
 
@@ -66,8 +66,8 @@ class Codeforces(commands.Cog):
     async def updatestatus_(self, ctx):
         active_ids = [m.id for m in ctx.guild.members]
         rc = self.conn.update_status(active_ids)
-        await ctx.send(f'{rc} members active with handle')    
-        
+        await ctx.send(f'{rc} members active with handle')
+
     @commands.command(brief='clear cache (admin-only)', hidden=True)
     @commands.has_role('Admin')
     async def clearcache_(self, ctx):
@@ -148,7 +148,7 @@ class Codeforces(commands.Cog):
                     pass
 
         # 1500 is default lower_bound for unrated user
-        # changed this back to if None because 0 -> False (try gitgud all 0 800)        
+        # changed this back to if None because 0 -> False (try gitgud all 0 800)
         if lower_bound is None:
             lower_bound = rating
             if lower_bound is None:
@@ -201,8 +201,9 @@ class Codeforces(commands.Cog):
             return
 
         try:
-            problems, _ = await cf.problemset.problems()
             usubs = [await cf.user.status(handle=h, count=10000) for h in handles]
+            info = await cf.user.info(handles=handles)
+            contests = await cf.contest.list()
         except aiohttp.ClientConnectionError:
             await ctx.send('Error connecting to Codeforces API')
             return
@@ -218,9 +219,15 @@ class Codeforces(commands.Cog):
 
         recommendations = set()
 
-        for problem in problems:
-            if '*special' not in problem.tags and problem.contestId:
-                recommendations.add(problem.contestId)
+        def rtd(r):
+            return 2 if r < 1600 else 1 if r < 2100 else 0
+
+        # TODO: div1 classification is wrong
+        recommendations = [
+            {contest.id for contest in contests if 'Div. 1' in contest.name},
+            {contest.id for contest in contests if 'Div. 2' in contest.name},
+            {contest.id for contest in contests if 'Div. 3' in contest.name}
+        ][rtd(sum([info[i].rating for i in range(len(handles))]) / len(handles))]
 
         for subs in usubs:
             for sub in subs:
