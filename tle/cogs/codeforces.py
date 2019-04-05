@@ -123,9 +123,7 @@ class Codeforces(commands.Cog):
         solved = {prob.contest_identifier for prob in solved if prob.has_metadata()}
         solved = json.dumps(list(solved))
         stamp = time.time()
-        handle_conn.conn.cache_cfuser_full(
-            (handle, info.rating, info.titlePhoto, solved, stamp)
-        )
+        handle_conn.conn.cache_cfuser_full((handle, info.rating, info.titlePhoto, solved, stamp))
         return stamp, info.rating, solved
 
     @lru_cache(maxsize=15)
@@ -203,7 +201,7 @@ class Codeforces(commands.Cog):
     @commands.command(brief='Recommend a contest')
     async def vc(self, ctx, *handles: str):
         """Recommends a contest based on Codeforces rating of the handle provided."""
-        handles = handles or ('!' + str(ctx.author),)
+        handles = handles or ('!' + str(ctx.author), )
         try:
             handles = [await self.resolve_handle(ctx, h) for h in handles]
         except:
@@ -252,7 +250,7 @@ class Codeforces(commands.Cog):
     @commands.command(brief='Compare epeens.')
     async def rating(self, ctx, *handles: str):
         """Compare epeens."""
-        handles = handles or ('!' + str(ctx.author),)
+        handles = handles or ('!' + str(ctx.author), )
         if len(handles) > 5:
             await ctx.send('Number of handles must be at most 5')
             return
@@ -312,7 +310,7 @@ class Codeforces(commands.Cog):
     @commands.command(brief='Show histogram of solved problems on CF.')
     async def solved(self, ctx, *handles: str):
         """Shows a histogram of problems solved on Codeforces for the handles provided."""
-        handles = handles or ('!' + str(ctx.author),)
+        handles = handles or ('!' + str(ctx.author), )
         if len(handles) > 5:
             await ctx.send('Number of handles must be at most 5')
             return
@@ -379,7 +377,7 @@ class Codeforces(commands.Cog):
         except:
             await ctx.send('bad handle')
             return
-        
+
         # get submissions
         try:
             submissions = await cf.user.status(handle=handle)
@@ -396,29 +394,31 @@ class Codeforces(commands.Cog):
             await ctx.send('Codeforces API error.')
             return
 
-        vc, practice, contest = [], [], []
+        regular, practice, virtual = [], [], []
         for submission in submissions:
             if submission.verdict == 'OK':
-                problem = submission.problem
-                # CF problems don't have IDs! Just hope (name, rating) pairs don't clash?
-                name = problem.name
-                rating = problem.rating
-                t = submission.author['participantType']
+                rating = submission.problem.rating
                 time = submission.creationTimeSeconds
                 if rating and time:
+                    contest_type = submission.author['participantType']
                     entry = [datetime.datetime.fromtimestamp(time), rating]
-                    if t == 'PRACTICE': practice.append(entry)
-                    elif t == 'VIRTUAL': vc.append(entry)
-                    else: contest.append(entry)
+                    if contest_type == 'PRACTICE':
+                        practice.append(entry)
+                    elif contest_type == 'VIRTUAL':
+                        virtual.append(entry)
+                    else:
+                        regular.append(entry)
 
         plt.clf()
-        for i in [practice, vc, contest]:
-            if i: plt.scatter(list(zip(*i))[0], list(zip(*i))[1], zorder=10, s=3)
-            else: plt.scatter([], [], zorder=10, s=3)
+        for contest in [regular, practice, virtual]:
+            if contest:
+                times, ratings = zip(*contest)
+                plt.scatter(times, ratings, zorder=10, s=3)
+            else:
+                plt.scatter([], [], zorder=10, s=3)
 
         plt.title('Solved Problem Rating History on Codeforces')
-
-        labels = ['Practice', 'Virtual', 'Contest']
+        labels = ['Regular', 'Practice', 'Virtual']
         plt.legend(labels, loc='upper left')
 
         ymin, ymax = plt.gca().get_ylim()
@@ -432,10 +432,10 @@ class Codeforces(commands.Cog):
 
         for loc in locs:
             plt.axvspan(loc, loc, facecolor='white')
-        
+
         # all ratings and times
-        total = sorted(vc + practice + contest)
-        
+        total = sorted(regular + practice + virtual)
+
         # moving average
         if len(total) > bin_size:
             avg = []
@@ -451,6 +451,7 @@ class Codeforces(commands.Cog):
                 list(zip(*avg))[0], list(zip(*avg))[1], linestyle='-', markerfacecolor='white', markeredgewidth=0.5)
 
         await ctx.send(file=get_current_figure_as_file())
+
 
 def setup(bot):
     bot.add_cog(Codeforces(bot))
