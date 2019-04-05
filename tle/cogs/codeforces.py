@@ -371,7 +371,6 @@ class Codeforces(commands.Cog):
             await ctx.send('Moving average window size must be at least 1.')
             return
 
-        # access CF API
         try:
             handle = await self.resolve_handle(ctx, handle)
         except:
@@ -433,20 +432,17 @@ class Codeforces(commands.Cog):
         for loc in locs:
             plt.axvspan(loc, loc, facecolor='white')
 
-        # all ratings and times
-        total = sorted(regular + practice + virtual)
-
         # moving average
-        if len(total) > bin_size:
+        if len(practice) > bin_size:
             avg = []
-            time = sum([datetime.datetime.timestamp(x[0]) for x in total[:bin_size - 1]])
-            rating = sum([x[1] for x in total[:bin_size - 1]])
-            for i in range(bin_size - 1, len(total)):
-                time += datetime.datetime.timestamp(total[i][0])
-                rating += total[i][1]
+            time = sum([datetime.datetime.timestamp(x[0]) for x in practice[:bin_size - 1]])
+            rating = sum([x[1] for x in practice[:bin_size - 1]])
+            for i in range(bin_size - 1, len(practice)):
+                time += datetime.datetime.timestamp(practice[i][0])
+                rating += practice[i][1]
                 avg.append([datetime.datetime.fromtimestamp(time / bin_size), rating / bin_size])
-                time -= datetime.datetime.timestamp(total[i - bin_size + 1][0])
-                rating -= total[i - bin_size + 1][1]
+                time -= datetime.datetime.timestamp(practice[i - bin_size + 1][0])
+                rating -= practice[i - bin_size + 1][1]
             plt.plot(
                 list(zip(*avg))[0], list(zip(*avg))[1], linestyle='-', markerfacecolor='white', markeredgewidth=0.5)
 
