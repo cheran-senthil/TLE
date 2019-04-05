@@ -367,6 +367,90 @@ class Codeforces(commands.Cog):
 
         await ctx.send(file=get_current_figure_as_file())
 
+    @commands.command(brief='Show history of problems solved by rating.')
+    async def scatter(self, ctx, handle: str, bin_size: int = 10):
+        if bin_size < 1:
+            await ctx.send('Moving average window size must be at least 1.')
+            return
+
+        # access CF API
+        try:
+            handle = await self.resolve_handle(ctx, handle)
+        except:
+            await ctx.send('bad handle')
+            return
+        
+        # get submissions
+        try:
+            submissions = await cf.user.status(handle=handle)
+        except aiohttp.ClientConnectionError:
+            await ctx.send('Error connecting to Codeforces API')
+            return
+        except cf.NotFoundError:
+            await ctx.send(f'Handle not found: `{handle}`')
+            return
+        except cf.InvalidParamError:
+            await ctx.send(f'Not a valid Codeforces handle: `{handle}`')
+            return
+        except cf.CodeforcesApiError:
+            await ctx.send('Codeforces API error.')
+            return
+
+        vc, practice, contest = [], [], []
+        for submission in submissions:
+            if submission.verdict == 'OK':
+                problem = submission.problem
+                # CF problems don't have IDs! Just hope (name, rating) pairs don't clash?
+                name = problem.name
+                rating = problem.rating
+                t = submission.author['participantType']
+                time = submission.creationTimeSeconds
+                if rating and time:
+                    entry = [datetime.datetime.fromtimestamp(time), rating]
+                    if t == 'PRACTICE': practice.append(entry)
+                    elif t == 'VIRTUAL': vc.append(entry)
+                    else: contest.append(entry)
+
+        plt.clf()
+        for i in [practice, vc, contest]:
+            if i: plt.scatter(list(zip(*i))[0], list(zip(*i))[1], zorder=10, s=3)
+            else: plt.scatter([], [], zorder=10, s=3)
+
+        plt.title('Solved Problem Rating History on Codeforces')
+
+        labels = ['Practice', 'Virtual', 'Contest']
+        plt.legend(labels, loc='upper left')
+
+        ymin, ymax = plt.gca().get_ylim()
+        bgcolor = plt.gca().get_facecolor()
+        for low, high, color, _ in cf.RankHelper.rank_info:
+            plt.axhspan(low, high, facecolor=color, alpha=0.8, edgecolor=bgcolor, linewidth=0.5)
+
+        plt.ylim(ymin, ymax)
+        plt.gcf().autofmt_xdate()
+        locs, labels = plt.xticks()
+
+        for loc in locs:
+            plt.axvspan(loc, loc, facecolor='white')
+        
+        # all ratings and times
+        total = sorted(vc + practice + contest)
+        
+        # moving average
+        if len(total) > bin_size:
+            avg = []
+            time = sum([datetime.datetime.timestamp(x[0]) for x in total[:bin_size - 1]])
+            rating = sum([x[1] for x in total[:bin_size - 1]])
+            for i in range(bin_size - 1, len(total)):
+                time += datetime.datetime.timestamp(total[i][0])
+                rating += total[i][1]
+                avg.append([datetime.datetime.fromtimestamp(time / bin_size), rating / bin_size])
+                time -= datetime.datetime.timestamp(total[i - bin_size + 1][0])
+                rating -= total[i - bin_size + 1][1]
+            plt.plot(
+                list(zip(*avg))[0], list(zip(*avg))[1], linestyle='-', markerfacecolor='white', markeredgewidth=0.5)
+
+        await ctx.send(file=get_current_figure_as_file())
 
 def setup(bot):
     bot.add_cog(Codeforces(bot))

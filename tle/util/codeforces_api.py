@@ -78,7 +78,7 @@ class Problem(namedtuple('Problem', 'contestId index name type rating tags')):
 
 ProblemStatistics = namedtuple('ProblemStatistics', 'contestId index solvedCount')
 
-Submission = namedtuple('Submissions', 'id contestId problem author programmingLanguage verdict')
+Submission = namedtuple('Submissions', 'id contestId problem author programmingLanguage verdict creationTimeSeconds')
 
 RanklistRow = namedtuple('RanklistRow', 'party rank')
 
