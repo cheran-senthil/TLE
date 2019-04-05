@@ -29,6 +29,7 @@ def get_current_figure_as_file():
     os.remove(filename)
     return discord_file
 
+
 def plot_rating_bg():
     ymin, ymax = plt.gca().get_ylim()
     bgcolor = plt.gca().get_facecolor()
@@ -41,6 +42,21 @@ def plot_rating_bg():
 
     for loc in locs:
         plt.axvline(loc, color=bgcolor, linewidth=0.5)
+
+
+def running_mean(x, bin_size=1):
+    n = len(x)
+
+    cum_sum = [0] * (n + 1)
+    for i in range(n):
+        cum_sum[i + 1] = x[i] + cum_sum[i]
+
+    res = [0] * (n - bin_size + 1)
+    for i in range(bin_size, n + 1):
+        res[i - bin_size] = (cum_sum[i] - cum_sum[i - bin_size]) / bin_size
+
+    return res
+
 
 class Codeforces(commands.Cog):
     def __init__(self, bot):
@@ -426,19 +442,12 @@ class Codeforces(commands.Cog):
         # moving average
         if len(practice) > bin_size:
             times, ratings = map(list, zip(*practice))
+
             times = [datetime.datetime.timestamp(time) for time in times]
-
-            def running_mean(x):
-                cum_sum = [0] * (len(x) + 1)
-                for i in range(len(x)): cum_sum[i + 1] = x[i] + cum_sum[i]
-                res = [0] * (len(x) - bin_size + 1)
-                for i in range(bin_size, len(cum_sum)):
-                    res[i - bin_size] = (cum_sum[i] - cum_sum[i - bin_size]) / bin_size
-                return res
-
-            times = running_mean(times)
+            times = running_mean(times, bin_size)
+            ratings = running_mean(ratings, bin_size)
             times = [datetime.datetime.fromtimestamp(time) for time in times]
-            ratings = running_mean(ratings)
+
             plt.plot(times, ratings, linestyle='-', markerfacecolor='white', markeredgewidth=0.5)
 
         await ctx.send(file=get_current_figure_as_file())
