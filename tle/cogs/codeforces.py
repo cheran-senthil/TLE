@@ -14,12 +14,13 @@ import discord
 from discord.ext import commands
 from matplotlib import pyplot as plt
 
-from tle.cogs.util import codeforces_api as cf
-from db_utils.handle_conn import HandleConn
+from tle import constants
+from tle.util import codeforces_api as cf
+from tle.util.handle_conn import HandleConn
 
 
 def get_current_figure_as_file():
-    filename = f'tempplot_{time.time()}.png'
+    filename = os.path.join(constants.FILEDIR, 'tempplot_{time.time()}.png')
     plt.savefig(filename, facecolor=plt.gca().get_facecolor(), bbox_inches='tight', pad_inches=0.25)
 
     with open(filename, 'rb') as file:

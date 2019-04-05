@@ -1,9 +1,8 @@
 import asyncio
 from collections import defaultdict
 
-import discord
 from discord.ext import commands
-from tle.cogs.util import cses_scraper as cses
+from tle.util import cses_scraper as cses
 
 
 def score(placings):

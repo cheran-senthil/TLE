@@ -1,11 +1,12 @@
 import logging
-import time
+
 import aiohttp
 import discord
-from db_utils.handle_conn import HandleConn
 from discord.ext import commands
 from tabulate import tabulate
-from tle.cogs.util import codeforces_api as cf
+
+from tle.util import codeforces_api as cf
+from tle.util.handle_conn import HandleConn
 
 PROFILE_BASE_URL = 'https://codeforces.com/profile/'
 

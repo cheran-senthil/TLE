@@ -1,7 +1,6 @@
-import time
-from db_utils.handle_conn import HandleConn
+from tle.util.handle_conn import HandleConn
 from discord.ext import commands
-from tle.cogs.util import codeforces_api as cf
+from tle.util import codeforces_api as cf
 
 
 class Roles(commands.Cog):

@@ -1,9 +1,10 @@
 import sqlite3
 import time
-from tle.cogs.util import codeforces_api as cf
+
+from tle.util import codeforces_api as cf
 
 
-class HandleConn():
+class HandleConn:
     def __init__(self, dbfile):
         self.conn = sqlite3.connect(dbfile)
         # status => 0 inactive, 1 active        
@@ -33,7 +34,7 @@ class HandleConn():
             (handle, rating, titlePhoto, lastCached)
             VALUES (?, ?, ?, ?)
         '''
-        rc = self.conn.execute(query, user + (time.time(), ))
+        rc = self.conn.execute(query, user + (time.time(),))
         self.conn.commit()
         return rc
 
@@ -59,7 +60,7 @@ class HandleConn():
 
     def fetch_cfuser_custom(self, handle: str, columns: list):
         query = 'SELECT {} FROM cf_cache WHERE handle = ?'.format(', '.join(columns))
-        return self.conn.execute(query, (handle, )).fetchone()
+        return self.conn.execute(query, (handle,)).fetchone()
 
     def getallcache(self):
         query = 'SELECT handle, rating, titlePhoto FROM cf_cache'
@@ -111,7 +112,7 @@ class HandleConn():
 
     def update_status(self, active_ids: list):
         if not active_ids: return 0
-        placeholders = ', '.join(['?']*len(active_ids))
+        placeholders = ', '.join(['?'] * len(active_ids))
         inactive_query = '''
             UPDATE user_handle
             SET status = 0

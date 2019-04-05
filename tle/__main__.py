@@ -1,4 +1,5 @@
 import logging
+import os
 from os import environ
 from pathlib import Path
 
@@ -6,8 +7,10 @@ import seaborn as sns
 from discord.ext import commands
 from matplotlib import pyplot as plt
 
+from tle import constants
 
-def setglobaldefaults():
+
+def setup():
     # logging
     logging.basicConfig(level=logging.INFO)
 
@@ -21,6 +24,8 @@ def setglobaldefaults():
     }
     sns.set_style('darkgrid', options)
 
+    os.makedirs(constants.FILEDIR, exist_ok=True)
+
 
 def main():
     token = environ.get('BOT_TOKEN')
@@ -28,7 +33,7 @@ def main():
         logging.error('Token required')
         return
 
-    setglobaldefaults()
+    setup()
 
     bot = commands.Bot(command_prefix=commands.when_mentioned_or(';'))
     cogs = [file.stem for file in Path('tle', 'cogs').glob('*.py')]
