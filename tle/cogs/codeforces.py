@@ -366,11 +366,12 @@ class Codeforces(commands.Cog):
         await ctx.send(file=get_current_figure_as_file())
 
     @commands.command(brief='Show history of problems solved by rating.')
-    async def scatter(self, ctx, handle: str, bin_size: int = 10):
+    async def scatter(self, ctx, handle: str = None, bin_size: int = 10):
         if bin_size < 1:
             await ctx.send('Moving average window size must be at least 1.')
             return
 
+        handle = handle or '!' + str(ctx.author)
         try:
             handle = await self.resolve_handle(ctx, handle)
         except:
