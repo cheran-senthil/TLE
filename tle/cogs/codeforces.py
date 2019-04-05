@@ -16,7 +16,7 @@ from matplotlib import pyplot as plt
 
 from tle import constants
 from tle.util import codeforces_api as cf
-from tle.util.handle_conn import HandleConn
+from tle.util import handle_conn
 
 
 def get_current_figure_as_file():
@@ -33,7 +33,6 @@ def get_current_figure_as_file():
 class Codeforces(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.conn = HandleConn('handles.db')
         self.converter = commands.MemberConverter()
         self.problems = None
         self.problem_ratings = None  # for binary search
@@ -46,7 +45,7 @@ class Codeforces(commands.Cog):
 
     async def regular_cache(self, interval, handle_interval=None):
         await self.cache_problems()
-        handles = self.conn.getallhandles()
+        handles = handle_conn.conn.getallhandles()
         logging.info(f'{len(handles)} handles active')
         if handles:
             iv = handle_interval or interval / len(handles)
@@ -69,14 +68,14 @@ class Codeforces(commands.Cog):
     @commands.has_role('Admin')
     async def updatestatus_(self, ctx):
         active_ids = [m.id for m in ctx.guild.members]
-        rc = self.conn.update_status(active_ids)
+        rc = handle_conn.conn.update_status(active_ids)
         await ctx.send(f'{rc} members active with handle')
 
     @commands.command(brief='clear cache (admin-only)', hidden=True)
     @commands.has_role('Admin')
     async def clearcache_(self, ctx):
         try:
-            self.conn.clear_cache()
+            handle_conn.conn.clear_cache()
             self.problems = None
             self.problem_ratings = None
             self.contest_names = {}
@@ -90,7 +89,7 @@ class Codeforces(commands.Cog):
         if handle[0] != '!':
             return handle
         member = await self.converter.convert(ctx, handle[1:])
-        res = self.conn.gethandle(member.id)
+        res = handle_conn.conn.gethandle(member.id)
         if res is None:
             raise Exception('bad')
         return res
@@ -124,14 +123,14 @@ class Codeforces(commands.Cog):
         solved = {prob.contest_identifier for prob in solved if prob.has_metadata()}
         solved = json.dumps(list(solved))
         stamp = time.time()
-        self.conn.cache_cfuser_full(
+        handle_conn.conn.cache_cfuser_full(
             (handle, info.rating, info.titlePhoto, solved, stamp)
         )
         return stamp, info.rating, solved
 
     @lru_cache(maxsize=15)
     def get_cached_user(self, handle: str):
-        res = self.conn.fetch_cfuser_custom(handle, ['rating', 'solved', 'lastCached'])
+        res = handle_conn.conn.fetch_cfuser_custom(handle, ['rating', 'solved', 'lastCached'])
         if res:  # cache found in database
             return [res[2], res[0], (set(json.loads(res[1])) if res[1] else None)]
         return [None, None, None]
@@ -142,7 +141,7 @@ class Codeforces(commands.Cog):
         A space separated string of tags is supported. If the tag "any" is present tags will be ignored.
         Tags will match if they appear as substring in the problem tags.
         Lower bound defaults to the invoker's user rating. Upper bound defaults to lower bound + 300."""
-        handle = self.conn.gethandle(ctx.message.author.id)
+        handle = handle_conn.conn.gethandle(ctx.message.author.id)
         rating, solved = None, None
         if handle:
             res = self.get_cached_user(handle)

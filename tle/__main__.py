@@ -8,6 +8,7 @@ from discord.ext import commands
 from matplotlib import pyplot as plt
 
 from tle import constants
+from tle.util import handle_conn
 
 
 def setup():
@@ -24,7 +25,12 @@ def setup():
     }
     sns.set_style('darkgrid', options)
 
+    # Make dirs
     os.makedirs(constants.FILEDIR, exist_ok=True)
+
+    # Initialize database
+    dbfile = os.path.join(constants.FILEDIR, constants.DB_FILENAME)
+    handle_conn.initialize_conn(dbfile)
 
 
 def main():

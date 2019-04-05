@@ -1,6 +1,7 @@
-from tle.util.handle_conn import HandleConn
 from discord.ext import commands
+
 from tle.util import codeforces_api as cf
+from tle.util import handle_conn
 
 
 class Roles(commands.Cog):
@@ -25,19 +26,16 @@ class Roles(commands.Cog):
             return
 
         try:
-            conn = HandleConn('handles.db')
-            res = conn.getallhandles()
+            res = handle_conn.conn.getallhandles()
             handles = [handle for _, handle in res]
             users = await cf.user.info(handles=handles)
             await ctx.send('caching handles...')
             try:
                 for user in users:
-                    conn.cache_cfuser(user)
+                    handle_conn.conn.cache_cfuser(user)
             except Exception as e:
                 print(e)
-            conn.close()
         except:
-            conn.close()
             await ctx.send('error getting data from cf')
             return
 

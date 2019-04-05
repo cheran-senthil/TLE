@@ -6,7 +6,7 @@ from discord.ext import commands
 from tabulate import tabulate
 
 from tle.util import codeforces_api as cf
-from tle.util.handle_conn import HandleConn
+from tle.util import handle_conn
 
 PROFILE_BASE_URL = 'https://codeforces.com/profile/'
 
@@ -29,7 +29,6 @@ def make_profile_embed(member, handle, rating, photo, *, mode):
 class Handles(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.conn = HandleConn('handles.db')
 
     @commands.command(brief='sethandle [name] [handle] (admin-only)')
     @commands.has_role('Admin')
@@ -54,8 +53,8 @@ class Handles(commands.Cog):
         # CF API returns correct handle ignoring case, update to it
         handle = user.handle
 
-        self.conn.cache_cfuser(user)
-        self.conn.sethandle(member.id, handle)
+        handle_conn.conn.cache_cfuser(user)
+        handle_conn.conn.sethandle(member.id, handle)
 
         embed = make_profile_embed(member, handle, user.rating, user.titlePhoto, mode='set')
         await ctx.send(embed=embed)
@@ -63,11 +62,11 @@ class Handles(commands.Cog):
     @commands.command(brief='gethandle [name]')
     async def gethandle(self, ctx, member: discord.Member):
         """Show Codeforces handle of a user"""
-        handle = self.conn.gethandle(member.id)
+        handle = handle_conn.conn.gethandle(member.id)
         if not handle:
             await ctx.send(f'Handle for user {member.display_name} not found in database')
             return
-        user = self.conn.fetch_cfuser(handle)
+        user = handle_conn.conn.fetch_cfuser(handle)
         if user is None:
             # Not cached, should not happen
             logging.error(f'Handle info for {handle} not cached')
@@ -84,7 +83,7 @@ class Handles(commands.Cog):
             await ctx.send('Member not found!')
             return
         try:
-            r = self.conn.removehandle(member.id)
+            r = handle_conn.conn.removehandle(member.id)
             if r == 1:
                 msg = f'removehandle: {member.name} removed'
             else:
@@ -97,7 +96,7 @@ class Handles(commands.Cog):
     async def showhandles(self, ctx):
         try:
             converter = commands.MemberConverter()
-            res = self.conn.getallhandleswithrating()
+            res = handle_conn.conn.getallhandleswithrating()
             res.sort(key=lambda r: r[2] if r[2] is not None else -1, reverse=True)
             table = []
             for i, (id, handle, rating) in enumerate(res):
@@ -119,7 +118,7 @@ class Handles(commands.Cog):
     @commands.command(brief='show cache (admin only)', hidden=True)
     @commands.has_role('Admin')
     async def showcache(self, ctx):
-        cache = self.conn.getallcache()
+        cache = handle_conn.conn.getallcache()
         msg = '```\n{}\n```'.format(tabulate(cache, headers=('handle', 'rating', 'titlePhoto')))
         await ctx.send(msg)
 
