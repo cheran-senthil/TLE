@@ -29,6 +29,18 @@ def get_current_figure_as_file():
     os.remove(filename)
     return discord_file
 
+def plot_rating_bg():
+    ymin, ymax = plt.gca().get_ylim()
+    bgcolor = plt.gca().get_facecolor()
+    for low, high, color, _ in cf.RankHelper.rank_info:
+        plt.axhspan(low, high, facecolor=color, alpha=0.8, edgecolor=bgcolor, linewidth=0.5)
+
+    plt.ylim(ymin, ymax)
+    plt.gcf().autofmt_xdate()
+    locs, labels = plt.xticks()
+
+    for loc in locs:
+        plt.axvline(loc, color=bgcolor, linewidth=0.5)
 
 class Codeforces(commands.Cog):
     def __init__(self, bot):
@@ -288,18 +300,7 @@ class Codeforces(commands.Cog):
                 times, ratings, linestyle='-', marker='o', markersize=3, markerfacecolor='white', markeredgewidth=0.5)
             rate.append(ratings[-1])
 
-        ymin, ymax = plt.gca().get_ylim()
-        bgcolor = plt.gca().get_facecolor()
-        for low, high, color, _ in cf.RankHelper.rank_info:
-            plt.axhspan(low, high, facecolor=color, alpha=0.8, edgecolor=bgcolor, linewidth=0.5)
-
-        plt.ylim(ymin, ymax)
-        plt.gcf().autofmt_xdate()
-        locs, labels = plt.xticks()
-
-        for loc in locs:
-            plt.axvline(loc, color=bgcolor, linewidth=0.5)
-
+        plot_rating_bg()
         zero_width_space = '\u200b'
         labels = [f'{zero_width_space}{handle} ({rating})' for handle, rating in zip(handles, rate)]
         plt.legend(labels, loc='upper left')
@@ -420,18 +421,7 @@ class Codeforces(commands.Cog):
         plt.title('Solved Problem Rating History on Codeforces')
         labels = ['Regular', 'Practice', 'Virtual']
         plt.legend(labels, loc='upper left')
-
-        ymin, ymax = plt.gca().get_ylim()
-        bgcolor = plt.gca().get_facecolor()
-        for low, high, color, _ in cf.RankHelper.rank_info:
-            plt.axhspan(low, high, facecolor=color, alpha=0.8, edgecolor=bgcolor, linewidth=0.5)
-
-        plt.ylim(ymin, ymax)
-        plt.gcf().autofmt_xdate()
-        locs, labels = plt.xticks()
-
-        for loc in locs:
-            plt.axvspan(loc, loc, facecolor='white')
+        plot_rating_bg()
 
         # moving average
         if len(practice) > bin_size:
