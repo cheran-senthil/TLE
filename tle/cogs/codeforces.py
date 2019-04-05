@@ -425,17 +425,21 @@ class Codeforces(commands.Cog):
 
         # moving average
         if len(practice) > bin_size:
-            avg = []
-            time = sum([datetime.datetime.timestamp(x[0]) for x in practice[:bin_size - 1]])
-            rating = sum([x[1] for x in practice[:bin_size - 1]])
-            for i in range(bin_size - 1, len(practice)):
-                time += datetime.datetime.timestamp(practice[i][0])
-                rating += practice[i][1]
-                avg.append([datetime.datetime.fromtimestamp(time / bin_size), rating / bin_size])
-                time -= datetime.datetime.timestamp(practice[i - bin_size + 1][0])
-                rating -= practice[i - bin_size + 1][1]
-            plt.plot(
-                list(zip(*avg))[0], list(zip(*avg))[1], linestyle='-', markerfacecolor='white', markeredgewidth=0.5)
+            times, ratings = map(list, zip(*practice))
+            times = [datetime.datetime.timestamp(time) for time in times]
+
+            def running_mean(x):
+                cum_sum = [0] * (len(x) + 1)
+                for i in range(len(x)): cum_sum[i + 1] = x[i] + cum_sum[i]
+                res = [0] * (len(x) - bin_size + 1)
+                for i in range(bin_size, len(cum_sum)):
+                    res[i - bin_size] = (cum_sum[i] - cum_sum[i - bin_size]) / bin_size
+                return res
+
+            times = running_mean(times)
+            times = [datetime.datetime.fromtimestamp(time) for time in times]
+            ratings = running_mean(ratings)
+            plt.plot(times, ratings, linestyle='-', markerfacecolor='white', markeredgewidth=0.5)
 
         await ctx.send(file=get_current_figure_as_file())
 
