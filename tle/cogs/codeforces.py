@@ -61,8 +61,9 @@ def plot_rating(resp):
     return rate
 
 
-def classify_subs(submissions):
-    regular, practice, virtual = [], [], []
+def classify_subs(submissions, contests):
+    contests = {contest['id']:contest['startTimeSeconds'] for contest in contests}
+    regular, practice, virtual = {}, {}, {}
     for submission in submissions:
         if submission.verdict == 'OK':
             rating = submission.problem.rating
@@ -70,13 +71,14 @@ def classify_subs(submissions):
             if rating and time:
                 contest_type = submission.author.participantType
                 entry = [datetime.datetime.fromtimestamp(time), rating]
-                if contest_type == 'PRACTICE':
-                    practice.append(entry)
-                elif contest_type == 'VIRTUAL':
-                    virtual.append(entry)
+                prob = (submission.problem.name, contests[submission.problem.contestId])
+                if contest_type == 'PRACTICE' and not prob in practice:
+                    practice[prob] = entry
+                elif contest_type == 'VIRTUAL' and not prob in virtual:
+                    virtual[prob] = entry
                 else:
-                    regular.append(entry)
-    return regular, practice, virtual
+                    regular[prob] = entry
+    return regular.values(), practice.values(), virtual.values()
 
 
 def plot_scatter(regular, practice, virtual):
@@ -407,10 +409,12 @@ class Codeforces(commands.Cog):
             handles = await cf_common.resolve_handles_or_reply_with_error(ctx, self.converter, (handle,))
             sresp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
             rresp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.rating)
+            contests = await cf.query_api('contest.list')
         except cf_common.CodeforcesHandleError:
             return
 
-        _, practice, _ = classify_subs(sresp[0])
+        _, practice, _ = classify_subs(sresp[0], contests)
+        print(practice)
         plt.clf()
         plot_average(practice, bin_size)
         rate = plot_rating(rresp)
