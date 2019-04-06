@@ -16,6 +16,7 @@ from matplotlib import pyplot as plt
 
 from tle import constants
 from tle.util import codeforces_api as cf
+from tle.util import codeforces_common as cf_common
 from tle.util import handle_conn
 
 
@@ -29,6 +30,7 @@ def get_current_figure_as_file():
     os.remove(filename)
     return discord_file
 
+
 def plot_rating_bg():
     ymin, ymax = plt.gca().get_ylim()
     bgcolor = plt.gca().get_facecolor()
@@ -40,6 +42,7 @@ def plot_rating_bg():
     for loc in locs:
         plt.axvline(loc, color=bgcolor, linewidth=0.5)
     plt.ylim(ymin, ymax)
+
 
 def plot_rating(resp):
     rate = []
@@ -56,6 +59,7 @@ def plot_rating(resp):
     plot_rating_bg()
     return rate
 
+
 def classify_subs(submissions):
     regular, practice, virtual = [], [], []
     for submission in submissions:
@@ -63,7 +67,7 @@ def classify_subs(submissions):
             rating = submission.problem.rating
             time = submission.creationTimeSeconds
             if rating and time:
-                contest_type = submission.author['participantType']
+                contest_type = submission.author.participantType
                 entry = [datetime.datetime.fromtimestamp(time), rating]
                 if contest_type == 'PRACTICE':
                     practice.append(entry)
@@ -73,6 +77,7 @@ def classify_subs(submissions):
                     regular.append(entry)
     return regular, practice, virtual
 
+
 def plot_scatter(regular, practice, virtual):
     for contest in [regular, practice, virtual]:
         if contest:
@@ -80,6 +85,7 @@ def plot_scatter(regular, practice, virtual):
             plt.scatter(times, ratings, zorder=10, s=3)
         else:
             plt.scatter([], [], zorder=10, s=3)
+
 
 def running_mean(x, bin_size=1):
     n = len(x)
@@ -93,6 +99,7 @@ def running_mean(x, bin_size=1):
         res[i - bin_size] = (cum_sum[i] - cum_sum[i - bin_size]) / bin_size
 
     return res
+
 
 def plot_average(practice, bin_size):
     if len(practice) > bin_size:
@@ -265,54 +272,14 @@ class Codeforces(commands.Cog):
 
         await ctx.send(f'Recommended problem for `{handle}`', embed=embed)
 
-    async def resolve_handles_or_reply_with_error(self, ctx, handles, *, mincnt=1, maxcnt=5):
-        """Convert an iterable of strings to CF handles. A string beginning with ! indicates Discord username,
-         otherwise it is a raw CF handle to be left unchanged."""
-        handles = handles or ('!' + str(ctx.author),)
-        if len(handles) < mincnt or maxcnt < len(handles):
-            await ctx.send(f'Number of handles must be between {mincnt} and {maxcnt}')
-            return []
-        resolved_handles = []
-        for handle in handles:
-            if handle.startswith('!'):
-                # ! denotes Discord user
-                try:
-                    member = await self.converter.convert(ctx, handle[1:])
-                except discord.ext.commands.errors.CommandError:
-                    await ctx.send(f'Unable to convert `{handle}` to a server member')
-                    return []
-                handle = handle_conn.conn.gethandle(member.id)
-                if handle is None:
-                    await ctx.send(f'Codeforces handle for member {member.display_name} not found in database')
-                    return []
-            resolved_handles.append(handle)
-        return resolved_handles
-
-    async def run_handle_related_coro_or_reply_with_error(self, ctx, handles, coro):
-        """Run a coroutine that takes a handle, for each handle in handles. Returns a list of results."""
-        resp = []
-        for handle in handles:
-            try:
-                res = await coro(handle=handle)
-                resp.append(res)
-                continue
-            except aiohttp.ClientConnectionError:
-                await ctx.send('Error connecting to Codeforces API')
-            except cf.NotFoundError:
-                await ctx.send(f'Handle not found: `{handle}`')
-            except cf.InvalidParamError:
-                await ctx.send(f'Not a valid Codeforces handle: `{handle}`')
-            except cf.CodeforcesApiError:
-                await ctx.send('Codeforces API error.')
-            return None
-        return resp
-
     @commands.command(brief='Recommend a contest')
     async def vc(self, ctx, *handles: str):
         """Recommends a contest based on Codeforces rating of the handle provided."""
-        handles = await self.resolve_handles_or_reply_with_error(ctx, handles)
-        resp = await self.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
-        if not resp:
+        handles = handles or ('!' + str(ctx.author),)
+        try:
+            handles = await cf_common.resolve_handles_or_reply_with_error(ctx, self.converter, handles)
+            resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
+        except cf_common.CodeforcesHandleError:
             return
 
         usubs = resp
@@ -351,9 +318,11 @@ class Codeforces(commands.Cog):
     @commands.command(brief='Compare epeens.')
     async def rating(self, ctx, *handles: str):
         """Compare epeens."""
-        handles = await self.resolve_handles_or_reply_with_error(ctx, handles)
-        resp = await self.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.rating)
-        if not resp:
+        handles = handles or ('!' + str(ctx.author),)
+        try:
+            handles = await cf_common.resolve_handles_or_reply_with_error(ctx, self.converter, handles)
+            resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.rating)
+        except cf_common.CodeforcesHandleError:
             return
 
         plt.clf()
@@ -367,9 +336,11 @@ class Codeforces(commands.Cog):
     @commands.command(brief='Show histogram of solved problems on CF.')
     async def solved(self, ctx, *handles: str):
         """Shows a histogram of problems solved on Codeforces for the handles provided."""
-        handles = await self.resolve_handles_or_reply_with_error(ctx, handles)
-        resp = await self.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
-        if not resp:
+        handles = handles or ('!' + str(ctx.author),)
+        try:
+            handles = await cf_common.resolve_handles_or_reply_with_error(ctx, self.converter, handles)
+            resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
+        except cf_common.CodeforcesHandleError:
             return
 
         allratings = []
@@ -409,12 +380,13 @@ class Codeforces(commands.Cog):
             return
 
         handle = handle or '!' + str(ctx.author)
-        handles = await self.resolve_handles_or_reply_with_error(ctx, (handle,))
-        resp = await self.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
-        if not resp:
+        try:
+            handles = await cf_common.resolve_handles_or_reply_with_error(ctx, self.converter, (handle,))
+            resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
+            submissions = resp[0]
+        except cf_common.CodeforcesHandleError:
             return
 
-        submissions = resp[0]
         regular, practice, virtual = classify_subs(submissions)
         plt.clf()
         plot_scatter(regular, practice, virtual)
@@ -432,15 +404,17 @@ class Codeforces(commands.Cog):
             return
 
         handle = handle or '!' + str(ctx.author)
-        handles = await self.resolve_handles_or_reply_with_error(ctx, (handle,))
-        sresp = await self.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
-        rresp = await self.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.rating)
-        if not rresp or not sresp:
+        try:
+            handles = await cf_common.resolve_handles_or_reply_with_error(ctx, self.converter, (handle,))
+            sresp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
+            rresp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.rating)
+        except cf_common.CodeforcesHandleError:
             return
 
+        _, practice, _ = classify_subs(sresp[0])
         plt.clf()
-        plot_average(classify_subs(sresp[0])[1], bin_size)
-        rate = plot_rating(rresp)
+        plot_average(practice, bin_size)
+        plot_rating(rresp)
         await ctx.send(file=get_current_figure_as_file())
 
 

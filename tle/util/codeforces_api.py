@@ -160,7 +160,9 @@ class contest:
         resp = await query_api('contest.standings', params)
         contest_ = make_from_dict(Contest, resp['contest'])
         problems = [make_from_dict(Problem, problem_dict) for problem_dict in resp['problems']]
-        ranklist = [make_from_dict(RanklistRow, row_dict) for row_dict in resp['problems']]
+        for row in resp['rows']:
+            row['party'] = make_from_dict(Party, row['party'])
+        ranklist = [make_from_dict(RanklistRow, row_dict) for row_dict in resp['rows']]
         return contest_, problems, ranklist
 
 
@@ -202,4 +204,5 @@ class user:
         resp = await query_api('user.status', params)
         for submission in resp:
             submission['problem'] = make_from_dict(Problem, submission['problem'])
+            submission['author'] = make_from_dict(Party, submission['author'])
         return [make_from_dict(Submission, submission_dict) for submission_dict in resp]
