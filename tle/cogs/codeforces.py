@@ -58,34 +58,6 @@ def running_mean(x, bin_size=1):
     return res
 
 
-class MemberHandleNotInDatabaseError(Exception):
-    def __init__(self, member):
-        self.member = member
-
-
-class MemberConvertFailedError(discord.ext.commands.errors.CommandError):
-    def __init__(self, baduser):
-        self.baduser = baduser
-
-
-async def resolve_handles(converter, ctx, handles):
-    """Convert an iterable of strings to CF handles. A string beginning with ! indicates Discord username, otherwise
-     it is a raw CF handle to be left unchanged. The handles for Discord usernames are fetched from the database."""
-    resolved_handles = []
-    for handle in handles:
-        if handle.startswith('!'):
-            # ! denotes Discord user
-            try:
-                member = await converter.convert(ctx, handle[1:])
-            except discord.ext.commands.errors.CommandError:
-                raise MemberConvertFailedError(handle)
-            handle = handle_conn.conn.gethandle(member.id)
-            if handle is None:
-                raise MemberHandleNotInDatabaseError(member)
-        resolved_handles.append(handle)
-    return resolved_handles
-
-
 class Codeforces(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -246,19 +218,29 @@ class Codeforces(commands.Cog):
         await ctx.send(f'Recommended problem for `{handle}`', embed=embed)
 
     async def resolve_handles_or_reply_with_error(self, ctx, handles, *, mincnt=1, maxcnt=5):
+        """Convert an iterable of strings to CF handles. A string beginning with ! indicates Discord username,
+         otherwise it is a raw CF handle to be left unchanged."""
         if len(handles) < mincnt or maxcnt < len(handles):
             await ctx.send(f'Number of handles must be between {mincnt} and {maxcnt}')
             return None
-        try:
-            handles = await resolve_handles(self.converter, ctx, handles)
-            return handles
-        except MemberConvertFailedError as e:
-            await ctx.send(f'Unable to convert `{e.baduser}` to a server member')
-        except MemberHandleNotInDatabaseError as e:
-            await ctx.send(f'Codeforces handle for member {e.member.display_name} not found in database')
-        return None
+        resolved_handles = []
+        for handle in handles:
+            if handle.startswith('!'):
+                # ! denotes Discord user
+                try:
+                    member = await self.converter.convert(ctx, handle[1:])
+                except discord.ext.commands.errors.CommandError:
+                    await ctx.send(f'Unable to convert `{handle}` to a server member')
+                    return None
+                handle = handle_conn.conn.gethandle(member.id)
+                if handle is None:
+                    await ctx.send(f'Codeforces handle for member {member.display_name} not found in database')
+                    return None
+            resolved_handles.append(handle)
+        return resolved_handles
 
     async def run_handle_related_coro_or_reply_with_error(self, ctx, handles, coro):
+        """Run a coroutine that takes a handle, for each handle in handles. Returns a list of results."""
         resp = []
         for handle in handles:
             try:
