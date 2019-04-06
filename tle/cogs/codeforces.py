@@ -414,7 +414,6 @@ class Codeforces(commands.Cog):
             return
 
         _, practice, _ = classify_subs(sresp[0], contests)
-        print(practice)
         plt.clf()
         plot_average(practice, bin_size)
         rate = plot_rating(rresp)
