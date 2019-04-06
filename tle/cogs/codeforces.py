@@ -258,6 +258,24 @@ class Codeforces(commands.Cog):
             await ctx.send(f'Codeforces handle for member {e.member.display_name} not found in database')
         return None
 
+    async def run_handle_related_coro_or_reply_with_error(self, ctx, handles, coro):
+        resp = []
+        for handle in handles:
+            try:
+                res = await coro(handle=handle)
+                resp.append(res)
+                continue
+            except aiohttp.ClientConnectionError:
+                await ctx.send('Error connecting to Codeforces API')
+            except cf.NotFoundError:
+                await ctx.send(f'Handle not found: `{handle}`')
+            except cf.InvalidParamError:
+                await ctx.send(f'Not a valid Codeforces handle: `{handle}`')
+            except cf.CodeforcesApiError:
+                await ctx.send('Codeforces API error.')
+            return None
+        return resp
+
     @commands.command(brief='Recommend a contest')
     async def vc(self, ctx, *handles: str):
         """Recommends a contest based on Codeforces rating of the handles provided."""
@@ -266,18 +284,16 @@ class Codeforces(commands.Cog):
         if not handles:
             return
 
+        resp = await self.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
+        if not resp:
+            return
+
+        usubs = resp
         try:
-            usubs = [await cf.user.status(handle=h) for h in handles]
             info = await cf.user.info(handles=handles)
             contests = await cf.contest.list()
         except aiohttp.ClientConnectionError:
             await ctx.send('Error connecting to Codeforces API')
-            return
-        except cf.NotFoundError:
-            await ctx.send(f'Handle not found.')
-            return
-        except cf.InvalidParamError:
-            await ctx.send(f'Not a valid Codeforces handle.')
             return
         except cf.CodeforcesApiError:
             await ctx.send('Codeforces API error.')
@@ -313,25 +329,13 @@ class Codeforces(commands.Cog):
         if not handles:
             return
 
+        resp = await self.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.rating)
+        if not resp:
+            return
+
         plt.clf()
         rate = []
-
-        for handle in handles:
-            try:
-                rating_changes = await cf.user.rating(handle=handle)
-            except aiohttp.ClientConnectionError:
-                await ctx.send('Error connecting to Codeforces API')
-                return
-            except cf.NotFoundError:
-                await ctx.send(f'Handle not found: `{handle}`')
-                return
-            except cf.InvalidParamError:
-                await ctx.send(f'Not a valid Codeforces handle: `{handle}`')
-                return
-            except cf.CodeforcesApiError:
-                await ctx.send('Codeforces API error.')
-                return
-
+        for rating_changes in resp:
             ratings, times = [], []
             for rating_change in rating_changes:
                 ratings.append(rating_change.newRating)
@@ -357,23 +361,12 @@ class Codeforces(commands.Cog):
         if not handles:
             return
 
-        allratings = []
-        for handle in handles:
-            try:
-                submissions = await cf.user.status(handle=handle)
-            except aiohttp.ClientConnectionError:
-                await ctx.send('Error connecting to Codeforces API')
-                return
-            except cf.NotFoundError:
-                await ctx.send(f'Handle not found: `{handle}`')
-                return
-            except cf.InvalidParamError:
-                await ctx.send(f'Not a valid Codeforces handle: `{handle}`')
-                return
-            except cf.CodeforcesApiError:
-                await ctx.send('Codeforces API error.')
-                return
+        resp = await self.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
+        if not resp:
+            return
 
+        allratings = []
+        for submissions in resp:
             problems = dict()
             for submission in submissions:
                 problem = submission.problem
@@ -412,24 +405,13 @@ class Codeforces(commands.Cog):
         handles = await self.resolve_handles_or_reply_with_error(ctx, (handle,))
         if not handles:
             return
-        handle = handles[0]
 
         # get submissions
-        try:
-            submissions = await cf.user.status(handle=handle)
-        except aiohttp.ClientConnectionError:
-            await ctx.send('Error connecting to Codeforces API')
-            return
-        except cf.NotFoundError:
-            await ctx.send(f'Handle not found: `{handle}`')
-            return
-        except cf.InvalidParamError:
-            await ctx.send(f'Not a valid Codeforces handle: `{handle}`')
-            return
-        except cf.CodeforcesApiError:
-            await ctx.send('Codeforces API error.')
+        resp = await self.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
+        if not resp:
             return
 
+        submissions = resp[0]
         regular, practice, virtual = [], [], []
         for submission in submissions:
             if submission.verdict == 'OK':
