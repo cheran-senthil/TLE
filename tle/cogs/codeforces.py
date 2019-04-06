@@ -19,6 +19,7 @@ from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
 from tle.util import handle_conn
 
+zero_width_space = '\u200b'
 
 def get_current_figure_as_file():
     filename = os.path.join(constants.FILEDIR, 'tempplot_{time.time()}.png')
@@ -327,7 +328,6 @@ class Codeforces(commands.Cog):
 
         plt.clf()
         rate = plot_rating(resp)
-        zero_width_space = '\u200b'
         labels = [f'{zero_width_space}{handle} ({rating})' for handle, rating in zip(handles, rate)]
         plt.legend(labels, loc='upper left')
         plt.title('Rating graph on Codeforces')
@@ -361,7 +361,6 @@ class Codeforces(commands.Cog):
         # matplotlib ignores labels that begin with _
         # https://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.legend
         # Add zero-width space to work around this
-        zero_width_space = '\u200b'
         labels = [f'{zero_width_space}{handle}: {len(ratings)}' for handle, ratings in zip(handles, allratings)]
 
         plt.clf()
@@ -414,7 +413,9 @@ class Codeforces(commands.Cog):
         _, practice, _ = classify_subs(sresp[0])
         plt.clf()
         plot_average(practice, bin_size)
-        plot_rating(rresp)
+        rate = plot_rating(rresp)
+        labels = [f'{zero_width_space}{handle} ({rating})' for handle, rating in zip([handle], rate)]
+        plt.legend(labels, loc='upper left')
         await ctx.send(file=get_current_figure_as_file())
 
 
