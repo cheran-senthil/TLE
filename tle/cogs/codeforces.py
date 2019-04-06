@@ -414,7 +414,7 @@ class Codeforces(commands.Cog):
         plt.clf()
         plot_average(practice, bin_size)
         rate = plot_rating(rresp)
-        labels = [f'{zero_width_space}{handle} ({rating})' for handle, rating in zip([handle], rate)]
+        labels = [f'{zero_width_space}{handle} ({rating})' for handle, rating in zip(handles, rate)]
         plt.legend(labels, loc='upper left')
         await ctx.send(file=get_current_figure_as_file())
 
