@@ -88,7 +88,8 @@ class Handles(commands.Cog):
                 msg = f'removehandle: {member.name} removed'
             else:
                 msg = f'removehandle: {member.name} not found'
-        except:
+        except Exception as e:
+            print(e)
             msg = 'removehandle error!'
         await ctx.send(msg)
 

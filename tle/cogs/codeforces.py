@@ -167,7 +167,8 @@ class Codeforces(commands.Cog):
             self.contest_names = {}
             self.get_cached_user.cache_clear()
             msg = 'clear cache success'
-        except:
+        except Exception as e:
+            print(e)
             msg = 'clear cache error'
         await ctx.send(msg)
 
@@ -225,7 +226,8 @@ class Codeforces(commands.Cog):
                 try:
                     stamp, rating, solved = await self.cache_cfuser_subs(handle)
                     res[:] = stamp, rating, solved  # need to slice [:] for &ref
-                except:
+                except Exception as e:
+                    print(e)
                     pass
 
         # 1500 is default lower_bound for unrated user
