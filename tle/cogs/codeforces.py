@@ -58,6 +58,34 @@ def running_mean(x, bin_size=1):
     return res
 
 
+class MemberHandleNotInDatabaseError(Exception):
+    def __init__(self, member):
+        self.member = member
+
+
+class MemberConvertFailedError(discord.ext.commands.errors.CommandError):
+    def __init__(self, baduser):
+        self.baduser = baduser
+
+
+async def resolve_handles(converter, ctx, handles):
+    """Convert an iterable of strings to CF handles. A string beginning with ! indicates Discord username, otherwise
+     it is a raw CF handle to be left unchanged. The handles for Discord usernames are fetched from the database."""
+    resolved_handles = []
+    for handle in handles:
+        if handle.startswith('!'):
+            # ! denotes Discord user
+            try:
+                member = await converter.convert(ctx, handle[1:])
+            except discord.ext.commands.errors.CommandError:
+                raise MemberConvertFailedError(handle)
+            handle = handle_conn.conn.gethandle(member.id)
+            if handle is None:
+                raise MemberHandleNotInDatabaseError(member)
+        resolved_handles.append(handle)
+    return resolved_handles
+
+
 class Codeforces(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -112,15 +140,6 @@ class Codeforces(commands.Cog):
         except:
             msg = 'clear cache error'
         await ctx.send(msg)
-
-    async def resolve_handle(self, ctx, handle: str):
-        if handle[0] != '!':
-            return handle
-        member = await self.converter.convert(ctx, handle[1:])
-        res = handle_conn.conn.gethandle(member.id)
-        if res is None:
-            raise Exception('bad')
-        return res
 
     async def cache_problems(self):
         try:
@@ -226,18 +245,29 @@ class Codeforces(commands.Cog):
 
         await ctx.send(f'Recommended problem for `{handle}`', embed=embed)
 
+    async def resolve_handles_or_reply_with_error(self, ctx, handles, *, mincnt=1, maxcnt=5):
+        if len(handles) < mincnt or maxcnt < len(handles):
+            await ctx.send(f'Number of handles must be between {mincnt} and {maxcnt}')
+            return None
+        try:
+            handles = await resolve_handles(self.converter, ctx, handles)
+            return handles
+        except MemberConvertFailedError as e:
+            await ctx.send(f'Unable to convert `{e.baduser}` to a server member')
+        except MemberHandleNotInDatabaseError as e:
+            await ctx.send(f'Codeforces handle for member {e.member.display_name} not found in database')
+        return None
+
     @commands.command(brief='Recommend a contest')
     async def vc(self, ctx, *handles: str):
-        """Recommends a contest based on Codeforces rating of the handle provided."""
-        handles = handles or ('!' + str(ctx.author), )
-        try:
-            handles = [await self.resolve_handle(ctx, h) for h in handles]
-        except:
-            await ctx.send('Bad Handle')
+        """Recommends a contest based on Codeforces rating of the handles provided."""
+        handles = handles or (f'!{ctx.author}',)
+        handles = await self.resolve_handles_or_reply_with_error(ctx, handles)
+        if not handles:
             return
 
         try:
-            usubs = [await cf.user.status(handle=h, count=10000) for h in handles]
+            usubs = [await cf.user.status(handle=h) for h in handles]
             info = await cf.user.info(handles=handles)
             contests = await cf.contest.list()
         except aiohttp.ClientConnectionError:
@@ -278,14 +308,9 @@ class Codeforces(commands.Cog):
     @commands.command(brief='Compare epeens.')
     async def rating(self, ctx, *handles: str):
         """Compare epeens."""
-        handles = handles or ('!' + str(ctx.author), )
-        if len(handles) > 5:
-            await ctx.send('Number of handles must be at most 5')
-            return
-        try:
-            handles = [await self.resolve_handle(ctx, h) for h in handles]
-        except:
-            await ctx.send('Bad Handle')
+        handles = handles or ('!' + str(ctx.author),)
+        handles = await self.resolve_handles_or_reply_with_error(ctx, handles)
+        if not handles:
             return
 
         plt.clf()
@@ -327,14 +352,9 @@ class Codeforces(commands.Cog):
     @commands.command(brief='Show histogram of solved problems on CF.')
     async def solved(self, ctx, *handles: str):
         """Shows a histogram of problems solved on Codeforces for the handles provided."""
-        handles = handles or ('!' + str(ctx.author), )
-        if len(handles) > 5:
-            await ctx.send('Number of handles must be at most 5')
-            return
-        try:
-            handles = [await self.resolve_handle(ctx, h) for h in handles]
-        except:
-            await ctx.send('Bad Handle')
+        handles = handles or ('!' + str(ctx.author),)
+        handles = await self.resolve_handles_or_reply_with_error(ctx, handles)
+        if not handles:
             return
 
         allratings = []
@@ -389,11 +409,10 @@ class Codeforces(commands.Cog):
             return
 
         handle = handle or '!' + str(ctx.author)
-        try:
-            handle = await self.resolve_handle(ctx, handle)
-        except:
-            await ctx.send('bad handle')
+        handles = await self.resolve_handles_or_reply_with_error(ctx, (handle,))
+        if not handles:
             return
+        handle = handles[0]
 
         # get submissions
         try:
