@@ -29,20 +29,57 @@ def get_current_figure_as_file():
     os.remove(filename)
     return discord_file
 
-
 def plot_rating_bg():
     ymin, ymax = plt.gca().get_ylim()
     bgcolor = plt.gca().get_facecolor()
     for low, high, color, _ in cf.RankHelper.rank_info:
         plt.axhspan(low, high, facecolor=color, alpha=0.8, edgecolor=bgcolor, linewidth=0.5)
 
-    plt.ylim(ymin, ymax)
     plt.gcf().autofmt_xdate()
     locs, labels = plt.xticks()
-
     for loc in locs:
         plt.axvline(loc, color=bgcolor, linewidth=0.5)
+    plt.ylim(ymin, ymax)
 
+def plot_rating(resp):
+    rate = []
+    for rating_changes in resp:
+        ratings, times = [], []
+        for rating_change in rating_changes:
+            ratings.append(rating_change.newRating)
+            times.append(datetime.datetime.fromtimestamp(rating_change.ratingUpdateTimeSeconds))
+
+        plt.plot(
+            times, ratings, linestyle='-', marker='o', markersize=3, markerfacecolor='white', markeredgewidth=0.5)
+        rate.append(ratings[-1])
+
+    plot_rating_bg()
+    return rate
+
+def classify_subs(submissions):
+    regular, practice, virtual = [], [], []
+    for submission in submissions:
+        if submission.verdict == 'OK':
+            rating = submission.problem.rating
+            time = submission.creationTimeSeconds
+            if rating and time:
+                contest_type = submission.author['participantType']
+                entry = [datetime.datetime.fromtimestamp(time), rating]
+                if contest_type == 'PRACTICE':
+                    practice.append(entry)
+                elif contest_type == 'VIRTUAL':
+                    virtual.append(entry)
+                else:
+                    regular.append(entry)
+    return regular, practice, virtual
+
+def plot_scatter(regular, practice, virtual):
+    for contest in [regular, practice, virtual]:
+        if contest:
+            times, ratings = zip(*contest)
+            plt.scatter(times, ratings, zorder=10, s=3)
+        else:
+            plt.scatter([], [], zorder=10, s=3)
 
 def running_mean(x, bin_size=1):
     n = len(x)
@@ -56,6 +93,17 @@ def running_mean(x, bin_size=1):
         res[i - bin_size] = (cum_sum[i] - cum_sum[i - bin_size]) / bin_size
 
     return res
+
+def plot_average(practice, bin_size):
+    if len(practice) > bin_size:
+        times, ratings = map(list, zip(*practice))
+
+        times = [datetime.datetime.timestamp(time) for time in times]
+        times = running_mean(times, bin_size)
+        ratings = running_mean(ratings, bin_size)
+        times = [datetime.datetime.fromtimestamp(time) for time in times]
+
+        plt.plot(times, ratings, linestyle='-', markerfacecolor='white', markeredgewidth=0.5)
 
 
 class Codeforces(commands.Cog):
@@ -220,9 +268,10 @@ class Codeforces(commands.Cog):
     async def resolve_handles_or_reply_with_error(self, ctx, handles, *, mincnt=1, maxcnt=5):
         """Convert an iterable of strings to CF handles. A string beginning with ! indicates Discord username,
          otherwise it is a raw CF handle to be left unchanged."""
+        handles = handles or ('!' + str(ctx.author),)
         if len(handles) < mincnt or maxcnt < len(handles):
             await ctx.send(f'Number of handles must be between {mincnt} and {maxcnt}')
-            return None
+            return []
         resolved_handles = []
         for handle in handles:
             if handle.startswith('!'):
@@ -231,11 +280,11 @@ class Codeforces(commands.Cog):
                     member = await self.converter.convert(ctx, handle[1:])
                 except discord.ext.commands.errors.CommandError:
                     await ctx.send(f'Unable to convert `{handle}` to a server member')
-                    return None
+                    return []
                 handle = handle_conn.conn.gethandle(member.id)
                 if handle is None:
                     await ctx.send(f'Codeforces handle for member {member.display_name} not found in database')
-                    return None
+                    return []
             resolved_handles.append(handle)
         return resolved_handles
 
@@ -260,12 +309,8 @@ class Codeforces(commands.Cog):
 
     @commands.command(brief='Recommend a contest')
     async def vc(self, ctx, *handles: str):
-        """Recommends a contest based on Codeforces rating of the handles provided."""
-        handles = handles or (f'!{ctx.author}',)
+        """Recommends a contest based on Codeforces rating of the handle provided."""
         handles = await self.resolve_handles_or_reply_with_error(ctx, handles)
-        if not handles:
-            return
-
         resp = await self.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
         if not resp:
             return
@@ -306,43 +351,23 @@ class Codeforces(commands.Cog):
     @commands.command(brief='Compare epeens.')
     async def rating(self, ctx, *handles: str):
         """Compare epeens."""
-        handles = handles or ('!' + str(ctx.author),)
         handles = await self.resolve_handles_or_reply_with_error(ctx, handles)
-        if not handles:
-            return
-
         resp = await self.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.rating)
         if not resp:
             return
 
         plt.clf()
-        rate = []
-        for rating_changes in resp:
-            ratings, times = [], []
-            for rating_change in rating_changes:
-                ratings.append(rating_change.newRating)
-                times.append(datetime.datetime.fromtimestamp(rating_change.ratingUpdateTimeSeconds))
-
-            plt.plot(
-                times, ratings, linestyle='-', marker='o', markersize=3, markerfacecolor='white', markeredgewidth=0.5)
-            rate.append(ratings[-1])
-
-        plot_rating_bg()
+        rate = plot_rating(resp)
         zero_width_space = '\u200b'
         labels = [f'{zero_width_space}{handle} ({rating})' for handle, rating in zip(handles, rate)]
         plt.legend(labels, loc='upper left')
         plt.title('Rating graph on Codeforces')
-
         await ctx.send(file=get_current_figure_as_file())
 
     @commands.command(brief='Show histogram of solved problems on CF.')
     async def solved(self, ctx, *handles: str):
         """Shows a histogram of problems solved on Codeforces for the handles provided."""
-        handles = handles or ('!' + str(ctx.author),)
         handles = await self.resolve_handles_or_reply_with_error(ctx, handles)
-        if not handles:
-            return
-
         resp = await self.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
         if not resp:
             return
@@ -385,54 +410,37 @@ class Codeforces(commands.Cog):
 
         handle = handle or '!' + str(ctx.author)
         handles = await self.resolve_handles_or_reply_with_error(ctx, (handle,))
-        if not handles:
-            return
-
-        # get submissions
         resp = await self.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
         if not resp:
             return
 
         submissions = resp[0]
-        regular, practice, virtual = [], [], []
-        for submission in submissions:
-            if submission.verdict == 'OK':
-                rating = submission.problem.rating
-                time = submission.creationTimeSeconds
-                if rating and time:
-                    contest_type = submission.author['participantType']
-                    entry = [datetime.datetime.fromtimestamp(time), rating]
-                    if contest_type == 'PRACTICE':
-                        practice.append(entry)
-                    elif contest_type == 'VIRTUAL':
-                        virtual.append(entry)
-                    else:
-                        regular.append(entry)
-
+        regular, practice, virtual = classify_subs(submissions)
         plt.clf()
-        for contest in [regular, practice, virtual]:
-            if contest:
-                times, ratings = zip(*contest)
-                plt.scatter(times, ratings, zorder=10, s=3)
-            else:
-                plt.scatter([], [], zorder=10, s=3)
-
+        plot_scatter(regular, practice, virtual)
         plt.title('Solved Problem Rating History on Codeforces')
         labels = ['Regular', 'Practice', 'Virtual']
         plt.legend(labels, loc='upper left')
         plot_rating_bg()
+        plot_average(practice, bin_size)
+        await ctx.send(file=get_current_figure_as_file())
 
-        # moving average
-        if len(practice) > bin_size:
-            times, ratings = map(list, zip(*practice))
+    @commands.command(brief='chilli graph')
+    async def chilli(self, ctx, handle: str = None, bin_size: int = 10):
+        if bin_size < 1:
+            await ctx.send('Moving average window size must be at least 1.')
+            return
 
-            times = [datetime.datetime.timestamp(time) for time in times]
-            times = running_mean(times, bin_size)
-            ratings = running_mean(ratings, bin_size)
-            times = [datetime.datetime.fromtimestamp(time) for time in times]
+        handle = handle or '!' + str(ctx.author)
+        handles = await self.resolve_handles_or_reply_with_error(ctx, (handle,))
+        sresp = await self.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
+        rresp = await self.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.rating)
+        if not rresp or not sresp:
+            return
 
-            plt.plot(times, ratings, linestyle='-', markerfacecolor='white', markeredgewidth=0.5)
-
+        plt.clf()
+        plot_average(classify_subs(sresp[0])[1], bin_size)
+        rate = plot_rating(rresp)
         await ctx.send(file=get_current_figure_as_file())
 
 
