@@ -384,11 +384,12 @@ class Codeforces(commands.Cog):
         try:
             handles = await cf_common.resolve_handles_or_reply_with_error(ctx, self.converter, (handle,))
             resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
+            contests = await cf.query_api('contest.list')
             submissions = resp[0]
         except cf_common.CodeforcesHandleError:
             return
 
-        regular, practice, virtual = classify_subs(submissions)
+        regular, practice, virtual = classify_subs(submissions, contests)
         plt.clf()
         plot_scatter(regular, practice, virtual)
         plt.title('Solved Problem Rating History on Codeforces')
