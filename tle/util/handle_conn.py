@@ -15,7 +15,7 @@ def initialize_conn(dbfile):
 class HandleConn:
     def __init__(self, dbfile):
         self.conn = sqlite3.connect(dbfile)
-        # status => 0 inactive, 1 active        
+        # status => 0 inactive, 1 active
         self.conn.execute('''
             CREATE TABLE IF NOT EXISTS user_handle(
                 id TEXT PRIMARY KEY,
@@ -107,7 +107,8 @@ class HandleConn:
             SELECT user_handle.id, user_handle.handle, cf_cache.rating
             FROM user_handle
             LEFT JOIN cf_cache
-            ON user_handle.handle = cf_cache.handle            
+            ON user_handle.handle = cf_cache.handle
+            WHERE user_handle.status = 1
         '''
         return self.conn.execute(query).fetchall()
 
