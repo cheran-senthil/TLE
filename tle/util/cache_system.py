@@ -32,10 +32,13 @@ class CacheSystem:
         self.logger = logging.getLogger(self.__class__.__name__)
 
     async def get_contests(self, duration: int):
+        """Return contests fetched within last `duration` seconds if available, else fetch now and return."""
         now = time.time()
         if self.contest_last_cache is None or self.contest_dict is None or now - self.contest_last_cache > duration:
             await self.cache_contests()
-        return self.contest_dict.values()
+        if self.contest_dict:
+            return self.contest_dict.values()
+        return None
 
     async def force_update(self):
         await self.cache_contests()

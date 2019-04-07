@@ -11,6 +11,8 @@ from tle.util.cache_system import CacheSystem
 
 logger = logging.getLogger(__name__)
 
+CONTESTS_BASE_URL = 'https://codeforces.com/contests/'
+
 # Connection to database
 conn = None
 # Cache system
