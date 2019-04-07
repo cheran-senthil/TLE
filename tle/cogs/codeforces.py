@@ -424,6 +424,21 @@ class Codeforces(commands.Cog):
         plt.legend(labels, loc='upper left')
         await ctx.send(file=get_current_figure_as_file())
 
+    @commands.command(brief="Show server rating distribution")
+    async def distrib(self, ctx):
+        res = handle_conn.conn.getallhandleswithrating()
+        ratings = [rating for _, _, rating in res]
+        step = 100
+        histbins = list(range(500, 3800 + step, step))
+
+        plt.clf()
+        plt.hist(ratings, bins=histbins)
+        plt.title('Server rating distribution')
+        plt.xlabel('Rating')
+        plt.ylabel('Number of users')
+        plt.legend(loc='upper right')
+        await ctx.send(file=get_current_figure_as_file())
+
 
 def setup(bot):
     bot.add_cog(Codeforces(bot))
