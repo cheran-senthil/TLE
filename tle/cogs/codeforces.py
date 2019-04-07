@@ -62,6 +62,7 @@ def plot_rating(resp):
 
 
 def classify_subs(submissions, contests):
+    submissions.sort(key=lambda s: s.creationTimeSeconds)
     contests = {contest['id']:contest['startTimeSeconds'] for contest in contests}
     regular, practice, virtual = {}, {}, {}
     for submission in submissions:
@@ -72,9 +73,11 @@ def classify_subs(submissions, contests):
                 contest_type = submission.author.participantType
                 entry = [datetime.datetime.fromtimestamp(time), rating]
                 prob = (submission.problem.name, contests[submission.problem.contestId])
-                if contest_type == 'PRACTICE' and not prob in practice:
+                if prob in practice or prob in virtual or prob in regular:
+                    continue
+                if contest_type == 'PRACTICE':
                     practice[prob] = entry
-                elif contest_type == 'VIRTUAL' and not prob in virtual:
+                elif contest_type == 'VIRTUAL':
                     virtual[prob] = entry
                 else:
                     regular[prob] = entry
