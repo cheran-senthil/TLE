@@ -34,7 +34,8 @@ def setup():
 
 
 def main():
-    token = environ.get('BOT_TOKEN')
+    # token = environ.get('BOT_TOKEN')
+    token="NTYyMzg5OTIzMTU2NTkwNjIw.XKKEqw.dWxyTqZLW6XrLCWkJRjGzVHINZ4"
     if not token:
         logging.error('Token required')
         return

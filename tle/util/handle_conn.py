@@ -15,6 +15,9 @@ def initialize_conn(dbfile):
 class HandleConn:
     def __init__(self, dbfile):
         self.conn = sqlite3.connect(dbfile)
+        self.create_tables()
+
+    def create_tables(self):
         # status => 0 inactive, 1 active
         self.conn.execute('''
             CREATE TABLE IF NOT EXISTS user_handle(
@@ -34,27 +37,69 @@ class HandleConn:
                 lastCached REAL
             )
         ''')
+        self.conn.execute('''
+            CREATE TABLE IF NOT EXISTS "contest" (
+                "id"	INTEGER,
+                "name"	TEXT,
+                "start_time"	INTEGER,
+                "duration"	INTEGER,
+                "type"	TEXT,
+                PRIMARY KEY("id")
+            )
+        ''')
+        self.conn.execute('''
+            CREATE TABLE IF NOT EXISTS "problem" (
+                "name"	TEXT,
+                "contest_id"	INTEGER,
+                "p_index"	TEXT,
+                "start_time"	INTEGER,
+                "rating"	INTEGER,
+                "tags"	TEXT,
+                PRIMARY KEY("name")
+            )
+        ''')
+
+    def insert_one(self, table: str, columns, values: tuple):
+        n = len(values)
+        query = '''
+            INSERT OR REPLACE INTO {} ({}) VALUES ({})
+        '''.format(table, ', '.join(columns), ', '.join(['?']*n))
+        rc = self.conn.execute(query, values).rowcount
+        self.conn.commit()
+        return rc
+
+    def insert_many(self, table: str, columns, values: list):
+        n = len(columns)
+        query = '''
+            INSERT OR REPLACE INTO {} ({}) VALUES ({})
+        '''.format(table, ', '.join(columns), ', '.join(['?']*n))
+        rc = self.conn.executemany(query, values).rowcount
+        self.conn.commit()
+        return rc
+    
+    def cache_contests(self, contests: list):
+        return self.insert_many('contest', 
+            ['id', 'name', 'start_time', 'duration', 'type'],
+            contests
+        )
+    
+    def cache_problems(self, problems: list):
+        return self.insert_many('problem', 
+            ['name', 'contest_id', 'p_index', 'start_time', 'rating', 'tags'],
+            problems
+        )
 
     def cache_cfuser(self, user):
-        """ return 1 if set, 0 if not """
-        query = '''
-            INSERT OR REPLACE INTO cf_cache
-            (handle, rating, titlePhoto, lastCached)
-            VALUES (?, ?, ?, ?)
-        '''
-        rc = self.conn.execute(query, user + (time.time(),))
-        self.conn.commit()
-        return rc
+        return self.insert_one('cf_cache',
+            ('handle', 'rating', 'titlePhoto', 'lastCached'),
+            user + (time.time(),)
+        )
 
     def cache_cfuser_full(self, columns: tuple):
-        query = '''
-            INSERT OR REPLACE INTO cf_cache
-            (handle, rating, titlePhoto, solved, lastCached)
-            VALUES (?, ?, ?, ?, ?)
-        '''
-        rc = self.conn.execute(query, columns)
-        self.conn.commit()
-        return rc
+        return self.insert_one('cf_cache',
+            ('handle', 'rating', 'titlePhoto', 'solved', 'lastCached'),
+            columns
+        )
 
     def fetch_cfuser(self, handle):
         query = '''
@@ -66,9 +111,9 @@ class HandleConn:
             user = cf.User._make(user)
         return user
 
-    def fetch_cfuser_custom(self, handle: str, columns: list):
-        query = 'SELECT {} FROM cf_cache WHERE handle = ?'.format(', '.join(columns))
-        return self.conn.execute(query, (handle,)).fetchone()
+    def fetch_rating_solved(self, handle):
+        query = 'SELECT rating, solved FROM cf_cache WHERE handle = ?'
+        return self.conn.execute(query, (handle, )).fetchone()
 
     def getallcache(self):
         query = 'SELECT handle, rating, titlePhoto FROM cf_cache'
