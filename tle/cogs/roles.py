@@ -21,7 +21,8 @@ class Roles(commands.Cog):
         """update roles"""
         try:
             rank2role = await self.make_rank2role(ctx)
-        except:
+        except Exception as e:
+            print(e)
             await ctx.send('error fetching roles!')
             return
 
@@ -35,7 +36,8 @@ class Roles(commands.Cog):
                     handle_conn.conn.cache_cfuser(user)
             except Exception as e:
                 print(e)
-        except:
+        except Exception as e:
+            print(e)
             await ctx.send('error getting data from cf')
             return
 
