@@ -223,8 +223,9 @@ class Codeforces(commands.Cog):
             return
         indices = [(cf_common.cache.problem_start[p.contest_identifier], i) for i, p in enumerate(problems)]
         indices.sort()
+        problems = [problems[i] for _, i in indices]
         numproblems = len(problems)
-        choice = max([random.randrange(numproblems) for _ in range(7)])
+        choice = max([random.randrange(numproblems) for _ in range(3)])
         problem = problems[choice]
 
         issue_time = datetime.datetime.now().timestamp()
