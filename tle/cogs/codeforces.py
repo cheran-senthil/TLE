@@ -6,7 +6,6 @@ import logging
 import os
 import random
 import time
-from bisect import bisect_left
 
 import aiohttp
 import discord
@@ -16,10 +15,9 @@ from matplotlib import pyplot as plt
 from tle import constants
 from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
-from tle.util import handle_conn
-from tle.util import cache_system
 
 zero_width_space = '\u200b'
+
 
 def get_current_figure_as_file():
     filename = os.path.join(constants.FILEDIR, 'tempplot_{time.time()}.png')
@@ -123,34 +121,19 @@ class Codeforces(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.converter = commands.MemberConverter()
-        self.cache = cache_system.CacheSystem()
 
-    @commands.Cog.listener()
-    async def on_ready(self):
-        asyncio.create_task(self.schedule_cache())
-
-    async def schedule_cache(self):        
-        await self.cache.try_disk()        
-        logging.info('data read from disk')
-        logging.info(f'updating cache every {constants.CONTEST_CACHE_PERIOD} seconds')
-        while True:
-            await asyncio.sleep(constants.CONTEST_CACHE_PERIOD)
-            await self.cache.cache_contests()
-            await self.cache.cache_problems()
-            logging.info('scheduled cache complete')
-  
-    @commands.command(brief='update status')
+    @commands.command(brief='update status, mark guild members as active')
     @commands.has_role('Admin')
-    async def updatestatus_(self, ctx):
+    async def _updatestatus(self, ctx):
         active_ids = [m.id for m in ctx.guild.members]
-        rc = handle_conn.conn.update_status(active_ids)
+        rc = cf_common.conn.update_status(active_ids)
         await ctx.send(f'{rc} members active with handle')
 
-    @commands.command(brief='force cache problems, cf handles, and submissions')
+    @commands.command(brief='force cache refresh of contests and problems')
     @commands.has_role('Admin')
-    async def forcecache_(self, ctx):
-        await self.updatestatus_(ctx)
-        await self.cache.force_update()
+    async def _forcecache(self, ctx):
+        # TODO: Update user submissions cache or discard caching method entirely.
+        await cf_common.cache.force_update()
         await ctx.send('forcecache_: success')
 
     async def cache_cfuser_subs(self, handle: str):
@@ -161,23 +144,25 @@ class Codeforces(commands.Cog):
         solved = {prob.contest_identifier for prob in solved if prob.has_metadata()}
         solved = json.dumps(list(solved))
         stamp = time.time()
-        handle_conn.conn.cache_cfuser_full(info + (solved, stamp))
+        cf_common.conn.cache_cfuser_full(info + (solved, stamp))
         return stamp, info.rating, solved
 
     @commands.command(brief='Recommend a problem')
     async def gimme(self, ctx, *args):
-        if self.cache.problem_dict is None:
-            await self.cache.cache_problems()
+        if cf_common.cache.problem_dict is None:
+            await cf_common.cache.cache_problems()
         tags = []
         bounds = []
         for arg in args:
             if arg.isdigit(): bounds.append(int(arg))
             else: tags.append(arg)
-        handle = handle_conn.conn.gethandle(ctx.message.author.id)
+        handle = cf_common.conn.gethandle(ctx.message.author.id)
 
         rating, solved = None, None
-        if handle: rating, solved = await self.cache.get_rating_solved(handle)
-        if solved is None: solved = set()
+        if handle:
+            rating, solved = await cf_common.cache.get_rating_solved(handle)
+        if solved is None:
+            solved = set()
 
         lower = bounds[0] if len(bounds) > 0 else None
         if lower is None:
@@ -186,14 +171,11 @@ class Codeforces(commands.Cog):
                 await ctx.send('Personal cf data not found. Assume rating of 1500.')
                 lower = 1500
         upper = bounds[1] if len(bounds) > 1 else 5000
-        problems = [
-            prob for prob in self.cache.problem_dict.values()
-            if lower <= prob.rating <= upper and prob.name not in solved
-        ]
+        problems = [prob for prob in cf_common.cache.problem_dict.values()
+                    if lower <= prob.rating <= upper and prob.name not in solved]
         if tags: problems = [prob for prob in problems if prob.tag_matches(tags)]
-        indices = [((p.rating-lower)//200,
-                    -self.cache.problem_start[p.contest_identifier], i)
-                    for i, p in enumerate(problems)]
+        indices = [((p.rating - lower) // 200, -cf_common.cache.problem_start[p.contest_identifier], i)
+                   for i, p in enumerate(problems)]
         indices.sort(reverse=True)
         problems = [problems[i] for _, _, i in indices]
         numproblems = len(problems)
@@ -205,7 +187,7 @@ class Codeforces(commands.Cog):
 
         title = f'{problem.index}. {problem.name}'
         url = f'{cf.CONTEST_BASE_URL}{problem.contestId}/problem/{problem.index}'
-        desc = self.cache.contest_dict.get(problem.contestId)
+        desc = cf_common.cache.contest_dict.get(problem.contestId)
         desc = desc.name if desc else 'N/A'
         embed = discord.Embed(title=title, url=url, description=desc)
         embed.add_field(name='Rating', value=problem.rating)
@@ -217,48 +199,43 @@ class Codeforces(commands.Cog):
     @commands.command(brief='Challenge')
     async def gitgud(self, ctx, delta: int = 0):
         user_id = ctx.message.author.id
-        handle = handle_conn.conn.gethandle(user_id)
+        handle = cf_common.conn.gethandle(user_id)
         if not handle:
             await ctx.send('You must link your handle to be able to use this feature.')
             return
-        active = handle_conn.conn.check_challenge(user_id)
+        active = cf_common.conn.check_challenge(user_id)
         if active is not None:
             issue_time, name, contestId, index = active
             url = f'{cf.CONTEST_BASE_URL}{contestId}/problem/{index}'
             await ctx.send(f'You have an active challenge {name} at {url}')
             return
-        if self.cache.problem_dict is None:
-            await self.cache.cache_problems()
-        rating, solved = await self.cache.get_rating_solved(handle, time_out=0)
+        if cf_common.cache.problem_dict is None:
+            await cf_common.cache.cache_problems()
+        rating, solved = await cf_common.cache.get_rating_solved(handle, time_out=0)
         if rating is None or solved is None:
             await ctx.send('Cannot pull your data at this time. Try again later.')
             return
         rating = round(rating, -2)
-        problems = [
-            prob for prob in self.cache.problem_dict.values()
-            if prob.rating == rating + delta and prob.name not in solved
-        ]
+        problems = [prob for prob in cf_common.cache.problem_dict.values()
+                    if prob.rating == rating + delta and prob.name not in solved]
         if not problems:
             await ctx.send('No problem to assign')
             return
-        indices = [
-            (self.cache.problem_start[p.contest_identifier], i)
-            for i, p in enumerate(problems)
-        ]
+        indices = [(cf_common.cache.problem_start[p.contest_identifier], i) for i, p in enumerate(problems)]
         indices.sort()
         numproblems = len(problems)
         choice = max([random.randrange(numproblems) for _ in range(7)])
         problem = problems[choice]
-        
+
         issue_time = datetime.datetime.now().timestamp()
 
-        rc = handle_conn.conn.new_challenge(user_id, issue_time, problem, delta)
+        rc = cf_common.conn.new_challenge(user_id, issue_time, problem, delta)
         if rc != 1:
             await ctx.send('Error updating the database')
-            return        
+            return
         title = f'{problem.index}. {problem.name}'
         url = f'{cf.CONTEST_BASE_URL}{problem.contestId}/problem/{problem.index}'
-        desc = self.cache.contest_dict.get(problem.contestId)
+        desc = cf_common.cache.contest_dict.get(problem.contestId)
         desc = desc.name if desc else 'N/A'
         embed = discord.Embed(title=title, url=url, description=desc)
         embed.add_field(name='Rating', value=problem.rating)
@@ -413,7 +390,7 @@ class Codeforces(commands.Cog):
 
     @commands.command(brief="Show server rating distribution")
     async def distrib(self, ctx):
-        res = handle_conn.conn.getallhandleswithrating()
+        res = cf_common.conn.getallhandleswithrating()
         ratings = [rating for _, _, rating in res]
         step = 100
         histbins = list(range(500, 3800 + step, step))

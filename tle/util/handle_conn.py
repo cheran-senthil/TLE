@@ -3,14 +3,6 @@ import time
 
 from tle.util import codeforces_api as cf
 
-# Connection to database available across modules
-conn = None
-
-
-def initialize_conn(dbfile):
-    global conn
-    conn = HandleConn(dbfile)
-
 
 class HandleConn:
     def __init__(self, dbfile):

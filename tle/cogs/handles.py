@@ -6,7 +6,7 @@ from discord.ext import commands
 from tabulate import tabulate
 
 from tle.util import codeforces_api as cf
-from tle.util import handle_conn
+from tle.util import codeforces_common as cf_common
 
 PROFILE_BASE_URL = 'https://codeforces.com/profile/'
 
@@ -53,8 +53,8 @@ class Handles(commands.Cog):
         # CF API returns correct handle ignoring case, update to it
         handle = user.handle
 
-        handle_conn.conn.cache_cfuser(user)
-        handle_conn.conn.sethandle(member.id, handle)
+        cf_common.conn.cache_cfuser(user)
+        cf_common.conn.sethandle(member.id, handle)
 
         embed = make_profile_embed(member, handle, user.rating, user.titlePhoto, mode='set')
         await ctx.send(embed=embed)
@@ -62,11 +62,11 @@ class Handles(commands.Cog):
     @commands.command(brief='gethandle [name]')
     async def gethandle(self, ctx, member: discord.Member):
         """Show Codeforces handle of a user"""
-        handle = handle_conn.conn.gethandle(member.id)
+        handle = cf_common.conn.gethandle(member.id)
         if not handle:
             await ctx.send(f'Handle for user {member.display_name} not found in database')
             return
-        user = handle_conn.conn.fetch_cfuser(handle)
+        user = cf_common.conn.fetch_cfuser(handle)
         if user is None:
             # Not cached, should not happen
             logging.error(f'Handle info for {handle} not cached')
@@ -83,7 +83,7 @@ class Handles(commands.Cog):
             await ctx.send('Member not found!')
             return
         try:
-            r = handle_conn.conn.removehandle(member.id)
+            r = cf_common.conn.removehandle(member.id)
             if r == 1:
                 msg = f'removehandle: {member.name} removed'
             else:
@@ -97,7 +97,7 @@ class Handles(commands.Cog):
     async def showhandles(self, ctx):
         try:
             converter = commands.MemberConverter()
-            res = handle_conn.conn.getallhandleswithrating()
+            res = cf_common.conn.getallhandleswithrating()
             res.sort(key=lambda r: r[2] if r[2] is not None else -1, reverse=True)
             table = []
             for i, (id, handle, rating) in enumerate(res):
@@ -116,11 +116,72 @@ class Handles(commands.Cog):
             msg = 'showhandles error!'
         await ctx.send(msg)
 
-    @commands.command(brief='show cache (admin only)', hidden=True)
+    @commands.command(brief='show cache (admin only)')
     @commands.has_role('Admin')
-    async def showcache(self, ctx):
-        cache = handle_conn.conn.getallcache()
+    async def _showcache(self, ctx):
+        cache = cf_common.conn.getallcache()
         msg = '```\n{}\n```'.format(tabulate(cache, headers=('handle', 'rating', 'titlePhoto')))
+        await ctx.send(msg)
+
+    async def make_rank2role(self, ctx):
+        converter = commands.RoleConverter()
+        rank2role = {}
+        for rank in cf.RankHelper.get_ranks():
+            rank2role[rank.lower()] = await converter.convert(ctx, rank)
+        return rank2role
+
+    @commands.command(brief='update roles (admin-only)')
+    @commands.has_role('Admin')
+    async def _updateroles(self, ctx):
+        """update roles"""
+        # TODO: Add permission check for manage roles
+        try:
+            rank2role = await self.make_rank2role(ctx)
+        except Exception as e:
+            print(e)
+            await ctx.send('error fetching roles!')
+            return
+
+        try:
+            res = cf_common.conn.getallhandles()
+            handles = [handle for _, handle in res]
+            users = await cf.user.info(handles=handles)
+            await ctx.send('caching handles...')
+            try:
+                for user in users:
+                    cf_common.conn.cache_cfuser(user)
+            except Exception as e:
+                print(e)
+        except Exception as e:
+            print(e)
+            await ctx.send('error getting data from cf')
+            return
+
+        await ctx.send('updating roles...')
+        try:
+            converter = commands.MemberConverter()
+            for (discord_userid, handle), user in zip(res, users):
+                try:
+                    member = await converter.convert(ctx, discord_userid)
+                    rank = user.rank.lower()
+                    rm_list = []
+                    add = True
+                    for role in member.roles:
+                        name = role.name.lower()
+                        if name == rank:
+                            add = False
+                        elif name in rank2role:
+                            rm_list.append(role)
+                    if rm_list:
+                        await member.remove_roles(*rm_list)
+                    if add:
+                        await member.add_roles(rank2role[rank])
+                except Exception as e:
+                    print(e)
+            msg = 'Update roles completed.'
+        except Exception as e:
+            msg = 'updateroles error!'
+            print(e)
         await ctx.send(msg)
 
 

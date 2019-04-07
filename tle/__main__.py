@@ -8,7 +8,7 @@ from discord.ext import commands
 from matplotlib import pyplot as plt
 
 from tle import constants
-from tle.util import handle_conn
+from tle.util import codeforces_common as cf_common
 
 
 def setup():
@@ -30,7 +30,7 @@ def setup():
 
     # Initialize database
     dbfile = os.path.join(constants.FILEDIR, constants.DB_FILENAME)
-    handle_conn.initialize_conn(dbfile)
+    cf_common.initialize_conn(dbfile)
 
 
 def main():
@@ -50,6 +50,11 @@ def main():
             logging.error(f'Failed to load extension {extension}: {e})')
 
     logging.info(f'Cogs loaded...')
+
+    @bot.event
+    async def on_ready():
+        await cf_common.initialize_cache(constants.CONTEST_CACHE_PERIOD)
+
     bot.run(token)
 
 
