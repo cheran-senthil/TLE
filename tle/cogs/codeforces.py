@@ -166,23 +166,23 @@ class Codeforces(commands.Cog):
 
         lower = bounds[0] if len(bounds) > 0 else None
         if lower is None:
-            lower = rating
+            lower = round(rating, -2)
             if lower is None:
                 await ctx.send('Personal cf data not found. Assume rating of 1500.')
                 lower = 1500
-        upper = bounds[1] if len(bounds) > 1 else 5000
+        upper = bounds[1] if len(bounds) > 1 else lower + 200
         problems = [prob for prob in cf_common.cache.problem_dict.values()
-                    if lower <= prob.rating <= upper and prob.name not in solved]
+                    if lower <= prob.rating and prob.name not in solved]
         if tags: problems = [prob for prob in problems if prob.tag_matches(tags)]
-        indices = [((p.rating - lower) // 200, -cf_common.cache.problem_start[p.contest_identifier], i)
-                   for i, p in enumerate(problems)]
-        indices.sort(reverse=True)
-        problems = [problems[i] for _, _, i in indices]
-        numproblems = len(problems)
-        if numproblems == 0:
+        if not problems:
             await ctx.send('Problems not found within the search parameters')
             return
-        choice = max([random.randrange(numproblems) for _ in range(7)])
+        upper = max(upper, min([prob.rating for prob in problems]))
+        problems = [prob for prob in problems if prob.rating <= upper]
+        indices = sorted([(cf_common.cache.problem_start[p.contest_identifier], i)
+                          for i, p in enumerate(problems)])
+        problems = [problems[i] for _, i in indices]
+        choice = max([random.randrange(len(problems)) for _ in range(3)])
         problem = problems[choice]
 
         title = f'{problem.index}. {problem.name}'
@@ -223,8 +223,8 @@ class Codeforces(commands.Cog):
             return
         indices = [(cf_common.cache.problem_start[p.contest_identifier], i) for i, p in enumerate(problems)]
         indices.sort()
-        numproblems = len(problems)
-        choice = max([random.randrange(numproblems) for _ in range(7)])
+        problems = [problems[i] for _, i in indices]
+        choice = max([random.randrange(len(problems)) for _ in range(3)])
         problem = problems[choice]
 
         issue_time = datetime.datetime.now().timestamp()
