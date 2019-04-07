@@ -15,6 +15,9 @@ def initialize_conn(dbfile):
 class HandleConn:
     def __init__(self, dbfile):
         self.conn = sqlite3.connect(dbfile)
+        self.create_tables()
+
+    def create_tables(self):
         # status => 0 inactive, 1 active
         self.conn.execute('''
             CREATE TABLE IF NOT EXISTS user_handle(
@@ -34,27 +37,153 @@ class HandleConn:
                 lastCached REAL
             )
         ''')
+        self.conn.execute('''
+            CREATE TABLE IF NOT EXISTS "contest" (
+                "id"	INTEGER,
+                "name"	TEXT,
+                "start_time"	INTEGER,
+                "duration"	INTEGER,
+                "type"	TEXT,
+                PRIMARY KEY("id")
+            )
+        ''')
+        self.conn.execute('''
+            CREATE TABLE IF NOT EXISTS "problem" (
+                "name"	TEXT,
+                "contest_id"	INTEGER,
+                "p_index"	TEXT,
+                "start_time"	INTEGER,
+                "rating"	INTEGER,
+                "type"	TEXT,
+                "tags"	TEXT,
+                PRIMARY KEY("name")
+            )
+        ''')
+        self.conn.execute('''
+            CREATE TABLE IF NOT EXISTS "challenge" (
+                "id"	INTEGER PRIMARY KEY AUTOINCREMENT,
+                "user_id"	TEXT NOT NULL,
+                "issue_time"	REAL NOT NULL,
+                "finish_time"	REAL,
+                "problem_name"	TEXT NOT NULL,
+                "contest_id"	INTEGER NOT NULL,
+                "p_index"	INTEGER NOT NULL,
+                "rating_delta"	INTEGER NOT NULL,
+                "status"	INTEGER NOT NULL
+            )
+        ''')
+        self.conn.execute('''
+            CREATE TABLE IF NOT EXISTS "user_challenge" (
+                "user_id"	TEXT,
+                "active_challenge_id"	INTEGER,
+                "issue_time"	REAL,
+                "num_completed"	INTEGER NOT NULL,
+                "num_skipped"	INTEGER NOT NULL,
+                PRIMARY KEY("user_id")
+            )
+        ''')
+
+    def fetch_contests(self):
+        query = 'SELECT id, name, start_time, duration, type FROM contest'
+        res = self.conn.execute(query).fetchall()
+        if res is None: return None
+        return [cf.Contest(*r) for r in res]
+    
+    def fetch_problems(self):
+        query = '''
+            SELECT contest_id, p_index, name, type, rating, tags, start_time
+            FROM problem
+        '''
+        res = self.conn.execute(query).fetchall()
+        if res is None: return None
+        return [(cf.Problem(*r[:6]), r[6]) for r in res]
+    
+    def insert_one(self, table: str, columns, values: tuple):
+        n = len(values)
+        query = '''
+            INSERT OR REPLACE INTO {} ({}) VALUES ({})
+        '''.format(table, ', '.join(columns), ', '.join(['?']*n))
+        rc = self.conn.execute(query, values).rowcount
+        self.conn.commit()
+        return rc
+
+    def insert_many(self, table: str, columns, values: list):
+        n = len(columns)
+        query = '''
+            INSERT OR REPLACE INTO {} ({}) VALUES ({})
+        '''.format(table, ', '.join(columns), ', '.join(['?']*n))
+        rc = self.conn.executemany(query, values).rowcount
+        self.conn.commit()
+        return rc
+
+    def new_challenge(self, user_id, issue_time, prob, delta):
+        query1 = '''
+            INSERT INTO challenge
+            (user_id, issue_time, problem_name, contest_id, p_index, rating_delta, status)
+            VALUES
+            (?, ?, ?, ?, ?, ?, 1)
+        '''
+        query2 = '''
+            INSERT OR IGNORE INTO user_challenge (user_id, num_completed, num_skipped)
+            VALUES (?, 0, 0)
+        '''
+        query3 = '''
+            UPDATE user_challenge SET active_challenge_id = ?, issue_time = ?
+            WHERE user_id = ?
+        '''
+        cur = self.conn.cursor()        
+        cur.execute(query1, (user_id, issue_time, prob.name, prob.contestId, prob.index, delta))
+        last_id, rc = cur.lastrowid, cur.rowcount
+        if rc != 1:
+            self.conn.rollback()
+            return 0
+        cur.execute(query2, (user_id,))
+        cur.execute(query3, (last_id, issue_time, user_id))
+        if cur.rowcount != 1:
+            self.conn.rollback()
+            return 0
+        self.conn.commit()
+        return 1
+    
+    def check_challenge(self, user_id):
+        query1 = '''
+            SELECT active_challenge_id, issue_time FROM user_challenge
+            WHERE user_id = ?
+        '''
+        res = self.conn.execute(query1, (user_id,)).fetchone()
+        if res is None: return None
+        c_id, issue_time = res
+        query2 = '''
+            SELECT problem_name, contest_id, p_index FROM challenge
+            WHERE id = ?
+        '''
+        res = self.conn.execute(query2, (c_id,)).fetchone()
+        if res is None: return None
+        return issue_time, res[0], res[1], res[2]  
+
+    def cache_contests(self, contests: list):
+        return self.insert_many('contest',
+            ['id', 'name', 'start_time', 'duration', 'type'],
+            contests
+        )
+
+    def cache_problems(self, problems: list):
+        return self.insert_many('problem',
+            ['name', 'contest_id', 'p_index', 'start_time', 'rating', 'type', 'tags'],
+            problems
+        )
 
     def cache_cfuser(self, user):
-        """ return 1 if set, 0 if not """
-        query = '''
-            INSERT OR REPLACE INTO cf_cache
-            (handle, rating, titlePhoto, lastCached)
-            VALUES (?, ?, ?, ?)
-        '''
-        rc = self.conn.execute(query, user + (time.time(),))
-        self.conn.commit()
-        return rc
+        return self.insert_one('cf_cache',
+            ('handle', 'rating', 'titlePhoto', 'lastCached'),
+            user + (time.time(),)
+        )
 
     def cache_cfuser_full(self, columns: tuple):
-        query = '''
-            INSERT OR REPLACE INTO cf_cache
-            (handle, rating, titlePhoto, solved, lastCached)
-            VALUES (?, ?, ?, ?, ?)
-        '''
-        rc = self.conn.execute(query, columns)
-        self.conn.commit()
-        return rc
+        return self.insert_one('cf_cache',
+            ('handle', 'rating', 'titlePhoto', 'solved', 'lastCached'),
+            columns
+        )
 
     def fetch_cfuser(self, handle):
         query = '''
@@ -66,9 +195,9 @@ class HandleConn:
             user = cf.User._make(user)
         return user
 
-    def fetch_cfuser_custom(self, handle: str, columns: list):
-        query = 'SELECT {} FROM cf_cache WHERE handle = ?'.format(', '.join(columns))
-        return self.conn.execute(query, (handle,)).fetchone()
+    def fetch_rating_solved(self, handle):
+        query = 'SELECT lastCached, rating, solved FROM cf_cache WHERE handle = ?'
+        return self.conn.execute(query, (handle, )).fetchone()
 
     def getallcache(self):
         query = 'SELECT handle, rating, titlePhoto FROM cf_cache'

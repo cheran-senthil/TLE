@@ -50,7 +50,7 @@ class User(namedtuple('User', 'handle rating titlePhoto')):
 RatingChange = namedtuple('RatingChange',
                           'contestId contestName handle rank ratingUpdateTimeSeconds oldRating newRating')
 
-Contest = namedtuple('Contest', 'id name')
+Contest = namedtuple('Contest', 'id name startTimeSeconds durationSeconds type')
 
 Party = namedtuple('Party', 'contestId members participantType')
 
