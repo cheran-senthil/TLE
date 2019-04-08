@@ -127,7 +127,11 @@ def plot_average(practice, bin_size, label: str = ""):
         ratings = running_mean(ratings, bin_size)
         times = [datetime.datetime.fromtimestamp(time) for time in times]
 
-        plt.plot(times, ratings, linestyle='-', markerfacecolor='white', markeredgewidth=0.5,
+        plt.plot(times,
+                 ratings,
+                 linestyle='-',
+                 markerfacecolor='white',
+                 markeredgewidth=0.5,
                  label=label)
 
 
@@ -388,26 +392,27 @@ class Codeforces(commands.Cog):
         handle = handle or '!' + str(ctx.author)
         try:
             handles = await cf_common.resolve_handles_or_reply_with_error(ctx, self.converter, (handle,))
-            sresp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
-            rresp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.rating)
+            status_resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
+            rating_resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.rating)
             contests = await cf.query_api('contest.list')
         except cf_common.CodeforcesHandleError:
             return
 
         handle, = handles
-        rating_changes, = rresp
+        rating_changes, = rating_resp
         if not rating_changes:
             await ctx.send("User is unrated!")
             return
-        _, practice, _ = classify_subs(sresp[0], contests)
+        _, practice, _ = classify_subs(status_resp[0], contests)
         plt.clf()
         plot_average(practice, bin_size, label="practice")
         latest_rating = rating_changes[-1].newRating
-        # labels = [f'{zero_width_space}{handle} ({latest_rating})']
+
         labels = [f'contest ({latest_rating})']
-        plot_rating(rresp, return_ratings=False, labels=labels)
+        plot_rating(rating_resp, return_ratings=False, labels=labels)
         plt.legend(loc='upper left')
         plt.gcf().suptitle(f"{handle}'s rating")
+
         await ctx.send(file=get_current_figure_as_file())
 
     @commands.command(brief="Show server rating distribution")
