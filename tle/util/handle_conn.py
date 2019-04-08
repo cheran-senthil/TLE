@@ -154,6 +154,12 @@ class HandleConn:
         if res is None: return None
         return c_id, issue_time, res[0], res[1], res[2], res[3]
 
+    def get_gudgitters(self):
+        query = '''
+            SELECT user_id, score FROM user_challenge
+        '''
+        return self.conn.execute(query).fetchall()
+
     def complete_challenge(self, user_id, challenge_id, finish_time, delta):
         query1 = '''
             UPDATE challenge SET finish_time = ?, status = 0 WHERE id = ?

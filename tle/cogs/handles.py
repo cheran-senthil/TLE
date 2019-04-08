@@ -93,6 +93,27 @@ class Handles(commands.Cog):
             msg = 'removehandle error!'
         await ctx.send(msg)
 
+    @commands.command(brief="show gudgitters")
+    async def gudgitters(self, ctx):
+        try:
+            converter = commands.MemberConverter()
+            res = cf_common.conn.get_gudgitters()
+            res.sort(key=lambda r: r[1], reverse=True)
+            table = []
+            for i, (id, score) in enumerate(res):
+                try:  # in case the person has left the server
+                    member = await converter.convert(ctx, id)
+                    name = member.nick if member.nick else member.name
+                    hdisp = f'{name} ({score})'
+                    table.append((i, name))
+                except Exception as e:
+                    print(e)
+            msg = '```\n{}\n```'.format(tabulate(table, headers=('#', 'name')))
+        except Exception as e:
+            print(e)
+            msg = 'showhandles error!'
+        await ctx.send(msg)
+
     @commands.command(brief="show all handles")
     async def showhandles(self, ctx):
         try:
