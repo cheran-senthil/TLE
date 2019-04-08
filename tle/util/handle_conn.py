@@ -69,6 +69,7 @@ class HandleConn:
                 "user_id"	TEXT,
                 "active_challenge_id"	INTEGER,
                 "issue_time"	REAL,
+                "score"	INTEGER NOT NULL,
                 "num_completed"	INTEGER NOT NULL,
                 "num_skipped"	INTEGER NOT NULL,
                 PRIMARY KEY("user_id")
@@ -80,7 +81,7 @@ class HandleConn:
         res = self.conn.execute(query).fetchall()
         if res is None: return None
         return [cf.Contest(*r) for r in res]
-    
+
     def fetch_problems(self):
         query = '''
             SELECT contest_id, p_index, name, type, rating, tags, start_time
@@ -89,7 +90,7 @@ class HandleConn:
         res = self.conn.execute(query).fetchall()
         if res is None: return None
         return [(cf.Problem(*r[:6]), r[6]) for r in res]
-    
+
     def insert_one(self, table: str, columns, values: tuple):
         n = len(values)
         query = '''
@@ -116,14 +117,14 @@ class HandleConn:
             (?, ?, ?, ?, ?, ?, 1)
         '''
         query2 = '''
-            INSERT OR IGNORE INTO user_challenge (user_id, num_completed, num_skipped)
-            VALUES (?, 0, 0)
+            INSERT OR IGNORE INTO user_challenge (user_id, score, num_completed, num_skipped)
+            VALUES (?, 0, 0, 0)
         '''
         query3 = '''
             UPDATE user_challenge SET active_challenge_id = ?, issue_time = ?
             WHERE user_id = ?
         '''
-        cur = self.conn.cursor()        
+        cur = self.conn.cursor()
         cur.execute(query1, (user_id, issue_time, prob.name, prob.contestId, prob.index, delta))
         last_id, rc = cur.lastrowid, cur.rowcount
         if rc != 1:
@@ -136,7 +137,7 @@ class HandleConn:
             return 0
         self.conn.commit()
         return 1
-    
+
     def check_challenge(self, user_id):
         query1 = '''
             SELECT active_challenge_id, issue_time FROM user_challenge
@@ -146,12 +147,25 @@ class HandleConn:
         if res is None: return None
         c_id, issue_time = res
         query2 = '''
-            SELECT problem_name, contest_id, p_index FROM challenge
+            SELECT problem_name, contest_id, p_index, rating_delta FROM challenge
             WHERE id = ?
         '''
         res = self.conn.execute(query2, (c_id,)).fetchone()
         if res is None: return None
-        return issue_time, res[0], res[1], res[2]  
+        return c_id, issue_time, res[0], res[1], res[2], res[3]
+
+    def complete_challenge(self, user_id, challenge_id, finish_time, delta):
+        query1 = '''
+            UPDATE challenge SET finish_time = ?, status = 0 WHERE id = ?
+        '''
+        query2 = '''
+            UPDATE user_challenge SET score = score + ?, num_completed = num_completed + 1,
+            active_challenge_id = NULL, issue_time = NULL
+            WHERE user_id = ?
+        '''
+        self.conn.execute(query1, (finish_time, challenge_id))
+        self.conn.execute(query2, (delta, user_id))
+        self.conn.commit()
 
     def cache_contests(self, contests: list):
         return self.insert_many('contest',

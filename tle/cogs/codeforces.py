@@ -223,7 +223,7 @@ class Codeforces(commands.Cog):
             return
         active = cf_common.conn.check_challenge(user_id)
         if active is not None:
-            issue_time, name, contest_id, index = active
+            challenge_id, issue_time, name, contest_id, index, delta = active
             url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
             await ctx.send(f'You have an active challenge {name} at {url}')
             return
@@ -258,6 +258,30 @@ class Codeforces(commands.Cog):
         embed = discord.Embed(title=title, url=url, description=desc)
         embed.add_field(name='Rating', value=problem.rating)
         await ctx.send(f'Challenge problem for `{handle}`', embed=embed)
+
+    @commands.command(brief='Report challenge completion')
+    async def gotgud(self, ctx):
+        user_id = ctx.message.author.id
+        handle = cf_common.conn.gethandle(user_id)
+        if not handle:
+            await ctx.send('You must link your handle to be able to use this feature.')
+            return
+        active = cf_common.conn.check_challenge(user_id)
+        if not active:
+            await ctx.send(f'You do not have an active challenge')
+            return
+        _, solved = await cf_common.cache.get_rating_solved(handle, time_out=0)
+        if solved is None:
+            await ctx.send('Cannot pull your data at this time. Try again later.')
+            return
+        challenge_id, issue_time, name, contestId, index, delta = active
+        if not name in solved:
+            await ctx.send('You haven\'t completed your challenge.')
+            return
+        delta = delta // 100 + 3
+        finish_time = int(datetime.datetime.now().timestamp())
+        cf_common.conn.complete_challenge(user_id, challenge_id, finish_time, delta)
+        await ctx.send(f'Challenge completed. You gained {delta} points.')
 
     @commands.command(brief='Recommend a contest')
     async def vc(self, ctx, *handles: str):
