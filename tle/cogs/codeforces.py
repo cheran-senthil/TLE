@@ -216,6 +216,10 @@ class Codeforces(commands.Cog):
 
     @commands.command(brief='Challenge')
     async def gitgud(self, ctx, delta: int = 0):
+        delta = round(delta, -2)
+        if delta < -200 or delta > 200:
+            await ctx.send('Delta can range from -200 to 200.')
+            return
         user_id = ctx.message.author.id
         handle = cf_common.conn.gethandle(user_id)
         if not handle:
@@ -223,7 +227,7 @@ class Codeforces(commands.Cog):
             return
         active = cf_common.conn.check_challenge(user_id)
         if active is not None:
-            challenge_id, issue_time, name, contest_id, index, delta = active
+            challenge_id, issue_time, name, contest_id, index, c_delta = active
             url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
             await ctx.send(f'You have an active challenge {name} at {url}')
             return
@@ -281,7 +285,7 @@ class Codeforces(commands.Cog):
         delta = delta // 100 + 3
         finish_time = int(datetime.datetime.now().timestamp())
         cf_common.conn.complete_challenge(user_id, challenge_id, finish_time, delta)
-        await ctx.send(f'Challenge completed. You gained {delta} points.')
+        await ctx.send(f'Challenge completed. {handle} gained {delta} points.')
 
     @commands.command(brief='Recommend a contest')
     async def vc(self, ctx, *handles: str):
