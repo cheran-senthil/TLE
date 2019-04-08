@@ -17,6 +17,10 @@ from tle import constants
 from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
 
+# suppress pandas warning
+from pandas.plotting import register_matplotlib_converters
+register_matplotlib_converters()
+
 zero_width_space = '\u200b'
 
 
@@ -392,13 +396,18 @@ class Codeforces(commands.Cog):
 
         handle, = handles
         rating_changes, = rresp
+        if not rating_changes:
+            await ctx.send("User is unrated!")
+            return
         _, practice, _ = classify_subs(sresp[0], contests)
         plt.clf()
-        plot_average(practice, bin_size, label="Practice Average")
+        plot_average(practice, bin_size, label="practice")
         latest_rating = rating_changes[-1].newRating
-        labels = [f'{zero_width_space}{handle} ({latest_rating})']
+        # labels = [f'{zero_width_space}{handle} ({latest_rating})']
+        labels = [f'contest ({latest_rating})']
         plot_rating(rresp, return_ratings=False, labels=labels)
         plt.legend(loc='upper left')
+        plt.gcf().suptitle(f"{handle}'s rating")
         await ctx.send(file=get_current_figure_as_file())
 
     @commands.command(brief="Show server rating distribution")
