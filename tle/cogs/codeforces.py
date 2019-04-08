@@ -390,9 +390,6 @@ class Codeforces(commands.Cog):
         except cf_common.CodeforcesHandleError:
             return
 
-        if len(handles) > 1:
-            await ctx.send("Use only one handle at a time")
-            return
         handle, = handles
         rating_changes, = rresp
         _, practice, _ = classify_subs(sresp[0], contests)
