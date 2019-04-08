@@ -16,6 +16,8 @@ from tle import constants
 from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
 
+from typing import List
+
 zero_width_space = '\u200b'
 
 
@@ -43,25 +45,33 @@ def plot_rating_bg():
     plt.ylim(ymin, ymax)
 
 
-def plot_rating(resp):
-    rate = []
-    for rating_changes in resp:
+def plot_rating(resp, return_ratings=True, labels: List[str] = None):
+    """Returns list of (current) ratings when return_ratings=True"""
+    rates = []
+    labels = [""] * len(resp) if labels is None else labels
+    for rating_changes, label in zip(resp, labels):
         ratings, times = [], []
         for rating_change in rating_changes:
             ratings.append(rating_change.newRating)
             times.append(datetime.datetime.fromtimestamp(rating_change.ratingUpdateTimeSeconds))
 
-        plt.plot(
-            times, ratings, linestyle='-', marker='o', markersize=3, markerfacecolor='white', markeredgewidth=0.5)
-        rate.append(ratings[-1])
+        plt.plot(times,
+                 ratings,
+                 linestyle='-',
+                 marker='o',
+                 markersize=3,
+                 markerfacecolor='white',
+                 markeredgewidth=0.5,
+                 label=label)
+        rates.append(ratings[-1])
 
     plot_rating_bg()
-    return rate
+    return rates if return_ratings else None
 
 
 def classify_subs(submissions, contests):
     submissions.sort(key=lambda s: s.creationTimeSeconds)
-    contests = {contest['id']:contest['startTimeSeconds'] for contest in contests}
+    contests = {contest['id']: contest['startTimeSeconds'] for contest in contests}
     regular, practice, virtual = {}, {}, {}
     for submission in submissions:
         if submission.verdict == 'OK':
@@ -105,7 +115,7 @@ def running_mean(x, bin_size=1):
     return res
 
 
-def plot_average(practice, bin_size):
+def plot_average(practice, bin_size, label: str = ""):
     if len(practice) > bin_size:
         times, ratings = map(list, zip(*practice))
 
@@ -114,7 +124,8 @@ def plot_average(practice, bin_size):
         ratings = running_mean(ratings, bin_size)
         times = [datetime.datetime.fromtimestamp(time) for time in times]
 
-        plt.plot(times, ratings, linestyle='-', markerfacecolor='white', markeredgewidth=0.5)
+        plt.plot(times, ratings, linestyle='-', markerfacecolor='white', markeredgewidth=0.5,
+                 label=label)
 
 
 class Codeforces(commands.Cog):
@@ -205,8 +216,8 @@ class Codeforces(commands.Cog):
             return
         active = cf_common.conn.check_challenge(user_id)
         if active is not None:
-            issue_time, name, contestId, index = active
-            url = f'{cf.CONTEST_BASE_URL}{contestId}/problem/{index}'
+            issue_time, name, contest_id, index = active
+            url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
             await ctx.send(f'You have an active challenge {name} at {url}')
             return
         if cf_common.cache.problem_dict is None:
@@ -251,7 +262,7 @@ class Codeforces(commands.Cog):
         except cf_common.CodeforcesHandleError:
             return
 
-        usubs = resp
+        user_submissions = resp
         try:
             info = await cf.user.info(handles=handles)
             contests = await cf.contest.list()
@@ -267,20 +278,20 @@ class Codeforces(commands.Cog):
         divs = 'Div. 3' if divr < 1600 else 'Div. 2' if divr < 2100 else 'Div. 1'
         recommendations = {contest.id for contest in contests if divs in contest.name}
 
-        for subs in usubs:
+        for subs in user_submissions:
             for sub in subs:
                 recommendations.discard(sub.problem.contestId)
 
         if not recommendations:
             await ctx.send('Unable to recommend a contest')
         else:
-            numcontests = len(recommendations)
-            choice = max(random.randrange(numcontests), random.randrange(numcontests))
-            contestid = sorted(list(recommendations))[choice]
+            num_contests = len(recommendations)
+            choice = max(random.randrange(num_contests), random.randrange(num_contests))
+            contest_id = sorted(list(recommendations))[choice]
             # from and count are for ranklist, set to minimum (1) because we only need name
             str_handles = '`, `'.join(handles)
-            contest, _, _ = await cf.contest.standings(contestid=contestid, from_=1, count=1)
-            url = f'{cf.CONTEST_BASE_URL}{contestid}/'
+            contest, _, _ = await cf.contest.standings(contestid=contest_id, from_=1, count=1)
+            url = f'{cf.CONTEST_BASE_URL}{contest_id}/'
 
             await ctx.send(f'Recommended contest for `{str_handles}`', embed=discord.Embed(title=contest.name, url=url))
 
@@ -326,7 +337,7 @@ class Codeforces(commands.Cog):
         step = 100 if len(handles) == 1 else 200
         histbins = list(range(500, 3800 + step, step))
 
-        # matplotlib ignores labels that begin with _
+        # NOTE: matplotlib ignores labels that begin with _
         # https://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.legend
         # Add zero-width space to work around this
         labels = [f'{zero_width_space}{handle}: {len(ratings)}' for handle, ratings in zip(handles, allratings)]
@@ -365,7 +376,7 @@ class Codeforces(commands.Cog):
         plot_average(practice, bin_size)
         await ctx.send(file=get_current_figure_as_file())
 
-    @commands.command(brief='chilli graph')
+    @commands.command(brief='Plots average practice problems rating with actual rating')
     async def chilli(self, ctx, handle: str = None, bin_size: int = 10):
         if bin_size < 1:
             await ctx.send('Moving average window size must be at least 1.')
@@ -380,12 +391,18 @@ class Codeforces(commands.Cog):
         except cf_common.CodeforcesHandleError:
             return
 
+        if len(handles) > 1:
+            await ctx.send("Use only one handle at a time")
+            return
+        handle, = handles
         _, practice, _ = classify_subs(sresp[0], contests)
         plt.clf()
-        plot_average(practice, bin_size)
-        rate = plot_rating(rresp)
-        labels = [f'{zero_width_space}{handle} ({rating})' for handle, rating in zip(handles, rate)]
-        plt.legend(labels, loc='upper left')
+        plot_average(practice, bin_size, label="Practice Average")
+        rating_changes, = rresp
+        latest_rating = rating_changes[-1].newRating
+        labels = [f'{zero_width_space}{handle} ({latest_rating})']
+        plot_rating(rresp, return_ratings=False, labels=labels)
+        plt.legend(loc='upper left')
         await ctx.send(file=get_current_figure_as_file())
 
     @commands.command(brief="Show server rating distribution")
@@ -393,10 +410,10 @@ class Codeforces(commands.Cog):
         res = cf_common.conn.getallhandleswithrating()
         ratings = [rating for _, _, rating in res]
         step = 100
-        histbins = list(range(500, 3800 + step, step))
+        hist_bins = list(range(500, 3800 + step, step))
 
         plt.clf()
-        plt.hist(ratings, bins=histbins)
+        plt.hist(ratings, bins=hist_bins)
         plt.title('Server rating distribution')
         plt.xlabel('Rating')
         plt.ylabel('Number of users')
