@@ -100,12 +100,14 @@ class Handles(commands.Cog):
             res = cf_common.conn.get_gudgitters()
             res.sort(key=lambda r: r[1], reverse=True)
             table = []
-            for i, (id, score) in enumerate(res):
+            index = 0
+            for id, score in res:
                 try:  # in case the person has left the server
                     member = await converter.convert(ctx, id)
                     name = member.nick if member.nick else member.name
                     hdisp = f'{name} ({score})'
-                    table.append((i, name))
+                    table.append((index, hdisp))
+                    index = index + 1
                 except Exception as e:
                     print(e)
             msg = '```\n{}\n```'.format(tabulate(table, headers=('#', 'name')))
