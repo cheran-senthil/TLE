@@ -216,10 +216,6 @@ class Codeforces(commands.Cog):
 
     @commands.command(brief='Challenge')
     async def gitgud(self, ctx, delta: int = 0):
-        delta = round(delta, -2)
-        if delta < -200 or delta > 200:
-            await ctx.send('Delta can range from -200 to 200.')
-            return
         user_id = ctx.message.author.id
         handle = cf_common.conn.gethandle(user_id)
         if not handle:
@@ -236,6 +232,10 @@ class Codeforces(commands.Cog):
         rating, solved = await cf_common.cache.get_rating_solved(handle, time_out=0)
         if rating is None or solved is None:
             await ctx.send('Cannot pull your data at this time. Try again later.')
+            return
+        delta = round(delta, -2)
+        if delta < -200 or delta > 200:
+            await ctx.send('Delta can range from -200 to 200.')
             return
         rating = round(rating, -2)
         problems = [prob for prob in cf_common.cache.problem_dict.values()
