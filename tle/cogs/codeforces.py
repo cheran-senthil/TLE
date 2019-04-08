@@ -1,11 +1,12 @@
-import asyncio
+# import asyncio
 import datetime
 import io
 import json
-import logging
+# import logging
 import os
 import random
 import time
+from typing import List
 
 import aiohttp
 import discord
@@ -15,8 +16,6 @@ from matplotlib import pyplot as plt
 from tle import constants
 from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
-
-from typing import List
 
 zero_width_space = '\u200b'
 
@@ -335,7 +334,7 @@ class Codeforces(commands.Cog):
 
         # Adjust bin size so it looks nice
         step = 100 if len(handles) == 1 else 200
-        histbins = list(range(500, 3800 + step, step))
+        hist_bins = list(range(500, 3800 + step, step))
 
         # NOTE: matplotlib ignores labels that begin with _
         # https://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.legend
@@ -343,7 +342,7 @@ class Codeforces(commands.Cog):
         labels = [f'{zero_width_space}{handle}: {len(ratings)}' for handle, ratings in zip(handles, allratings)]
 
         plt.clf()
-        plt.hist(allratings, bins=histbins, label=labels)
+        plt.hist(allratings, bins=hist_bins, label=labels)
         plt.title('Histogram of problems solved on Codeforces')
         plt.xlabel('Problem rating')
         plt.ylabel('Number solved')
@@ -376,7 +375,7 @@ class Codeforces(commands.Cog):
         plot_average(practice, bin_size)
         await ctx.send(file=get_current_figure_as_file())
 
-    @commands.command(brief='Plots average practice problems rating with actual rating')
+    @commands.command(brief="Plots average practice problems ratings with contest ratings")
     async def chilli(self, ctx, handle: str = None, bin_size: int = 10):
         if bin_size < 1:
             await ctx.send('Moving average window size must be at least 1.')
@@ -395,10 +394,10 @@ class Codeforces(commands.Cog):
             await ctx.send("Use only one handle at a time")
             return
         handle, = handles
+        rating_changes, = rresp
         _, practice, _ = classify_subs(sresp[0], contests)
         plt.clf()
         plot_average(practice, bin_size, label="Practice Average")
-        rating_changes, = rresp
         latest_rating = rating_changes[-1].newRating
         labels = [f'{zero_width_space}{handle} ({latest_rating})']
         plot_rating(rresp, return_ratings=False, labels=labels)
