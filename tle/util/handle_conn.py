@@ -75,6 +75,14 @@ class HandleConn:
                 PRIMARY KEY("user_id")
             )
         ''')
+        self.conn.execute('''
+            CREATE TABLE IF NOT EXISTS reminder (
+                guild_id INTEGER PRIMARY KEY,
+                channel_id INTEGER,
+                role_id INTEGER,
+                intervals TEXT
+            )
+        ''')
 
     def fetch_contests(self):
         query = 'SELECT id, name, start_time, duration, type FROM contest'
@@ -91,20 +99,20 @@ class HandleConn:
         if res is None: return None
         return [(cf.Problem(*r[:6]), r[6]) for r in res]
 
-    def insert_one(self, table: str, columns, values: tuple):
+    def _insert_one(self, table: str, columns, values: tuple):
         n = len(values)
         query = '''
             INSERT OR REPLACE INTO {} ({}) VALUES ({})
-        '''.format(table, ', '.join(columns), ', '.join(['?']*n))
+        '''.format(table, ', '.join(columns), ', '.join(['?'] * n))
         rc = self.conn.execute(query, values).rowcount
         self.conn.commit()
         return rc
 
-    def insert_many(self, table: str, columns, values: list):
+    def _insert_many(self, table: str, columns, values: list):
         n = len(columns)
         query = '''
             INSERT OR REPLACE INTO {} ({}) VALUES ({})
-        '''.format(table, ', '.join(columns), ', '.join(['?']*n))
+        '''.format(table, ', '.join(columns), ', '.join(['?'] * n))
         rc = self.conn.executemany(query, values).rowcount
         self.conn.commit()
         return rc
@@ -174,25 +182,25 @@ class HandleConn:
         self.conn.commit()
 
     def cache_contests(self, contests: list):
-        return self.insert_many('contest',
+        return self._insert_many('contest',
             ['id', 'name', 'start_time', 'duration', 'type'],
             contests
         )
 
     def cache_problems(self, problems: list):
-        return self.insert_many('problem',
+        return self._insert_many('problem',
             ['name', 'contest_id', 'p_index', 'start_time', 'rating', 'type', 'tags'],
             problems
         )
 
     def cache_cfuser(self, user):
-        return self.insert_one('cf_cache',
+        return self._insert_one('cf_cache',
             ('handle', 'rating', 'titlePhoto', 'lastCached'),
             user + (time.time(),)
         )
 
     def cache_cfuser_full(self, columns: tuple):
-        return self.insert_one('cf_cache',
+        return self._insert_one('cf_cache',
             ('handle', 'rating', 'titlePhoto', 'solved', 'lastCached'),
             columns
         )
@@ -209,7 +217,7 @@ class HandleConn:
 
     def fetch_rating_solved(self, handle):
         query = 'SELECT lastCached, rating, solved FROM cf_cache WHERE handle = ?'
-        return self.conn.execute(query, (handle, )).fetchone()
+        return self.conn.execute(query, (handle,)).fetchone()
 
     def getallcache(self):
         query = 'SELECT handle, rating, titlePhoto FROM cf_cache'
@@ -277,6 +285,27 @@ class HandleConn:
         rc = self.conn.execute(active_query, active_ids).rowcount
         self.conn.commit()
         return rc
+
+    def get_reminder_settings(self, guild_id):
+        query = '''
+            SELECT channel_id, role_id, intervals
+            FROM reminder
+            WHERE guild_id = ?
+        '''
+        return self.conn.execute(query, (guild_id,)).fetchone()
+
+    def set_reminder_settings(self, guild_id, channel_id, role_id, intervals):
+        query = '''
+            INSERT OR REPLACE INTO reminder (guild_id, channel_id, role_id, intervals)
+            VALUES (?, ?, ?, ?)
+        '''
+        self.conn.execute(query, (guild_id, channel_id, role_id, intervals))
+        self.conn.commit()
+
+    def clear_reminder_settings(self, guild_id):
+        query = '''DELETE FROM reminder WHERE guild_id = ?'''
+        self.conn.execute(query, (guild_id,))
+        self.conn.commit()
 
     def close(self):
         self.conn.close()

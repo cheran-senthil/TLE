@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import json
 import logging
 import random
 
@@ -14,6 +15,7 @@ _CONTESTS_PER_PAGE = 5
 _PAGINATE_WAIT_TIME = 5 * 60  # 5 minutes
 
 _CF_COLORS = [0xFFCA1F, 0x198BCC, 0xFF2020]
+_OK_GREEN = 0x00A000
 
 
 def _parse_timezone(tz_string):
@@ -52,16 +54,16 @@ def _get_formatted_contest_desc(id_str, start, duration, url, max_duration_len):
     return desc
 
 
-def _embed_with_desc(desc):
-    return discord.Embed(description=desc)
+def _embed_with_desc(desc, color=discord.Embed.Empty):
+    return discord.Embed(description=desc, color=color)
 
 
 class FutureContests(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.future_contests = None
-        self.last_updated = None
         self.contest_id_map = {}
+        self.role_converter = commands.RoleConverter()
         self.logger = logging.getLogger(self.__class__.__name__)
 
     @commands.Cog.listener()
@@ -86,7 +88,6 @@ class FutureContests(commands.Cog):
 
         self.future_contests.sort(key=lambda c: c.startTimeSeconds)
         self.contest_id_map = {c.id: c for c in self.future_contests}
-        self.last_updated = datetime.datetime.now()
 
     def _make_pages(self):
         pages = []
@@ -107,8 +108,9 @@ class FutureContests(commands.Cog):
             pages.append(('Future contests on Codeforces', embed))
         return pages
 
-    @commands.command(brief='Show future contests or show a specific contest start time in your timezone')
+    @commands.command(brief='Show future contests')
     async def future(self, ctx, contest_id: int = None, timezone: str = None):
+        """Show all future contests or a specific contest in your timezone."""
         if self.future_contests is None:
             await ctx.send(embed=_embed_with_desc('Unable to connect to Codeforces API'))
             return
@@ -132,6 +134,53 @@ class FutureContests(commands.Cog):
         else:
             pages = self._make_pages()
             paginator.paginate(self.bot, ctx, pages, wait_time=_PAGINATE_WAIT_TIME, set_pagenum_footers=True)
+
+    @commands.group(brief='Commands for contest reminders')
+    async def remind(self, ctx):
+        pass
+
+    @remind.command(brief='Set reminder settings')
+    @commands.has_role('Admin')
+    async def here(self, ctx, role: discord.Role, *intervals: int):
+        if not role.mentionable:
+            await ctx.send(embed=_embed_with_desc('The role for reminders must be mentionable'))
+            return
+        cf_common.conn.set_reminder_settings(ctx.guild.id, ctx.channel.id, role.id, json.dumps(intervals))
+        await ctx.send(embed=_embed_with_desc('Reminder settings saved successfully', color=_OK_GREEN))
+        # self._reschedule_reminders(ctx.guild.id)
+
+    @remind.command(brief='Clear all reminder settings')
+    @commands.has_role('Admin')
+    async def clear(self, ctx):
+        cf_common.conn.clear_reminder_settings(ctx.guild.id)
+        await ctx.send(embed=_embed_with_desc('Reminder settings cleared', color=_OK_GREEN))
+
+    @remind.command(brief='Subscribe to or unsubscribe from contest reminders',
+                    usage='[not]')
+    async def me(self, ctx, arg: str = None):
+        _, role_id, _ = cf_common.conn.get_reminder_settings(ctx.guild.id)
+        if not role_id:
+            await ctx.send(
+                embed=_embed_with_desc('To use this command, the reminder role needs to be set first by an admin'))
+            return
+        try:
+            role = await self.role_converter.convert(ctx, str(role_id))
+        except commands.CommandError:
+            await ctx.send(embed=_embed_with_desc('The role set as reminder role is no longer available'))
+            return
+
+        if arg is None:
+            if role in ctx.author.roles:
+                await ctx.send(embed=_embed_with_desc('You are already subscribed to contest reminders'))
+                return
+            await ctx.author.add_roles(role, reason='User subscribed to contest reminders')
+            await ctx.send(embed=_embed_with_desc('Successfully subscribed to contest reminders', color=_OK_GREEN))
+        elif arg == 'not':
+            if role not in ctx.author.roles:
+                await ctx.send(embed=_embed_with_desc('You are not subscribed to reminders'))
+                return
+            await ctx.author.remove_roles(role, reason='User unsubscribed from contest reminders')
+            await ctx.send(embed=_embed_with_desc('Successfully unsubscribed from contest reminders', color=_OK_GREEN))
 
 
 def setup(bot):
