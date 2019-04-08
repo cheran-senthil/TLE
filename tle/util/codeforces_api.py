@@ -3,8 +3,8 @@ from collections import namedtuple
 
 import aiohttp
 
-API_BASE_URL = 'http://codeforces.com/api/'
-CONTEST_BASE_URL = 'http://codeforces.com/contest/'
+API_BASE_URL = 'https://codeforces.com/api/'
+CONTEST_BASE_URL = 'https://codeforces.com/contest/'
 
 session = aiohttp.ClientSession()
 
@@ -112,7 +112,8 @@ async def query_api(path, params=None):
     url = API_BASE_URL + path
     try:
         logging.info(f'Querying CF API at {url} with {params}')
-        async with session.get(url, params=params) as resp:
+        headers = {'Accept-Encoding': 'gzip'}  # Explicitly state encoding (though aiohttp accepts gzip by default)
+        async with session.get(url, params=params, headers=headers) as resp:
             if resp.status == 200:
                 resp = await resp.json()
                 return resp['result']
