@@ -22,7 +22,7 @@ cache = None
 
 active_groups = defaultdict(set)
 
-def guard_group(*, group):
+def user_guard(*, group):
     active = active_groups[group]
     def guard(fun):
         @wraps(fun)
