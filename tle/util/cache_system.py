@@ -36,9 +36,7 @@ class CacheSystem:
         now = time.time()
         if self.contest_last_cache is None or self.contest_dict is None or now - self.contest_last_cache > duration:
             await self.cache_contests()
-        if self.contest_dict:
-            return self.contest_dict.values()
-        return None
+        return self.contest_dict
 
     async def force_update(self):
         await self.cache_contests()

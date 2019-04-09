@@ -116,10 +116,11 @@ class FutureContests(commands.Cog):
             await self._reload()
 
     async def _reload(self, acceptable_delay=_CONTEST_RELOAD_ACCEPTABLE_DELAY):
-        contests = await cf_common.cache.get_contests(acceptable_delay)
-        if contests is None:
+        contest_dict = await cf_common.cache.get_contests(acceptable_delay)
+        if contest_dict is None:
             self.logger.warning('Could not update cache')
             return
+        contests = contest_dict.values()
 
         now = time.time()
         self.future_contests = [contest for contest in contests if
