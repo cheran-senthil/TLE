@@ -296,6 +296,25 @@ class Codeforces(commands.Cog):
         else:
             await ctx.send('You have already claimed your points')
 
+    @commands.command(brief='Skip challenge')
+    async def nogud(self, ctx):
+        user_id = ctx.message.author.id
+        handle = cf_common.conn.gethandle(user_id)
+        if not handle:
+            await ctx.send('You must link your handle to be able to use this feature.')
+            return
+        active = cf_common.conn.check_challenge(user_id)
+        if not active:
+            await ctx.send(f'You do not have an active challenge')
+            return
+        challenge_id, issue_time, name, contestId, index, delta = active
+        finish_time = int(datetime.datetime.now().timestamp())
+        if finish_time - issue_time < 43200:
+            await ctx.send(f'You can\'t skip your challenge yet. Think more.')
+            return
+        cf_common.conn.skip_challenge(user_id, challenge_id)
+        await ctx.send(f'Challenge skipped.')
+
     @commands.command(brief='Recommend a contest')
     async def vc(self, ctx, *handles: str):
         """Recommends a contest based on Codeforces rating of the handle provided."""
