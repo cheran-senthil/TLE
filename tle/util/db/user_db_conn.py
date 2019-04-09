@@ -110,6 +110,25 @@ class UserDbConn:
             ')'
         )
 
+    def rectify(self):
+        query = 'SELECT user_id, score FROM user_challenge'
+        res = self.conn.execute(query).fetchall()
+        ids = [t[0] for t in res]
+        scores = [t[1] for t in res]
+        for i, user_id in enumerate(ids):
+            query = 'SELECT rating_delta, status FROM challenge WHERE user_id = ?'
+            res = self.conn.execute(query, (user_id,)).fetchall()
+            score = 0
+            for delta, status in res:
+                if status == 0:
+                    score = score + delta // 100 + 3
+
+            if score != scores[i]:
+                print ('{}: {} -> {}'.format(self.gethandle(user_id), scores[i], score))
+                query2 = 'UPDATE user_challenge SET score = ? WHERE user_id = ?'
+                self.conn.execute(query2, (score, user_id))
+        self.conn.commit()
+
     def fetch_contests(self):
         query = 'SELECT id, name, start_time, duration, type, phase, prepared_by FROM contest'
         res = self.conn.execute(query).fetchall()

@@ -340,6 +340,11 @@ class Codeforces(commands.Cog):
     async def cog_command_error(self, ctx, error):
         await cf_common.resolve_handle_error_handler(ctx, error)
 
+    @commands.command(brief="rectify")
+    @commands.has_role('Admin')
+    async def rectify(self, ctx):
+        cf_common.conn.rectify()
+
 
 def setup(bot):
     bot.add_cog(Codeforces(bot))
