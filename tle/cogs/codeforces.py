@@ -258,7 +258,8 @@ class Codeforces(commands.Cog):
 
         rc = cf_common.conn.new_challenge(user_id, issue_time, problem, delta)
         if rc != 1:
-            await ctx.send('Error updating the database')
+            # await ctx.send('Error updating the database')
+            await ctx.send('Your challenge has already been added to the database!')
             return
         title = f'{problem.index}. {problem.name}'
         url = f'{cf.CONTEST_BASE_URL}{problem.contestId}/problem/{problem.index}'
@@ -289,8 +290,11 @@ class Codeforces(commands.Cog):
             return
         delta = delta // 100 + 3
         finish_time = int(datetime.datetime.now().timestamp())
-        cf_common.conn.complete_challenge(user_id, challenge_id, finish_time, delta)
-        await ctx.send(f'Challenge completed. {handle} gained {delta} points.')
+        rc = cf_common.conn.complete_challenge(user_id, challenge_id, finish_time, delta)
+        if rc == 1:
+            await ctx.send(f'Challenge completed. {handle} gained {delta} points.')
+        else:
+            await ctx.send('You have already claimed your points')
 
     @commands.command(brief='Recommend a contest')
     async def vc(self, ctx, *handles: str):

@@ -130,7 +130,7 @@ class HandleConn:
         '''
         query3 = '''
             UPDATE user_challenge SET active_challenge_id = ?, issue_time = ?
-            WHERE user_id = ?
+            WHERE user_id = ? AND active_challenge_id IS NULL
         '''
         cur = self.conn.cursor()
         cur.execute(query1, (user_id, issue_time, prob.name, prob.contestId, prob.index, delta))
@@ -170,16 +170,24 @@ class HandleConn:
 
     def complete_challenge(self, user_id, challenge_id, finish_time, delta):
         query1 = '''
-            UPDATE challenge SET finish_time = ?, status = 0 WHERE id = ?
+            UPDATE challenge SET finish_time = ?, status = 0
+            WHERE id = ? AND status = 1
         '''
         query2 = '''
             UPDATE user_challenge SET score = score + ?, num_completed = num_completed + 1,
             active_challenge_id = NULL, issue_time = NULL
-            WHERE user_id = ?
+            WHERE user_id = ? AND active_challenge_id = ?
         '''
-        self.conn.execute(query1, (finish_time, challenge_id))
-        self.conn.execute(query2, (delta, user_id))
+        rc = self.conn.execute(query1, (finish_time, challenge_id)).rowcount
+        if rc != 1:
+            self.conn.rollback()
+            return 0
+        self.conn.execute(query2, (delta, user_id, challenge_id)).rowcount
+        if rc != 1:
+            self.conn.rollback()
+            return 0
         self.conn.commit()
+        return 1
 
     def cache_contests(self, contests: list):
         return self._insert_many('contest',
