@@ -5,6 +5,7 @@ import aiohttp
 
 API_BASE_URL = 'https://codeforces.com/api/'
 CONTEST_BASE_URL = 'https://codeforces.com/contest/'
+CONTESTS_BASE_URL = 'https://codeforces.com/contests/'
 
 session = aiohttp.ClientSession()
 
@@ -50,7 +51,18 @@ class User(namedtuple('User', 'handle rating titlePhoto')):
 RatingChange = namedtuple('RatingChange',
                           'contestId contestName handle rank ratingUpdateTimeSeconds oldRating newRating')
 
-Contest = namedtuple('Contest', 'id name startTimeSeconds durationSeconds type')
+
+class Contest(namedtuple('Contest', 'id name startTimeSeconds durationSeconds type')):
+    __slots__ = ()
+
+    @property
+    def url(self):
+        return f'{CONTEST_BASE_URL}{self.id}'
+
+    @property
+    def register_url(self):
+        return f'{CONTESTS_BASE_URL}{self.id}'
+
 
 Party = namedtuple('Party', 'contestId members participantType')
 
@@ -61,6 +73,10 @@ class Problem(namedtuple('Problem', 'contestId index name type rating tags')):
     @property
     def contest_identifier(self):
         return f'{self.contestId}{self.index}'
+
+    @property
+    def url(self):
+        return f'{CONTEST_BASE_URL}{self.contestId}/problem/{self.index}'
 
     def has_metadata(self):
         return self.contestId is not None and self.rating is not None
