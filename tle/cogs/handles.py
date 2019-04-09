@@ -93,7 +93,7 @@ class Handles(commands.Cog):
             msg = 'removehandle error!'
         await ctx.send(msg)
 
-    @commands.command(brief="show gudgitters")
+    @commands.command(brief="show gudgitters", aliases=["gitgudders"])
     async def gudgitters(self, ctx):
         try:
             converter = commands.MemberConverter()
