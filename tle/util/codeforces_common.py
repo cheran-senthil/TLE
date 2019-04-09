@@ -22,6 +22,7 @@ cache = None
 
 active_groups = defaultdict(set)
 
+# algmyr's guard idea:
 def user_guard(*, group):
     active = active_groups[group]
     def guard(fun):
