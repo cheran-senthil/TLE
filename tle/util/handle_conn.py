@@ -130,7 +130,7 @@ class HandleConn:
         '''
         query3 = '''
             UPDATE user_challenge SET active_challenge_id = ?, issue_time = ?
-            WHERE user_id = ?
+            WHERE user_id = ? AND active_challenge_id = NULL
         '''
         cur = self.conn.cursor()
         cur.execute(query1, (user_id, issue_time, prob.name, prob.contestId, prob.index, delta))
