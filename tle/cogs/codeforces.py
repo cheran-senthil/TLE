@@ -253,7 +253,8 @@ class Codeforces(commands.Cog):
 
         rc = cf_common.conn.new_challenge(user_id, issue_time, problem, delta)
         if rc != 1:
-            await ctx.send('Error updating the database')
+            # await ctx.send('Error updating the database')
+            await ctx.send('Your challenge has already been added to the database!')
             return
         title = f'{problem.index}. {problem.name}'
         url = f'{cf.CONTEST_BASE_URL}{problem.contestId}/problem/{problem.index}'
