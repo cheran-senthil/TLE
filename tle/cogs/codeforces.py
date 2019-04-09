@@ -244,6 +244,13 @@ class Codeforces(commands.Cog):
         rating = round(rating, -2)
         problems = [prob for prob in cf_common.cache.problem_dict.values()
                     if prob.rating == rating + delta and prob.name not in solved]
+
+        def is_shit(contest):
+            shitlist = ['Wild', 'Fools', 'unrated', 'Unrated', 'Surprise', 'Unknown', 'Friday', 'Q#']
+            return any([shit in contest for shit in shitlist])
+
+        contests = await cf_common.cache.get_contests(60 * 60 * 24)
+        problems = [prob for prob in problems if not is_shit(contests[prob.contestId])]
         if not problems:
             await ctx.send('No problem to assign')
             return
