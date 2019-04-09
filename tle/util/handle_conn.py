@@ -80,7 +80,7 @@ class HandleConn:
                 guild_id INTEGER PRIMARY KEY,
                 channel_id INTEGER,
                 role_id INTEGER,
-                intervals TEXT
+                before TEXT
             )
         ''')
 
@@ -288,18 +288,18 @@ class HandleConn:
 
     def get_reminder_settings(self, guild_id):
         query = '''
-            SELECT channel_id, role_id, intervals
+            SELECT channel_id, role_id, before
             FROM reminder
             WHERE guild_id = ?
         '''
         return self.conn.execute(query, (guild_id,)).fetchone()
 
-    def set_reminder_settings(self, guild_id, channel_id, role_id, intervals):
+    def set_reminder_settings(self, guild_id, channel_id, role_id, before):
         query = '''
-            INSERT OR REPLACE INTO reminder (guild_id, channel_id, role_id, intervals)
+            INSERT OR REPLACE INTO reminder (guild_id, channel_id, role_id, before)
             VALUES (?, ?, ?, ?)
         '''
-        self.conn.execute(query, (guild_id, channel_id, role_id, intervals))
+        self.conn.execute(query, (guild_id, channel_id, role_id, before))
         self.conn.commit()
 
     def clear_reminder_settings(self, guild_id):
