@@ -108,7 +108,7 @@ class CallLimitExceededError(CodeforcesApiError):
 
 # Codeforces API query methods
 
-async def query_api(path, params=None):
+async def _query_api(path, params=None):
     url = API_BASE_URL + path
     try:
         logging.info(f'Querying CF API at {url} with {params}')
@@ -142,7 +142,7 @@ class contest:
         params = {}
         if gym:
             params['gym'] = True
-        resp = await query_api('contest.list', params)
+        resp = await _query_api('contest.list', params)
         return [make_from_dict(Contest, contest_dict) for contest_dict in resp]
 
     @staticmethod
@@ -158,7 +158,7 @@ class contest:
             params['room'] = room
         if show_unofficial is not None:
             params['showUnofficial'] = show_unofficial
-        resp = await query_api('contest.standings', params)
+        resp = await _query_api('contest.standings', params)
         contest_ = make_from_dict(Contest, resp['contest'])
         problems = [make_from_dict(Problem, problem_dict) for problem_dict in resp['problems']]
         for row in resp['rows']:
@@ -175,7 +175,7 @@ class problemset:
             params['tags'] = ';'.join(tags)
         if problemset_name is not None:
             params['problemsetName'] = problemset_name
-        resp = await query_api('problemset.problems', params)
+        resp = await _query_api('problemset.problems', params)
         problems = [make_from_dict(Problem, problem_dict) for problem_dict in resp['problems']]
         problemstats = [make_from_dict(ProblemStatistics, problemstat_dict) for problemstat_dict in
                         resp['problemStatistics']]
@@ -186,13 +186,13 @@ class user:
     @staticmethod
     async def info(*, handles):
         params = {'handles': ';'.join(handles)}
-        resp = await query_api('user.info', params)
+        resp = await _query_api('user.info', params)
         return [make_from_dict(User, user_dict) for user_dict in resp]
 
     @staticmethod
     async def rating(*, handle):
         params = {'handle': handle}
-        resp = await query_api('user.rating', params)
+        resp = await _query_api('user.rating', params)
         return [make_from_dict(RatingChange, ratingchange_dict) for ratingchange_dict in resp]
 
     @staticmethod
@@ -202,7 +202,7 @@ class user:
             params['from'] = from_
         if count is not None:
             params['count'] = count
-        resp = await query_api('user.status', params)
+        resp = await _query_api('user.status', params)
         for submission in resp:
             submission['problem'] = make_from_dict(Problem, submission['problem'])
             submission['author'] = make_from_dict(Party, submission['author'])

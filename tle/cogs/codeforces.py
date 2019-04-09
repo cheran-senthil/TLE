@@ -19,6 +19,7 @@ from tle.util import codeforces_common as cf_common
 
 # suppress pandas warning
 from pandas.plotting import register_matplotlib_converters
+
 register_matplotlib_converters()
 
 zero_width_space = '\u200b'
@@ -74,25 +75,27 @@ def plot_rating(resp, return_ratings=True, labels: List[str] = None):
 
 def classify_subs(submissions, contests):
     submissions.sort(key=lambda s: s.creationTimeSeconds)
-    contests = {contest['id']: contest['startTimeSeconds'] for contest in contests}
+    contest_id_map = {contest.id: contest for contest in contests}
     regular, practice, virtual = {}, {}, {}
     for submission in submissions:
-        if submission.verdict == 'OK':
-            rating = submission.problem.rating
-            time = submission.creationTimeSeconds
-            if rating and time:
-                contest_type = submission.author.participantType
-                entry = [datetime.datetime.fromtimestamp(time), rating]
-                prob = (submission.problem.name, contests[submission.problem.contestId])
-                if prob in practice or prob in virtual or prob in regular:
-                    continue
-                if contest_type == 'PRACTICE':
-                    practice[prob] = entry
-                elif contest_type == 'VIRTUAL':
-                    virtual[prob] = entry
-                else:
-                    regular[prob] = entry
-    return regular.values(), practice.values(), virtual.values()
+        if submission.verdict != 'OK':
+            continue
+        problem = submission.problem
+        start_time = datetime.datetime.fromtimestamp(submission.creationTimeSeconds)
+        contest = contest_id_map.get(problem.contestId)
+        if problem.rating and start_time and contest:
+            contest_type = submission.author.participantType
+            entry = (start_time, problem.rating)
+            problem_key = (problem.name, contest.startTimeSeconds)
+            if problem_key in practice or problem_key in virtual or problem_key in regular:
+                continue
+            if contest_type == 'PRACTICE':
+                practice[problem_key] = entry
+            elif contest_type == 'VIRTUAL':
+                virtual[problem_key] = entry
+            else:
+                regular[problem_key] = entry
+    return list(regular.values()), list(practice.values()), list(virtual.values())
 
 
 def plot_scatter(regular, practice, virtual):
@@ -172,8 +175,10 @@ class Codeforces(commands.Cog):
         tags = []
         bounds = []
         for arg in args:
-            if arg.isdigit(): bounds.append(int(arg))
-            else: tags.append(arg)
+            if arg.isdigit():
+                bounds.append(int(arg))
+            else:
+                tags.append(arg)
         handle = cf_common.conn.gethandle(ctx.message.author.id)
 
         rating, solved = None, None
@@ -396,7 +401,7 @@ class Codeforces(commands.Cog):
         try:
             handles = await cf_common.resolve_handles_or_reply_with_error(ctx, self.converter, (handle,))
             resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
-            contests = await cf.query_api('contest.list')
+            contests = await cf.contest.list()
             submissions = resp[0]
         except cf_common.CodeforcesHandleError:
             return
@@ -422,7 +427,7 @@ class Codeforces(commands.Cog):
             handles = await cf_common.resolve_handles_or_reply_with_error(ctx, self.converter, (handle,))
             status_resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
             rating_resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.rating)
-            contests = await cf.query_api('contest.list')
+            contests = await cf.contest.list()
         except cf_common.CodeforcesHandleError:
             return
 
