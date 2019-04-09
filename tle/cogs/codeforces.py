@@ -307,7 +307,7 @@ class Codeforces(commands.Cog):
             return
         challenge_id, issue_time, name, contestId, index, delta = active
         finish_time = int(datetime.datetime.now().timestamp())
-        if finish_time - issue_time < 43200:
+        if finish_time - issue_time < 10800:
             await ctx.send(f'You can\'t skip your challenge yet. Think more.')
             return
         cf_common.conn.skip_challenge(user_id, challenge_id)
