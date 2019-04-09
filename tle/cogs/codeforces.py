@@ -285,8 +285,11 @@ class Codeforces(commands.Cog):
             return
         delta = delta // 100 + 3
         finish_time = int(datetime.datetime.now().timestamp())
-        cf_common.conn.complete_challenge(user_id, challenge_id, finish_time, delta)
-        await ctx.send(f'Challenge completed. {handle} gained {delta} points.')
+        rc = cf_common.conn.complete_challenge(user_id, challenge_id, finish_time, delta)
+        if rc == 1:
+            await ctx.send(f'Challenge completed. {handle} gained {delta} points.')
+        else:
+            await ctx.send('You have already claimed your points')
 
     @commands.command(brief='Recommend a contest')
     async def vc(self, ctx, *handles: str):
