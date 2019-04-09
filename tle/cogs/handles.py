@@ -1,4 +1,5 @@
 import logging
+import io
 
 import aiohttp
 import discord
@@ -8,8 +9,64 @@ from tabulate import tabulate
 from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
 
+from PIL import Image, ImageFont, ImageDraw
+
 PROFILE_BASE_URL = 'https://codeforces.com/profile/'
 
+def rating_to_color(rating):
+    """returns (r, g, b) pixels values corresponding to rating"""
+    BLACK = (10, 10, 10)
+    RED = (255, 20, 20)
+    BLUE = (0, 0, 200)
+    GREEN = (0, 140, 0)
+    ORANGE = (250, 140, 30)
+    PURPLE = (160, 0, 120)
+    CYAN = (0, 165, 170)
+    GREY = (70, 70, 70)
+    if rating is None or rating == 'N/A':
+        return BLACK
+    if rating < 1200:
+        return GREY
+    if rating < 1400:
+        return GREEN
+    if rating < 1600:
+        return CYAN
+    if rating < 1900:
+        return BLUE
+    if rating < 2100:
+        return PURPLE
+    if rating < 2400:
+        return ORANGE
+    return RED
+
+def get_showhandles_image(rankings):
+    """return PIL image for rankings"""
+    SMOKE_WHITE = (250, 250, 250)
+    BLACK = (0, 0, 0)
+    img = Image.new("RGB", (900, 500), color=SMOKE_WHITE)
+    font = ImageFont.truetype("tle/assets/fonts/Cousine-Regular.ttf", size=30)
+    draw = ImageDraw.Draw(img)
+    x = 20
+    y = 20
+    y_inc, _ = font.getsize("hg")
+
+    header = f"{'#':<4}{'Username':<18}{'Handle':<18}{'Rating':>7}"
+    draw.text((x, y), header, fill=BLACK, font=font)
+    y += int(y_inc * 1.5)
+    for pos, name, handle, rating in rankings:
+        s = f"{f'#{pos}':<4}{name:<18}{handle:<18}{rating:>7}"
+        color = rating_to_color(rating)
+        if rating >= 3000:  # nutella
+            draw.text((x, y), s[:22], fill=color, font=font)
+            z = x + font.getsize(s[:22])[0]
+            draw.text((z, y), s[22], fill=BLACK, font=font)
+            z += font.getsize((s[22]))[0]
+            draw.text((z, y), s[23:], fill=color, font=font)
+        else:
+            draw.text((x, y), s, fill=color, font=font)
+        y += y_inc
+
+    return img
 
 def make_profile_embed(member, handle, rating, photo, *, mode):
     if mode == 'set':
@@ -117,27 +174,35 @@ class Handles(commands.Cog):
         await ctx.send(msg)
 
     @commands.command(brief="show all handles")
-    async def showhandles(self, ctx):
+    async def showhandles(self, ctx, page=1):
         try:
             converter = commands.MemberConverter()
             res = cf_common.conn.getallhandleswithrating()
             res.sort(key=lambda r: r[2] if r[2] is not None else -1, reverse=True)
-            table = []
-            for i, (id, handle, rating) in enumerate(res):
+            # table = []
+            rankings = []
+            pos = 0
+            for user_id, handle, rating in res:
                 try:  # in case the person has left the server
-                    member = await converter.convert(ctx, id)
+                    member = await converter.convert(ctx, user_id)
                     if rating is None:
                         rating = 'N/A'
-                    hdisp = f'{handle} ({rating})'
                     name = member.nick if member.nick else member.name
-                    table.append((i, name, hdisp))
+                    rankings.append((pos, name, handle, rating))
+                    pos += 1
                 except Exception as e:
                     print(e)
-            msg = '```\n{}\n```'.format(tabulate(table, headers=('#', 'name', 'handle')))
+            page = max(page, 1)
+            upto = page * 10
+            rankings = rankings[-10:] if len(rankings) < upto else rankings[upto - 10: upto]
+            img = get_showhandles_image(rankings)
+            buffer = io.BytesIO()
+            img.save(buffer, 'png')
+            buffer.seek(0)
+            await ctx.send(file=discord.File(buffer, "handles.png"))
         except Exception as e:
             print(e)
-            msg = 'showhandles error!'
-        await ctx.send(msg)
+            await ctx.send("showhandles error!")
 
     @commands.command(brief='show cache (admin only)')
     @commands.has_role('Admin')

@@ -279,6 +279,14 @@ optional = false
 python-versions = ">=3.5.3"
 version = "1.3.0"
 
+# [[package]]
+# category = "main"
+# description = "Image library"
+# name = "pillow"
+# optional = false
+# python-versions = ">=3.6"
+# version = "5.4.1"
+
 [package.dependencies]
 idna = ">=2.0"
 multidict = ">=4.0"

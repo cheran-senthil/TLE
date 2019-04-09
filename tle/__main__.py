@@ -41,7 +41,7 @@ def main():
 
     setup()
 
-    bot = commands.Bot(command_prefix=commands.when_mentioned_or(';'))
+    bot = commands.Bot(command_prefix=commands.when_mentioned_or('%'))
     cogs = [file.stem for file in Path('tle', 'cogs').glob('*.py')]
     for extension in cogs:
         try:
