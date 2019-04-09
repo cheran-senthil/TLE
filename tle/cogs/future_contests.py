@@ -13,6 +13,7 @@ from tle.util import codeforces_common as cf_common
 from tle.util import paginator
 
 _CONTEST_RELOAD_INTERVAL = 60 * 60  # 1 hour
+_CONTEST_RELOAD_ACCEPTABLE_DELAY = 15 * 60  # 15 mins
 _CONTESTS_PER_PAGE = 5
 _PAGINATE_WAIT_TIME = 5 * 60  # 5 minutes
 
@@ -36,10 +37,7 @@ def _secs_to_days_hrs_mins_secs(secs):
 
 
 def _get_formatted_contest_info(contest, tz):
-    if tz == datetime.timezone.utc:
-        start = datetime.datetime.utcfromtimestamp(contest.startTimeSeconds)
-    else:
-        start = datetime.datetime.fromtimestamp(contest.startTimeSeconds, tz)
+    start = datetime.datetime.fromtimestamp(contest.startTimeSeconds, tz)
     start = f'{start.strftime("%d %b %y, %H:%M")} {tz}'
 
     duration_days, duration_hrs, duration_mins, _ = _secs_to_days_hrs_mins_secs(contest.durationSeconds)
@@ -47,8 +45,7 @@ def _get_formatted_contest_info(contest, tz):
     if duration_days > 0:
         duration = f'{duration_days}d ' + duration
 
-    url = f'{cf_common.CONTESTS_BASE_URL}{contest.id}'
-    return contest.name, str(contest.id), start, duration, url
+    return contest.name, str(contest.id), start, duration, contest.register_url
 
 
 def _get_formatted_contest_desc(id_str, start, duration, url, max_duration_len):
@@ -76,21 +73,14 @@ def _get_embed_fields_from_contests(contests):
     return fields
 
 
-async def _send_reminder_at(channel, role, contests, before_mins, send_time):
+async def _send_reminder_at(channel, role, contests, before_secs, send_time):
     delay = send_time - time.time()
     if delay <= 0:
         return
     await asyncio.sleep(delay)
-    values = _secs_to_days_hrs_mins_secs(before_mins)
+    values = _secs_to_days_hrs_mins_secs(before_secs)
     labels = 'days hrs mins secs'.split()
-    pieces = list(zip(labels, values))
-    while pieces[-1][1] == 0:
-        pieces.pop()
-    pieces.reverse()
-    while pieces[-1][1] == 0:
-        pieces.pop()
-    pieces.reverse()
-    before_str = ' '.join(f'{value} {label}' for label, value in pieces)
+    before_str = ' '.join(f'{value} {label}' for label, value in zip(labels, values) if value > 0)
     desc = f'About to start in {before_str}'
     embed = discord.Embed(description=desc, color=random.choice(_CF_COLORS))
     for name, value in _get_embed_fields_from_contests(contests):
@@ -125,7 +115,7 @@ class FutureContests(commands.Cog):
             await asyncio.sleep(_CONTEST_RELOAD_INTERVAL)
             await self._reload()
 
-    async def _reload(self, acceptable_delay=15 * 60):
+    async def _reload(self, acceptable_delay=_CONTEST_RELOAD_ACCEPTABLE_DELAY):
         contests = await cf_common.cache.get_contests(acceptable_delay)
         if contests is None:
             self.logger.warning('Could not update cache')
@@ -162,8 +152,9 @@ class FutureContests(commands.Cog):
         channel, role = guild.get_channel(channel_id), guild.get_role(role_id)
         for start_time, contests in self.start_time_map.items():
             for before_mins in before:
+                before_secs = 60 * before_mins
                 task = asyncio.create_task(
-                    _send_reminder_at(channel, role, contests, before_mins * 60, start_time - before_mins * 60))
+                    _send_reminder_at(channel, role, contests, before_secs, start_time - before_secs))
                 self.task_map[guild_id].append(task)
         self.logger.info(f'{len(self.task_map[guild_id])} tasks scheduled for guild {guild_id}')
 
@@ -171,7 +162,7 @@ class FutureContests(commands.Cog):
         pages = []
         chunks = [self.future_contests[i: i + _CONTESTS_PER_PAGE]
                   for i in range(0, len(self.future_contests), _CONTESTS_PER_PAGE)]
-        for i, chunk in enumerate(chunks):
+        for chunk in chunks:
             embed = discord.Embed(color=random.choice(_CF_COLORS))
             for name, value in _get_embed_fields_from_contests(chunk):
                 embed.add_field(name=name, value=value, inline=False)
@@ -193,23 +184,23 @@ class FutureContests(commands.Cog):
         if len(self.future_contests) == 0:
             await ctx.send(embed=_embed_with_desc('No contests scheduled'))
             return
-        if contest_id:
+        if contest_id is None:
+            pages = self._make_pages()
+            paginator.paginate(self.bot, ctx, pages, wait_time=_PAGINATE_WAIT_TIME, set_pagenum_footers=True)
+        else:
             if contest_id not in self.contest_id_map:
                 await ctx.send(embed=_embed_with_desc('Contest ID not in contest list'))
                 return
             try:
                 tz = _parse_timezone(timezone)
             except ValueError:
-                await ctx.send(embed=_embed_with_desc('Timezone should be in valid format such as `-0900` or `+0530`'))
+                await ctx.send(embed=_embed_with_desc('Timezone should be in valid format such as `-09:00`'))
                 return
             contest = self.contest_id_map[contest_id]
             name, id_str, start, duration, url = _get_formatted_contest_info(contest, tz)
             desc = _get_formatted_contest_desc(id_str, start, duration, url, len(duration))
             embed = discord.Embed(color=random.choice(_CF_COLORS)).add_field(name=name, value=desc)
             await ctx.send(embed=embed)
-        else:
-            pages = self._make_pages()
-            paginator.paginate(self.bot, ctx, pages, wait_time=_PAGINATE_WAIT_TIME, set_pagenum_footers=True)
 
     @commands.group(brief='Commands for contest reminders')
     async def remind(self, ctx):
@@ -218,8 +209,8 @@ class FutureContests(commands.Cog):
     @remind.command(brief='Set reminder settings')
     @commands.has_role('Admin')
     async def here(self, ctx, role: discord.Role, *before: int):
-        """Sets reminder channel to current channel, role to the given role, and reminder times
-        to the given values in minutes."""
+        """Sets reminder channel to current channel, role to the given role, and reminder
+        times to the given values in minutes."""
         if not role.mentionable:
             await ctx.send(embed=_embed_with_desc('The role for reminders must be mentionable'))
             return
@@ -233,11 +224,12 @@ class FutureContests(commands.Cog):
     @commands.has_role('Admin')
     async def clear(self, ctx):
         cf_common.conn.clear_reminder_settings(ctx.guild.id)
-        self._reschedule_tasks(ctx.guild.id)
         await ctx.send(embed=_embed_with_desc('Reminder settings cleared', color=_OK_GREEN))
+        self._reschedule_tasks(ctx.guild.id)
 
     @remind.command(brief='Show reminder settings')
     async def settings(self, ctx):
+        """Shows the role, channel and before time settings."""
         settings = cf_common.conn.get_reminder_settings(ctx.guild.id)
         if settings is None:
             await ctx.send(embed=_embed_with_desc('Reminder not set'))
@@ -279,7 +271,7 @@ class FutureContests(commands.Cog):
             await ctx.send(embed=_embed_with_desc('Successfully subscribed to contest reminders', color=_OK_GREEN))
         elif arg == 'not':
             if role not in ctx.author.roles:
-                await ctx.send(embed=_embed_with_desc('You are not subscribed to reminders'))
+                await ctx.send(embed=_embed_with_desc('You are not subscribed to contest reminders'))
                 return
             await ctx.author.remove_roles(role, reason='User unsubscribed from contest reminders')
             await ctx.send(embed=_embed_with_desc('Successfully unsubscribed from contest reminders', color=_OK_GREEN))

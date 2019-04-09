@@ -209,10 +209,9 @@ class Codeforces(commands.Cog):
         problem = problems[choice]
 
         title = f'{problem.index}. {problem.name}'
-        url = f'{cf.CONTEST_BASE_URL}{problem.contestId}/problem/{problem.index}'
         desc = cf_common.cache.contest_dict.get(problem.contestId)
         desc = desc.name if desc else 'N/A'
-        embed = discord.Embed(title=title, url=url, description=desc)
+        embed = discord.Embed(title=title, url=problem.url, description=desc)
         embed.add_field(name='Rating', value=problem.rating)
         if tags:
             tagslist = ', '.join(problem.tag_matches(tags))
@@ -262,10 +261,9 @@ class Codeforces(commands.Cog):
             await ctx.send('Your challenge has already been added to the database!')
             return
         title = f'{problem.index}. {problem.name}'
-        url = f'{cf.CONTEST_BASE_URL}{problem.contestId}/problem/{problem.index}'
         desc = cf_common.cache.contest_dict.get(problem.contestId)
         desc = desc.name if desc else 'N/A'
-        embed = discord.Embed(title=title, url=url, description=desc)
+        embed = discord.Embed(title=title, url=problem.url, description=desc)
         embed.add_field(name='Rating', value=problem.rating)
         await ctx.send(f'Challenge problem for `{handle}`', embed=embed)
 
@@ -335,9 +333,8 @@ class Codeforces(commands.Cog):
             # from and count are for ranklist, set to minimum (1) because we only need name
             str_handles = '`, `'.join(handles)
             contest, _, _ = await cf.contest.standings(contestid=contest_id, from_=1, count=1)
-            url = f'{cf.CONTEST_BASE_URL}{contest_id}/'
-
-            await ctx.send(f'Recommended contest for `{str_handles}`', embed=discord.Embed(title=contest.name, url=url))
+            embed = discord.Embed(title=contest.name, url=contest.url)
+            await ctx.send(f'Recommended contest for `{str_handles}`', embed=embed)
 
     @commands.command(brief='Compare epeens.')
     async def rating(self, ctx, *handles: str):
