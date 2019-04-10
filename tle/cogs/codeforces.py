@@ -246,7 +246,7 @@ class Codeforces(commands.Cog):
                     if prob.rating == rating + delta and prob.name not in solved]
 
         def is_shit(contest):
-            shitlist = ['Wild', 'Fools', 'unrated', 'Unrated', 'Surprise', 'Unknown', 'Friday', 'Q#']
+            shitlist = ['Wild', 'Fools', 'unrated', 'Unrated', 'Surprise', 'Unknown', 'Friday', 'Q#', 'Testing']
             return any([shit in contest for shit in shitlist])
 
         contests = await cf_common.cache.get_contests(60 * 60 * 24)
