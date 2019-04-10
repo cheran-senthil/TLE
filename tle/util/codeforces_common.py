@@ -31,8 +31,10 @@ def user_guard(*, group):
                 logging.info(f'{user} repeatedly calls {group} group')
                 return
             active.add(user)
-            await fun(self, ctx, *args, **kwargs)
-            active.remove(user)
+            try:
+                await fun(self, ctx, *args, **kwargs)
+            finally:
+                active.remove(user)
         return f
     return guard
 

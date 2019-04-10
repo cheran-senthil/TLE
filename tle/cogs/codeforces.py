@@ -189,10 +189,12 @@ class Codeforces(commands.Cog):
 
         lower = bounds[0] if len(bounds) > 0 else None
         if lower is None:
-            lower = round(rating, -2)
+            lower = rating # round later. rounding a null value causes exception
             if lower is None:
                 await ctx.send('Personal cf data not found. Assume rating of 1500.')
                 lower = 1500
+            else:
+                lower = round(lower, -2)
         upper = bounds[1] if len(bounds) > 1 else lower + 200
         problems = [prob for prob in problem_dict.values()
                     if lower <= prob.rating and prob.name not in solved]
