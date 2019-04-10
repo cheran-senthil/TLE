@@ -171,7 +171,7 @@ class Codeforces(commands.Cog):
     @commands.command(brief='Recommend a problem')
     @cf_common.user_guard(group='gitgud')
     async def gimme(self, ctx, *args):
-        problem_dict = cf_common.cache.get_problems(7200)
+        problem_dict = await cf_common.cache.get_problems(7200)
         tags = []
         bounds = []
         for arg in args:
@@ -232,7 +232,7 @@ class Codeforces(commands.Cog):
             url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
             await ctx.send(f'You have an active challenge {name} at {url}')
             return
-        problem_dict = cf_common.cache.get_problems(7200)
+        problem_dict = await cf_common.cache.get_problems(7200)
         rating, solved = await cf_common.cache.get_rating_solved(handle, time_out=0)
         if rating is None or solved is None:
             await ctx.send('Cannot pull your data at this time. Try again later.')
