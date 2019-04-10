@@ -169,9 +169,9 @@ class Codeforces(commands.Cog):
         return stamp, info.rating, solved
 
     @commands.command(brief='Recommend a problem')
+    @cf_common.user_guard(group='gitgud')
     async def gimme(self, ctx, *args):
-        if cf_common.cache.problem_dict is None:
-            await cf_common.cache.cache_problems()
+        problem_dict = cf_common.cache.get_problems(7200)
         tags = []
         bounds = []
         for arg in args:
@@ -183,7 +183,7 @@ class Codeforces(commands.Cog):
 
         rating, solved = None, None
         if handle:
-            rating, solved = await cf_common.cache.get_rating_solved(handle)
+            rating, solved = await cf_common.cache.get_rating_solved(handle, time_out = 7200)
         if solved is None:
             solved = set()
 
@@ -194,7 +194,7 @@ class Codeforces(commands.Cog):
                 await ctx.send('Personal cf data not found. Assume rating of 1500.')
                 lower = 1500
         upper = bounds[1] if len(bounds) > 1 else lower + 200
-        problems = [prob for prob in cf_common.cache.problem_dict.values()
+        problems = [prob for prob in problem_dict.values()
                     if lower <= prob.rating and prob.name not in solved]
         if tags: problems = [prob for prob in problems if prob.tag_matches(tags)]
         if not problems:
@@ -219,6 +219,7 @@ class Codeforces(commands.Cog):
         await ctx.send(f'Recommended problem for `{handle}`', embed=embed)
 
     @commands.command(brief='Challenge')
+    @cf_common.user_guard(group='gitgud')
     async def gitgud(self, ctx, delta: int = 0):
         user_id = ctx.message.author.id
         handle = cf_common.conn.gethandle(user_id)
@@ -231,8 +232,7 @@ class Codeforces(commands.Cog):
             url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
             await ctx.send(f'You have an active challenge {name} at {url}')
             return
-        if cf_common.cache.problem_dict is None:
-            await cf_common.cache.cache_problems()
+        problem_dict = cf_common.cache.get_problems(7200)
         rating, solved = await cf_common.cache.get_rating_solved(handle, time_out=0)
         if rating is None or solved is None:
             await ctx.send('Cannot pull your data at this time. Try again later.')
@@ -242,7 +242,7 @@ class Codeforces(commands.Cog):
             await ctx.send('Delta can range from -200 to 200.')
             return
         rating = round(rating, -2)
-        problems = [prob for prob in cf_common.cache.problem_dict.values()
+        problems = [prob for prob in problem_dict.values()
                     if prob.rating == rating + delta and prob.name not in solved]
 
         def is_shit(contest):
@@ -275,6 +275,7 @@ class Codeforces(commands.Cog):
         await ctx.send(f'Challenge problem for `{handle}`', embed=embed)
 
     @commands.command(brief='Report challenge completion')
+    @cf_common.user_guard(group='gitgud')
     async def gotgud(self, ctx):
         user_id = ctx.message.author.id
         handle = cf_common.conn.gethandle(user_id)
@@ -302,6 +303,7 @@ class Codeforces(commands.Cog):
             await ctx.send('You have already claimed your points')
 
     @commands.command(brief='Skip challenge')
+    @cf_common.user_guard(group='gitgud')
     async def nogud(self, ctx):
         user_id = ctx.message.author.id
         handle = cf_common.conn.gethandle(user_id)
