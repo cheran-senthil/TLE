@@ -174,12 +174,36 @@ class Handles(commands.Cog):
         await ctx.send(msg)
 
     @commands.command(brief="show all handles")
-    async def showhandles(self, ctx, page=1):
+    async def showhandles(self, ctx):
         try:
             converter = commands.MemberConverter()
             res = cf_common.conn.getallhandleswithrating()
             res.sort(key=lambda r: r[2] if r[2] is not None else -1, reverse=True)
-            # table = []
+            table = []
+            pos = 0
+            for user_id, handle, rating in res:
+                try:  # in case the person has left the server
+                    member = await converter.convert(ctx, user_id)
+                    if rating is None:
+                        rating = 'N/A'
+                    hdisp = f'{handle} ({rating})'
+                    name = member.nick if member.nick else member.name
+                    table.append((pos, name, hdisp))
+                    pos += 1
+                except Exception as e:
+                    print(e)
+            msg = '```\n{}\n```'.format(tabulate(table, headers=('#', 'name', 'handle')))
+        except Exception as e:
+            print(e)
+            msg = 'showhandles error!'
+        await ctx.send(msg)
+
+    @commands.command(brief=";prettyhandles [page number = 1]  (color handles ^_^")
+    async def prettyhandles(self, ctx, page=1):
+        try:
+            converter = commands.MemberConverter()
+            res = cf_common.conn.getallhandleswithrating()
+            res.sort(key=lambda r: r[2] if r[2] is not None else -1, reverse=True)
             rankings = []
             pos = 0
             for user_id, handle, rating in res:
@@ -202,7 +226,7 @@ class Handles(commands.Cog):
             await ctx.send(file=discord.File(buffer, "handles.png"))
         except Exception as e:
             print(e)
-            await ctx.send("showhandles error!")
+            await ctx.send("prettyhandles error!")
 
     @commands.command(brief='show cache (admin only)')
     @commands.has_role('Admin')
