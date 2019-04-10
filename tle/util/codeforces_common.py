@@ -60,7 +60,7 @@ async def resolve_handles_or_reply_with_error(ctx, converter, handles, *, mincnt
      otherwise it is a raw CF handle to be left unchanged."""
     if len(handles) < mincnt or maxcnt < len(handles):
         await ctx.send(f'Number of handles must be between {mincnt} and {maxcnt}')
-        return []
+        raise CodeforcesHandleError
     resolved_handles = []
     for handle in handles:
         if handle.startswith('!'):
