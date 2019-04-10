@@ -5,6 +5,7 @@ import os
 from typing import List
 
 import discord
+import pandas.plotting
 from discord.ext import commands
 from matplotlib import pyplot as plt
 
@@ -13,6 +14,8 @@ from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
 
 _ZERO_WIDTH_SPACE = '\u200b'
+
+pandas.plotting.register_matplotlib_converters()
 
 
 def _get_current_figure_as_file():
@@ -40,7 +43,6 @@ def _plot_rating_bg():
 
 
 def _plot_rating(resp, mark='o', labels: List[str] = None):
-    """Returns list of (current) ratings when return_ratings=True"""
     labels = [''] * len(resp) if labels is None else labels
     for rating_changes, label in zip(resp, labels):
         ratings, times = [], []
@@ -68,11 +70,11 @@ def _classify_subs(submissions, contests):
         if submission.verdict != 'OK':
             continue
         problem = submission.problem
-        start_time = datetime.datetime.fromtimestamp(submission.creationTimeSeconds)
+        submission_time = datetime.datetime.fromtimestamp(submission.creationTimeSeconds)
         contest = contest_id_map.get(problem.contestId)
-        if problem.rating and start_time and contest:
+        if submission_time and problem.rating and contest:
             contest_type = submission.author.participantType
-            entry = (start_time, problem.rating)
+            entry = (submission_time, problem.rating)
             problem_key = (problem.name, contest.startTimeSeconds)
             if problem_key in practice or problem_key in virtual or problem_key in regular:
                 continue
@@ -90,8 +92,6 @@ def _plot_scatter(regular, practice, virtual):
         if contest:
             times, ratings = zip(*contest)
             plt.scatter(times, ratings, zorder=10, s=3, alpha=0.5)
-        else:
-            plt.scatter([], [], zorder=10, s=3)
 
 
 def _running_mean(x, bin_size):
@@ -110,16 +110,17 @@ def _running_mean(x, bin_size):
 
 def _plot_average(practice, bin_size, label: str = ''):
     if len(practice) > bin_size:
-        times, ratings = map(list, zip(*practice))
+        sub_times, ratings = map(list, zip(*practice))
 
-        times = [datetime.datetime.timestamp(time) for time in times]
-        times = _running_mean(times, bin_size)
-        ratings = _running_mean(ratings, bin_size)
-        times = [datetime.datetime.fromtimestamp(time) for time in times]
+        sub_timestamps = [sub_time.timestamp() for sub_time in sub_times]
+        mean_sub_timestamps = _running_mean(sub_timestamps, bin_size)
+        mean_sub_times = [datetime.datetime.fromtimestamp(timestamp) for timestamp in mean_sub_timestamps]
+        mean_ratings = _running_mean(ratings, bin_size)
 
-        plt.plot(times,
-                 ratings,
+        plt.plot(mean_sub_times,
+                 mean_ratings,
                  linestyle='-',
+                 marker='',
                  markerfacecolor='white',
                  markeredgewidth=0.5,
                  label=label)
