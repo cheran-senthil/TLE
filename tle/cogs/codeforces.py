@@ -49,7 +49,7 @@ def plot_rating_bg():
     plt.ylim(ymin, ymax)
 
 
-def plot_rating(resp, return_ratings=True, labels: List[str] = None):
+def plot_rating(resp, mark = 'o', return_ratings=True, labels: List[str] = None):
     """Returns list of (current) ratings when return_ratings=True"""
     rates = []
     labels = [""] * len(resp) if labels is None else labels
@@ -62,7 +62,7 @@ def plot_rating(resp, return_ratings=True, labels: List[str] = None):
         plt.plot(times,
                  ratings,
                  linestyle='-',
-                 marker='o',
+                 marker=mark,
                  markersize=3,
                  markerfacecolor='white',
                  markeredgewidth=0.5,
@@ -99,10 +99,10 @@ def classify_subs(submissions, contests):
 
 
 def plot_scatter(regular, practice, virtual):
-    for contest in [regular, practice, virtual]:
+    for contest in [practice, regular, virtual]:
         if contest:
             times, ratings = zip(*contest)
-            plt.scatter(times, ratings, zorder=10, s=3)
+            plt.scatter(times, ratings, zorder=10, s=3, alpha=0.5)
         else:
             plt.scatter([], [], zorder=10, s=3)
 
@@ -418,7 +418,7 @@ class Codeforces(commands.Cog):
 
         await ctx.send(file=get_current_figure_as_file())
 
-    @commands.command(brief='Show history of problems solved by rating.')
+    @commands.command(brief='Show history of problems solved by rating.', aliases=["chilli"])
     async def scatter(self, ctx, handle: str = None, bin_size: int = 10):
         if bin_size < 1:
             await ctx.send('Moving average window size must be at least 1.')
@@ -428,6 +428,7 @@ class Codeforces(commands.Cog):
         try:
             handles = await cf_common.resolve_handles_or_reply_with_error(ctx, self.converter, (handle,))
             resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
+            rating_resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.rating)
             contests = await cf.contest.list()
             submissions = resp[0]
         except cf_common.CodeforcesHandleError:
@@ -436,43 +437,11 @@ class Codeforces(commands.Cog):
         regular, practice, virtual = classify_subs(submissions, contests)
         plt.clf()
         plot_scatter(regular, practice, virtual)
-        plt.title('Solved Problem Rating History on Codeforces')
-        labels = ['Regular', 'Practice', 'Virtual']
+        plt.title('Solved Problem Rating History on Codeforces of {}'.format(handles[0]))
+        labels = ['Practice', 'Regular', 'Virtual']
         plt.legend(labels, loc='upper left')
-        plot_rating_bg()
         plot_average(practice, bin_size)
-        await ctx.send(file=get_current_figure_as_file())
-
-    @commands.command(brief="Plots average practice problems ratings with contest ratings")
-    async def chilli(self, ctx, handle: str = None, bin_size: int = 10):
-        if bin_size < 1:
-            await ctx.send('Moving average window size must be at least 1.')
-            return
-
-        handle = handle or '!' + str(ctx.author)
-        try:
-            handles = await cf_common.resolve_handles_or_reply_with_error(ctx, self.converter, (handle,))
-            status_resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
-            rating_resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.rating)
-            contests = await cf.contest.list()
-        except cf_common.CodeforcesHandleError:
-            return
-
-        handle, = handles
-        rating_changes, = rating_resp
-        if not rating_changes:
-            await ctx.send("User is unrated!")
-            return
-        _, practice, _ = classify_subs(status_resp[0], contests)
-        plt.clf()
-        plot_average(practice, bin_size, label="practice")
-        latest_rating = rating_changes[-1].newRating
-
-        labels = [f'contest ({latest_rating})']
-        plot_rating(rating_resp, return_ratings=False, labels=labels)
-        plt.legend(loc='upper left')
-        plt.gcf().suptitle(f"{handle}'s rating")
-
+        plot_rating(rating_resp, '', return_ratings=False)
         await ctx.send(file=get_current_figure_as_file())
 
     @commands.command(brief="Show server rating distribution")
