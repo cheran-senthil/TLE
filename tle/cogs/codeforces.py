@@ -249,7 +249,7 @@ class Codeforces(commands.Cog):
 
         def is_shit(contest):
             shitlist = ['Wild', 'Fools', 'unrated', 'Unrated', 'Surprise', 'Unknown', 'Friday', 'Q#', 'Testing']
-            return any([shit in contest for shit in shitlist])
+            return any(shit in contest.name for shit in shitlist)
 
         contests = await cf_common.cache.get_contests(60 * 60 * 24)
         problems = [prob for prob in problems if not is_shit(contests[prob.contestId])]
