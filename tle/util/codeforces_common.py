@@ -4,6 +4,8 @@ import logging
 import aiohttp
 
 from discord.ext import commands
+from collections import defaultdict
+from functools import wraps
 
 from tle.util import codeforces_api as cf
 from tle.util.handle_conn import HandleConn
@@ -16,11 +18,29 @@ conn = None
 # Cache system
 cache = None
 
+active_groups = defaultdict(set)
+
+# algmyr's guard idea:
+def user_guard(*, group):
+    active = active_groups[group]
+    def guard(fun):
+        @wraps(fun)
+        async def f(self, ctx, *args, **kwargs):
+            user = ctx.message.author.id
+            if user in active:
+                logging.info(f'{user} repeatedly calls {group} group')
+                return
+            active.add(user)
+            try:
+                await fun(self, ctx, *args, **kwargs)
+            finally:
+                active.remove(user)
+        return f
+    return guard
 
 def initialize_conn(dbfile):
     global conn
     conn = HandleConn(dbfile)
-
 
 async def initialize_cache(refresh_interval):
     global cache

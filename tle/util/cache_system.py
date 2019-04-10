@@ -32,14 +32,22 @@ class CacheSystem:
         self.logger = logging.getLogger(self.__class__.__name__)
 
     async def get_contests(self, duration: int):
-        """Return contests fetched within last `duration` seconds if available, else fetch now and return."""
+        """Return contests (dict) fetched within last `duration` seconds if available, else fetch now and return."""
         now = time.time()
         if self.contest_last_cache is None or self.contest_dict is None or now - self.contest_last_cache > duration:
             await self.cache_contests()
         return self.contest_dict
+    
+    async def get_problems(self, duration: int):
+        """Return problems (dict) fetched within last `duration` seconds or refetch"""
+        now = time.time()
+        if self.problems_last_cache is None or self.problem_dict is None or now - self.problems_last_cache > duration:
+            await self.cache_problems()
+        return self.problem_dict
 
     async def force_update(self):
-        await self.cache_contests()
+        # cache_problems will now always call cache_contests because we need the contest information
+        # as recent as problem information in order to match contestId
         await self.cache_problems()
 
     def try_disk(self):
@@ -76,8 +84,7 @@ class CacheSystem:
         self.logger.info(f'{rc} contests cached')
 
     async def cache_problems(self):
-        if self.contest_dict is None:
-            await self.cache_contests()
+        await self.cache_contests()
         try:
             problems, _ = await cf.problemset.problems()
         except aiohttp.ClientConnectionError as e:
@@ -108,7 +115,7 @@ class CacheSystem:
         self.logger.info(f'{rc} problems cached')
 
     # this handle all the (rating, solved) pair and caching
-    async def get_rating_solved(self, handle: str, time_out: int = 3600):
+    async def get_rating_solved(self, handle: str, time_out: int):
         cached = self._user_rating_solved(handle)
         stamp, rating, solved = cached
         if stamp is None:  # try from disk first
