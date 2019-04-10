@@ -8,21 +8,21 @@ from tabulate import tabulate
 from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
 
-PROFILE_BASE_URL = 'https://codeforces.com/profile/'
 
-
-def make_profile_embed(member, handle, rating, photo, *, mode):
+def make_profile_embed(member, user, *, mode):
     if mode == 'set':
-        desc = f'Handle for **{member.display_name}** successfully set to [**{handle}**]({PROFILE_BASE_URL}{handle})'
+        desc = f'Handle for **{member.display_name}** successfully set to **[{user.handle}]({user.url})**'
     elif mode == 'get':
-        desc = f'Handle for **{member.display_name}** is currently set to [**{handle}**]({PROFILE_BASE_URL}{handle})'
+        desc = f'Handle for **{member.display_name}** is currently set to **[{user.handle}]({user.url})**'
     else:
         return None
-    rating = rating or 'Unrated'
-    embed = discord.Embed(description=desc)
+    rating = 'Unrated' if user.rating is None else user.rating
+    rank = user.rank
+
+    embed = discord.Embed(description=desc, color=rank.color_embed)
     embed.add_field(name='Rating', value=rating, inline=True)
-    embed.add_field(name='Rank', value=cf.RankHelper.rating2rank(rating), inline=True)
-    embed.set_thumbnail(url=f'http:{photo}')
+    embed.add_field(name='Rank', value=rank.title, inline=True)
+    embed.set_thumbnail(url=f'https:{user.titlePhoto}')
     return embed
 
 
@@ -56,7 +56,7 @@ class Handles(commands.Cog):
         cf_common.conn.cache_cfuser(user)
         cf_common.conn.sethandle(member.id, handle)
 
-        embed = make_profile_embed(member, handle, user.rating, user.titlePhoto, mode='set')
+        embed = make_profile_embed(member, user, mode='set')
         await ctx.send(embed=embed)
 
     @commands.command(brief='gethandle [name]')
@@ -72,7 +72,7 @@ class Handles(commands.Cog):
             logging.error(f'Handle info for {handle} not cached')
             return
 
-        embed = make_profile_embed(member, handle, user.rating, user.titlePhoto, mode='get')
+        embed = make_profile_embed(member, user, mode='get')
         await ctx.send(embed=embed)
 
     @commands.command(brief='removehandle [name] (admin-only)')
@@ -149,8 +149,8 @@ class Handles(commands.Cog):
     async def make_rank2role(self, ctx):
         converter = commands.RoleConverter()
         rank2role = {}
-        for rank in cf.RankHelper.get_ranks():
-            rank2role[rank.lower()] = await converter.convert(ctx, rank)
+        for rank in cf.RATED_RANKS:
+            rank2role[rank.title.lower()] = await converter.convert(ctx, rank.title)
         return rank2role
 
     @commands.command(brief='update roles (admin-only)')
@@ -186,7 +186,7 @@ class Handles(commands.Cog):
             for (discord_userid, handle), user in zip(res, users):
                 try:
                     member = await converter.convert(ctx, discord_userid)
-                    rank = user.rank.lower()
+                    rank = user.rank.title.lower()
                     rm_list = []
                     add = True
                     for role in member.roles:

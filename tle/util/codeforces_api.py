@@ -6,36 +6,33 @@ import aiohttp
 API_BASE_URL = 'https://codeforces.com/api/'
 CONTEST_BASE_URL = 'https://codeforces.com/contest/'
 CONTESTS_BASE_URL = 'https://codeforces.com/contests/'
+PROFILE_BASE_URL = 'https://codeforces.com/profile/'
 
 session = aiohttp.ClientSession()
 
+Rank = namedtuple('Rank', 'low high, title, color_graph, color_embed')
 
-class RankHelper:
-    INF = 10 ** 9
-    rank_info = [
-        (-INF, 1200, '#CCCCCC', 'Newbie'),
-        (1200, 1400, '#77FF77', 'Pupil'),
-        (1400, 1600, '#77DDBB', 'Specialist'),
-        (1600, 1900, '#AAAAFF', 'Expert'),
-        (1900, 2100, '#FF88FF', 'Candidate Master'),
-        (2100, 2300, '#FFCC88', 'Master'),
-        (2300, 2400, '#FFBB55', 'International Master'),
-        (2400, 2600, '#FF7777', 'Grandmaster'),
-        (2600, 3000, '#FF3333', 'International Grandmaster'),
-        (3000, INF, '#AA0000', 'Legendary Grandmaster')
-    ]
+RATED_RANKS = (
+    Rank(-10 ** 9, 1200, 'Newbie', '#CCCCCC', 0x808080),
+    Rank(1200, 1400, 'Pupil', '#77FF77', 0x008000),
+    Rank(1400, 1600, 'Specialist', '#77DDBB', 0x03a89e),
+    Rank(1600, 1900, 'Expert', '#AAAAFF', 0x0000ff),
+    Rank(1900, 2100, 'Candidate Master', '#FF88FF', 0xaa00aa),
+    Rank(2100, 2300, 'Master', '#FFCC88', 0xff8c00),
+    Rank(2300, 2400, 'International Master', '#FFBB55', 0xf57500),
+    Rank(2400, 2600, 'Grandmaster', '#FF7777', 0xff3030),
+    Rank(2600, 3000, 'International Grandmaster', '#FF3333', 0xff0000),
+    Rank(3000, 10 ** 9, 'Legendary Grandmaster', '#AA0000', 0xcc0000)
+)
+UNRATED_RANK = Rank(None, None, 'Unrated', None, None)
 
-    @classmethod
-    def rating2rank(cls, rating):
-        if rating is None:
-            return 'Unrated'
-        for low, high, _, title in cls.rank_info:
-            if low <= rating < high:
-                return title
 
-    @classmethod
-    def get_ranks(cls):
-        return [rank for _, _, _, rank in cls.rank_info]
+def rating2rank(rating):
+    if rating is None:
+        return UNRATED_RANK
+    for rank in RATED_RANKS:
+        if rank.low <= rating < rank.high:
+            return rank
 
 
 # Data classes
@@ -45,7 +42,11 @@ class User(namedtuple('User', 'handle rating titlePhoto')):
 
     @property
     def rank(self):
-        return RankHelper.rating2rank(self.rating)
+        return rating2rank(self.rating)
+
+    @property
+    def url(self):
+        return f'{PROFILE_BASE_URL}{self.handle}'
 
 
 RatingChange = namedtuple('RatingChange',

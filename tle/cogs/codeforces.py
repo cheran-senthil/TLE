@@ -1,8 +1,6 @@
-# import asyncio
 import datetime
 import io
 import json
-# import logging
 import os
 import random
 import time
@@ -26,7 +24,7 @@ zero_width_space = '\u200b'
 
 
 def get_current_figure_as_file():
-    filename = os.path.join(constants.FILEDIR, 'tempplot_{time.time()}.png')
+    filename = os.path.join(constants.FILEDIR, f'tempplot_{time.time()}.png')
     plt.savefig(filename, facecolor=plt.gca().get_facecolor(), bbox_inches='tight', pad_inches=0.25)
 
     with open(filename, 'rb') as file:
@@ -39,8 +37,8 @@ def get_current_figure_as_file():
 def plot_rating_bg():
     ymin, ymax = plt.gca().get_ylim()
     bgcolor = plt.gca().get_facecolor()
-    for low, high, color, _ in cf.RankHelper.rank_info:
-        plt.axhspan(low, high, facecolor=color, alpha=0.8, edgecolor=bgcolor, linewidth=0.5)
+    for rank in cf.RATED_RANKS:
+        plt.axhspan(rank.low, rank.high, facecolor=rank.color_graph, alpha=0.8, edgecolor=bgcolor, linewidth=0.5)
 
     plt.gcf().autofmt_xdate()
     locs, labels = plt.xticks()
