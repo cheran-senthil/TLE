@@ -44,6 +44,7 @@ def get_prettyhandles_image(rankings):
     SMOKE_WHITE = (250, 250, 250)
     BLACK = (0, 0, 0)
     img = Image.new("RGB", (900, 450), color=SMOKE_WHITE)
+    
     font = ImageFont.truetype("tle/assets/fonts/Cousine-Regular.ttf", size=30)
     draw = ImageDraw.Draw(img)
     x = 20
@@ -59,6 +60,7 @@ def get_prettyhandles_image(rankings):
         if len(handle) > 17:
             handle = handle[:14] + "..."
         s = f"{f'#{pos}':<4}{name:<18}{handle:<18}{rating:>6}"
+
         color = rating_to_color(rating)
         if rating >= 3000:  # nutella
             draw.text((x, y), s[:22], fill=color, font=font)
@@ -227,6 +229,7 @@ class Handles(commands.Cog):
                     pos += 1
                 except Exception as e:
                     print(e)
+
             if isinstance(page_no, int):
                 page_no = max(page_no + 1, 1)
                 upto = page_no * 10
@@ -237,6 +240,7 @@ class Handles(commands.Cog):
             else:
                 # Show rankings around invoker
                 rankings = rankings[max(0, author_pos - 4): author_pos + 6]
+
             img = get_prettyhandles_image(rankings)
             buffer = io.BytesIO()
             img.save(buffer, 'png')
@@ -245,6 +249,7 @@ class Handles(commands.Cog):
         except Exception as e:
             logging.error(f"prettyhandles error: {e}")
             await ctx.send(f"prettyhandles error!")
+
 
     @commands.command(brief='show cache (admin only)')
     @commands.has_role('Admin')
