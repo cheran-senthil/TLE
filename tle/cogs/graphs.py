@@ -12,6 +12,7 @@ from matplotlib import pyplot as plt
 from tle import constants
 from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
+from tle.util import discord_common
 
 _ZERO_WIDTH_SPACE = '\u200b'
 
@@ -131,13 +132,16 @@ class Graphs(commands.Cog):
         self.bot = bot
         self.converter = commands.MemberConverter()
 
-    @commands.group(brief='Graphs for analyzing Codeforces activity')
+    @commands.group(brief='Graphs for analyzing Codeforces activity',
+                    invoke_without_command=True)
     async def plot(self, ctx):
-        pass
+        """Plot various graphs. Wherever Codeforces handles are accepted it is possible to
+        use a server member's name instead by prefixing it with '!'."""
+        await ctx.send_help('plot')
 
-    @plot.command(brief='Compare epeens.')
+    @plot.command(brief='Plot Codeforces rating graph')
     async def rating(self, ctx, *handles: str):
-        """Compare epeens."""
+        """Plots Codeforces rating graph for the handles provided."""
         handles = handles or ('!' + str(ctx.author),)
         try:
             handles = await cf_common.resolve_handles_or_reply_with_error(ctx, self.converter, handles)
@@ -150,8 +154,12 @@ class Graphs(commands.Cog):
         current_ratings = [rating_changes[-1].newRating if rating_changes else 'Unrated' for rating_changes in resp]
         labels = [f'{_ZERO_WIDTH_SPACE}{handle} ({rating})' for handle, rating in zip(handles, current_ratings)]
         plt.legend(labels, loc='upper left')
-        plt.title('Rating graph on Codeforces')
-        await ctx.send(file=_get_current_figure_as_file())
+
+        discord_file = _get_current_figure_as_file()
+        embed = discord_common.cf_color_embed(title='Rating graph on Codeforces')
+        discord_common.attach_image(embed, discord_file)
+        discord_common.set_author_footer(embed, ctx.author)
+        await ctx.send(embed=embed, file=discord_file)
 
     @plot.command(brief='Show histogram of solved problems on CF.')
     async def solved(self, ctx, *handles: str):
@@ -185,18 +193,23 @@ class Graphs(commands.Cog):
 
         plt.clf()
         plt.hist(allratings, bins=hist_bins, label=labels)
-        plt.title('Histogram of problems solved on Codeforces')
         plt.xlabel('Problem rating')
         plt.ylabel('Number solved')
         plt.legend(loc='upper right')
 
-        await ctx.send(file=_get_current_figure_as_file())
+        discord_file = _get_current_figure_as_file()
+        embed = discord_common.cf_color_embed(title='Histogram of problems solved on Codeforces')
+        discord_common.attach_image(embed, discord_file)
+        discord_common.set_author_footer(embed, ctx.author)
+        await ctx.send(embed=embed, file=discord_file)
 
     @plot.command(brief='Show history of problems solved by rating.',
                   aliases=['chilli'])
     async def scatter(self, ctx, handle: str = None, bin_size: int = 10):
+        """Plot Codeforces rating overlaid on a scatter plot of problems solved.
+        Also plots a running average of ratings of problems solved in practice."""
         if bin_size < 1:
-            await ctx.send('Moving average window size must be at least 1.')
+            await ctx.send(embed=discord_common.embed_alert('Moving average window size must be at least 1'))
             return
 
         handle = handle or '!' + str(ctx.author)
@@ -205,6 +218,7 @@ class Graphs(commands.Cog):
             resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
             rating_resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.rating)
             contests = await cf.contest.list()
+            handle = handles[0]
             submissions = resp[0]
         except cf_common.CodeforcesHandleError:
             return
@@ -212,26 +226,34 @@ class Graphs(commands.Cog):
         regular, practice, virtual = _classify_subs(submissions, contests)
         plt.clf()
         _plot_scatter(regular, practice, virtual)
-        plt.title('Solved Problem Rating History on Codeforces of {}'.format(handles[0]))
         labels = ['Practice', 'Regular', 'Virtual']
         plt.legend(labels, loc='upper left')
         _plot_average(practice, bin_size)
         _plot_rating(rating_resp, mark='')
-        await ctx.send(file=_get_current_figure_as_file())
+
+        discord_file = _get_current_figure_as_file()
+        embed = discord_common.cf_color_embed(title=f'Rating vs solved problem rating for {handle}')
+        discord_common.attach_image(embed, discord_file)
+        discord_common.set_author_footer(embed, ctx.author)
+        await ctx.send(embed=embed, file=discord_file)
 
     @plot.command(brief='Show server rating distribution')
     async def distrib(self, ctx):
+        """Plots rating distribution of server members."""
         res = cf_common.conn.getallhandleswithrating()
         ratings = [rating for _, _, rating in res]
         bin_count = min(len(ratings), 30)
 
         plt.clf()
         plt.hist(ratings, bins=bin_count)
-        plt.title('Server rating distribution')
         plt.xlabel('Rating')
         plt.ylabel('Number of users')
-        plt.legend(loc='upper right')
-        await ctx.send(file=_get_current_figure_as_file())
+
+        discord_file = _get_current_figure_as_file()
+        embed = discord_common.cf_color_embed(title=f'Rating distribution of server members')
+        discord_common.attach_image(embed, discord_file)
+        discord_common.set_author_footer(embed, ctx.author)
+        await ctx.send(embed=embed, file=discord_file)
 
 
 def setup(bot):
