@@ -182,7 +182,19 @@ class HandleConn:
         if rc != 1:
             self.conn.rollback()
             return 0
-        self.conn.execute(query2, (delta, user_id, challenge_id)).rowcount
+        rc = self.conn.execute(query2, (delta, user_id, challenge_id)).rowcount
+        if rc != 1:
+            self.conn.rollback()
+            return 0
+        self.conn.commit()
+        return 1
+
+    def skip_challenge(self, user_id, challenge_id):
+        query = '''
+            UPDATE user_challenge SET active_challenge_id = NULL, issue_time = NULL
+            WHERE user_id = ? AND active_challenge_id = ?
+        '''
+        rc = self.conn.execute(query, (user_id, challenge_id)).rowcount
         if rc != 1:
             self.conn.rollback()
             return 0
