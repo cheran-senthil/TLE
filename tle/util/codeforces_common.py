@@ -8,6 +8,7 @@ from collections import defaultdict
 from functools import wraps
 
 from tle.util import codeforces_api as cf
+from tle.util import discord_common
 from tle.util.handle_conn import HandleConn
 from tle.util.cache_system import CacheSystem
 
@@ -20,9 +21,11 @@ cache = None
 
 active_groups = defaultdict(set)
 
+
 # algmyr's guard idea:
 def user_guard(*, group):
     active = active_groups[group]
+
     def guard(fun):
         @wraps(fun)
         async def f(self, ctx, *args, **kwargs):
@@ -35,12 +38,16 @@ def user_guard(*, group):
                 await fun(self, ctx, *args, **kwargs)
             finally:
                 active.remove(user)
+
         return f
+
     return guard
+
 
 def initialize_conn(dbfile):
     global conn
     conn = HandleConn(dbfile)
+
 
 async def initialize_cache(refresh_interval):
     global cache
@@ -67,6 +74,10 @@ class CodeforcesHandleError(Exception):
     pass
 
 
+class HandleCountOutOfBoundsError(CodeforcesHandleError):
+    pass
+
+
 class ResolveHandleFailedError(CodeforcesHandleError):
     pass
 
@@ -79,8 +90,8 @@ async def resolve_handles_or_reply_with_error(ctx, converter, handles, *, mincnt
     """Convert an iterable of strings to CF handles. A string beginning with ! indicates Discord username,
      otherwise it is a raw CF handle to be left unchanged."""
     if len(handles) < mincnt or maxcnt < len(handles):
-        await ctx.send(f'Number of handles must be between {mincnt} and {maxcnt}')
-        raise CodeforcesHandleError
+        await ctx.send(embed=discord_common.embed_alert(f'Number of handles must be between {mincnt} and {maxcnt}'))
+        raise HandleCountOutOfBoundsError(handles, mincnt, maxcnt)
     resolved_handles = []
     for handle in handles:
         if handle.startswith('!'):
@@ -88,11 +99,12 @@ async def resolve_handles_or_reply_with_error(ctx, converter, handles, *, mincnt
             try:
                 member = await converter.convert(ctx, handle[1:])
             except commands.errors.CommandError:
-                await ctx.send(f'Unable to convert `{handle}` to a server member')
+                await ctx.send(embed=discord_common.embed_alert(f'Unable to convert `{handle}` to a server member'))
                 raise ResolveHandleFailedError(handle)
             handle = conn.gethandle(member.id)
             if handle is None:
-                await ctx.send(f'Codeforces handle for member {member.display_name} not found in database')
+                await ctx.send(embed=discord_common.embed_alert(
+                    f'Codeforces handle for member {member.display_name} not found in database'))
                 raise ResolveHandleFailedError(handle)
         resolved_handles.append(handle)
     return resolved_handles
@@ -107,12 +119,12 @@ async def run_handle_related_coro_or_reply_with_error(ctx, handles, coro):
             results.append(res)
             continue
         except aiohttp.ClientConnectionError:
-            await ctx.send('Error connecting to Codeforces API')
+            await ctx.send(embed=discord_common.embed_alert('Error connecting to Codeforces API'))
         except cf.NotFoundError:
-            await ctx.send(f'Handle not found: `{handle}`')
+            await ctx.send(embed=discord_common.embed_alert(f'Handle not found: `{handle}`'))
         except cf.InvalidParamError:
-            await ctx.send(f'Not a valid Codeforces handle: `{handle}`')
+            await ctx.send(embed=discord_common.embed_alert(f'Not a valid Codeforces handle: `{handle}`'))
         except cf.CodeforcesApiError:
-            await ctx.send('Codeforces API error.')
+            await ctx.send(embed=discord_common.embed_alert('Codeforces API error.'))
         raise RunHandleCoroFailedError(handle)
     return results
