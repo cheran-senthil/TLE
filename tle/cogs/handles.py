@@ -43,7 +43,7 @@ def get_prettyhandles_image(rankings):
     """return PIL image for rankings"""
     SMOKE_WHITE = (250, 250, 250)
     BLACK = (0, 0, 0)
-    img = Image.new("RGB", (900, 500), color=SMOKE_WHITE)
+    img = Image.new("RGB", (900, 450), color=SMOKE_WHITE)
     font = ImageFont.truetype("tle/assets/fonts/Cousine-Regular.ttf", size=30)
     draw = ImageDraw.Draw(img)
     x = 20
@@ -54,7 +54,11 @@ def get_prettyhandles_image(rankings):
     draw.text((x, y), header, fill=BLACK, font=font)
     y += int(y_inc * 1.5)
     for pos, name, handle, rating in rankings:
-        s = f"{f'#{pos}':<4}{name:<18}{handle:<18}{rating:>7}"
+        if len(name) > 17:
+            name = name[:14] + "..."
+        if len(handle) > 17:
+            handle = handle[:14] + "..."
+        s = f"{f'#{pos}':<4}{name:<18}{handle:<18}{rating:>6}"
         color = rating_to_color(rating)
         if rating >= 3000:  # nutella
             draw.text((x, y), s[:22], fill=color, font=font)
@@ -197,21 +201,24 @@ class Handles(commands.Cog):
                     print(e)
             msg = '```\n{}\n```'.format(tabulate(table, headers=('#', 'name', 'handle')))
         except Exception as e:
-            print(e)
-            msg = 'showhandles error!'
+            logging.error(f"showhandles error: {e}")
+            msg = "showhandles error!"
         await ctx.send(msg)
 
-    @commands.command(brief=";prettyhandles [page number = 1]  (color handles ^_^")
-    async def prettyhandles(self, ctx, page=1):
+    @commands.command(brief=";prettyhandles [page number]  (color handles ^_^")
+    async def prettyhandles(self, ctx: discord.ext.commands.Context, page_no: int = None):
         try:
             converter = commands.MemberConverter()
             res = cf_common.conn.getallhandleswithrating()
             res.sort(key=lambda r: r[2] if r[2] is not None else -1, reverse=True)
             rankings = []
             pos = 0
+            author_pos = 0
             for user_id, handle, rating in res:
                 try:  # in case the person has left the server
                     member = await converter.convert(ctx, user_id)
+                    if member == ctx.author:
+                        author_pos = pos
                     if rating is None:
                         rating = 'N/A'
                     name = member.nick if member.nick else member.name
@@ -219,17 +226,24 @@ class Handles(commands.Cog):
                     pos += 1
                 except Exception as e:
                     print(e)
-            page = max(page, 1)
-            upto = page * 10
-            rankings = rankings[-10:] if len(rankings) < upto else rankings[upto - 10: upto]
+            if isinstance(page_no, int):
+                page_no = max(page_no + 1, 1)
+                upto = page_no * 10
+                if upto > len(rankings):
+                    await ctx.send(f"Page number should be at most {len(rankings) // 10} !\n"
+                                   f"Showing last 10 handles.")
+                rankings = rankings[-10:] if len(rankings) < upto else rankings[upto - 10: upto]
+            else:
+                # Show rankings around invoker
+                rankings = rankings[max(0, author_pos - 4): author_pos + 6]
             img = get_prettyhandles_image(rankings)
             buffer = io.BytesIO()
             img.save(buffer, 'png')
             buffer.seek(0)
             await ctx.send(file=discord.File(buffer, "handles.png"))
         except Exception as e:
-            print(e)
-            await ctx.send("prettyhandles error!")
+            logging.error(f"prettyhandles error: {e}")
+            await ctx.send(f"prettyhandles error!")
 
     @commands.command(brief='show cache (admin only)')
     @commands.has_role('Admin')
