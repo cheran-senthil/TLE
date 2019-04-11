@@ -197,6 +197,16 @@ class Codeforces(commands.Cog):
         cf_common.conn.skip_challenge(user_id, challenge_id)
         await ctx.send(f'Challenge skipped.')
 
+    @commands.command(brief='Force skip a challenge')
+    @cf_common.user_guard(group='gitgud')
+    @commands.has_role('Admin')
+    async def _nogud(self, ctx, user: str):
+        rc = cf_common.conn.force_skip_challenge(user)
+        if rc == 1:
+            await ctx.send(f'Challenge skip forced.')
+        else:
+            await ctx.send(f'Failed to force challenge skip.')
+
     @commands.command(brief='Recommend a contest')
     async def vc(self, ctx, *handles: str):
         """Recommends a contest based on Codeforces rating of the handle provided."""
