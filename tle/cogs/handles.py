@@ -80,12 +80,13 @@ def make_profile_embed(member, user, *, mode):
         desc = f'Handle for **{member.display_name}** is currently set to **[{user.handle}]({user.url})**'
     else:
         return None
-    rating = 'Unrated' if user.rating is None else user.rating
-    rank = user.rank
-
-    embed = discord.Embed(description=desc, color=rank.color_embed)
-    embed.add_field(name='Rating', value=rating, inline=True)
-    embed.add_field(name='Rank', value=rank.title, inline=True)
+    if user.rating is None:
+        embed = discord.Embed(description=desc)
+        embed.add_field(name='Rating', value='Unrated', inline=True)
+    else:
+        embed = discord.Embed(description=desc, color=user.rank.color_embed)
+        embed.add_field(name='Rating', value=user.rating, inline=True)
+        embed.add_field(name='Rank', value=user.rank.title, inline=True)
     embed.set_thumbnail(url=f'https:{user.titlePhoto}')
     return embed
 
