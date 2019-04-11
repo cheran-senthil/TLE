@@ -39,7 +39,7 @@ def rating_to_color(rating):
         return ORANGE
     return RED
 
-def get_showhandles_image(rankings):
+def get_prettyhandles_image(rankings):
     """return PIL image for rankings"""
     SMOKE_WHITE = (250, 250, 250)
     BLACK = (0, 0, 0)
@@ -161,12 +161,12 @@ class Handles(commands.Cog):
             res.sort(key=lambda r: r[1], reverse=True)
             table = []
             index = 0
-            for id, score in res:
+            for user_id, score in res:
                 try:  # in case the person has left the server
-                    member = await converter.convert(ctx, id)
+                    member = await converter.convert(ctx, user_id)
                     name = member.nick if member.nick else member.name
-                    hdisp = f'{name} ({score})'
-                    table.append((index, hdisp))
+                    handle_display = f'{name} ({score})'
+                    table.append((index, handle_display))
                     index = index + 1
                 except Exception as e:
                     print(e)
@@ -222,7 +222,7 @@ class Handles(commands.Cog):
             page = max(page, 1)
             upto = page * 10
             rankings = rankings[-10:] if len(rankings) < upto else rankings[upto - 10: upto]
-            img = get_showhandles_image(rankings)
+            img = get_prettyhandles_image(rankings)
             buffer = io.BytesIO()
             img.save(buffer, 'png')
             buffer.seek(0)
@@ -275,9 +275,9 @@ class Handles(commands.Cog):
         await ctx.send('updating roles...')
         try:
             converter = commands.MemberConverter()
-            for (discord_userid, handle), user in zip(res, users):
+            for (user_id, handle), user in zip(res, users):
                 try:
-                    member = await converter.convert(ctx, discord_userid)
+                    member = await converter.convert(ctx, user_id)
                     rank = user.rank.title.lower()
                     rm_list = []
                     add = True
