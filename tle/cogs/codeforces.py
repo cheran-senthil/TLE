@@ -80,7 +80,7 @@ class Codeforces(commands.Cog):
         indices = sorted([(cf_common.cache.problem_start[p.contest_identifier], i)
                           for i, p in enumerate(problems)])
         problems = [problems[i] for _, i in indices]
-        choice = max([random.randrange(len(problems)) for _ in range(3)])
+        choice = max([random.randrange(len(problems)) for _ in range(2)])
         problem = problems[choice]
 
         title = f'{problem.index}. {problem.name}'
@@ -132,7 +132,7 @@ class Codeforces(commands.Cog):
         indices = [(cf_common.cache.problem_start[p.contest_identifier], i) for i, p in enumerate(problems)]
         indices.sort()
         problems = [problems[i] for _, i in indices]
-        choice = max([random.randrange(len(problems)) for _ in range(3)])
+        choice = max([random.randrange(len(problems)) for _ in range(2)])
         problem = problems[choice]
 
         issue_time = datetime.datetime.now().timestamp()
