@@ -18,7 +18,7 @@ class CacheSystem:
         ^ for now, we won't pick problems with the same name the user has solved
         there isn't a good way to do this with the current API
     """
-    def __init__(self, conn):
+    def __init__(self, conn=None):
         self.conn = conn
         self.contest_dict = None    # id => Contest
         self.contest_last_cache = None
@@ -51,6 +51,8 @@ class CacheSystem:
         await self.cache_problems()
 
     def try_disk(self):
+        if self.conn is None:
+            return
         contests = self.conn.fetch_contests()
         problem_res = self.conn.fetch_problems()
         if not contests or not problem_res:
@@ -80,8 +82,10 @@ class CacheSystem:
             for c in contests
         }
         self.contest_last_cache = time.time()
-        rc = self.conn.cache_contests(contests)
-        self.logger.info(f'{rc} contests cached')
+        self.logger.info(f'{len(self.contest_dict)} contests cached')
+        if self.conn is not None:
+            rc = self.conn.cache_contests(contests)
+            self.logger.info(f'{rc} contests cached')
 
     async def cache_problems(self):
         await self.cache_contests()
@@ -104,21 +108,24 @@ class CacheSystem:
             for prob in self.problem_dict.values()
         }
         self.problems_last_cache = time.time()
-        rc = self.conn.cache_problems([
-                (
-                    prob.name, prob.contestId, prob.index,
-                    self.contest_dict[prob.contestId].startTimeSeconds,
-                    prob.rating, prob.type, json.dumps(prob.tags)
-                )
-                for prob in self.problem_dict.values()
-            ])
-        self.logger.info(f'{rc} problems cached')
+        self.logger.info(f'{len(self.problem_dict)} problems cached')
+        if self.conn is not None:
+            rc = self.conn.cache_problems([
+                    (
+                        prob.name, prob.contestId, prob.index,
+                        self.contest_dict[prob.contestId].startTimeSeconds,
+                        prob.rating, prob.type, json.dumps(prob.tags)
+                    )
+                    for prob in self.problem_dict.values()
+                ])
+            self.logger.info(f'{rc} problems cached')
 
     # this handle all the (rating, solved) pair and caching
     async def get_rating_solved(self, handle: str, time_out: int):
         cached = self._user_rating_solved(handle)
         stamp, rating, solved = cached
-        if stamp is None:  # try from disk first
+        if self.conn is not None and stamp is None:
+            # Try from disk first if disk is available
             stamp, rating, solved = await self._retrieve_rating_solved(handle)
         if stamp is None or time.time() - stamp > time_out: # fetch from cf
             stamp, trating, tsolved = await self._fetch_rating_solved(handle)

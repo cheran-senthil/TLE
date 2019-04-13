@@ -1,3 +1,4 @@
+import argparse
 import logging
 import os
 from os import environ
@@ -9,6 +10,7 @@ from matplotlib import pyplot as plt
 
 from tle import constants
 from tle.util import codeforces_common as cf_common
+from tle.util import discord_common
 
 
 def setup():
@@ -28,12 +30,12 @@ def setup():
     # Make dirs
     os.makedirs(constants.FILEDIR, exist_ok=True)
 
-    # Initialize database
-    dbfile = os.path.join(constants.FILEDIR, constants.DB_FILENAME)
-    cf_common.initialize_conn(dbfile)
-
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--nodb', action='store_true')
+    args = parser.parse_args()
+
     token = environ.get('BOT_TOKEN')
     if not token:
         logging.error('Token required')
@@ -53,7 +55,13 @@ def main():
 
     @bot.event
     async def on_ready():
-        await cf_common.initialize_cache(constants.CONTEST_CACHE_PERIOD)
+        if args.nodb:
+            dbfile = None
+        else:
+            dbfile = os.path.join(constants.FILEDIR, constants.DB_FILENAME)
+        await cf_common.initialize(dbfile, constants.CONTEST_CACHE_PERIOD)
+
+    bot.add_listener(discord_common.bot_error_handler, name='on_command_error')
 
     bot.run(token)
 

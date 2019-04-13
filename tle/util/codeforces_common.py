@@ -9,7 +9,7 @@ from functools import wraps
 
 from tle.util import codeforces_api as cf
 from tle.util import discord_common
-from tle.util.handle_conn import HandleConn
+from tle.util import handle_conn
 from tle.util.cache_system import CacheSystem
 
 logger = logging.getLogger(__name__)
@@ -44,14 +44,15 @@ def user_guard(*, group):
     return guard
 
 
-def initialize_conn(dbfile):
-    global conn
-    conn = HandleConn(dbfile)
-
-
-async def initialize_cache(refresh_interval):
+async def initialize(dbfile, cache_refresh_interval):
     global cache
-    cache = CacheSystem(conn)
+    global conn
+    if dbfile is None:
+        conn = handle_conn.DummyConn()
+        cache = CacheSystem()
+    else:
+        conn = handle_conn.HandleConn(dbfile)
+        cache = CacheSystem(conn)
     # Initial fetch from CF API
     await cache.force_update()
     if cache.contest_last_cache and cache.problems_last_cache:
@@ -60,7 +61,7 @@ async def initialize_cache(refresh_interval):
         # If fetch failed, load from disk
         logger.info('Loading cache from disk')
         cache.try_disk()
-    asyncio.create_task(_cache_refresher_task(refresh_interval))
+    asyncio.create_task(_cache_refresher_task(cache_refresh_interval))
 
 
 async def _cache_refresher_task(refresh_interval):

@@ -1,7 +1,18 @@
 import sqlite3
 import time
 
+from discord.ext import commands
+
 from tle.util import codeforces_api as cf
+
+
+class DatabaseDisabledError(commands.CommandError):
+    pass
+
+
+class DummyConn:
+    def __getattribute__(self, item):
+        raise DatabaseDisabledError
 
 
 class HandleConn:
