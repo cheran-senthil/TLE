@@ -14,8 +14,9 @@ def score(placings):
 class CSES(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.short_placings = defaultdict(list)
-        self.fast_placings = defaultdict(list)
+        self.short_placings = {}
+        self.fast_placings = {}
+        self.reloading = False
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -27,18 +28,25 @@ class CSES(commands.Cog):
             await asyncio.sleep(600)
 
     async def _reload(self):
-        self.short_placings = defaultdict(list)
-        self.fast_placings = defaultdict(list)
+        self.reloading = True
+        self.short_placings = {}
+        self.fast_placings = {}
 
+        short_placings = defaultdict(list)
+        fast_placings = defaultdict(list)
         try:
             for pid in await cses.get_problems():
                 fast, short = await cses.get_problem_leaderboard(pid)
                 for i in range(len(fast)):
-                    self.fast_placings[fast[i]].append(i + 1)
+                    fast_placings[fast[i]].append(i + 1)
                 for i in range(len(short)):
-                    self.short_placings[short[i]].append(i + 1)
+                    short_placings[short[i]].append(i + 1)
         except cses.CSESError:
             pass  # TODO log here?
+        finally:
+            self.reloading = False
+            self.short_placings = short_placings
+            self.fast_placings = fast_placings
 
     def leaderboard(self, placings, num):
         leaderboard = sorted(((k, score(v)) for k, v in placings.items()), key=lambda x: x[1], reverse=True)
@@ -75,8 +83,11 @@ class CSES(commands.Cog):
     @commands.command(brief='Force update the CSES leaderboard')
     async def _updatecses(self, ctx):
         """Shows compiled CSES leaderboard."""
-        await self._reload()
-        await ctx.send('CSES leaderboards updated!')
+        if self.reloading:
+            await ctx.send("Have some patience, I'm already reloading!")
+        else:
+            await self._reload()
+            await ctx.send('CSES leaderboards updated!')
 
 
 def setup(bot):
