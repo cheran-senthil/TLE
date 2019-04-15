@@ -71,6 +71,7 @@ class Codeforces(commands.Cog):
         upper = bounds[1] if len(bounds) > 1 else lower + 200
         problems = [prob for prob in problem_dict.values()
                     if lower <= prob.rating and prob.name not in solved]
+        problems = [prob for prob in problems if not cf_common.is_contest_writer(prob.contestId, handle)]
         if tags: problems = [prob for prob in problems if prob.tag_matches(tags)]
         if not problems:
             await ctx.send('Problems not found within the search parameters')
@@ -126,6 +127,7 @@ class Codeforces(commands.Cog):
 
         contests = await cf_common.cache.get_contests(60 * 60 * 24)
         problems = [prob for prob in problems if not is_shit(contests[prob.contestId])]
+        problems = [prob for prob in problems if not cf_common.is_contest_writer(prob.contestId, handle)]
         if not problems:
             await ctx.send('No problem to assign')
             return

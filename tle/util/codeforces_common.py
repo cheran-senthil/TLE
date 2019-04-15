@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 
 import aiohttp
@@ -7,6 +8,7 @@ from discord.ext import commands
 from collections import defaultdict
 from functools import wraps
 
+from tle import constants
 from tle.util import codeforces_api as cf
 from tle.util import discord_common
 from tle.util import handle_conn
@@ -18,6 +20,8 @@ logger = logging.getLogger(__name__)
 conn = None
 # Cache system
 cache = None
+
+_contest_id_to_writers_map = None
 
 active_groups = defaultdict(set)
 
@@ -47,6 +51,7 @@ def user_guard(*, group):
 async def initialize(dbfile, cache_refresh_interval):
     global cache
     global conn
+    global _contest_id_to_writers_map
     if dbfile is None:
         conn = handle_conn.DummyConn()
         cache = CacheSystem()
@@ -63,12 +68,28 @@ async def initialize(dbfile, cache_refresh_interval):
         cache.try_disk()
     asyncio.create_task(_cache_refresher_task(cache_refresh_interval))
 
+    jsonfile = f'{constants.FILEDIR}/{constants.CONTEST_WRITERS_JSON_FILE}'
+    try:
+        with open(jsonfile) as f:
+            data = json.load(f)
+        _contest_id_to_writers_map = {contest['id']: contest['writers'] for contest in data}
+        logger.info('Contest writers loaded from JSON file')
+    except FileNotFoundError:
+        logger.warning('JSON file containing contest writers not found')
+
 
 async def _cache_refresher_task(refresh_interval):
     while True:
         await asyncio.sleep(refresh_interval)
         logger.info('Attempting cache refresh')
         await cache.force_update()
+
+
+def is_contest_writer(contest_id, handle):
+    if _contest_id_to_writers_map is None:
+        return False
+    writers = _contest_id_to_writers_map.get(contest_id)
+    return writers and handle in writers
 
 
 class CodeforcesHandleError(Exception):
