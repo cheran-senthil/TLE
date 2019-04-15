@@ -72,6 +72,12 @@ class CSES(commands.Cog):
         """Shows compiled CSES leaderboard."""
         await ctx.send('```\n' 'Fastest\n' + self.fastest + '\n\n' + 'Shortest\n' + self.shortest + '\n' + '```')
 
+    @commands.command(brief='Force update the CSES leaderboard')
+    async def _updatecses(self, ctx):
+        """Shows compiled CSES leaderboard."""
+        await self._reload()
+        await ctx.send('CSES leaderboards updated!')
+
 
 def setup(bot):
     bot.add_cog(CSES(bot))
