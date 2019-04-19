@@ -3,6 +3,7 @@ from collections import defaultdict
 
 from discord.ext import commands
 from tle.util import cses_scraper as cses
+from tle.util import table
 
 
 def score(placings):
@@ -55,17 +56,22 @@ class CSES(commands.Cog):
             return 'Failed to load :<'
 
         top = leaderboard[:num]
-        maxname = max(len(name) for name, _ in top)
 
-        S = []
+        header = ' 1st 2nd 3rd 4th 5th '.split(' ')
+
+        style = table.Style(
+                header = '{:>}   {:>} {:>} {:>} {:>} {:>}   {:>}',
+                body   = '{:>} | {:>} {:>} {:>} {:>} {:>} | {:>} pts'
+        )
+
+        t = table.Table(style)
+        t += table.Header(*header)
+
         for user, points in top:
-            userpad = user.rjust(maxname)
             hist = [placings[user].count(i + 1) for i in range(5)]
-            ranks = ' '.join(f'{count:3d}' for count in hist)
-            S.append(f'{userpad} | {ranks} | {points:3d} pts')
+            t += table.Data(user, *hist, points)
 
-        header = (maxname + 3) * ' ' + '1st 2nd 3rd 4th 5th'
-        return '\n'.join([header] + S)
+        return str(t)
 
     @property
     def fastest(self, num=10):
