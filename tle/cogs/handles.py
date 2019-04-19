@@ -107,9 +107,9 @@ def _make_pages(users):
         for i, (member, handle, rating) in enumerate(chunk):
             rank = cf.rating2rank(rating)
             rating_str = 'N/A' if rating is None else str(rating)
-            table.append((i + done, member.display_name, handle, rating_str, rank.title))
+            table.append((i + done, member.display_name, handle, f'{rating_str} ({rank.title_abbr})'))
         table_str = '```\n{}\n```'.format(
-            tabulate(table, headers=('#', 'Name', 'Handle', 'Rating', 'Rank'), numalign='left'))
+            tabulate(table, headers=('#', 'Name', 'Handle', 'Rating')))
         embed = discord_common.cf_color_embed(description=table_str)
         pages.append(('Handles of server members', embed))
         done += len(chunk)
