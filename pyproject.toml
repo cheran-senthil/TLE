@@ -8,7 +8,6 @@ authors = ["meooow25 <soumiksarkar.3120@gmail.com>"]
 python = "^3.7"
 "discord.py" = { git = "https://github.com/Rapptz/discord.py.git", branch = "rewrite" }
 seaborn = "^0.9.0"
-tabulate = "^0.8.3"
 lxml = "^4.3"
 pillow = "=5.4.1"
 
