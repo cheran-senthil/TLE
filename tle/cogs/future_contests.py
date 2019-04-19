@@ -180,7 +180,7 @@ class FutureContests(commands.Cog):
             return
         if contest_id is None:
             pages = self._make_pages()
-            paginator.paginate(self.bot, ctx, pages, wait_time=_PAGINATE_WAIT_TIME, set_pagenum_footers=True)
+            paginator.paginate(self.bot, ctx.channel, pages, wait_time=_PAGINATE_WAIT_TIME, set_pagenum_footers=True)
         else:
             if contest_id not in self.contest_id_map:
                 await ctx.send(embed=discord_common.embed_alert(f'Contest ID `{contest_id}` not in contest list'))

@@ -10,7 +10,7 @@ PROFILE_BASE_URL = 'https://codeforces.com/profile/'
 
 session = aiohttp.ClientSession()
 
-Rank = namedtuple('Rank', 'low high, title, color_graph, color_embed')
+Rank = namedtuple('Rank', 'low high title color_graph color_embed')
 
 RATED_RANKS = (
     Rank(-10 ** 9, 1200, 'Newbie', '#CCCCCC', 0x808080),

@@ -20,10 +20,8 @@ class InsufficientPermissionsError(PaginatorError):
 
 
 class Paginated:
-    def __init__(self, bot, pages, wait_time):
-        self.bot = bot
+    def __init__(self, pages):
         self.pages = pages
-        self.wait_time = wait_time
         self.cur_page = None
         self.message = None
         self.reaction_map = {
@@ -45,9 +43,9 @@ class Paginated:
     async def next_page(self):
         await self.show_page(self.cur_page + 1)
 
-    async def paginate(self, ctx):
+    async def paginate(self, bot, channel, wait_time):
         content, embed = self.pages[0]
-        self.message = await ctx.send(content, embed=embed)
+        self.message = await channel.send(content, embed=embed)
 
         if len(self.pages) == 1:
             # No need to paginate.
@@ -58,11 +56,11 @@ class Paginated:
             await self.message.add_reaction(react)
 
         def check(reaction, user):
-            return self.bot.user != user and reaction.emoji in self.reaction_map
+            return bot.user != user and reaction.emoji in self.reaction_map
 
         while True:
             try:
-                reaction, user = await self.bot.wait_for('reaction_add', timeout=self.wait_time, check=check)
+                reaction, user = await bot.wait_for('reaction_add', timeout=wait_time, check=check)
                 await reaction.remove(user)
                 await self.reaction_map[reaction.emoji]()
             except asyncio.TimeoutError:
@@ -70,14 +68,14 @@ class Paginated:
                 break
 
 
-def paginate(bot, ctx, pages, *, wait_time, set_pagenum_footers=False):
+def paginate(bot, channel, pages, *, wait_time, set_pagenum_footers=False):
     if not pages:
         raise NoPagesError()
-    permissions = ctx.channel.permissions_for(ctx.guild.me)
+    permissions = channel.permissions_for(channel.guild.me)
     if not permissions.manage_messages:
         raise InsufficientPermissionsError()
     if len(pages) > 1 and set_pagenum_footers:
         for i, (content, embed) in enumerate(pages):
             embed.set_footer(text=f'Page {i + 1} / {len(pages)}')
-    paginated = Paginated(bot, pages, wait_time)
-    asyncio.create_task(paginated.paginate(ctx))
+    paginated = Paginated(pages)
+    asyncio.create_task(paginated.paginate(bot, channel, wait_time))

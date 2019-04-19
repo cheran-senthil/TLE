@@ -8,10 +8,14 @@ from tabulate import tabulate
 
 from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
+from tle.util import discord_common
+from tle.util import paginator
 
 from PIL import Image, ImageFont, ImageDraw
 
-PROFILE_BASE_URL = 'https://codeforces.com/profile/'
+_HANDLES_PER_PAGE = 15
+_PAGINATE_WAIT_TIME = 5 * 60  # 5 minutes
+
 
 def rating_to_color(rating):
     """returns (r, g, b) pixels values corresponding to rating"""
@@ -39,12 +43,13 @@ def rating_to_color(rating):
         return ORANGE
     return RED
 
+
 def get_prettyhandles_image(rankings):
     """return PIL image for rankings"""
     SMOKE_WHITE = (250, 250, 250)
     BLACK = (0, 0, 0)
     img = Image.new("RGB", (900, 450), color=SMOKE_WHITE)
-    
+
     font = ImageFont.truetype("tle/assets/fonts/Cousine-Regular.ttf", size=30)
     draw = ImageDraw.Draw(img)
     x = 20
@@ -74,8 +79,8 @@ def get_prettyhandles_image(rankings):
 
     return img
 
-  
-def make_profile_embed(member, user, *, mode):
+
+def _make_profile_embed(member, user, *, mode):
     if mode == 'set':
         desc = f'Handle for **{member.display_name}** successfully set to **[{user.handle}]({user.url})**'
     elif mode == 'get':
@@ -91,6 +96,24 @@ def make_profile_embed(member, user, *, mode):
         embed.add_field(name='Rank', value=user.rank.title, inline=True)
     embed.set_thumbnail(url=f'https:{user.titlePhoto}')
     return embed
+
+
+def _make_pages(users):
+    chunks = [users[i: i + _HANDLES_PER_PAGE] for i in range(0, len(users), _HANDLES_PER_PAGE)]
+    pages = []
+    done = 0
+    for chunk in chunks:
+        table = []
+        for i, (member, handle, rating) in enumerate(chunk):
+            rank = cf.rating2rank(rating)
+            rating_str = 'N/A' if rating is None else str(rating)
+            table.append((i + done, member.display_name, handle, rating_str, rank.title))
+        table_str = '```\n{}\n```'.format(
+            tabulate(table, headers=('#', 'Name', 'Handle', 'Rating', 'Rank'), numalign='left'))
+        embed = discord_common.cf_color_embed(description=table_str)
+        pages.append(('Handles of server members', embed))
+        done += len(chunk)
+    return pages
 
 
 class Handles(commands.Cog):
@@ -123,7 +146,7 @@ class Handles(commands.Cog):
         cf_common.conn.cache_cfuser(user)
         cf_common.conn.sethandle(member.id, handle)
 
-        embed = make_profile_embed(member, user, mode='set')
+        embed = _make_profile_embed(member, user, mode='set')
         await ctx.send(embed=embed)
 
     @commands.command(brief='gethandle [name]')
@@ -139,7 +162,7 @@ class Handles(commands.Cog):
             logging.error(f'Handle info for {handle} not cached')
             return
 
-        embed = make_profile_embed(member, user, mode='get')
+        embed = _make_profile_embed(member, user, mode='get')
         await ctx.send(embed=embed)
 
     @commands.command(brief='removehandle [name] (admin-only)')
@@ -183,30 +206,17 @@ class Handles(commands.Cog):
             msg = 'showhandles error!'
         await ctx.send(msg)
 
-    @commands.command(brief="show all handles")
+    @commands.command(brief="Show all handles")
     async def showhandles(self, ctx):
-        try:
-            converter = commands.MemberConverter()
-            res = cf_common.conn.getallhandleswithrating()
-            res.sort(key=lambda r: r[2] if r[2] is not None else -1, reverse=True)
-            table = []
-            pos = 0
-            for user_id, handle, rating in res:
-                try:  # in case the person has left the server
-                    member = await converter.convert(ctx, user_id)
-                    if rating is None:
-                        rating = 'N/A'
-                    hdisp = f'{handle} ({rating})'
-                    name = member.nick if member.nick else member.name
-                    table.append((pos, name, hdisp))
-                    pos += 1
-                except Exception as e:
-                    print(e)
-            msg = '```\n{}\n```'.format(tabulate(table, headers=('#', 'name', 'handle')))
-        except Exception as e:
-            logging.error(f"showhandles error: {e}")
-            msg = "showhandles error!"
-        await ctx.send(msg)
+        """Shows all members of the server who have registered their handles and
+        their Codeforces ratings.
+        """
+        res = cf_common.conn.getallhandleswithrating()
+        users = [(ctx.guild.get_member(int(user_id)), handle, rating) for user_id, handle, rating in res]
+        users = [(member, handle, rating) for member, handle, rating in users if member is not None]
+        users.sort(key=lambda x: (1 if x[2] is None else -x[2], x[1]))  # Sorting by (-rating, handle)
+        pages = _make_pages(users)
+        paginator.paginate(self.bot, ctx.channel, pages, wait_time=_PAGINATE_WAIT_TIME, set_pagenum_footers=True)
 
     @commands.command(brief=";prettyhandles [page number]  (color handles ^_^")
     async def prettyhandles(self, ctx: discord.ext.commands.Context, page_no: int = None):
@@ -249,14 +259,6 @@ class Handles(commands.Cog):
         except Exception as e:
             logging.error(f"prettyhandles error: {e}")
             await ctx.send(f"prettyhandles error!")
-
-
-    @commands.command(brief='show cache (admin only)')
-    @commands.has_role('Admin')
-    async def _showcache(self, ctx):
-        cache = cf_common.conn.getallcache()
-        msg = '```\n{}\n```'.format(tabulate(cache, headers=('handle', 'rating', 'titlePhoto')))
-        await ctx.send(msg)
 
     async def make_rank2role(self, ctx):
         converter = commands.RoleConverter()
