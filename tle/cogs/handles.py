@@ -107,6 +107,7 @@ def _make_pages(users):
     for chunk in chunks:
         t = table.Table(style)
         t += table.Header('#', 'Name', 'Handle', 'Rating')
+        t += table.Line()
         for i, (member, handle, rating) in enumerate(chunk):
             rank = cf.rating2rank(rating)
             rating_str = 'N/A' if rating is None else str(rating)
@@ -192,18 +193,22 @@ class Handles(commands.Cog):
             converter = commands.MemberConverter()
             res = cf_common.conn.get_gudgitters()
             res.sort(key=lambda r: r[1], reverse=True)
-            table = []
+
+            style = table.Style('{:>}  {:<}')
+            t = table.Table(style)
+            t += table.Header('#', 'Name')
+            t += table.Line()
             index = 0
             for user_id, score in res:
                 try:  # in case the person has left the server
                     member = await converter.convert(ctx, user_id)
                     name = member.nick if member.nick else member.name
                     handle_display = f'{name} ({score})'
-                    table.append((index, handle_display))
+                    t += table.Data(index, handle_display)
                     index = index + 1
                 except Exception as e:
                     print(e)
-            msg = '```\n{}\n```'.format(tabulate(table, headers=('#', 'name')))
+            msg = '```\n'+str(t)+'\n```'
         except Exception as e:
             print(e)
             msg = 'showhandles error!'
