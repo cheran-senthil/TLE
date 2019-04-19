@@ -141,7 +141,7 @@ class FutureContests(commands.Cog):
         if settings is None:
             return
         channel_id, role_id, before = settings
-        before = json.loads(before)
+        channel_id, role_id, before = int(channel_id), int(role_id), json.loads(before)
         guild = self.bot.get_guild(guild_id)
         channel, role = guild.get_channel(channel_id), guild.get_role(role_id)
         for start_time, contests in self.start_time_map.items():
@@ -196,9 +196,10 @@ class FutureContests(commands.Cog):
             embed = discord_common.cf_color_embed().add_field(name=name, value=desc)
             await ctx.send(embed=embed)
 
-    @commands.group(brief='Commands for contest reminders')
+    @commands.group(brief='Commands for contest reminders',
+                    invoke_without_command=True)
     async def remind(self, ctx):
-        pass
+        await ctx.send_help('remind')
 
     @remind.command(brief='Set reminder settings')
     @commands.has_role('Admin')
@@ -229,7 +230,7 @@ class FutureContests(commands.Cog):
             await ctx.send(embed=discord_common.embed_neutral('Reminder not set'))
             return
         channel_id, role_id, before = settings
-        before = json.loads(before)
+        channel_id, role_id, before = int(channel_id), int(role_id), json.loads(before)
         channel, role = ctx.guild.get_channel(channel_id), ctx.guild.get_role(role_id)
         if channel is None:
             await ctx.send(embed=discord_common.embed_alert('The channel set for reminders is no longer available'))
@@ -253,7 +254,7 @@ class FutureContests(commands.Cog):
                 embed=discord_common.embed_alert('To use this command, reminder settings must be set by an admin'))
             return
         _, role_id, _ = settings
-        role = ctx.guild.get_role(role_id)
+        role = ctx.guild.get_role(int(role_id))
         if role is None:
             await ctx.send(embed=discord_common.embed_alert('The role set for reminders is no longer available'))
             return

@@ -88,9 +88,9 @@ class HandleConn:
         ''')
         self.conn.execute('''
             CREATE TABLE IF NOT EXISTS reminder (
-                guild_id INTEGER PRIMARY KEY,
-                channel_id INTEGER,
-                role_id INTEGER,
+                guild_id TEXT PRIMARY KEY,
+                channel_id TEXT,
+                role_id TEXT,
                 before TEXT
             )
         ''')
