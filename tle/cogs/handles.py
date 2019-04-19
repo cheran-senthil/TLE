@@ -4,12 +4,12 @@ import io
 import aiohttp
 import discord
 from discord.ext import commands
-from tabulate import tabulate
 
 from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
 from tle.util import discord_common
 from tle.util import paginator
+from tle.util import table
 
 from PIL import Image, ImageFont, ImageDraw
 
@@ -102,14 +102,17 @@ def _make_pages(users):
     chunks = [users[i: i + _HANDLES_PER_PAGE] for i in range(0, len(users), _HANDLES_PER_PAGE)]
     pages = []
     done = 0
+
+    style = table.Style('{:>}  {:<}  {:<}  {:<}')
     for chunk in chunks:
-        table = []
+        t = table.Table(style)
+        t += table.Header('#', 'Name', 'Handle', 'Rating')
         for i, (member, handle, rating) in enumerate(chunk):
             rank = cf.rating2rank(rating)
             rating_str = 'N/A' if rating is None else str(rating)
-            table.append((i + done, member.display_name, handle, f'{rating_str} ({rank.title_abbr})'))
-        table_str = '```\n{}\n```'.format(
-            tabulate(table, headers=('#', 'Name', 'Handle', 'Rating')))
+            t += table.Data(i + done, member.display_name, handle,
+                            f'{rating_str} ({rank.title_abbr})')
+        table_str = '```\n'+str(t)+'\n```'
         embed = discord_common.cf_color_embed(description=table_str)
         pages.append(('Handles of server members', embed))
         done += len(chunk)
