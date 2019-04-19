@@ -32,7 +32,7 @@ def attach_image(embed, img_file):
 
 
 def set_author_footer(embed, user):
-    embed.set_footer(text=f'Requested by {user}')
+    embed.set_footer(text=f'Requested by {user}', icon_url=user.avatar_url)
 
 
 async def bot_error_handler(ctx, exception):
