@@ -3,6 +3,7 @@ import sys
 import traceback
 
 import discord
+from discord.ext import commands
 
 from tle.util import handle_conn
 
@@ -36,9 +37,8 @@ def set_author_footer(embed, user):
 
 
 async def bot_error_handler(ctx, exception):
-    # This is identical to the default error handler at
+    # This is similar to the default error handler at
     # https://github.com/Rapptz/discord.py/blob/master/discord/ext/commands/bot.py
-    # but it also handles DatabaseDisabledError.
 
     if hasattr(ctx.command, 'on_error'):
         return
@@ -52,6 +52,10 @@ async def bot_error_handler(ctx, exception):
     if isinstance(exception, handle_conn.DatabaseDisabledError):
         await ctx.send(
             embed=embed_alert('Sorry, the database is not available. Some features are disabled.'))
+        return
+
+    if isinstance(exception, commands.NoPrivateMessage):
+        await ctx.send(embed=embed_alert('Commands are disabled in private channels'))
         return
 
     print('Ignoring exception in command {}:'.format(ctx.command), file=sys.stderr)

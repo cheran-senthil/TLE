@@ -53,6 +53,14 @@ def main():
 
     logging.info(f'Cogs loaded...')
 
+    def no_dm_check(ctx):
+        if ctx.guild is None:
+            raise commands.NoPrivateMessage('Private messages not permitted.')
+        return True
+
+    # Restrict bot usage to inside guild channels only.
+    bot.add_check(no_dm_check)
+
     @bot.event
     async def on_ready():
         if args.nodb:
