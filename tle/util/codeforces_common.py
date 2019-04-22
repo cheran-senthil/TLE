@@ -92,42 +92,59 @@ def is_contest_writer(contest_id, handle):
     return writers and handle in writers
 
 
-class CodeforcesHandleError(Exception):
+class CodeforcesHandleError(commands.CommandError):
     pass
 
 
 class HandleCountOutOfBoundsError(CodeforcesHandleError):
-    pass
+    def __init__(self, mincnt, maxcnt):
+        super().__init__(f'Number of handles must be between {mincnt} and {maxcnt}')
 
 
-class ResolveHandleFailedError(CodeforcesHandleError):
-    pass
+class FindMemberFailedError(CodeforcesHandleError):
+    def __init__(self, member):
+        super().__init__(f'Unable to convert `{member}` to a server member')
 
 
-class RunHandleCoroFailedError(CodeforcesHandleError):
-    pass
+class HandleNotRegisteredError(CodeforcesHandleError):
+    def __init__(self, member):
+        super().__init__(f'Codeforces handle for member {member.mention} not found in database')
+
+
+class RunHandleCoroFailedError(commands.CommandError):
+    def __init__(self, handle, error):
+        message = None
+        if isinstance(error, aiohttp.ClientConnectionError):
+            message = 'Error connecting to Codeforces API'
+        elif isinstance(error, cf.NotFoundError):
+            message = f'Handle not found on Codeforces: `{handle}`'
+        elif isinstance(error, cf.InvalidParamError):
+            message = f'Not a valid Codeforces handle: `{handle}`'
+        elif isinstance(error, cf.CodeforcesApiError):
+            message = 'Codeforces API error'
+        if message is not None:
+            super().__init__(message)
+        else:
+            super().__init__()
 
 
 async def resolve_handles_or_reply_with_error(ctx, converter, handles, *, mincnt=1, maxcnt=5):
     """Convert an iterable of strings to CF handles. A string beginning with ! indicates Discord username,
      otherwise it is a raw CF handle to be left unchanged."""
     if len(handles) < mincnt or maxcnt < len(handles):
-        await ctx.send(embed=discord_common.embed_alert(f'Number of handles must be between {mincnt} and {maxcnt}'))
-        raise HandleCountOutOfBoundsError(handles, mincnt, maxcnt)
+        raise HandleCountOutOfBoundsError(mincnt, maxcnt)
     resolved_handles = []
     for handle in handles:
         if handle.startswith('!'):
             # ! denotes Discord user
+            member_identifier = handle[1:]
             try:
-                member = await converter.convert(ctx, handle[1:])
+                member = await converter.convert(ctx, member_identifier)
             except commands.errors.CommandError:
-                await ctx.send(embed=discord_common.embed_alert(f'Unable to convert `{handle}` to a server member'))
-                raise ResolveHandleFailedError(handle)
+                raise FindMemberFailedError(member_identifier)
             handle = conn.gethandle(member.id)
             if handle is None:
-                await ctx.send(embed=discord_common.embed_alert(
-                    f'Codeforces handle for member {member.display_name} not found in database'))
-                raise ResolveHandleFailedError(handle)
+                raise HandleNotRegisteredError(member)
         resolved_handles.append(handle)
     return resolved_handles
 
@@ -140,13 +157,18 @@ async def run_handle_related_coro_or_reply_with_error(ctx, handles, coro):
             res = await coro(handle=handle)
             results.append(res)
             continue
-        except aiohttp.ClientConnectionError:
-            await ctx.send(embed=discord_common.embed_alert('Error connecting to Codeforces API'))
-        except cf.NotFoundError:
-            await ctx.send(embed=discord_common.embed_alert(f'Handle not found: `{handle}`'))
-        except cf.InvalidParamError:
-            await ctx.send(embed=discord_common.embed_alert(f'Not a valid Codeforces handle: `{handle}`'))
-        except cf.CodeforcesApiError:
-            await ctx.send(embed=discord_common.embed_alert('Codeforces API error.'))
-        raise RunHandleCoroFailedError(handle)
+        except Exception as ex:
+            raise RunHandleCoroFailedError(handle, ex)
     return results
+
+
+async def cf_handle_error_handler(ctx, error):
+    if isinstance(error, CodeforcesHandleError):
+        await ctx.send(embed=discord_common.embed_alert(error))
+        error.handled = True
+
+
+async def run_handle_coro_error_handler(ctx, error):
+    if isinstance(error, RunHandleCoroFailedError):
+        await ctx.send(embed=discord_common.embed_alert(error))
+        error.handled = True

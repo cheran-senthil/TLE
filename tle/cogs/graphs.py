@@ -143,11 +143,8 @@ class Graphs(commands.Cog):
     async def rating(self, ctx, *handles: str):
         """Plots Codeforces rating graph for the handles provided."""
         handles = handles or ('!' + str(ctx.author),)
-        try:
-            handles = await cf_common.resolve_handles_or_reply_with_error(ctx, self.converter, handles)
-            resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.rating)
-        except cf_common.CodeforcesHandleError:
-            return
+        handles = await cf_common.resolve_handles_or_reply_with_error(ctx, self.converter, handles)
+        resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.rating)
 
         plt.clf()
         _plot_rating(resp)
@@ -165,11 +162,8 @@ class Graphs(commands.Cog):
     async def solved(self, ctx, *handles: str):
         """Shows a histogram of problems solved on Codeforces for the handles provided."""
         handles = handles or ('!' + str(ctx.author),)
-        try:
-            handles = await cf_common.resolve_handles_or_reply_with_error(ctx, self.converter, handles)
-            resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
-        except cf_common.CodeforcesHandleError:
-            return
+        handles = await cf_common.resolve_handles_or_reply_with_error(ctx, self.converter, handles)
+        resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
 
         allratings = []
         for submissions in resp:
@@ -213,15 +207,12 @@ class Graphs(commands.Cog):
             return
 
         handle = handle or '!' + str(ctx.author)
-        try:
-            handles = await cf_common.resolve_handles_or_reply_with_error(ctx, self.converter, (handle,))
-            resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
-            rating_resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.rating)
-            contests = await cf.contest.list()
-            handle = handles[0]
-            submissions = resp[0]
-        except cf_common.CodeforcesHandleError:
-            return
+        handles = await cf_common.resolve_handles_or_reply_with_error(ctx, self.converter, (handle,))
+        resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
+        rating_resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.rating)
+        contests = await cf.contest.list()
+        handle = handles[0]
+        submissions = resp[0]
 
         regular, practice, virtual = _classify_subs(submissions, contests)
         plt.clf()
@@ -254,6 +245,10 @@ class Graphs(commands.Cog):
         discord_common.attach_image(embed, discord_file)
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
+
+    async def cog_command_error(self, ctx, error):
+        await cf_common.cf_handle_error_handler(ctx, error)
+        await cf_common.run_handle_coro_error_handler(ctx, error)
 
 
 def setup(bot):

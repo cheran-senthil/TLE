@@ -56,13 +56,13 @@ class Codeforces(commands.Cog):
 
         rating, solved = None, None
         if handle:
-            rating, solved = await cf_common.cache.get_rating_solved(handle, time_out = 7200)
+            rating, solved = await cf_common.cache.get_rating_solved(handle, time_out=7200)
         if solved is None:
             solved = set()
 
         lower = bounds[0] if len(bounds) > 0 else None
         if lower is None:
-            lower = rating # round later. rounding a null value causes exception
+            lower = rating  # round later. rounding a null value causes exception
             if lower is None:
                 await ctx.send('Personal cf data not found. Assume rating of 1500.')
                 lower = 1500
@@ -213,11 +213,8 @@ class Codeforces(commands.Cog):
     async def vc(self, ctx, *handles: str):
         """Recommends a contest based on Codeforces rating of the handle provided."""
         handles = handles or ('!' + str(ctx.author),)
-        try:
-            handles = await cf_common.resolve_handles_or_reply_with_error(ctx, self.converter, handles)
-            resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
-        except cf_common.CodeforcesHandleError:
-            return
+        handles = await cf_common.resolve_handles_or_reply_with_error(ctx, self.converter, handles)
+        resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
 
         user_submissions = resp
         try:
@@ -250,6 +247,10 @@ class Codeforces(commands.Cog):
             contest, _, _ = await cf.contest.standings(contestid=contest_id, from_=1, count=1)
             embed = discord.Embed(title=contest.name, url=contest.url)
             await ctx.send(f'Recommended contest for `{str_handles}`', embed=embed)
+
+    async def cog_command_error(self, ctx, error):
+        await cf_common.cf_handle_error_handler(ctx, error)
+        await cf_common.run_handle_coro_error_handler(ctx, error)
 
 
 def setup(bot):
