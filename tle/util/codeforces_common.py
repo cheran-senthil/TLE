@@ -128,7 +128,7 @@ class RunHandleCoroFailedError(commands.CommandError):
             super().__init__()
 
 
-async def resolve_handles_or_reply_with_error(ctx, converter, handles, *, mincnt=1, maxcnt=5):
+async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
     """Convert an iterable of strings to CF handles. A string beginning with ! indicates Discord username,
      otherwise it is a raw CF handle to be left unchanged."""
     if len(handles) < mincnt or maxcnt < len(handles):
@@ -149,7 +149,7 @@ async def resolve_handles_or_reply_with_error(ctx, converter, handles, *, mincnt
     return resolved_handles
 
 
-async def run_handle_related_coro_or_reply_with_error(ctx, handles, coro):
+async def run_handle_related_coro(handles, coro):
     """Run a coroutine that takes a handle, for each handle in handles. Returns a list of results."""
     results = []
     for handle in handles:

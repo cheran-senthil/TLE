@@ -143,8 +143,8 @@ class Graphs(commands.Cog):
     async def rating(self, ctx, *handles: str):
         """Plots Codeforces rating graph for the handles provided."""
         handles = handles or ('!' + str(ctx.author),)
-        handles = await cf_common.resolve_handles_or_reply_with_error(ctx, self.converter, handles)
-        resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.rating)
+        handles = await cf_common.resolve_handles(ctx, self.converter, handles)
+        resp = await cf_common.run_handle_related_coro(handles, cf.user.rating)
 
         plt.clf()
         _plot_rating(resp)
@@ -162,8 +162,8 @@ class Graphs(commands.Cog):
     async def solved(self, ctx, *handles: str):
         """Shows a histogram of problems solved on Codeforces for the handles provided."""
         handles = handles or ('!' + str(ctx.author),)
-        handles = await cf_common.resolve_handles_or_reply_with_error(ctx, self.converter, handles)
-        resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
+        handles = await cf_common.resolve_handles(ctx, self.converter, handles)
+        resp = await cf_common.run_handle_related_coro(handles, cf.user.status)
 
         allratings = []
         for submissions in resp:
@@ -207,9 +207,9 @@ class Graphs(commands.Cog):
             return
 
         handle = handle or '!' + str(ctx.author)
-        handles = await cf_common.resolve_handles_or_reply_with_error(ctx, self.converter, (handle,))
-        resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
-        rating_resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.rating)
+        handles = await cf_common.resolve_handles(ctx, self.converter, (handle,))
+        resp = await cf_common.run_handle_related_coro(handles, cf.user.status)
+        rating_resp = await cf_common.run_handle_related_coro(handles, cf.user.rating)
         contests = await cf.contest.list()
         handle = handles[0]
         submissions = resp[0]

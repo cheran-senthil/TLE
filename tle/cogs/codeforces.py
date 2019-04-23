@@ -213,8 +213,8 @@ class Codeforces(commands.Cog):
     async def vc(self, ctx, *handles: str):
         """Recommends a contest based on Codeforces rating of the handle provided."""
         handles = handles or ('!' + str(ctx.author),)
-        handles = await cf_common.resolve_handles_or_reply_with_error(ctx, self.converter, handles)
-        resp = await cf_common.run_handle_related_coro_or_reply_with_error(ctx, handles, cf.user.status)
+        handles = await cf_common.resolve_handles(ctx, self.converter, handles)
+        resp = await cf_common.run_handle_related_coro(handles, cf.user.status)
 
         user_submissions = resp
         try:
