@@ -111,6 +111,13 @@ class HandleNotRegisteredError(CodeforcesHandleError):
         super().__init__(f'Codeforces handle for member {member.mention} not found in database')
 
 
+class HandleIsVjudgeError(CodeforcesHandleError):
+    handles = 'vjudge1 vjudge2 vjudge3 vjudge4 vjudge5'.split()
+
+    def __init__(self, handle):
+        super().__init__(f"`{handle}`? I'm not doing that!\n\n(╯°□°）╯︵ ┻━┻")
+
+
 class RunHandleCoroFailedError(commands.CommandError):
     def __init__(self, handle, error):
         message = None
@@ -145,6 +152,8 @@ async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
             handle = conn.gethandle(member.id)
             if handle is None:
                 raise HandleNotRegisteredError(member)
+        if handle in HandleIsVjudgeError.handles:
+            raise HandleIsVjudgeError(handle)
         resolved_handles.append(handle)
     return resolved_handles
 
