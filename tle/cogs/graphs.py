@@ -288,7 +288,7 @@ class Graphs(commands.Cog):
 
         plt.xlabel('Rating')
         plt.ylabel('Percentile')
-        
+
         for pos in ['right','top','bottom','left']:
             ax.spines[pos].set_visible(False)
         ax.tick_params(axis='both', which='both',length=0)
@@ -357,6 +357,56 @@ class Graphs(commands.Cog):
         discord_common.attach_image(embed, discord_file)
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send("Couldn't find ratings for: "+', '.join(failed), embed=embed, file=discord_file)
+
+    @plot.command(brief='Show codeforces rating distribution')
+    async def cfdistrib(self, ctx, mode: str = 'log'):
+        resp = await cf_common.cache.get_user_rating(3600)
+        ratings = [max(r, 0) for r in resp.values()]
+        bins = 39
+
+        colors = []
+        low, high = 0, 100 * bins
+        for rank in cf.RATED_RANKS:
+            for r in range(max(rank.low, low), min(rank.high, high), 100):
+                colors.append('#' + '%06x' % rank.color_embed)
+        assert len(colors) == bins, f'Expected {bins} colors, got {len(colors)}'
+
+        height = [0] * bins
+        for r in ratings:
+            height[r // 100] += 1
+
+        csum = 0
+        cent = []
+        users = sum(height)
+        for h in height:
+            csum += h
+            cent.append(round(100 * csum / users))
+
+        x = [k * 100 for k in range(bins)]
+        label = [f'{r} ({c})' for r,c in zip(x, cent)]
+
+        plt.clf()
+        if mode == 'log':
+            fig = plt.figure(figsize=(15, 5))
+        elif mode == 'normal':
+            fig = plt.figure(figsize=(20,100))
+            plt.locator_params(axis='y', nbins=50)
+        else:
+            await ctx.send(embed=discord_common.embed_alert('Mode should be either `log` or `normal`.'))
+            return
+
+        plt.xticks(rotation=45)
+        plt.xlim(-50, 100 * bins - 50)
+        plt.bar(x, height, 90, color=colors, linewidth=0, tick_label=label, log=(mode == 'log'))
+        plt.xlabel('Rating')
+        plt.ylabel('Number of users')
+
+        discord_file = _get_current_figure_as_file()
+        embed = discord_common.cf_color_embed(title=f'Rating distribution of cf users')
+        discord_common.attach_image(embed, discord_file)
+        discord_common.set_author_footer(embed, ctx.author)
+        await ctx.send(embed=embed, file=discord_file)
+        plt.close(fig)
 
     async def cog_command_error(self, ctx, error):
         await cf_common.cf_handle_error_handler(ctx, error)
