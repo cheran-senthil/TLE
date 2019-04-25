@@ -53,7 +53,7 @@ RatingChange = namedtuple('RatingChange',
                           'contestId contestName handle rank ratingUpdateTimeSeconds oldRating newRating')
 
 
-class Contest(namedtuple('Contest', 'id name startTimeSeconds durationSeconds type')):
+class Contest(namedtuple('Contest', 'id name startTimeSeconds durationSeconds type phase preparedBy')):
     __slots__ = ()
 
     @property

@@ -47,8 +47,10 @@ class HandleConn:
                 "start_time"	INTEGER,
                 "duration"	INTEGER,
                 "type"	TEXT,
+                "phase"	TEXT,
+                "prepared_by"	TEXT,
                 PRIMARY KEY("id")
-            )
+            );
         ''')
         self.conn.execute('''
             CREATE TABLE IF NOT EXISTS "problem" (
@@ -96,7 +98,7 @@ class HandleConn:
         ''')
 
     def fetch_contests(self):
-        query = 'SELECT id, name, start_time, duration, type FROM contest'
+        query = 'SELECT id, name, start_time, duration, type, phase, prepared_by FROM contest'
         res = self.conn.execute(query).fetchall()
         if res is None: return None
         return [cf.Contest(*r) for r in res]
@@ -226,7 +228,7 @@ class HandleConn:
 
     def cache_contests(self, contests: list):
         return self._insert_many('contest',
-            ['id', 'name', 'start_time', 'duration', 'type'],
+            ['id', 'name', 'start_time', 'duration', 'type', 'phase', 'prepared_by'],
             contests
         )
 
