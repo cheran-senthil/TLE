@@ -8,6 +8,7 @@ CONTEST_BASE_URL = 'https://codeforces.com/contest/'
 CONTESTS_BASE_URL = 'https://codeforces.com/contests/'
 PROFILE_BASE_URL = 'https://codeforces.com/profile/'
 
+logger = logging.getLogger(__name__)
 session = aiohttp.ClientSession()
 
 Rank = namedtuple('Rank', 'low high title title_abbr color_graph color_embed')
@@ -102,12 +103,16 @@ RanklistRow = namedtuple('RanklistRow', 'party rank')
 
 def make_from_dict(namedtuple_cls, dict_):
     field_vals = [dict_.get(field) for field in namedtuple_cls._fields]
-    return namedtuple_cls(*field_vals)
+    return namedtuple_cls._make(field_vals)
 
 
 # Error classes
 
 class CodeforcesApiError(Exception):
+    pass
+
+
+class ConnectionError(CodeforcesApiError):
     pass
 
 
@@ -128,7 +133,7 @@ class CallLimitExceededError(CodeforcesApiError):
 async def _query_api(path, params=None):
     url = API_BASE_URL + path
     try:
-        logging.info(f'Querying CF API at {url} with {params}')
+        logger.info(f'Querying CF API at {url} with {params}')
         headers = {'Accept-Encoding': 'gzip'}  # Explicitly state encoding (though aiohttp accepts gzip by default)
         async with session.get(url, params=params, headers=headers) as resp:
             if resp.status == 200:
@@ -140,17 +145,17 @@ async def _query_api(path, params=None):
                 comment += f', {respjson.get("comment")}'
             except aiohttp.ContentTypeError:
                 pass
-            logging.warning(f'Query to CF API failed: {comment}')
-            if 'not found' in comment:
-                raise NotFoundError(comment)
-            if 'should contain' in comment:
-                raise InvalidParamError(comment)
-            if 'limit exceeded' in comment:
-                raise CallLimitExceededError(comment)
-            raise CodeforcesApiError(comment)
     except aiohttp.ClientConnectionError as e:
-        logging.error(f'Request to CF API encountered error: {e}')
-        raise
+        logger.error(f'Request to CF API encountered error: {e}')
+        raise ConnectionError(e) from e
+    logger.warning(f'Query to CF API failed: {comment}')
+    if 'not found' in comment:
+        raise NotFoundError(comment)
+    if 'should contain' in comment:
+        raise InvalidParamError(comment)
+    if 'limit exceeded' in comment:
+        raise CallLimitExceededError(comment)
+    raise CodeforcesApiError(comment)
 
 
 class contest:

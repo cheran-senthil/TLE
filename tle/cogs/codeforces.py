@@ -3,7 +3,6 @@ import json
 import random
 import time
 
-import aiohttp
 import discord
 from discord.ext import commands
 
@@ -220,9 +219,6 @@ class Codeforces(commands.Cog):
         try:
             info = await cf.user.info(handles=handles)
             contests = await cf.contest.list()
-        except aiohttp.ClientConnectionError:
-            await ctx.send('Error connecting to Codeforces API')
-            return
         except cf.CodeforcesApiError:
             await ctx.send('Codeforces API error.')
             return

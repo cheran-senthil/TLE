@@ -15,7 +15,8 @@ from tle.util import discord_common
 
 def setup():
     # logging
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(format='{asctime}:{levelname}:{name}:{message}', style='{',
+                        datefmt='%d-%m-%Y %H:%M:%S', level=logging.INFO)
 
     # matplotlib and seaborn
     plt.rcParams['figure.figsize'] = 7.0, 3.5

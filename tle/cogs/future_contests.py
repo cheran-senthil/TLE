@@ -10,6 +10,7 @@ from discord.ext import commands
 
 from tle.util import codeforces_common as cf_common
 from tle.util import discord_common
+from tle.util import handle_conn
 from tle.util import paginator
 
 _CONTEST_RELOAD_INTERVAL = 60 * 60  # 1 hour
@@ -97,16 +98,15 @@ class FutureContests(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        # Initial fetch of ccntests
-        await self._reload()
-
-        # Schedule contest refresh for future
         asyncio.create_task(self._updater_task())
 
     async def _updater_task(self):
         while True:
+            try:
+                await self._reload()
+            except Exception as ex:
+                self.logger.error(f'Unexpected exception in updater task, ignoring {ex}')
             await asyncio.sleep(_CONTEST_RELOAD_INTERVAL)
-            await self._reload()
 
     async def _reload(self, acceptable_delay=_CONTEST_RELOAD_ACCEPTABLE_DELAY):
         contest_dict = await cf_common.cache.get_contests(acceptable_delay)
@@ -137,7 +137,10 @@ class FutureContests(commands.Cog):
         self.logger.info(f'Tasks for guild {guild_id} cleared')
         if not self.start_time_map:
             return
-        settings = cf_common.conn.get_reminder_settings(guild_id)
+        try:
+            settings = cf_common.conn.get_reminder_settings(guild_id)
+        except handle_conn.DatabaseDisabledError:
+            return
         if settings is None:
             return
         channel_id, role_id, before = settings

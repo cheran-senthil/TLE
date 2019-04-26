@@ -1,12 +1,10 @@
 import asyncio
+import functools
 import json
 import logging
-
-import aiohttp
+from collections import defaultdict
 
 from discord.ext import commands
-from collections import defaultdict
-from functools import wraps
 
 from tle import constants
 from tle.util import codeforces_api as cf
@@ -31,11 +29,11 @@ def user_guard(*, group):
     active = active_groups[group]
 
     def guard(fun):
-        @wraps(fun)
+        @functools.wraps(fun)
         async def f(self, ctx, *args, **kwargs):
             user = ctx.message.author.id
             if user in active:
-                logging.info(f'{user} repeatedly calls {group} group')
+                logger.info(f'{user} repeatedly calls {group} group')
                 return
             active.add(user)
             try:
@@ -54,10 +52,9 @@ async def initialize(dbfile, cache_refresh_interval):
     global _contest_id_to_writers_map
     if dbfile is None:
         conn = handle_conn.DummyConn()
-        cache = CacheSystem()
     else:
         conn = handle_conn.HandleConn(dbfile)
-        cache = CacheSystem(conn)
+    cache = CacheSystem(conn)
     # Initial fetch from CF API
     await cache.force_update()
     if cache.contest_last_cache and cache.problems_last_cache:
@@ -112,7 +109,7 @@ class HandleNotRegisteredError(CodeforcesHandleError):
 
 
 class HandleIsVjudgeError(CodeforcesHandleError):
-    handles = 'vjudge1 vjudge2 vjudge3 vjudge4 vjudge5'.split()
+    HANDLES = 'vjudge1 vjudge2 vjudge3 vjudge4 vjudge5'.split()
 
     def __init__(self, handle):
         super().__init__(f"`{handle}`? I'm not doing that!\n\n(╯°□°）╯︵ ┻━┻")
@@ -121,7 +118,7 @@ class HandleIsVjudgeError(CodeforcesHandleError):
 class RunHandleCoroFailedError(commands.CommandError):
     def __init__(self, handle, error):
         message = None
-        if isinstance(error, aiohttp.ClientConnectionError):
+        if isinstance(error, cf.ConnectionError):
             message = 'Error connecting to Codeforces API'
         elif isinstance(error, cf.NotFoundError):
             message = f'Handle not found on Codeforces: `{handle}`'
@@ -138,6 +135,8 @@ class RunHandleCoroFailedError(commands.CommandError):
 async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
     """Convert an iterable of strings to CF handles. A string beginning with ! indicates Discord username,
      otherwise it is a raw CF handle to be left unchanged."""
+    # If this is called from a Discord command, it is recommended to call the
+    # cf_handle_error_handler function below from the command's error handler.
     if len(handles) < mincnt or maxcnt < len(handles):
         raise HandleCountOutOfBoundsError(mincnt, maxcnt)
     resolved_handles = []
@@ -152,7 +151,7 @@ async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
             handle = conn.gethandle(member.id)
             if handle is None:
                 raise HandleNotRegisteredError(member)
-        if handle in HandleIsVjudgeError.handles:
+        if handle in HandleIsVjudgeError.HANDLES:
             raise HandleIsVjudgeError(handle)
         resolved_handles.append(handle)
     return resolved_handles
@@ -160,14 +159,16 @@ async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
 
 async def run_handle_related_coro(handles, coro):
     """Run a coroutine that takes a handle, for each handle in handles. Returns a list of results."""
+    # If this is called from a Discord command, it is recommended to call the
+    # run_handle_coro_error_handler function below from the command's error handler.
     results = []
     for handle in handles:
         try:
             res = await coro(handle=handle)
             results.append(res)
             continue
-        except Exception as ex:
-            raise RunHandleCoroFailedError(handle, ex)
+        except cf.CodeforcesApiError as ex:
+            raise RunHandleCoroFailedError(handle, ex) from ex
     return results
 
 

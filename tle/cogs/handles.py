@@ -1,7 +1,6 @@
 import logging
 import io
 
-import aiohttp
 import discord
 from discord.ext import commands
 
@@ -19,6 +18,7 @@ _PAGINATE_WAIT_TIME = 5 * 60  # 5 minutes
 
 def rating_to_color(rating):
     """returns (r, g, b) pixels values corresponding to rating"""
+    # TODO: Integrate these colors with the ranks in codeforces_api.py
     BLACK = (10, 10, 10)
     RED = (255, 20, 20)
     BLUE = (0, 0, 200)
@@ -131,18 +131,8 @@ class Handles(commands.Cog):
         try:
             users = await cf.user.info(handles=[handle])
             user = users[0]
-        except aiohttp.ClientConnectionError:
-            await ctx.send('Could not connect to CF API to verify handle')
-            return
-        except cf.NotFoundError:
-            await ctx.send(f'Handle not found: `{handle}`')
-            return
-        except cf.InvalidParamError:
-            await ctx.send(f'Not a valid Codeforces handle: `{handle}`')
-            return
-        except cf.CodeforcesApiError:
-            await ctx.send('Codeforces API error.')
-            return
+        except cf.CodeforcesApiError as er:
+            raise cf_common.RunHandleCoroFailedError(handle, er) from er
 
         # CF API returns correct handle ignoring case, update to it
         handle = user.handle
@@ -328,6 +318,9 @@ class Handles(commands.Cog):
             msg = 'updateroles error!'
             print(e)
         await ctx.send(msg)
+
+    async def cog_command_error(self, ctx, error):
+        await cf_common.run_handle_coro_error_handler(ctx, error)
 
 
 def setup(bot):

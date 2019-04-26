@@ -1,11 +1,12 @@
+import logging
 import random
-import sys
-import traceback
 
 import discord
 from discord.ext import commands
 
 from tle.util import handle_conn
+
+logger = logging.getLogger(__name__)
 
 _CF_COLORS = (0xFFCA1F, 0x198BCC, 0xFF2020)
 _SUCCESS_GREEN = 0x28A745
@@ -46,5 +47,5 @@ async def bot_error_handler(ctx, exception):
     elif isinstance(exception, commands.NoPrivateMessage):
         await ctx.send(embed=embed_alert('Commands are disabled in private channels'))
     else:
-        print('Ignoring exception in command {}:'.format(ctx.command), file=sys.stderr)
-        traceback.print_exception(type(exception), exception, exception.__traceback__, file=sys.stderr)
+        exc_info = type(exception), exception, exception.__traceback__
+        logger.exception('Ignoring exception in command {}:'.format(ctx.command), exc_info=exc_info)
