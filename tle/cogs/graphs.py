@@ -263,7 +263,7 @@ class Graphs(commands.Cog):
             zoom = False
 
         # Prepare data
-        rating_map = await cf_common.cache.get_user_rating(600)
+        rating_map = await cf_common.cache.get_user_rating(3600)
         if args:
             handles = await cf_common.resolve_handles(ctx,
                                                       self.converter,
