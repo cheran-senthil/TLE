@@ -356,7 +356,8 @@ class Graphs(commands.Cog):
         embed = discord_common.cf_color_embed(title=f'Rating/percentile relationship')
         discord_common.attach_image(embed, discord_file)
         discord_common.set_author_footer(embed, ctx.author)
-        await ctx.send("Couldn't find ratings for: "+', '.join(failed), embed=embed, file=discord_file)
+        if failed:
+            await ctx.send("Couldn't find ratings for: "+', '.join(failed), embed=embed, file=discord_file)
 
     async def cog_command_error(self, ctx, error):
         await cf_common.cf_handle_error_handler(ctx, error)
