@@ -271,6 +271,8 @@ class Graphs(commands.Cog):
                                                       mincnt=0,
                                                       maxcnt=50)
             handles = set(handles)
+        else:
+            handles = set()
 
         intervals = [(rank.low, rank.high) for rank in cf.RATED_RANKS]
         colors = [rank.color_graph for rank in cf.RATED_RANKS]
@@ -289,7 +291,7 @@ class Graphs(commands.Cog):
         
         for pos in ['right','top','bottom','left']:
             ax.spines[pos].set_visible(False)
-        ax.tick_params(axis=u'both', which=u'both',length=0)
+        ax.tick_params(axis='both', which='both',length=0)
 
         # Color intervals by rank
         for interval,color in zip(intervals,colors):
@@ -302,18 +304,15 @@ class Graphs(commands.Cog):
             ax.add_patch(rect)
 
         # Mark users in plot
-        def to_point(user):
-            rating = rating_map[user]
-            ix = bisect.bisect_left(ratings, rating)
-            cent = 100*ix/len(ratings)
-            return rating,cent
-
         failed = []
         to_mark = {}
         for user in handles:
-            try:
-                to_mark[user] = to_point(user)
-            except KeyError:
+            if user in rating_map:
+                rating = rating_map[user]
+                ix = bisect.bisect_left(ratings, rating)
+                cent = 100*ix/len(ratings)
+                to_mark[user] = rating,cent
+            else:
                 failed.append(user)
         for user,point in to_mark.items():
             x,y = point
