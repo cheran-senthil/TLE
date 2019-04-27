@@ -218,6 +218,11 @@ class user:
         return [make_from_dict(RatingChange, ratingchange_dict) for ratingchange_dict in resp]
 
     @staticmethod
+    async def ratedList(*, params = None):
+        resp = await _query_api('user.ratedList', params=params)
+        return [make_from_dict(User, user_dict) for user_dict in resp]
+
+    @staticmethod
     async def status(*, handle, from_=None, count=None):
         params = {'handle': handle}
         if from_ is not None:

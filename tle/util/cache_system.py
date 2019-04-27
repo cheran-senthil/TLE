@@ -38,11 +38,21 @@ class CacheSystem:
         self.problems_last_cache = None
         self.problem_dict = None    # name => problem
         self.problem_start = None   # id => start_time
+        self.user_rating = None # dict: handle => rating
+        self.user_rating_last_cache = None
         # self.problems = None
         # self.base_problems = None
         # this dict looks up a problem identifier and returns that of the base problem
         # self.problem_to_base = None
         self.logger = logging.getLogger(self.__class__.__name__)
+
+    async def get_user_rating(self, duration: int):
+        now = time.time()
+        if self.user_rating is None or self.user_rating_last_cache is None or now - self.user_rating_last_cache > duration:
+            users = await cf.user.ratedList()            
+            self.user_rating = {u.handle : u.rating for u in users}
+            self.user_rating_last_cache = now
+        return self.user_rating
 
     async def get_contests(self, duration: int):
         """Return contests (dict) fetched within last `duration` seconds if available, else fetch now and return."""
