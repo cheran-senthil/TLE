@@ -304,29 +304,38 @@ class Graphs(commands.Cog):
             ax.add_patch(rect)
 
         # Mark users in plot
-        failed = []
-        to_mark = {}
-        for user in handles:
-            if user in rating_map:
-                rating = rating_map[user]
-                ix = bisect.bisect_left(ratings, rating)
+        if handles:
+            to_mark = {}
+            try:
+                infos = await cf.user.info(handles=handles)
+            except cf.NotFoundError:
+                await ctx.send('Some handle not found')
+                return
+            except cf.CodeforcesApiError:
+                await ctx.send('Something happened :(')
+                return
+
+            for info in infos:
+                if info.rating == None:
+                    await ctx.send(f'{info.handle} has no rating')
+                    return
+                ix = bisect.bisect_left(ratings, info.rating)
                 cent = 100*ix/len(ratings)
-                to_mark[user] = rating,cent
-            else:
-                failed.append(user)
-        for user,point in to_mark.items():
-            x,y = point
-            plt.annotate(user,
-                         xy=point,
-                         xytext=(0, 0),
-                         textcoords='offset points',
-                         ha='right',
-                         va='bottom')
-            plt.plot(*point,
-                     marker='o',
-                     markersize=5,
-                     color='red',
-                     markeredgecolor='darkred')
+                to_mark[info.handle] = info.rating,cent
+
+            for user,point in to_mark.items():
+                x,y = point
+                plt.annotate(user,
+                             xy=point,
+                             xytext=(0, 0),
+                             textcoords='offset points',
+                             ha='right',
+                             va='bottom')
+                plt.plot(*point,
+                         marker='o',
+                         markersize=5,
+                         color='red',
+                         markeredgecolor='darkred')
 
         # Set limits (before drawing tick lines)
         if handles and zoom:
@@ -356,8 +365,7 @@ class Graphs(commands.Cog):
         embed = discord_common.cf_color_embed(title=f'Rating/percentile relationship')
         discord_common.attach_image(embed, discord_file)
         discord_common.set_author_footer(embed, ctx.author)
-        if failed:
-            await ctx.send("Couldn't find ratings for: "+', '.join(failed), embed=embed, file=discord_file)
+        await ctx.send(embed=embed, file=discord_file)
 
     async def cog_command_error(self, ctx, error):
         await cf_common.cf_handle_error_handler(ctx, error)
