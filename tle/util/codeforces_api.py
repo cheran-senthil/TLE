@@ -56,6 +56,11 @@ RatingChange = namedtuple('RatingChange',
 
 class Contest(namedtuple('Contest', 'id name startTimeSeconds durationSeconds type phase preparedBy')):
     __slots__ = ()
+    PHASES = 'BEFORE CODING PENDING_SYSTEM_TEST SYSTEM_TEST FINISHED'.split()
+
+    @property
+    def end_time(self):
+        return self.startTimeSeconds + self.durationSeconds
 
     @property
     def url(self):
@@ -128,6 +133,10 @@ class CallLimitExceededError(CodeforcesApiError):
     pass
 
 
+class RatingChangesUnavailableError(CodeforcesApiError):
+    pass
+
+
 # Codeforces API query methods
 
 async def _query_api(path, params=None):
@@ -155,6 +164,8 @@ async def _query_api(path, params=None):
         raise InvalidParamError(comment)
     if 'limit exceeded' in comment:
         raise CallLimitExceededError(comment)
+    if 'Rating changes are unavailable' in comment:
+        raise RatingChangesUnavailableError(comment)
     raise CodeforcesApiError(comment)
 
 
@@ -168,8 +179,14 @@ class contest:
         return [make_from_dict(Contest, contest_dict) for contest_dict in resp]
 
     @staticmethod
-    async def standings(*, contestid, from_=None, count=None, handles=None, room=None, show_unofficial=None):
-        params = {'contestId': contestid}
+    async def ratingChanges(*, contest_id):
+        params = {'contestId': contest_id}
+        resp = await _query_api('contest.ratingChanges', params)
+        return [make_from_dict(RatingChange, change_dict) for change_dict in resp]
+
+    @staticmethod
+    async def standings(*, contest_id, from_=None, count=None, handles=None, room=None, show_unofficial=None):
+        params = {'contestId': contest_id}
         if from_ is not None:
             params['from'] = from_
         if count is not None:
