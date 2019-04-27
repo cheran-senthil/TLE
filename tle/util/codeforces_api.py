@@ -163,7 +163,7 @@ class contest:
     async def list(*, gym=False):
         params = {}
         if gym:
-            params['gym'] = True
+            params['gym'] = 'true'
         resp = await _query_api('contest.list', params)
         return [make_from_dict(Contest, contest_dict) for contest_dict in resp]
 
@@ -218,7 +218,10 @@ class user:
         return [make_from_dict(RatingChange, ratingchange_dict) for ratingchange_dict in resp]
 
     @staticmethod
-    async def ratedList(*, params = None):
+    async def ratedList(*, activeOnly = True):
+        params = {}
+        if activeOnly:
+            params['activeOnly'] = 'true'
         resp = await _query_api('user.ratedList', params=params)
         return [make_from_dict(User, user_dict) for user_dict in resp]
 
