@@ -1,3 +1,4 @@
+import bisect
 import datetime
 import io
 import time
@@ -8,6 +9,9 @@ import discord
 import pandas.plotting
 from discord.ext import commands
 from matplotlib import pyplot as plt
+from matplotlib import patches as patches
+from matplotlib import lines as mlines
+import numpy as np
 
 from tle import constants
 from tle.util import codeforces_api as cf
@@ -245,6 +249,115 @@ class Graphs(commands.Cog):
         discord_common.attach_image(embed, discord_file)
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
+
+    @plot.command(brief='Show percentile distribution on codeforces', usage='[+zoom] [handles...]')
+    async def centile(self, ctx, *args: str):
+        """Show percentile distribution of codeforces and mark given handles in the plot. If +zoom and handles are given, it zooms to the neighborhood of the handles."""
+
+        # Handle args
+        args = list(args)
+        if '+zoom' in args:
+            zoom = True
+            args.remove('+zoom')
+        else:
+            zoom = False
+
+        # Prepare data
+        rating_map = await cf_common.cache.get_user_rating(600)
+        if args:
+            handles = await cf_common.resolve_handles(ctx,
+                                                      self.converter,
+                                                      args,
+                                                      mincnt=0,
+                                                      maxcnt=50)
+            handles = set(handles)
+
+        intervals = [(rank.low, rank.high) for rank in cf.RATED_RANKS]
+        colors = [rank.color_graph for rank in cf.RATED_RANKS]
+
+        ratings = np.array(sorted(rating_map.values()))
+        n = len(ratings)
+        perc = 100*np.arange(n)/n
+
+        # Plot
+        plt.clf()
+        fig,ax = plt.subplots(1)
+        ax.plot(ratings, perc, color='#00000099')
+
+        plt.xlabel('Rating')
+        plt.ylabel('Percentile')
+        
+        for pos in ['right','top','bottom','left']:
+            ax.spines[pos].set_visible(False)
+        ax.tick_params(axis=u'both', which=u'both',length=0)
+
+        # Color intervals by rank
+        for interval,color in zip(intervals,colors):
+            alpha = '99'
+            l,r = interval
+            col = color + alpha
+            rect = patches.Rectangle((l,-50), r-l, 200,
+                                     edgecolor='none',
+                                     facecolor=col)
+            ax.add_patch(rect)
+
+        # Mark users in plot
+        def to_point(user):
+            rating = rating_map[user]
+            ix = bisect.bisect_left(ratings, rating)
+            cent = 100*ix/len(ratings)
+            return rating,cent
+
+        failed = []
+        to_mark = {}
+        for user in handles:
+            try:
+                to_mark[user] = to_point(user)
+            except KeyError:
+                failed.append(user)
+        for user,point in to_mark.items():
+            x,y = point
+            plt.annotate(user,
+                         xy=point,
+                         xytext=(0, 0),
+                         textcoords='offset points',
+                         ha='right',
+                         va='bottom')
+            plt.plot(*point,
+                     marker='o',
+                     markersize=5,
+                     color='red',
+                     markeredgecolor='darkred')
+
+        # Set limits (before drawing tick lines)
+        if handles and zoom:
+            xmargin = 50
+            ymargin = 5
+            xmin = min(point[0] for point in to_mark.values())
+            xmax = max(point[0] for point in to_mark.values())
+            ymin = min(point[1] for point in to_mark.values())
+            ymax = max(point[1] for point in to_mark.values())
+            plt.xlim(xmin - xmargin, xmax + xmargin)
+            plt.ylim(ymin - ymargin, ymax + ymargin)
+        else:
+            plt.xlim(ratings[0], ratings[-1])
+            plt.ylim(-1.5, 101.5)
+
+        # Draw tick lines
+        linecolor = '#00000022'
+        for y in ax.get_yticks():
+            l = mlines.Line2D([ratings[0],ratings[-1]], [y,y], color=linecolor)
+            ax.add_line(l)
+        for x in ax.get_xticks():
+            l = mlines.Line2D([x,x], [-10,110], color=linecolor)
+            ax.add_line(l)
+
+        # Discord stuff
+        discord_file = _get_current_figure_as_file()
+        embed = discord_common.cf_color_embed(title=f'Rating/percentile relationship')
+        discord_common.attach_image(embed, discord_file)
+        discord_common.set_author_footer(embed, ctx.author)
+        await ctx.send("Couldn't find ratings for: "+', '.join(failed), embed=embed, file=discord_file)
 
     async def cog_command_error(self, ctx, error):
         await cf_common.cf_handle_error_handler(ctx, error)
