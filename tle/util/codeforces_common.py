@@ -33,6 +33,7 @@ active_groups = defaultdict(set)
 
 async def initialize(dbfile, cache_refresh_interval):
     global cache
+    global cache2
     global conn
     global event_sys
     global _contest_id_to_writers_map
