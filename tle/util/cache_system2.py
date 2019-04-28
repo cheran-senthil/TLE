@@ -48,6 +48,7 @@ class ContestCache:
         asyncio.create_task(self._contest_updater_task())
 
     async def reload_now(self):
+        """Force a reload. If currently reloading it will wait until done."""
         reloading = self.reload_lock.locked()
         if reloading:
             # Wait until reload complete.
@@ -155,6 +156,7 @@ class ProblemCache:
         asyncio.create_task(self._problem_updater_task())
 
     async def reload_now(self):
+        """Force a reload. If currently reloading it will wait until done."""
         reloading = self.reload_lock.locked()
         if reloading:
             # Wait until reload complete.
@@ -245,6 +247,9 @@ class RatingChangesCache:
 
     def __init__(self, cache_master):
         self.cache_master = cache_master
+
+        self.monitored_contests = {}
+
         self.handle_rating_cache = {}
         self.update_task = None
 
@@ -252,6 +257,20 @@ class RatingChangesCache:
 
     async def run(self):
         asyncio.create_task(self._rating_changes_updater_task())
+
+    async def fetch_contest(self, contest_id):
+        """Fetch rating changes for a particular contest. Intended for manual trigger."""
+        contest = self.cache_master.contest_cache.contest_by_id[contest_id]
+        changes = await self._fetch([contest])
+        self._save_changes(changes)
+        return len(changes)
+
+    async def fetch_all_contests(self):
+        """Fetch rating changes for all contests. Intended for manual trigger."""
+        contests = self.cache_master.contest_cache.contests
+        changes = await self._fetch(contests)
+        self._save_changes(changes)
+        return len(changes)
 
     async def _rating_changes_updater_task(self):
         self.logger.info('Running rating changes updater task')
@@ -276,39 +295,51 @@ class RatingChangesCache:
         # A contest also has empty list if it is unrated. We assume that is the case if
         # _RATED_DELAY time has passed since the contest end.
 
-        if self.update_task is not None:
-            self.update_task.cancel()
         to_monitor = [contest for contest in self.cache_master.contest_cache.contests_by_phase['FINISHED']
                       if self.is_newly_finished_without_rating_changes(contest)]
-        if to_monitor:
-            self.update_task = asyncio.create_task(self._update_task(to_monitor))
+        new_ids = {contest.id for contest in to_monitor}
+        if new_ids != self.monitored_contests.keys():
+            if self.update_task is not None:
+                self.update_task.cancel()
+            if to_monitor:
+                self.update_task = asyncio.create_task(self._update_task(to_monitor))
 
     async def _update_task(self, contests):
+        self.monitored_contests = {contest.id: contest for contest in contests}
         while True:
-            contests = [contest for contest in contests if not self.has_rating_changes_saved(contest.id)]
+            to_remove = [contest_id for contest_id in self.monitored_contests.keys()
+                         if not self.is_newly_finished_without_rating_changes(contest_id)]
+            for contest_id in to_remove:
+                del self.monitored_contests[contest_id]
             if not contests:
                 break
             try:
-                await self._update(contests)
+                all_changes = await self._fetch(contests)
             except Exception as ex:
                 self.logger.warning(f'Exception in rating change update task 2, ignoring. {ex!r}')
+            else:
+                self._save_changes(all_changes)
             await asyncio.sleep(self._RELOAD_DELAY)
         self.logger.info('Rated changes fetched for contests that were being monitored, '
                          'halting update task.')
 
-    async def _update(self, contests):
+    async def _fetch(self, contests):
         all_changes = []
         for contest in contests:
             try:
                 changes = await cf.contest.ratingChanges(contest_id=contest.id)
+                self.logger.info(f'{len(changes)} rating changes fetched for contest {contest.id}')
                 all_changes += changes
-            except cf.CodeforcesApiError:
+            except cf.CodeforcesApiError as er:
+                self.logger.warning(f'Fetch rating changes failed for contest {contest.id}, ignoring. {er!r}')
                 pass
-        if all_changes:
-            self._save_changes(all_changes)
+        return all_changes
 
     def _save_changes(self, changes):
+        if not changes:
+            return
         self.cache_master.conn.save_rating_changes(changes)
+        self.logger.info(f'Saved {len(changes)} changes to database.')
         self.handle_rating_cache = {}
 
     def get_rating_changes_for_contest(self, contest_id):
@@ -331,10 +362,11 @@ class RatingChangesCache:
 
 
 class Ranklist:
-    def __init__(self, contest, problems, standings, get_current_rating):
+    def __init__(self, contest, problems, standings, get_current_rating, fetch_time):
         self.contest = contest
         self.problems = problems
         self.standings = standings
+        self.fetch_time = fetch_time
         self.current_ratings = {row.handle: get_current_rating(row.handle)
                                 for row in self.standings}
         self.delta_by_handle = {}
@@ -369,40 +401,49 @@ class RanklistCache:
                 self.logger.warning(f'Exception in ranklist updater task, ignoring. {ex!r}')
 
     async def _process_contests(self):
-        if self.update_task is not None:
-            self.update_task.cancel()
         contests_by_phase = self.cache_master.contest_cache.contests_by_phase
         running_contests = contests_by_phase['_RUNNING']
         check = self.cache_master.rating_changes_cache.is_newly_finished_without_rating_changes
         to_monitor = running_contests + [contest for contest in contests_by_phase['FINISHED'] if check(contest)]
-        if to_monitor:
-            self.update_task = asyncio.create_task(self._update_task(to_monitor))
+        new_ids = {contest.id for contest in to_monitor}
+        if new_ids != self.ranklist_by_contest.keys():
+            if self.update_task is not None:
+                self.update_task.cancel()
+            if to_monitor:
+                self.update_task = asyncio.create_task(self._update_task(to_monitor))
 
     async def _update_task(self, contests):
         check = self.cache_master.rating_changes_cache.is_newly_finished_without_rating_changes
-        while contests:
-            contests = [contest for contest in contests if check(contest)]
+        while True:
+            contests = [contest for contest in contests
+                        if contest.phase != 'FINISHED' or check(contest)]
+            if not contests:
+                break
             try:
-                await self._update(contests)
+                ranklist_by_contest = await self._fetch(contests)
             except Exception as ex:
                 self.logger.warning(f'Exception in rating change update task 2, ignoring. {ex!r}')
+            else:
+                for contest in contests:
+                    # Keep previous ranklist (if exists) in case fetch failed
+                    if contest.id in self.ranklist_by_contest and contest.id not in ranklist_by_contest:
+                        ranklist_by_contest[contest.id] = self.ranklist_by_contest[contest.id]
+                self.ranklist_by_contest = ranklist_by_contest
             await asyncio.sleep(self._RELOAD_DELAY)
         self.logger.info('Halting ranklist monitor task')
 
-    async def _update(self, contests):
+    async def _fetch(self, contests):
         ranklist_by_contest = {}
         for contest in contests:
-            # Keep previous ranklist (if exists) in case fetch fails
-            if contest.id in self.ranklist_by_contest:
-                ranklist_by_contest[contest.id] = self.ranklist_by_contest[contest.id]
             try:
                 contest, problems, standings = await cf.contest.standings(contest_id=contest.id)
             except cf.CodeforcesApiError as er:
                 self.logger.warning(f'Ranklist fetch failed for contest {contest.id}. {er}')
             else:
-                get_current_rating = cf_common.cache.rating_changes_cache.get_current_rating_for_handle
-                ranklist_by_contest[contest.id] = Ranklist(contest, problems, standings, get_current_rating)
-        self.ranklist_by_contest = ranklist_by_contest
+                now = time.time()
+                get_current_rating = self.cache_master.rating_changes_cache.get_current_rating_for_handle
+                ranklist_by_contest[contest.id] = Ranklist(contest, problems, standings, get_current_rating, now)
+        return ranklist_by_contest
 
 
 class CacheSystem:
