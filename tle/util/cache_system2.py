@@ -338,15 +338,15 @@ class RatingChangesCache:
     def _save_changes(self, changes):
         if not changes:
             return
-        self.cache_master.conn.save_rating_changes(changes)
-        self.logger.info(f'Saved {len(changes)} changes to database.')
+        rc = self.cache_master.conn.save_rating_changes(changes)
+        self.logger.info(f'Saved {rc} changes to database.')
         self.handle_rating_cache = {}
 
     def get_rating_changes_for_contest(self, contest_id):
         return self.cache_master.conn.get_rating_changes_for_contest(contest_id)
 
     def has_rating_changes_saved(self, contest_id):
-        change = self.cache_master.conn.get_rating_changes_for_contest(contest_id, fetch_one=True)
+        change = self.cache_master.conn.has_rating_changes_saved(contest_id)
         return change is not None
 
     def get_rating_changes_for_handle(self, handle):

@@ -96,6 +96,21 @@ class HandleConn:
                 before TEXT
             )
         ''')
+        self.conn.execute('''
+            CREATE TABLE IF NOT EXISTS rating_changes(
+                contest_id           INTEGER NOT NULL,
+                handle               TEXT NOT NULL,
+                rank                 INTEGER,
+                rating_update_time   INTEGER,
+                old_rating           INTEGER,
+                new_rating           INTEGER,
+                UNIQUE (contest_id, handle)
+            )
+        ''')
+        self.conn.execute(
+            'CREATE INDEX IF NOT EXISTS ix_rating_changes_contest_id ON rating_changes (contest_id)')
+        self.conn.execute(
+            'CREATE INDEX IF NOT EXISTS ix_rating_changes_handle ON rating_changes (handle)')
 
     def fetch_contests(self):
         query = 'SELECT id, name, start_time, duration, type, phase, prepared_by FROM contest'
@@ -351,6 +366,44 @@ class HandleConn:
         query = '''DELETE FROM reminder WHERE guild_id = ?'''
         self.conn.execute(query, (guild_id,))
         self.conn.commit()
+
+    def save_rating_changes(self, changes):
+        change_tuples = [(change.contestId,
+                          change.handle,
+                          change.rank,
+                          change.ratingUpdateTimeSeconds,
+                          change.oldRating,
+                          change.newRating) for change in changes]
+        return self._insert_many('rating_changes',
+                                 'contest_id handle rank rating_update_time old_rating new_rating'.split(),
+                                 change_tuples)
+
+    def get_rating_changes_for_contest(self, contest_id):
+        query = '''
+        SELECT contest_id, name, handle, rank, rating_update_time, old_rating, new_rating
+        FROM rating_changes r
+        LEFT JOIN contest c
+        ON r.contest_id = c.id
+        WHERE r.contest_id = ?
+        '''
+        res = self.conn.execute(query, (contest_id,)).fetchall()
+        return [cf.RatingChange._make(change) for change in res]
+
+    def has_rating_changes_saved(self, contest_id):
+        query = 'SELECT contest_id FROM rating_changes WHERE contest_id = ?'
+        res = self.conn.execute(query, (contest_id,)).fetchone()
+        return res is not None
+
+    def get_rating_changes_for_handle(self, handle):
+        query = '''
+        SELECT contest_id, name, handle, rank, rating_update_time, old_rating, new_rating
+        FROM rating_changes r
+        LEFT JOIN contest c
+        ON r.contest_id = c.id
+        WHERE r.handle = ?
+        '''
+        res = self.conn.execute(query, (handle,)).fetchall()
+        return [cf.RatingChange._make(change) for change in res]
 
     def close(self):
         self.conn.close()
