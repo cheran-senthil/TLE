@@ -378,6 +378,16 @@ class HandleConn:
                                  'contest_id handle rank rating_update_time old_rating new_rating'.split(),
                                  change_tuples)
 
+    def get_all_rating_changes(self):
+        query = '''
+        SELECT contest_id, name, handle, rank, rating_update_time, old_rating, new_rating
+        FROM rating_changes r
+        LEFT JOIN contest c
+        ON r.contest_id = c.id
+        '''
+        res = self.conn.execute(query).fetchall()
+        return [cf.RatingChange._make(change) for change in res]
+
     def get_rating_changes_for_contest(self, contest_id):
         query = '''
         SELECT contest_id, name, handle, rank, rating_update_time, old_rating, new_rating

@@ -117,7 +117,7 @@ class CodeforcesApiError(Exception):
     pass
 
 
-class ConnectionError(CodeforcesApiError):
+class ClientError(CodeforcesApiError):
     pass
 
 
@@ -154,9 +154,9 @@ async def _query_api(path, params=None):
                 comment += f', {respjson.get("comment")}'
             except aiohttp.ContentTypeError:
                 pass
-    except aiohttp.ClientConnectionError as e:
+    except aiohttp.ClientError as e:
         logger.error(f'Request to CF API encountered error: {e}')
-        raise ConnectionError(e) from e
+        raise ClientError(e) from e
     logger.warning(f'Query to CF API failed: {comment}')
     if 'not found' in comment:
         raise NotFoundError(comment)

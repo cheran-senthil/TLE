@@ -131,7 +131,7 @@ class HandleIsVjudgeError(CodeforcesHandleError):
 class RunHandleCoroFailedError(commands.CommandError):
     def __init__(self, handle, error):
         message = None
-        if isinstance(error, cf.ConnectionError):
+        if isinstance(error, cf.ClientError):
             message = 'Error connecting to Codeforces API'
         elif isinstance(error, cf.NotFoundError):
             message = f'Handle not found on Codeforces: `{handle}`'

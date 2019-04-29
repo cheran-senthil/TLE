@@ -256,6 +256,7 @@ class RatingChangesCache:
         self.logger = logging.getLogger(self.__class__.__name__)
 
     async def run(self):
+        self._refresh_handle_cache()
         asyncio.create_task(self._rating_changes_updater_task())
 
     async def fetch_contest(self, contest_id):
@@ -267,7 +268,16 @@ class RatingChangesCache:
 
     async def fetch_all_contests(self):
         """Fetch rating changes for all contests. Intended for manual trigger."""
-        contests = self.cache_master.contest_cache.contests
+        contests = self.cache_master.contest_cache.contests_by_phase['FINISHED']
+        changes = await self._fetch(contests)
+        self._save_changes(changes)
+        return len(changes)
+
+    async def fetch_missing_contests(self):
+        """Fetch rating changes for contests which are not saved in database. Intended for
+        manual trigger."""
+        contests = self.cache_master.contest_cache.contests_by_phase['FINISHED']
+        contests = [contest for contest in contests if not self.has_rating_changes_saved(contest.id)]
         changes = await self._fetch(contests)
         self._save_changes(changes)
         return len(changes)
@@ -340,25 +350,31 @@ class RatingChangesCache:
             return
         rc = self.cache_master.conn.save_rating_changes(changes)
         self.logger.info(f'Saved {rc} changes to database.')
-        self.handle_rating_cache = {}
+        self._refresh_handle_cache()
+
+    def _refresh_handle_cache(self):
+        changes = self.cache_master.conn.get_all_rating_changes()
+        handle_rating_cache = {}
+        for change in changes:
+            delta = change.newRating - change.oldRating
+            try:
+                handle_rating_cache[change.handle] += delta
+            except KeyError:
+                handle_rating_cache[change.handle] = self.DEFAULT_RATING + delta
+        self.handle_rating_cache = handle_rating_cache
+        self.logger.info(f'Ratings for {len(handle_rating_cache)} handles cached')
 
     def get_rating_changes_for_contest(self, contest_id):
         return self.cache_master.conn.get_rating_changes_for_contest(contest_id)
 
     def has_rating_changes_saved(self, contest_id):
-        change = self.cache_master.conn.has_rating_changes_saved(contest_id)
-        return change is not None
+        return self.cache_master.conn.has_rating_changes_saved(contest_id)
 
     def get_rating_changes_for_handle(self, handle):
         return self.cache_master.conn.get_rating_changes_for_handle(handle)
 
     def get_current_rating_for_handle(self, handle):
-        if handle not in self.handle_rating_cache:
-            rating = self.DEFAULT_RATING
-            for change in self.get_rating_changes_for_handle(handle):
-                rating += change.newRating - change.oldRating
-            self.handle_rating_cache[handle] = rating
-        return self.handle_rating_cache[handle]
+        return self.handle_rating_cache.get(handle)
 
 
 class Ranklist:
