@@ -264,15 +264,6 @@ class Graphs(commands.Cog):
 
         # Prepare data
         rating_map = await cf_common.cache.get_user_rating(3600)
-        if args:
-            handles = await cf_common.resolve_handles(ctx,
-                                                      self.converter,
-                                                      args,
-                                                      mincnt=0,
-                                                      maxcnt=50)
-            handles = set(handles)
-        else:
-            handles = set()
 
         intervals = [(rank.low, rank.high) for rank in cf.RATED_RANKS]
         colors = [rank.color_graph for rank in cf.RATED_RANKS]
@@ -280,6 +271,32 @@ class Graphs(commands.Cog):
         ratings = np.array(sorted(rating_map.values()))
         n = len(ratings)
         perc = 100*np.arange(n)/n
+
+        if args:
+            handles = await cf_common.resolve_handles(ctx,
+                                                      self.converter,
+                                                      args,
+                                                      mincnt=0,
+                                                      maxcnt=50)
+            try:
+                infos = await cf.user.info(handles=set(handles))
+            except cf.NotFoundError:
+                await ctx.send('Some handle not found')
+                return
+            except cf.CodeforcesApiError:
+                await ctx.send('Something happened :(')
+                return
+
+            users_to_mark = {}
+            for info in infos:
+                if info.rating == None:
+                    await ctx.send(f'{info.handle} has no rating')
+                    return
+                ix = bisect.bisect_left(ratings, info.rating)
+                cent = 100*ix/len(ratings)
+                users_to_mark[info.handle] = info.rating,cent
+        else:
+            users_to_mark = {}
 
         # Plot
         plt.clf()
@@ -304,47 +321,28 @@ class Graphs(commands.Cog):
             ax.add_patch(rect)
 
         # Mark users in plot
-        if handles:
-            to_mark = {}
-            try:
-                infos = await cf.user.info(handles=handles)
-            except cf.NotFoundError:
-                await ctx.send('Some handle not found')
-                return
-            except cf.CodeforcesApiError:
-                await ctx.send('Something happened :(')
-                return
-
-            for info in infos:
-                if info.rating == None:
-                    await ctx.send(f'{info.handle} has no rating')
-                    return
-                ix = bisect.bisect_left(ratings, info.rating)
-                cent = 100*ix/len(ratings)
-                to_mark[info.handle] = info.rating,cent
-
-            for user,point in to_mark.items():
-                x,y = point
-                plt.annotate(user,
-                             xy=point,
-                             xytext=(0, 0),
-                             textcoords='offset points',
-                             ha='right',
-                             va='bottom')
-                plt.plot(*point,
-                         marker='o',
-                         markersize=5,
-                         color='red',
-                         markeredgecolor='darkred')
+        for user,point in users_to_mark.items():
+            x,y = point
+            plt.annotate(user,
+                         xy=point,
+                         xytext=(0, 0),
+                         textcoords='offset points',
+                         ha='right',
+                         va='bottom')
+            plt.plot(*point,
+                     marker='o',
+                     markersize=5,
+                     color='red',
+                     markeredgecolor='darkred')
 
         # Set limits (before drawing tick lines)
-        if handles and zoom:
+        if users_to_mark and zoom:
             xmargin = 50
             ymargin = 5
-            xmin = min(point[0] for point in to_mark.values())
-            xmax = max(point[0] for point in to_mark.values())
-            ymin = min(point[1] for point in to_mark.values())
-            ymax = max(point[1] for point in to_mark.values())
+            xmin = min(point[0] for point in users_to_mark.values())
+            xmax = max(point[0] for point in users_to_mark.values())
+            ymin = min(point[1] for point in users_to_mark.values())
+            ymax = max(point[1] for point in users_to_mark.values())
             plt.xlim(xmin - xmargin, xmax + xmargin)
             plt.ylim(ymin - ymargin, ymax + ymargin)
         else:
