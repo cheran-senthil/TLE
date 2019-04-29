@@ -4,6 +4,7 @@ import asyncio
 import logging
 import json
 import time
+import traceback
 
 from tle.util import codeforces_common as cf_common
 from tle.util import codeforces_api as cf
@@ -13,12 +14,13 @@ logger = logging.getLogger(__name__)
 
 
 @contextmanager
-def suppress(*exceptions, fmt='Ignoring exception {!r}'):
+def suppress(*exceptions):
     assert all(issubclass(ex, BaseException) for ex in exceptions)
     try:
         yield
     except exceptions as ex:
-        logger.info(fmt.format(ex))
+        msg = '\n'.join(traceback.format_exception_only(type(ex), ex))
+        logger.info(f'Ignoring exception. {msg}')
 
 
 class ContestCache:
@@ -83,7 +85,7 @@ class ContestCache:
             self.reload_exception = None
         except Exception as ex:
             self.reload_exception = ex
-            self.logger.warning(f'Exception in contest updater task, ignoring. {ex!r}')
+            self.logger.warning('Exception in contest updater task, ignoring.', exc_info=True)
             delay = self._EXCEPTION_CONTEST_RELOAD_DELAY
         return delay
 
@@ -194,7 +196,7 @@ class ProblemCache:
             self.reload_exception = None
         except Exception as ex:
             self.reload_exception = ex
-            self.logger.warning(f'Exception in problem updater task, ignoring. {ex!r}')
+            self.logger.warning('Exception in problem updater task, ignoring.', exc_info=True)
 
     async def _reload_problems(self):
         problems, _ = await cf.problemset.problems()
@@ -248,7 +250,7 @@ class RatingChangesCache:
     def __init__(self, cache_master):
         self.cache_master = cache_master
 
-        self.monitored_contests = {}
+        self.monitored_contests = []
 
         self.handle_rating_cache = {}
         self.update_task = None
@@ -288,14 +290,14 @@ class RatingChangesCache:
             try:
                 await cf_common.event_sys.wait_for('EVENT_CONTEST_LIST_REFRESH')
                 await self._process_contests()
-            except Exception as ex:
-                self.logger.warning(f'Exception in rating changes updater task, ignoring. {ex!r}')
+            except Exception:
+                self.logger.warning(f'Exception in rating changes updater task, ignoring.', exc_info=True)
 
     def is_newly_finished_without_rating_changes(self, contest):
         now = time.time()
         return (contest.phase == 'FINISHED' and
                 now - contest.end_time < self._RATED_DELAY and
-                not self.has_rating_changes_saved(contest))
+                not self.has_rating_changes_saved(contest.id))
 
     async def _process_contests(self):
         # Some notes:
@@ -307,26 +309,25 @@ class RatingChangesCache:
 
         to_monitor = [contest for contest in self.cache_master.contest_cache.contests_by_phase['FINISHED']
                       if self.is_newly_finished_without_rating_changes(contest)]
+        cur_ids = {contest.id for contest in self.monitored_contests}
         new_ids = {contest.id for contest in to_monitor}
-        if new_ids != self.monitored_contests.keys():
+        if new_ids != cur_ids:
             if self.update_task is not None:
                 self.update_task.cancel()
             if to_monitor:
                 self.update_task = asyncio.create_task(self._update_task(to_monitor))
 
     async def _update_task(self, contests):
-        self.monitored_contests = {contest.id: contest for contest in contests}
+        self.monitored_contests = contests
         while True:
-            to_remove = [contest_id for contest_id in self.monitored_contests.keys()
-                         if not self.is_newly_finished_without_rating_changes(contest_id)]
-            for contest_id in to_remove:
-                del self.monitored_contests[contest_id]
-            if not contests:
+            self.monitored_contests = [contest for contest in self.monitored_contests
+                                       if self.is_newly_finished_without_rating_changes(contest)]
+            if not self.monitored_contests:
                 break
             try:
                 all_changes = await self._fetch(contests)
-            except Exception as ex:
-                self.logger.warning(f'Exception in rating change update task 2, ignoring. {ex!r}')
+            except Exception:
+                self.logger.warning(f'Exception in rating change update task 2, ignoring.', exc_info=True)
             else:
                 self._save_changes(all_changes)
             await asyncio.sleep(self._RELOAD_DELAY)
@@ -383,8 +384,6 @@ class Ranklist:
         self.problems = problems
         self.standings = standings
         self.fetch_time = fetch_time
-        self.current_ratings = {row.handle: get_current_rating(row.handle)
-                                for row in self.standings}
         self.delta_by_handle = {}
         self.prepare_predictions()
 
@@ -413,8 +412,8 @@ class RanklistCache:
             try:
                 await cf_common.event_sys.wait_for('EVENT_CONTEST_LIST_REFRESH')
                 await self._process_contests()
-            except Exception as ex:
-                self.logger.warning(f'Exception in ranklist updater task, ignoring. {ex!r}')
+            except Exception:
+                self.logger.warning('Exception in ranklist updater task, ignoring.', exc_info=True)
 
     async def _process_contests(self):
         contests_by_phase = self.cache_master.contest_cache.contests_by_phase
@@ -438,7 +437,7 @@ class RanklistCache:
             try:
                 ranklist_by_contest = await self._fetch(contests)
             except Exception as ex:
-                self.logger.warning(f'Exception in rating change update task 2, ignoring. {ex!r}')
+                self.logger.warning(f'Exception in ranklist update task 2, ignoring. {ex!r}')
             else:
                 for contest in contests:
                     # Keep previous ranklist (if exists) in case fetch failed
@@ -453,6 +452,7 @@ class RanklistCache:
         for contest in contests:
             try:
                 contest, problems, standings = await cf.contest.standings(contest_id=contest.id)
+                self.logger.info(f'Ranklist fetched for contest {contest.id}')
             except cf.CodeforcesApiError as er:
                 self.logger.warning(f'Ranklist fetch failed for contest {contest.id}. {er}')
             else:
