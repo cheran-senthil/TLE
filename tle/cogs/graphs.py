@@ -351,12 +351,17 @@ class Graphs(commands.Cog):
 
         # Draw tick lines
         linecolor = '#00000022'
+        inf = 10000
+        def horz_line(y):
+            l = mlines.Line2D([-inf,inf], [y,y], color=linecolor)
+            ax.add_line(l)
+        def vert_line(x):
+            l = mlines.Line2D([x,x], [-inf,inf], color=linecolor)
+            ax.add_line(l)
         for y in ax.get_yticks():
-            l = mlines.Line2D([ratings[0],ratings[-1]], [y,y], color=linecolor)
-            ax.add_line(l)
+            horz_line(y)
         for x in ax.get_xticks():
-            l = mlines.Line2D([x,x], [-10,110], color=linecolor)
-            ax.add_line(l)
+            vert_line(x)
 
         # Discord stuff
         discord_file = _get_current_figure_as_file()
