@@ -8,7 +8,7 @@ import traceback
 
 from tle.util import codeforces_common as cf_common
 from tle.util import codeforces_api as cf
-from tle.util import handle_conn
+from tle.util import db
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ class ContestCache:
             raise self.reload_exception
 
     async def _try_disk(self):
-        with suppress(handle_conn.DatabaseDisabledError):
+        with suppress(db.DatabaseDisabledError):
             async with self.reload_lock:
                 contests = self.cache_master.conn.fetch_contests()
                 if not contests:
@@ -99,7 +99,7 @@ class ContestCache:
         contests.sort(key=lambda contest: (contest.startTimeSeconds, contest.id))
 
         if from_api:
-            with suppress(handle_conn.DatabaseDisabledError):
+            with suppress(db.DatabaseDisabledError):
                 rc = self.cache_master.conn.cache_contests(contests)
                 self.logger.info(f'{rc} contests stored in database')
 
@@ -172,7 +172,7 @@ class ProblemCache:
             raise self.reload_exception
 
     async def _try_disk(self):
-        with suppress(handle_conn.DatabaseDisabledError):
+        with suppress(db.DatabaseDisabledError):
             async with self.reload_lock:
                 problem_res = self.cache_master.conn.fetch_problems()
                 if not problem_res:
@@ -229,7 +229,7 @@ class ProblemCache:
         self.problem_start = problem_start
         self.problems_last_cache = time.time()
 
-        with suppress(handle_conn.DatabaseDisabledError):
+        with suppress(db.DatabaseDisabledError):
             def get_tuple_repr(problem):
                 return (problem.name,
                         problem.contestId,

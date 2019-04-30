@@ -9,8 +9,8 @@ import discord
 from discord.ext import commands
 
 from tle.util import codeforces_common as cf_common
+from tle.util import db
 from tle.util import discord_common
-from tle.util import handle_conn
 from tle.util import paginator
 
 _CONTEST_RELOAD_INTERVAL = 60 * 60  # 1 hour
@@ -139,8 +139,8 @@ class FutureContests(commands.Cog):
         if not self.start_time_map:
             return
         try:
-            settings = cf_common.conn.get_reminder_settings(guild_id)
-        except handle_conn.DatabaseDisabledError:
+            settings = cf_common.user_db.get_reminder_settings(guild_id)
+        except db.DatabaseDisabledError:
             return
         if settings is None:
             return
@@ -215,21 +215,21 @@ class FutureContests(commands.Cog):
             return
         if not before or any(before_mins <= 0 for before_mins in before):
             return
-        cf_common.conn.set_reminder_settings(ctx.guild.id, ctx.channel.id, role.id, json.dumps(before))
+        cf_common.user_db.set_reminder_settings(ctx.guild.id, ctx.channel.id, role.id, json.dumps(before))
         await ctx.send(embed=discord_common.embed_success('Reminder settings saved successfully'))
         self._reschedule_tasks(ctx.guild.id)
 
     @remind.command(brief='Clear all reminder settings')
     @commands.has_role('Admin')
     async def clear(self, ctx):
-        cf_common.conn.clear_reminder_settings(ctx.guild.id)
+        cf_common.user_db.clear_reminder_settings(ctx.guild.id)
         await ctx.send(embed=discord_common.embed_success('Reminder settings cleared'))
         self._reschedule_tasks(ctx.guild.id)
 
     @remind.command(brief='Show reminder settings')
     async def settings(self, ctx):
         """Shows the role, channel and before time settings."""
-        settings = cf_common.conn.get_reminder_settings(ctx.guild.id)
+        settings = cf_common.user_db.get_reminder_settings(ctx.guild.id)
         if settings is None:
             await ctx.send(embed=discord_common.embed_neutral('Reminder not set'))
             return
@@ -252,7 +252,7 @@ class FutureContests(commands.Cog):
     @remind.command(brief='Subscribe to or unsubscribe from contest reminders',
                     usage='[not]')
     async def me(self, ctx, arg: str = None):
-        settings = cf_common.conn.get_reminder_settings(ctx.guild.id)
+        settings = cf_common.user_db.get_reminder_settings(ctx.guild.id)
         if settings is None:
             await ctx.send(
                 embed=discord_common.embed_alert('To use this command, reminder settings must be set by an admin'))
