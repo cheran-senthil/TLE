@@ -113,13 +113,13 @@ class FutureContests(commands.Cog):
         if contest_dict is None:
             self.logger.warning('Could not update cache')
             return
-        contests = contest_dict.values()
 
-        now = time.time()
-        self.future_contests = [contest for contest in contests if
-                                contest.startTimeSeconds and now < contest.startTimeSeconds]
-        logging.info(f'Refreshed cache with {len(self.future_contests)} contests')
-        self.future_contests.sort(key=lambda c: c.startTimeSeconds)
+        contests = [contest for contest in contest_dict.values()
+                    if contest.phase == 'BEFORE' and not cf_common.is_nonstandard_contest(contest)]
+        contests.sort(key=lambda c: c.startTimeSeconds)
+
+        self.future_contests = contests
+        self.logger.info(f'Refreshed cache with {len(self.future_contests)} contests')
         self.contest_id_map = {c.id: c for c in self.future_contests}
         self.start_time_map.clear()
         for contest in self.future_contests:

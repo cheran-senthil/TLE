@@ -102,6 +102,14 @@ def is_contest_writer(contest_id, handle):
     return writers and handle in writers
 
 
+_NONSTANDARD_CONTEST_INDICATORS = [
+    'wild', 'fools', 'unrated', 'surprise', 'unknown', 'friday', 'q#', 'testing', 'marathon']
+
+
+def is_nonstandard_contest(contest):
+    return any(string in contest.name.lower() for string in _NONSTANDARD_CONTEST_INDICATORS)
+
+
 class CodeforcesHandleError(commands.CommandError):
     pass
 

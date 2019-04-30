@@ -120,13 +120,13 @@ class Codeforces(commands.Cog):
         problems = [prob for prob in problem_dict.values()
                     if prob.rating == rating + delta and prob.name not in solved]
 
-        def is_shit(contest):
-            shitlist = ['Wild', 'Fools', 'unrated', 'Unrated', 'Surprise', 'Unknown', 'Friday', 'Q#', 'Testing']
-            return any(shit in contest.name for shit in shitlist)
-
         contests = await cf_common.cache.get_contests(60 * 60 * 24)
-        problems = [prob for prob in problems if not is_shit(contests[prob.contestId])]
-        problems = [prob for prob in problems if not cf_common.is_contest_writer(prob.contestId, handle)]
+
+        def check(problem):
+            return (not cf_common.is_nonstandard_contest(contests[problem.contestId]) and
+                    not cf_common.is_contest_writer(problem.contestId, handle))
+
+        problems = list(filter(check, problems))
         if not problems:
             await ctx.send('No problem to assign')
             return
