@@ -10,18 +10,60 @@ from tle import constants
 from tle.util import codeforces_api as cf
 from tle.util import discord_common
 from tle.util import handle_conn
+from tle.util import event_system
+from tle.util import cache_system2
 from tle.util.cache_system import CacheSystem
 
 logger = logging.getLogger(__name__)
 
 # Connection to database
 conn = None
+
 # Cache system
 cache = None
+cache2 = None
+
+# Event system
+event_sys = event_system.EventSystem()
 
 _contest_id_to_writers_map = None
 
 active_groups = defaultdict(set)
+
+
+async def initialize(dbfile, cache_refresh_interval):
+    global cache
+    global cache2
+    global conn
+    global event_sys
+    global _contest_id_to_writers_map
+
+    if dbfile is None:
+        conn = handle_conn.DummyConn()
+    else:
+        conn = handle_conn.HandleConn(dbfile)
+    cache = CacheSystem(conn)
+    # Initial fetch from CF API
+    await cache.force_update()
+    if cache.contest_last_cache and cache.problems_last_cache:
+        logger.info('Initial fetch done, cache loaded')
+    else:
+        # If fetch failed, load from disk
+        logger.info('Loading cache from disk')
+        cache.try_disk()
+    asyncio.create_task(_cache_refresher_task(cache_refresh_interval))
+
+    cache2 = cache_system2.CacheSystem(conn)
+    await cache2.run()
+
+    jsonfile = f'{constants.FILEDIR}/{constants.CONTEST_WRITERS_JSON_FILE}'
+    try:
+        with open(jsonfile) as f:
+            data = json.load(f)
+        _contest_id_to_writers_map = {contest['id']: contest['writers'] for contest in data}
+        logger.info('Contest writers loaded from JSON file')
+    except FileNotFoundError:
+        logger.warning('JSON file containing contest writers not found')
 
 
 # algmyr's guard idea:
@@ -44,35 +86,6 @@ def user_guard(*, group):
         return f
 
     return guard
-
-
-async def initialize(dbfile, cache_refresh_interval):
-    global cache
-    global conn
-    global _contest_id_to_writers_map
-    if dbfile is None:
-        conn = handle_conn.DummyConn()
-    else:
-        conn = handle_conn.HandleConn(dbfile)
-    cache = CacheSystem(conn)
-    # Initial fetch from CF API
-    await cache.force_update()
-    if cache.contest_last_cache and cache.problems_last_cache:
-        logger.info('Initial fetch done, cache loaded')
-    else:
-        # If fetch failed, load from disk
-        logger.info('Loading cache from disk')
-        cache.try_disk()
-    asyncio.create_task(_cache_refresher_task(cache_refresh_interval))
-
-    jsonfile = f'{constants.FILEDIR}/{constants.CONTEST_WRITERS_JSON_FILE}'
-    try:
-        with open(jsonfile) as f:
-            data = json.load(f)
-        _contest_id_to_writers_map = {contest['id']: contest['writers'] for contest in data}
-        logger.info('Contest writers loaded from JSON file')
-    except FileNotFoundError:
-        logger.warning('JSON file containing contest writers not found')
 
 
 async def _cache_refresher_task(refresh_interval):
@@ -118,7 +131,7 @@ class HandleIsVjudgeError(CodeforcesHandleError):
 class RunHandleCoroFailedError(commands.CommandError):
     def __init__(self, handle, error):
         message = None
-        if isinstance(error, cf.ConnectionError):
+        if isinstance(error, cf.ClientError):
             message = 'Error connecting to Codeforces API'
         elif isinstance(error, cf.NotFoundError):
             message = f'Handle not found on Codeforces: `{handle}`'
