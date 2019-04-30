@@ -60,7 +60,7 @@ class ContestCache:
         else:
             await self._pre_reload()
 
-        if self.reload_exception is not None:
+        if self.reload_exception:
             raise self.reload_exception
 
     async def _try_disk(self):
@@ -168,7 +168,7 @@ class ProblemCache:
         else:
             await self._pre_reload()
 
-        if self.reload_exception is not None:
+        if self.reload_exception:
             raise self.reload_exception
 
     async def _try_disk(self):
@@ -209,10 +209,11 @@ class ProblemCache:
                        for problem in problems}
 
         def keep(problem):
-            return contest_map[problem.contestId] is not None and problem.has_metadata() \
-                   and not problem.tag_matches(banned_tags)
+            return (contest_map[problem.contestId] and
+                    problem.has_metadata() and
+                    not problem.tag_matches(banned_tags))
 
-        filtered_problems = [problem for problem in problems if keep(problem)]
+        filtered_problems = list(filter(keep, problems))
         problem_by_name = {
             problem.name: problem  # This will discard some valid problems
             for problem in filtered_problems
@@ -312,7 +313,7 @@ class RatingChangesCache:
         cur_ids = {contest.id for contest in self.monitored_contests}
         new_ids = {contest.id for contest in to_monitor}
         if new_ids != cur_ids:
-            if self.update_task is not None:
+            if self.update_task:
                 self.update_task.cancel()
             if to_monitor:
                 self.update_task = asyncio.create_task(self._update_task(to_monitor))
@@ -419,10 +420,10 @@ class RanklistCache:
         contests_by_phase = self.cache_master.contest_cache.contests_by_phase
         running_contests = contests_by_phase['_RUNNING']
         check = self.cache_master.rating_changes_cache.is_newly_finished_without_rating_changes
-        to_monitor = running_contests + [contest for contest in contests_by_phase['FINISHED'] if check(contest)]
+        to_monitor = running_contests + list(filter(check, contests_by_phase['FINISHED']))
         new_ids = {contest.id for contest in to_monitor}
         if new_ids != self.ranklist_by_contest.keys():
-            if self.update_task is not None:
+            if self.update_task:
                 self.update_task.cancel()
             if to_monitor:
                 self.update_task = asyncio.create_task(self._update_task(to_monitor))
