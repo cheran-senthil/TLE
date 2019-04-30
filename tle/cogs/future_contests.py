@@ -114,8 +114,7 @@ class FutureContests(commands.Cog):
             self.logger.warning('Could not update cache')
             return
 
-        contests = [contest for contest in contest_dict.values()
-                    if contest.phase == 'BEFORE' and not cf_common.is_nonstandard_contest(contest)]
+        contests = [contest for contest in contest_dict.values() if contest.phase == 'BEFORE']
         contests.sort(key=lambda c: c.startTimeSeconds)
 
         self.future_contests = contests
@@ -123,7 +122,9 @@ class FutureContests(commands.Cog):
         self.contest_id_map = {c.id: c for c in self.future_contests}
         self.start_time_map.clear()
         for contest in self.future_contests:
-            self.start_time_map[contest.startTimeSeconds].append(contest)
+            if not cf_common.is_nonstandard_contest(contest):
+                # Exclude non-standard contests from reminders.
+                self.start_time_map[contest.startTimeSeconds].append(contest)
         self._reschedule_all_tasks()
 
     def _reschedule_all_tasks(self):
