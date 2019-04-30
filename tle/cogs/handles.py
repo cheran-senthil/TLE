@@ -137,8 +137,8 @@ class Handles(commands.Cog):
         # CF API returns correct handle ignoring case, update to it
         handle = user.handle
 
-        cf_common.conn.cache_cfuser(user)
-        cf_common.conn.sethandle(member.id, handle)
+        cf_common.user_db.cache_cfuser(user)
+        cf_common.user_db.sethandle(member.id, handle)
 
         embed = _make_profile_embed(member, user, mode='set')
         await ctx.send(embed=embed)
@@ -146,11 +146,11 @@ class Handles(commands.Cog):
     @commands.command(brief='gethandle [name]')
     async def gethandle(self, ctx, member: discord.Member):
         """Show Codeforces handle of a user"""
-        handle = cf_common.conn.gethandle(member.id)
+        handle = cf_common.user_db.gethandle(member.id)
         if not handle:
             await ctx.send(f'Handle for user {member.display_name} not found in database')
             return
-        user = cf_common.conn.fetch_cfuser(handle)
+        user = cf_common.user_db.fetch_cfuser(handle)
         if user is None:
             # Not cached, should not happen
             logging.error(f'Handle info for {handle} not cached')
@@ -167,7 +167,7 @@ class Handles(commands.Cog):
             await ctx.send('Member not found!')
             return
         try:
-            r = cf_common.conn.removehandle(member.id)
+            r = cf_common.user_db.removehandle(member.id)
             if r == 1:
                 msg = f'removehandle: {member.name} removed'
             else:
@@ -181,7 +181,7 @@ class Handles(commands.Cog):
     async def gudgitters(self, ctx):
         try:
             converter = commands.MemberConverter()
-            res = cf_common.conn.get_gudgitters()
+            res = cf_common.user_db.get_gudgitters()
             res.sort(key=lambda r: r[1], reverse=True)
 
             style = table.Style('{:>}  {:<}')
@@ -209,7 +209,7 @@ class Handles(commands.Cog):
         """Shows all members of the server who have registered their handles and
         their Codeforces ratings.
         """
-        res = cf_common.conn.getallhandleswithrating()
+        res = cf_common.user_db.getallhandleswithrating()
         users = [(ctx.guild.get_member(int(user_id)), handle, rating) for user_id, handle, rating in res]
         users = [(member, handle, rating) for member, handle, rating in users if member is not None]
         users.sort(key=lambda x: (1 if x[2] is None else -x[2], x[1]))  # Sorting by (-rating, handle)
@@ -220,7 +220,7 @@ class Handles(commands.Cog):
     async def prettyhandles(self, ctx: discord.ext.commands.Context, page_no: int = None):
         try:
             converter = commands.MemberConverter()
-            res = cf_common.conn.getallhandleswithrating()
+            res = cf_common.user_db.getallhandleswithrating()
             res.sort(key=lambda r: r[2] if r[2] is not None else -1, reverse=True)
             rankings = []
             pos = 0
@@ -278,13 +278,13 @@ class Handles(commands.Cog):
             return
 
         try:
-            res = cf_common.conn.getallhandles()
+            res = cf_common.user_db.getallhandles()
             handles = [handle for _, handle in res]
             users = await cf.user.info(handles=handles)
             await ctx.send('caching handles...')
             try:
                 for user in users:
-                    cf_common.conn.cache_cfuser(user)
+                    cf_common.user_db.cache_cfuser(user)
             except Exception as e:
                 print(e)
         except Exception as e:

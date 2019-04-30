@@ -6,7 +6,7 @@ import json
 import time
 
 from tle.util import codeforces_api as cf
-from tle.util import handle_conn
+from tle.util import db
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +74,7 @@ class CacheSystem:
         await self.cache_problems()
 
     def try_disk(self):
-        with suppress(handle_conn.DatabaseDisabledError):
+        with suppress(db.DatabaseDisabledError):
             contests = self.conn.fetch_contests()
             problem_res = self.conn.fetch_problems()
             if not contests or not problem_res:
@@ -102,7 +102,7 @@ class CacheSystem:
         }
         self.contest_last_cache = time.time()
         self.logger.info(f'{len(self.contest_dict)} contests cached')
-        with suppress(handle_conn.DatabaseDisabledError):
+        with suppress(db.DatabaseDisabledError):
             rc = self.conn.cache_contests(contests)
             self.logger.info(f'{rc} contests stored in database')
 
@@ -125,7 +125,7 @@ class CacheSystem:
         }
         self.problems_last_cache = time.time()
         self.logger.info(f'{len(self.problem_dict)} problems cached')
-        with suppress(handle_conn.DatabaseDisabledError):
+        with suppress(db.DatabaseDisabledError):
             rc = self.conn.cache_problems([
                 (
                     prob.name, prob.contestId, prob.index,
@@ -140,7 +140,7 @@ class CacheSystem:
     async def get_rating_solved(self, handle: str, time_out: int):
         cached = self._user_rating_solved(handle)
         stamp, rating, solved = cached
-        with suppress(handle_conn.DatabaseDisabledError):
+        with suppress(db.DatabaseDisabledError):
             if stamp is None:
                 # Try from disk first
                 stamp, rating, solved = await self._retrieve_rating_solved(handle)

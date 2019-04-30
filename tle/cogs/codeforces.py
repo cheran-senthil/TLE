@@ -19,7 +19,7 @@ class Codeforces(commands.Cog):
     @commands.has_role('Admin')
     async def _updatestatus(self, ctx):
         active_ids = [m.id for m in ctx.guild.members]
-        rc = cf_common.conn.update_status(active_ids)
+        rc = cf_common.user_db.update_status(active_ids)
         await ctx.send(f'{rc} members active with handle')
 
     @commands.command(brief='force cache refresh of contests and problems')
@@ -37,7 +37,7 @@ class Codeforces(commands.Cog):
         solved = {prob.contest_identifier for prob in solved if prob.has_metadata()}
         solved = json.dumps(list(solved))
         stamp = time.time()
-        cf_common.conn.cache_cfuser_full(info + (solved, stamp))
+        cf_common.user_db.cache_cfuser_full(info + (solved, stamp))
         return stamp, info.rating, solved
 
     @commands.command(brief='Recommend a problem')
@@ -51,7 +51,7 @@ class Codeforces(commands.Cog):
                 bounds.append(int(arg))
             else:
                 tags.append(arg)
-        handle = cf_common.conn.gethandle(ctx.message.author.id)
+        handle = cf_common.user_db.gethandle(ctx.message.author.id)
 
         rating, solved = None, None
         if handle:
@@ -97,11 +97,11 @@ class Codeforces(commands.Cog):
     @cf_common.user_guard(group='gitgud')
     async def gitgud(self, ctx, delta: int = 0):
         user_id = ctx.message.author.id
-        handle = cf_common.conn.gethandle(user_id)
+        handle = cf_common.user_db.gethandle(user_id)
         if not handle:
             await ctx.send('You must link your handle to be able to use this feature.')
             return
-        active = cf_common.conn.check_challenge(user_id)
+        active = cf_common.user_db.check_challenge(user_id)
         if active is not None:
             challenge_id, issue_time, name, contest_id, index, c_delta = active
             url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
@@ -138,7 +138,7 @@ class Codeforces(commands.Cog):
 
         issue_time = datetime.datetime.now().timestamp()
 
-        rc = cf_common.conn.new_challenge(user_id, issue_time, problem, delta)
+        rc = cf_common.user_db.new_challenge(user_id, issue_time, problem, delta)
         if rc != 1:
             # await ctx.send('Error updating the database')
             await ctx.send('Your challenge has already been added to the database!')
@@ -154,11 +154,11 @@ class Codeforces(commands.Cog):
     @cf_common.user_guard(group='gitgud')
     async def gotgud(self, ctx):
         user_id = ctx.message.author.id
-        handle = cf_common.conn.gethandle(user_id)
+        handle = cf_common.user_db.gethandle(user_id)
         if not handle:
             await ctx.send('You must link your handle to be able to use this feature.')
             return
-        active = cf_common.conn.check_challenge(user_id)
+        active = cf_common.user_db.check_challenge(user_id)
         if not active:
             await ctx.send(f'You do not have an active challenge')
             return
@@ -172,7 +172,7 @@ class Codeforces(commands.Cog):
             return
         delta = delta // 100 + 3
         finish_time = int(datetime.datetime.now().timestamp())
-        rc = cf_common.conn.complete_challenge(user_id, challenge_id, finish_time, delta)
+        rc = cf_common.user_db.complete_challenge(user_id, challenge_id, finish_time, delta)
         if rc == 1:
             await ctx.send(f'Challenge completed. {handle} gained {delta} points.')
         else:
@@ -182,11 +182,11 @@ class Codeforces(commands.Cog):
     @cf_common.user_guard(group='gitgud')
     async def nogud(self, ctx):
         user_id = ctx.message.author.id
-        handle = cf_common.conn.gethandle(user_id)
+        handle = cf_common.user_db.gethandle(user_id)
         if not handle:
             await ctx.send('You must link your handle to be able to use this feature.')
             return
-        active = cf_common.conn.check_challenge(user_id)
+        active = cf_common.user_db.check_challenge(user_id)
         if not active:
             await ctx.send(f'You do not have an active challenge')
             return
@@ -195,14 +195,14 @@ class Codeforces(commands.Cog):
         if finish_time - issue_time < 10800:
             await ctx.send(f'You can\'t skip your challenge yet. Think more.')
             return
-        cf_common.conn.skip_challenge(user_id, challenge_id)
+        cf_common.user_db.skip_challenge(user_id, challenge_id)
         await ctx.send(f'Challenge skipped.')
 
     @commands.command(brief='Force skip a challenge')
     @cf_common.user_guard(group='gitgud')
     @commands.has_role('Admin')
     async def _nogud(self, ctx, user: str):
-        rc = cf_common.conn.force_skip_challenge(user)
+        rc = cf_common.user_db.force_skip_challenge(user)
         if rc == 1:
             await ctx.send(f'Challenge skip forced.')
         else:
@@ -240,7 +240,7 @@ class Codeforces(commands.Cog):
             contest_id = sorted(list(recommendations))[choice]
             # from and count are for ranklist, set to minimum (1) because we only need name
             str_handles = '`, `'.join(handles)
-            contest, _, _ = await cf.contest.standings(contestid=contest_id, from_=1, count=1)
+            contest, _, _ = await cf.contest.standings(contest_id=contest_id, from_=1, count=1)
             embed = discord.Embed(title=contest.name, url=contest.url)
             await ctx.send(f'Recommended contest for `{str_handles}`', embed=embed)
 

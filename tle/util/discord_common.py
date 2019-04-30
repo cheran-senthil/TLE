@@ -4,7 +4,7 @@ import random
 import discord
 from discord.ext import commands
 
-from tle.util import handle_conn
+from tle.util import db
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ async def bot_error_handler(ctx, exception):
         # Errors already handled in cogs should have .handled = True
         return
 
-    if isinstance(exception, handle_conn.DatabaseDisabledError):
+    if isinstance(exception, db.DatabaseDisabledError):
         await ctx.send(embed=embed_alert('Sorry, the database is not available. Some features are disabled.'))
     elif isinstance(exception, commands.NoPrivateMessage):
         await ctx.send(embed=embed_alert('Commands are disabled in private channels'))

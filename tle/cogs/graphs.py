@@ -235,7 +235,7 @@ class Graphs(commands.Cog):
     @plot.command(brief='Show server rating distribution')
     async def distrib(self, ctx):
         """Plots rating distribution of server members."""
-        res = cf_common.conn.getallhandleswithrating()
+        res = cf_common.user_db.getallhandleswithrating()
         ratings = [rating for _, _, rating in res]
         bin_count = min(len(ratings), 30)
 

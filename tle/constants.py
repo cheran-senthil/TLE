@@ -1,4 +1,4 @@
 FILEDIR = './files'
-DB_FILENAME = 'handles.db'
-CONTEST_CACHE_PERIOD = 3600
+USER_DB_FILENAME = 'user.db'
+CACHE_DB_FILENAME = 'user.db'
 CONTEST_WRITERS_JSON_FILE = 'contest_writers.json'

@@ -64,11 +64,7 @@ def main():
 
     @bot.event
     async def on_ready():
-        if args.nodb:
-            dbfile = None
-        else:
-            dbfile = os.path.join(constants.FILEDIR, constants.DB_FILENAME)
-        await cf_common.initialize(dbfile, constants.CONTEST_CACHE_PERIOD)
+        await cf_common.initialize(args.nodb)
 
     bot.add_listener(discord_common.bot_error_handler, name='on_command_error')
 

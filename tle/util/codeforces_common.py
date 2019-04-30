@@ -2,22 +2,23 @@ import asyncio
 import functools
 import json
 import logging
+import os
 from collections import defaultdict
 
 from discord.ext import commands
 
 from tle import constants
-from tle.util import codeforces_api as cf
-from tle.util import discord_common
-from tle.util import handle_conn
-from tle.util import event_system
 from tle.util import cache_system2
+from tle.util import codeforces_api as cf
+from tle.util import db
+from tle.util import discord_common
+from tle.util import event_system
 from tle.util.cache_system import CacheSystem
 
 logger = logging.getLogger(__name__)
 
 # Connection to database
-conn = None
+user_db = None
 
 # Cache system
 cache = None
@@ -31,18 +32,20 @@ _contest_id_to_writers_map = None
 active_groups = defaultdict(set)
 
 
-async def initialize(dbfile, cache_refresh_interval):
+async def initialize(nodb):
     global cache
     global cache2
-    global conn
+    global user_db
     global event_sys
     global _contest_id_to_writers_map
 
-    if dbfile is None:
-        conn = handle_conn.DummyConn()
+    if nodb:
+        user_db = db.DummyUserDbConn()
     else:
-        conn = handle_conn.HandleConn(dbfile)
-    cache = CacheSystem(conn)
+        user_db_file = os.path.join(constants.FILEDIR, constants.USER_DB_FILENAME)
+        user_db = db.UserDbConn(user_db_file)
+
+    cache = CacheSystem(user_db)
     # Initial fetch from CF API
     await cache.force_update()
     if cache.contest_last_cache and cache.problems_last_cache:
@@ -51,12 +54,14 @@ async def initialize(dbfile, cache_refresh_interval):
         # If fetch failed, load from disk
         logger.info('Loading cache from disk')
         cache.try_disk()
-    asyncio.create_task(_cache_refresher_task(cache_refresh_interval))
+    asyncio.create_task(_cache_refresher_task())
 
-    cache2 = cache_system2.CacheSystem(conn)
+    cache_db_file = os.path.join(constants.FILEDIR, constants.CACHE_DB_FILENAME)
+    cache_db = db.CacheDbConn(cache_db_file)
+    cache2 = cache_system2.CacheSystem(cache_db)
     await cache2.run()
 
-    jsonfile = f'{constants.FILEDIR}/{constants.CONTEST_WRITERS_JSON_FILE}'
+    jsonfile = os.path.join(constants.FILEDIR, constants.CONTEST_WRITERS_JSON_FILE)
     try:
         with open(jsonfile) as f:
             data = json.load(f)
@@ -88,9 +93,12 @@ def user_guard(*, group):
     return guard
 
 
-async def _cache_refresher_task(refresh_interval):
+_CACHE_REFRESH_INTERVAL = 60 * 60
+
+
+async def _cache_refresher_task():
     while True:
-        await asyncio.sleep(refresh_interval)
+        await asyncio.sleep(_CACHE_REFRESH_INTERVAL)
         logger.info('Attempting cache refresh')
         await cache.force_update()
 
@@ -169,7 +177,7 @@ async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
                 member = await converter.convert(ctx, member_identifier)
             except commands.errors.CommandError:
                 raise FindMemberFailedError(member_identifier)
-            handle = conn.gethandle(member.id)
+            handle = user_db.gethandle(member.id)
             if handle is None:
                 raise HandleNotRegisteredError(member)
         if handle in HandleIsVjudgeError.HANDLES:
