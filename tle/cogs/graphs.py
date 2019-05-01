@@ -232,23 +232,84 @@ class Graphs(commands.Cog):
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
 
-    @plot.command(brief='Show server rating distribution')
-    async def distrib(self, ctx):
-        """Plots rating distribution of server members."""
-        res = cf_common.user_db.getallhandleswithrating()
-        ratings = [rating for _, _, rating in res]
-        bin_count = min(len(ratings), 30)
+    async def _rating_hist(self, ctx, ratings, mode, binsize, title):
+        if mode not in ('log', 'normal'):
+            await ctx.send(embed=discord_common.embed_alert('Mode should be either `log` or `normal`.'))
+            return
+
+        ratings = [max(r, 0) for r in ratings]
+
+        assert 100%binsize == 0 # because bins is semi-hardcoded
+        bins = 39*100//binsize
+
+        colors = []
+        low, high = 0, binsize * bins
+        for rank in cf.RATED_RANKS:
+            for r in range(max(rank.low, low), min(rank.high, high), binsize):
+                colors.append('#' + '%06x' % rank.color_embed)
+        assert len(colors) == bins, f'Expected {bins} colors, got {len(colors)}'
+
+        height = [0] * bins
+        for r in ratings:
+            height[r // binsize] += 1
+
+        csum = 0
+        cent = []
+        users = sum(height)
+        for h in height:
+            csum += h
+            cent.append(round(100 * csum / users))
+
+        x = [k * binsize for k in range(bins)]
+        label = [f'{r} ({c})' for r,c in zip(x, cent)]
+
+        l,r = 0,bins-1
+        while not height[l]: l += 1
+        while not height[r]: r -= 1
+        assert l <= r
+        x = x[l:r+1]
+        cent = cent[l:r+1]
+        label = label[l:r+1]
+        colors = colors[l:r+1]
+        height = height[l:r+1]
 
         plt.clf()
-        plt.hist(ratings, bins=bin_count)
+        fig = plt.figure(figsize=(15, 5))
+
+        plt.xticks(rotation=45)
+        plt.xlim(l * binsize - binsize//2, r * binsize + binsize//2)
+        plt.bar(x, height, binsize*0.9, color=colors, linewidth=0, tick_label=label, log=(mode == 'log'))
         plt.xlabel('Rating')
         plt.ylabel('Number of users')
 
         discord_file = _get_current_figure_as_file()
-        embed = discord_common.cf_color_embed(title=f'Rating distribution of server members')
+        embed = discord_common.cf_color_embed(title=title)
         discord_common.attach_image(embed, discord_file)
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
+        plt.close(fig)
+
+    @plot.command(brief='Show server rating distribution')
+    async def distrib(self, ctx, mode: str = 'normal'):
+        """Plots rating distribution of server members."""
+        res = cf_common.user_db.getallhandleswithrating()
+        ratings = [rating for _, _, rating in res]
+        await self._rating_hist(ctx,
+                                ratings,
+                                mode,
+                                binsize=100,
+                                title='Rating distribution of server members')
+
+    @plot.command(brief='Show codeforces rating distribution')
+    async def cfdistrib(self, ctx, mode: str = 'log'):
+        """Plots rating distribution of codeforces users."""
+        resp = await cf_common.cache.get_user_rating(3600)
+        ratings = [r for r in resp.values()]
+        await self._rating_hist(ctx,
+                                ratings,
+                                mode,
+                                binsize=100,
+                                title='Rating distribution of cf users')
 
     @plot.command(brief='Show percentile distribution on codeforces', usage='[+zoom] [handles...]')
     async def centile(self, ctx, *args: str):
@@ -369,56 +430,6 @@ class Graphs(commands.Cog):
         discord_common.attach_image(embed, discord_file)
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
-
-    @plot.command(brief='Show codeforces rating distribution')
-    async def cfdistrib(self, ctx, mode: str = 'log'):
-        resp = await cf_common.cache.get_user_rating(3600)
-        ratings = [max(r, 0) for r in resp.values()]
-        bins = 39
-
-        colors = []
-        low, high = 0, 100 * bins
-        for rank in cf.RATED_RANKS:
-            for r in range(max(rank.low, low), min(rank.high, high), 100):
-                colors.append('#' + '%06x' % rank.color_embed)
-        assert len(colors) == bins, f'Expected {bins} colors, got {len(colors)}'
-
-        height = [0] * bins
-        for r in ratings:
-            height[r // 100] += 1
-
-        csum = 0
-        cent = []
-        users = sum(height)
-        for h in height:
-            csum += h
-            cent.append(round(100 * csum / users))
-
-        x = [k * 100 for k in range(bins)]
-        label = [f'{r} ({c})' for r,c in zip(x, cent)]
-
-        plt.clf()
-        if mode == 'log':
-            fig = plt.figure(figsize=(15, 5))
-        elif mode == 'normal':
-            fig = plt.figure(figsize=(20,100))
-            plt.locator_params(axis='y', nbins=50)
-        else:
-            await ctx.send(embed=discord_common.embed_alert('Mode should be either `log` or `normal`.'))
-            return
-
-        plt.xticks(rotation=45)
-        plt.xlim(-50, 100 * bins - 50)
-        plt.bar(x, height, 90, color=colors, linewidth=0, tick_label=label, log=(mode == 'log'))
-        plt.xlabel('Rating')
-        plt.ylabel('Number of users')
-
-        discord_file = _get_current_figure_as_file()
-        embed = discord_common.cf_color_embed(title=f'Rating distribution of cf users')
-        discord_common.attach_image(embed, discord_file)
-        discord_common.set_author_footer(embed, ctx.author)
-        await ctx.send(embed=embed, file=discord_file)
-        plt.close(fig)
 
     async def cog_command_error(self, ctx, error):
         await cf_common.cf_handle_error_handler(ctx, error)
