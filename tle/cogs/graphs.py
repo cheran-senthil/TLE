@@ -289,27 +289,31 @@ class Graphs(commands.Cog):
         await ctx.send(embed=embed, file=discord_file)
         plt.close(fig)
 
-    @plot.command(brief='Show server rating distribution')
-    async def distrib(self, ctx, mode: str = 'normal'):
-        """Plots rating distribution of server members."""
-        res = cf_common.user_db.getallhandleswithrating()
-        ratings = [rating for _, _, rating in res]
-        await self._rating_hist(ctx,
-                                ratings,
-                                mode,
-                                binsize=100,
-                                title='Rating distribution of server members')
-
-    @plot.command(brief='Show codeforces rating distribution')
-    async def cfdistrib(self, ctx, mode: str = 'log'):
-        """Plots rating distribution of codeforces users."""
-        resp = await cf_common.cache.get_user_rating(3600)
-        ratings = [r for r in resp.values()]
-        await self._rating_hist(ctx,
-                                ratings,
-                                mode,
-                                binsize=100,
-                                title='Rating distribution of cf users')
+    @plot.command(brief='Show rating distribution', usage='[server/cf] [normal/log]')
+    async def distrib(self, ctx, subcommand: str = None, mode: str = None):
+        """Plots rating distribution"""
+        if subcommand == 'server':
+            mode = mode or 'normal'
+            res = cf_common.user_db.getallhandleswithrating()
+            ratings = [rating for _, _, rating in res]
+            await self._rating_hist(ctx,
+                                    ratings,
+                                    mode,
+                                    binsize=100,
+                                    title='Rating distribution of server members')
+        elif subcommand in ('cf', 'codeforces'):
+            mode = mode or 'log'
+            resp = await cf_common.cache.get_user_rating(3600)
+            ratings = [r for r in resp.values()]
+            await self._rating_hist(ctx,
+                                    ratings,
+                                    mode,
+                                    binsize=100,
+                                    title='Rating distribution of cf users')
+        else:
+            await ctx.send(
+                f'Unknown subcommand: {subcommand}\nValid subcommands: server, cf'
+            )
 
     @plot.command(brief='Show percentile distribution on codeforces', usage='[+zoom] [handles...]')
     async def centile(self, ctx, *args: str):
