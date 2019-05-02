@@ -266,7 +266,6 @@ class Graphs(commands.Cog):
         l,r = 0,bins-1
         while not height[l]: l += 1
         while not height[r]: r -= 1
-        assert l <= r
         x = x[l:r+1]
         cent = cent[l:r+1]
         label = label[l:r+1]
