@@ -415,7 +415,7 @@ class RanklistNotMonitored(RanklistCacheError):
 
 
 class RanklistCache:
-    _RELOAD_DELAY = 5 * 60
+    _RELOAD_DELAY = 2 * 60
 
     def __init__(self, cache_master):
         self.cache_master = cache_master
