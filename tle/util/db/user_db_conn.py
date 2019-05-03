@@ -306,6 +306,11 @@ class UserDbConn:
         '''
         return self.conn.execute(query).fetchall()
 
+    def get_handles_for_guild(self, guild_id):
+        # TODO: Modify the database to store users on a guild basis.
+        # Currently returns all users.
+        return self.getallhandles()
+
     def removehandle(self, id):
         """ returns 1 if removed, 0 if not """
         query = 'DELETE FROM user_handle WHERE id = ?'

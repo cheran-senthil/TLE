@@ -99,7 +99,7 @@ def _make_profile_embed(member, user, *, mode):
 
 
 def _make_pages(users):
-    chunks = [users[i: i + _HANDLES_PER_PAGE] for i in range(0, len(users), _HANDLES_PER_PAGE)]
+    chunks = paginator.chunkify(users, _HANDLES_PER_PAGE)
     pages = []
     done = 0
 

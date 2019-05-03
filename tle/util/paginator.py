@@ -7,6 +7,11 @@ _REACT_NEXT = '\N{BLACK RIGHT-POINTING TRIANGLE}'
 _REACT_LAST = '\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}'
 
 
+def chunkify(sequence, chunk_size):
+    """Utility method to split a sequence into fixed size chunks."""
+    return [sequence[i: i + chunk_size] for i in range(0, len(sequence), chunk_size)]
+
+
 class PaginatorError(Exception):
     pass
 

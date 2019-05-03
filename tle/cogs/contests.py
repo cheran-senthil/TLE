@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import functools
 import json
 import logging
 import time
@@ -167,8 +168,7 @@ class Contests(commands.Cog):
 
     def _make_contest_pages(self):
         pages = []
-        chunks = [self.future_contests[i: i + _CONTESTS_PER_PAGE]
-                  for i in range(0, len(self.future_contests), _CONTESTS_PER_PAGE)]
+        chunks = paginator.chunkify(self.future_contests, _CONTESTS_PER_PAGE)
         for chunk in chunks:
             embed = discord_common.cf_color_embed()
             for name, value in _get_embed_fields_from_contests(chunk):
@@ -286,13 +286,13 @@ class Contests(commands.Cog):
             await ctx.author.remove_roles(role, reason='User unsubscribed from contest reminders')
             await ctx.send(embed=discord_common.embed_success('Successfully unsubscribed from contest reminders'))
 
-    def _get_handles_of_guild_members(self, guild):
-        # TODO: Change database to store users on a guild basis
-        res = cf_common.user_db.getallhandleswithrating()
-        return [handle for user_id, handle, rating in res]
-
     @staticmethod
-    def _get_cf_standings_table(problem_indices, handle_standings, deltas=None):
+    def _get_cf_or_ioi_standings_table(problem_indices, handle_standings, deltas=None, *, mode):
+        assert mode in ('cf', 'ioi')
+
+        def maybe_int(value):
+            return int(value) if mode == 'cf' else value
+
         header_style = '{:>} {:<}    {:^}  ' + '  '.join(['{:^}'] * len(problem_indices))
         body_style = '{:>} {:<}    {:>}  ' + '  '.join(['{:>}'] * len(problem_indices))
         header = ['#', 'Handle', '='] + problem_indices
@@ -303,11 +303,11 @@ class Contests(commands.Cog):
 
         body = []
         for handle, standing in handle_standings:
-            tokens = [standing.rank, handle + ':', int(standing.points)]
+            tokens = [standing.rank, handle + ':', maybe_int(standing.points)]
             for problem_result in standing.problemResults:
                 score = ''
                 if problem_result.points:
-                    score = str(int(problem_result.points))
+                    score = str(maybe_int(problem_result.points))
                 tokens.append(score)
             body.append(tokens)
 
@@ -321,7 +321,7 @@ class Contests(commands.Cog):
         header_style = '{:>} {:<}    {:^}  {:^}  ' + '  '.join(['{:^}'] * len(problem_indices))
         body_style = '{:>} {:<}    {:>}  {:>}  ' + '  '.join(['{:<}'] * len(problem_indices))
         header = ['#', 'Handle', '=', '-'] + problem_indices
-        if deltas is not None:
+        if deltas:
             header_style += '  {:^}'
             body_style += '  {:>}'
             header += ['\N{INCREMENT}']
@@ -345,49 +345,18 @@ class Contests(commands.Cog):
                 tokens.append('' if delta is None else f'{delta:+}')
         return header_style, body_style, header, body
 
-    @staticmethod
-    def _get_ioi_standings_table(problem_indices, handle_standings, deltas=None):
-        header_style = '{:>} {:<}    {:^}  ' + '  '.join(['{:^}'] * len(problem_indices))
-        body_style = '{:>} {:<}    {:>}  ' + '  '.join(['{:>}'] * len(problem_indices))
-        header = ['#', 'Handle', '='] + problem_indices
-        if deltas is not None:
-            header_style += '  {:^}'
-            body_style += '  {:>}'
-            header += ['\N{INCREMENT}']
-
-        body = []
-        for handle, standing in handle_standings:
-            tokens = [standing.rank, handle + ':', standing.points]
-            for problem_result in standing.problemResults:
-                score = ''
-                if problem_result.points:
-                    score = str(problem_result.points)
-                tokens.append(score)
-            body.append(tokens)
-
-        if deltas:
-            for tokens, delta in zip(body, deltas):
-                tokens.append('' if delta is None else f'{delta:+}')
-        return header_style, body_style, header, body
-
     def _make_standings_pages(self, contest, problem_indices, handle_standings, deltas=None):
         pages = []
-        count = len(handle_standings)
-        handle_standings_chunks = [handle_standings[i: i + _STANDINGS_PER_PAGE]
-                                   for i in range(0, len(handle_standings), _STANDINGS_PER_PAGE)]
+        handle_standings_chunks = paginator.chunkify(handle_standings, _STANDINGS_PER_PAGE)
         num_chunks = len(handle_standings_chunks)
-        if deltas:
-            delta_chunks = [deltas[i: i + _STANDINGS_PER_PAGE]
-                            for i in range(0, count, _STANDINGS_PER_PAGE)]
-        else:
-            delta_chunks = [None] * num_chunks
+        delta_chunks = paginator.chunkify(deltas, _STANDINGS_PER_PAGE) if deltas else [None] * num_chunks
 
         if contest.type == 'CF':
-            get_table = self._get_cf_standings_table
+            get_table = functools.partial(self._get_cf_or_ioi_standings_table, mode='cf')
         elif contest.type == 'ICPC':
             get_table = self._get_icpc_standings_table
         elif contest.type == 'IOI':
-            get_table = self._get_ioi_standings_table
+            get_table = functools.partial(self._get_cf_or_ioi_standings_table, mode='ioi')
         else:
             assert False, f'Unexpected contest type {contest.type}'
 
@@ -426,7 +395,9 @@ class Contests(commands.Cog):
             handles.add('!' + str(ctx.author))
         elif '+server' in handles:
             handles.remove('+server')
-            handles.update(self._get_handles_of_guild_members(ctx.guild))
+            guild_handles = [handle for discord_id, handle
+                             in cf_common.user_db.get_handles_for_guild(ctx.guild.id)]
+            handles.update(guild_handles)
         handles = await cf_common.resolve_handles(ctx, self.member_converter, handles, maxcnt=100)
 
         handle_standings = []

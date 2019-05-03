@@ -492,7 +492,7 @@ class RanklistCache:
                     rated_range = None
                     if 'Educational' in contest.name:
                         # For some reason educational contests return all contestants in ranklist even
-                        # when unofficial contests are not requested.
+                        # when unofficial contestants are not requested.
                         rated_range = range(-10000, 2100)
                     ranklist = Ranklist(contest, problems, standings, now, get_current_rating, is_rated=True,
                                         rated_range=rated_range)
