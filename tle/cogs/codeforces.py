@@ -93,7 +93,7 @@ class Codeforces(commands.Cog):
             embed.add_field(name='Matched tags', value=tagslist)
         await ctx.send(f'Recommended problem for `{handle}`', embed=embed)
 
-    @commands.command(brief='Challenge')
+    @commands.command(brief='Challenge', help=';gimme [tags] [lower] [upper]')
     @cf_common.user_guard(group='gitgud')
     async def gitgud(self, ctx, delta: int = 0):
         user_id = ctx.message.author.id
