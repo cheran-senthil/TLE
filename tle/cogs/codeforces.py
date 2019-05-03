@@ -1,6 +1,8 @@
 import datetime
 import json
 import random
+from typing import List
+from math import log10
 import time
 
 import discord
@@ -243,6 +245,84 @@ class Codeforces(commands.Cog):
             contest, _, _ = await cf.contest.standings(contest_id=contest_id, from_=1, count=1)
             embed = discord.Embed(title=contest.name, url=contest.url)
             await ctx.send(f'Recommended contest for `{str_handles}`', embed=embed)
+
+    @staticmethod
+    def getEloWinProbability(ra: float, rb: float) -> float:
+        return 1.0 / (1 + 10**((rb - ra) / 400.0))
+
+    @staticmethod
+    def composeRatings(ratings: List[float]) -> int:
+        left = 100.0
+        right = 4000.0
+        for tt in range(20):
+            r = (left + right) / 2.0
+
+            rWinsProbability = 1.0
+            for rating in ratings:
+                rWinsProbability *= Codeforces.getEloWinProbability(r, rating)
+
+            if rWinsProbability==0:
+                left = r
+                continue
+            rating = log10(1 / (rWinsProbability) - 1) * 400 + r
+            if rating > r:
+                left = r
+            else:
+                right = r
+        return round((left + right) / 2)
+
+    @commands.command(brief='Calculate team rating')
+    async def teamrate(self, ctx, *handles: str):
+        handles = handles or ('!' + str(ctx.author),)
+        is_entire_server = (handles[0] == 'all' and len(handles) == 1)
+        if is_entire_server:
+            res = cf_common.user_db.getallhandleswithrating()
+            ratings = [rating for _, _, rating in res]
+        else:
+            handles = await cf_common.resolve_handles(ctx, self.converter, handles, mincnt=1, maxcnt=1000)
+            users = await cf.user.info(handles=handles)
+            ratings = [user.rating for user in users if user.rating]
+        if len(ratings) == 0:
+            await ctx.send("No CF usernames with ratings passed in :'(")
+            return
+
+        teamRating = Codeforces.composeRatings(ratings)
+        if is_entire_server:
+            await ctx.send(f"The entire server's team rating is {teamRating}!")
+        else:
+            await ctx.send(f'The team rating is {teamRating}!')
+
+    @commands.command(brief='Calculates how many of you are needed to beat tourist')
+    async def howmanyfortourist(self, ctx):
+        handle = ('!' + str(ctx.author), "tourist")
+        handle = await cf_common.resolve_handles(ctx, self.converter, handle, mincnt=1, maxcnt=3)
+        users = await cf.user.info(handles=handle)
+        ratings = [user.rating for user in users[:1] if user.rating]
+        tourist_rating = users[-1].rating
+        print(ratings, tourist_rating)
+        if len(ratings) == 0:
+            await ctx.send("Handle isn't set")
+            return
+        step = 1<<15
+        cur_cnt = 0
+        while step > 1:
+            step >>= 1
+            cur_number = cur_cnt + step
+            cur_team = ratings * cur_number
+            if Codeforces.composeRatings(cur_team) >= tourist_rating:
+                pass
+            else:
+                cur_cnt += step
+        cur_cnt += 1
+        mxRating = Codeforces.composeRatings(ratings*cur_cnt)
+        print(mxRating)
+        if mxRating < tourist_rating:
+            await ctx.send(f"Not even {1<<15} of {handle[0]} could beat tourist <:tourist_mad:556968281982894080>")
+        elif cur_cnt == 1:
+            await ctx.send(f"Tourist is already no match for {handle[0]} <:tourist_think:556968318909808682>")
+        else:
+            await ctx.send(f"With {cur_cnt} copies of {handle[0]}, {handle[0]} could beat tourist! Achieving a rating of {mxRating}. <:tourist:556976108462145541>")
+
 
     async def cog_command_error(self, ctx, error):
         await cf_common.cf_handle_error_handler(ctx, error)
