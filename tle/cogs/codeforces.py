@@ -40,7 +40,7 @@ class Codeforces(commands.Cog):
         cf_common.user_db.cache_cfuser_full(info + (solved, stamp))
         return stamp, info.rating, solved
 
-    @commands.command(brief='Recommend a problem')
+    @commands.command(brief='Recommend a problem', usage=';gimme [tags...] [lower] [upper]')
     @cf_common.user_guard(group='gitgud')
     async def gimme(self, ctx, *args):
         problem_dict = await cf_common.cache.get_problems(7200)
@@ -93,7 +93,7 @@ class Codeforces(commands.Cog):
             embed.add_field(name='Matched tags', value=tagslist)
         await ctx.send(f'Recommended problem for `{handle}`', embed=embed)
 
-    @commands.command(brief='Challenge', help=';gimme [tags] [lower] [upper]')
+    @commands.command(brief='Challenge')
     @cf_common.user_guard(group='gitgud')
     async def gitgud(self, ctx, delta: int = 0):
         user_id = ctx.message.author.id
