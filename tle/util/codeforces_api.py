@@ -71,7 +71,9 @@ class Contest(namedtuple('Contest', 'id name startTimeSeconds durationSeconds ty
         return f'{CONTESTS_BASE_URL}{self.id}'
 
 
-Party = namedtuple('Party', 'contestId members participantType')
+Party = namedtuple('Party', 'contestId members participantType teamId teamName room startTimeSeconds')
+
+Member = namedtuple('Member', 'handle')
 
 
 class Problem(namedtuple('Problem', 'contestId index name type rating tags')):
@@ -101,9 +103,13 @@ class Problem(namedtuple('Problem', 'contestId index name type rating tags')):
 
 ProblemStatistics = namedtuple('ProblemStatistics', 'contestId index solvedCount')
 
-Submission = namedtuple('Submissions', 'id contestId problem author programmingLanguage verdict creationTimeSeconds')
+Submission = namedtuple('Submissions',
+                        'id contestId problem author programmingLanguage verdict creationTimeSeconds')
 
-RanklistRow = namedtuple('RanklistRow', 'party rank')
+RanklistRow = namedtuple('RanklistRow', 'party rank points penalty problemResults')
+
+ProblemResult = namedtuple('ProblemResult',
+                           'points penalty rejectedAttemptCount type bestSubmissionTimeSeconds')
 
 
 def make_from_dict(namedtuple_cls, dict_):
@@ -185,7 +191,8 @@ class contest:
         return [make_from_dict(RatingChange, change_dict) for change_dict in resp]
 
     @staticmethod
-    async def standings(*, contest_id, from_=None, count=None, handles=None, room=None, show_unofficial=None):
+    async def standings(*, contest_id, from_=None, count=None, handles=None, room=None,
+                        show_unofficial=None):
         params = {'contestId': contest_id}
         if from_ is not None:
             params['from'] = from_
@@ -201,7 +208,11 @@ class contest:
         contest_ = make_from_dict(Contest, resp['contest'])
         problems = [make_from_dict(Problem, problem_dict) for problem_dict in resp['problems']]
         for row in resp['rows']:
+            row['party']['members'] = [make_from_dict(Member, member)
+                                       for member in row['party']['members']]
             row['party'] = make_from_dict(Party, row['party'])
+            row['problemResults'] = [make_from_dict(ProblemResult, problem_result)
+                                     for problem_result in row['problemResults']]
         ranklist = [make_from_dict(RanklistRow, row_dict) for row_dict in resp['rows']]
         return contest_, problems, ranklist
 

@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import functools
 import json
 import logging
 import time
@@ -9,14 +10,19 @@ import discord
 from discord.ext import commands
 
 from tle.util import codeforces_common as cf_common
+from tle.util import cache_system2
 from tle.util import db
 from tle.util import discord_common
 from tle.util import paginator
+from tle.util import ranklist as rl
+from tle.util import table
 
 _CONTEST_RELOAD_INTERVAL = 60 * 60  # 1 hour
 _CONTEST_RELOAD_ACCEPTABLE_DELAY = 15 * 60  # 15 mins
 _CONTESTS_PER_PAGE = 5
-_PAGINATE_WAIT_TIME = 5 * 60  # 5 minutes
+_CONTEST_PAGINATE_WAIT_TIME = 5 * 60
+_STANDINGS_PER_PAGE = 15
+_STANDINGS_PAGINATE_WAIT_TIME = 2 * 60
 
 
 def _parse_timezone(tz_string):
@@ -86,14 +92,18 @@ async def _send_reminder_at(channel, role, contests, before_secs, send_time):
     await channel.send(role.mention, embed=embed)
 
 
-class FutureContests(commands.Cog):
+class Contests(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+
         self.future_contests = None
         self.contest_id_map = {}
         self.start_time_map = defaultdict(list)
         self.task_map = defaultdict(list)
+
+        self.member_converter = commands.MemberConverter()
         self.role_converter = commands.RoleConverter()
+
         self.logger = logging.getLogger(self.__class__.__name__)
 
     @commands.Cog.listener()
@@ -156,10 +166,9 @@ class FutureContests(commands.Cog):
                 self.task_map[guild_id].append(task)
         self.logger.info(f'{len(self.task_map[guild_id])} tasks scheduled for guild {guild_id}')
 
-    def _make_pages(self):
+    def _make_contest_pages(self):
         pages = []
-        chunks = [self.future_contests[i: i + _CONTESTS_PER_PAGE]
-                  for i in range(0, len(self.future_contests), _CONTESTS_PER_PAGE)]
+        chunks = paginator.chunkify(self.future_contests, _CONTESTS_PER_PAGE)
         for chunk in chunks:
             embed = discord_common.cf_color_embed()
             for name, value in _get_embed_fields_from_contests(chunk):
@@ -183,8 +192,9 @@ class FutureContests(commands.Cog):
             await ctx.send(embed=discord_common.embed_neutral('No contests scheduled'))
             return
         if contest_id is None:
-            pages = self._make_pages()
-            paginator.paginate(self.bot, ctx.channel, pages, wait_time=_PAGINATE_WAIT_TIME, set_pagenum_footers=True)
+            pages = self._make_contest_pages()
+            paginator.paginate(self.bot, ctx.channel, pages, wait_time=_CONTEST_PAGINATE_WAIT_TIME,
+                               set_pagenum_footers=True)
         else:
             if contest_id not in self.contest_id_map:
                 await ctx.send(embed=discord_common.embed_alert(f'Contest ID `{contest_id}` not in contest list'))
@@ -276,6 +286,148 @@ class FutureContests(commands.Cog):
             await ctx.author.remove_roles(role, reason='User unsubscribed from contest reminders')
             await ctx.send(embed=discord_common.embed_success('Successfully unsubscribed from contest reminders'))
 
+    @staticmethod
+    def _get_cf_or_ioi_standings_table(problem_indices, handle_standings, deltas=None, *, mode):
+        assert mode in ('cf', 'ioi')
+
+        def maybe_int(value):
+            return int(value) if mode == 'cf' else value
+
+        header_style = '{:>} {:<}    {:^}  ' + '  '.join(['{:^}'] * len(problem_indices))
+        body_style = '{:>} {:<}    {:>}  ' + '  '.join(['{:>}'] * len(problem_indices))
+        header = ['#', 'Handle', '='] + problem_indices
+        if deltas:
+            header_style += '  {:^}'
+            body_style += '  {:>}'
+            header += ['\N{INCREMENT}']
+
+        body = []
+        for handle, standing in handle_standings:
+            tokens = [standing.rank, handle + ':', maybe_int(standing.points)]
+            for problem_result in standing.problemResults:
+                score = ''
+                if problem_result.points:
+                    score = str(maybe_int(problem_result.points))
+                tokens.append(score)
+            body.append(tokens)
+
+        if deltas:
+            for tokens, delta in zip(body, deltas):
+                tokens.append('' if delta is None else f'{delta:+}')
+        return header_style, body_style, header, body
+
+    @staticmethod
+    def _get_icpc_standings_table(problem_indices, handle_standings, deltas=None):
+        header_style = '{:>} {:<}    {:^}  {:^}  ' + '  '.join(['{:^}'] * len(problem_indices))
+        body_style = '{:>} {:<}    {:>}  {:>}  ' + '  '.join(['{:<}'] * len(problem_indices))
+        header = ['#', 'Handle', '=', '-'] + problem_indices
+        if deltas:
+            header_style += '  {:^}'
+            body_style += '  {:>}'
+            header += ['\N{INCREMENT}']
+
+        body = []
+        for handle, standing in handle_standings:
+            tokens = [standing.rank, handle + ':', int(standing.points), int(standing.penalty)]
+            for problem_result in standing.problemResults:
+                score = '+' if problem_result.points else ''
+                if problem_result.rejectedAttemptCount:
+                    penalty = str(problem_result.rejectedAttemptCount)
+                    if problem_result.points:
+                        score += penalty
+                    else:
+                        score = '-' + penalty
+                tokens.append(score)
+            body.append(tokens)
+
+        if deltas:
+            for tokens, delta in zip(body, deltas):
+                tokens.append('' if delta is None else f'{delta:+}')
+        return header_style, body_style, header, body
+
+    def _make_standings_pages(self, contest, problem_indices, handle_standings, deltas=None):
+        pages = []
+        handle_standings_chunks = paginator.chunkify(handle_standings, _STANDINGS_PER_PAGE)
+        num_chunks = len(handle_standings_chunks)
+        delta_chunks = paginator.chunkify(deltas, _STANDINGS_PER_PAGE) if deltas else [None] * num_chunks
+
+        if contest.type == 'CF':
+            get_table = functools.partial(self._get_cf_or_ioi_standings_table, mode='cf')
+        elif contest.type == 'ICPC':
+            get_table = self._get_icpc_standings_table
+        elif contest.type == 'IOI':
+            get_table = functools.partial(self._get_cf_or_ioi_standings_table, mode='ioi')
+        else:
+            assert False, f'Unexpected contest type {contest.type}'
+
+        num_pages = 1
+        for handle_standings_chunk, delta_chunk in zip(handle_standings_chunks, delta_chunks):
+            header_style, body_style, header, body = get_table(problem_indices,
+                                                               handle_standings_chunk,
+                                                               delta_chunk)
+            t = table.Table(table.Style(header=header_style, body=body_style))
+            t += table.Header(*header)
+            t += table.Line('\N{EM DASH}')
+            for row in body:
+                t += table.Data(*row)
+            t += table.Line('\N{EM DASH}')
+            page_num_footer = f' # Page: {num_pages} / {num_chunks}' if num_chunks > 1 else ''
+
+            # We use yaml to get nice colors in the ranklist.
+            content = f'{contest.name}\n```yaml\n{t}\n{page_num_footer}```'
+            pages.append((content, None))
+            num_pages += 1
+
+        return pages
+
+    @commands.command(brief='Show ranklist for given handles and/or server members')
+    async def ranklist(self, ctx, contest_id: int, *handles: str):
+        """Shows ranklist for the contest with given contest id. If no handles are present,
+        the invokers's handle is assumed. If handles contains +server, all server
+        members are included.
+        """
+
+        contest = cf_common.cache2.contest_cache.get_contest(contest_id)
+        ranklist = cf_common.cache2.ranklist_cache.get_ranklist(contest)
+
+        handles = set(handles)
+        if not handles:
+            handles.add('!' + str(ctx.author))
+        elif '+server' in handles:
+            handles.remove('+server')
+            guild_handles = [handle for discord_id, handle
+                             in cf_common.user_db.get_handles_for_guild(ctx.guild.id)]
+            handles.update(guild_handles)
+        handles = await cf_common.resolve_handles(ctx, self.member_converter, handles, maxcnt=100)
+
+        handle_standings = []
+        for handle in handles:
+            try:
+                standing = ranklist.get_standing_row(handle)
+            except rl.HandleNotPresentError:
+                continue
+            handle_standings.append((handle, standing))
+
+        if not handle_standings:
+            msg = f'None of the handles are present in the ranklist of `{contest.name}`'
+            await ctx.send(embed=discord_common.embed_alert(msg))
+            return
+
+        handle_standings.sort(key=lambda data: data[1].rank)
+        deltas = None
+        if ranklist.is_rated:
+            deltas = [ranklist.get_delta(handle) for handle, standing in handle_standings]
+
+        problem_indices = [problem.index for problem in ranklist.problems]
+        pages = self._make_standings_pages(contest, problem_indices, handle_standings, deltas)
+        paginator.paginate(self.bot, ctx.channel, pages, wait_time=_STANDINGS_PAGINATE_WAIT_TIME)
+
+    async def cog_command_error(self, ctx, error):
+        await cf_common.cf_handle_error_handler(ctx, error)
+        if isinstance(error, (rl.RanklistError, cache_system2.CacheError)):
+            await ctx.send(embed=discord_common.embed_alert(str(error)))
+            error.handled = True
+
 
 def setup(bot):
-    bot.add_cog(FutureContests(bot))
+    bot.add_cog(Contests(bot))

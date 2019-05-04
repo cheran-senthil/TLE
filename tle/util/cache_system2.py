@@ -1,14 +1,16 @@
-from contextlib import contextmanager
-
 import asyncio
 import logging
 import json
 import time
 import traceback
+from contextlib import contextmanager
+
+from discord.ext import commands
 
 from tle.util import codeforces_common as cf_common
 from tle.util import codeforces_api as cf
 from tle.util import db
+from tle.util.ranklist import Ranklist
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +23,20 @@ def suppress(*exceptions):
     except exceptions as ex:
         msg = '\n'.join(traceback.format_exception_only(type(ex), ex))
         logger.info(f'Ignoring exception. {msg}')
+
+
+class CacheError(commands.CommandError):
+    pass
+
+
+class ContestCacheError(CacheError):
+    pass
+
+
+class ContestNotFound(ContestCacheError):
+    def __init__(self, contest_id):
+        super().__init__(f'Contest with id `{contest_id}` not found')
+        self.contest_id = contest_id
 
 
 class ContestCache:
@@ -62,6 +78,12 @@ class ContestCache:
 
         if self.reload_exception:
             raise self.reload_exception
+
+    def get_contest(self, contest_id):
+        try:
+            return self.contest_by_id[contest_id]
+        except KeyError:
+            raise ContestNotFound(contest_id)
 
     async def _try_disk(self):
         with suppress(db.DatabaseDisabledError):
@@ -375,26 +397,25 @@ class RatingChangesCache:
     def get_rating_changes_for_handle(self, handle):
         return self.cache_master.conn.get_rating_changes_for_handle(handle)
 
-    def get_current_rating_for_handle(self, handle):
+    def get_current_rating(self, handle):
         return self.handle_rating_cache.get(handle)
 
+    def get_current_rating_or_default(self, handle):
+        return self.handle_rating_cache.get(handle, self.DEFAULT_RATING)
 
-class Ranklist:
-    def __init__(self, contest, problems, standings, get_current_rating, fetch_time):
+
+class RanklistCacheError(CacheError):
+    pass
+
+
+class RanklistNotMonitored(RanklistCacheError):
+    def __init__(self, contest):
+        super().__init__(f'The ranklist for `{contest.name}` is not being monitored')
         self.contest = contest
-        self.problems = problems
-        self.standings = standings
-        self.fetch_time = fetch_time
-        self.delta_by_handle = {}
-        self.prepare_predictions()
-
-    def prepare_predictions(self):
-        # TODO: Implement
-        pass
 
 
 class RanklistCache:
-    _RELOAD_DELAY = 5 * 60
+    _RELOAD_DELAY = 2 * 60
 
     def __init__(self, cache_master):
         self.cache_master = cache_master
@@ -406,6 +427,12 @@ class RanklistCache:
 
     async def run(self):
         asyncio.create_task(self._ranklist_updater_task())
+
+    def get_ranklist(self, contest):
+        try:
+            return self.ranklist_by_contest[contest.id]
+        except KeyError:
+            raise RanklistNotMonitored(contest)
 
     async def _ranklist_updater_task(self):
         self.logger.info('Running ranklist updater task')
@@ -437,8 +464,8 @@ class RanklistCache:
                 break
             try:
                 ranklist_by_contest = await self._fetch(contests)
-            except Exception as ex:
-                self.logger.warning(f'Exception in ranklist update task 2, ignoring. {ex!r}')
+            except Exception:
+                self.logger.warning(f'Exception in ranklist update task 2, ignoring.', exc_info=True)
             else:
                 for contest in contests:
                     # Keep previous ranklist (if exists) in case fetch failed
@@ -458,8 +485,18 @@ class RanklistCache:
                 self.logger.warning(f'Ranklist fetch failed for contest {contest.id}. {er}')
             else:
                 now = time.time()
-                get_current_rating = self.cache_master.rating_changes_cache.get_current_rating_for_handle
-                ranklist_by_contest[contest.id] = Ranklist(contest, problems, standings, get_current_rating, now)
+                get_current_rating = self.cache_master.rating_changes_cache.get_current_rating_or_default
+                if cf_common.is_nonstandard_contest(contest):
+                    ranklist = Ranklist(contest, problems, standings, now, get_current_rating, is_rated=False)
+                else:
+                    rated_range = None
+                    if 'Educational' in contest.name:
+                        # For some reason educational contests return all contestants in ranklist even
+                        # when unofficial contestants are not requested.
+                        rated_range = range(-10000, 2100)
+                    ranklist = Ranklist(contest, problems, standings, now, get_current_rating, is_rated=True,
+                                        rated_range=rated_range)
+                ranklist_by_contest[contest.id] = ranklist
         return ranklist_by_contest
 
 
