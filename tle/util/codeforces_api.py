@@ -276,5 +276,7 @@ class user:
         resp = await _query_api('user.status', params)
         for submission in resp:
             submission['problem'] = make_from_dict(Problem, submission['problem'])
+            submission['author']['members'] = [make_from_dict(Member, member)
+                                               for member in submission['author']['members']]
             submission['author'] = make_from_dict(Party, submission['author'])
         return [make_from_dict(Submission, submission_dict) for submission_dict in resp]

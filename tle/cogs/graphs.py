@@ -302,8 +302,7 @@ class Graphs(commands.Cog):
                                     title='Rating distribution of server members')
         elif subcommand in ('cf', 'codeforces'):
             mode = mode or 'log'
-            resp = await cf_common.cache.get_user_rating(3600)
-            ratings = [r for r in resp.values()]
+            ratings = cf_common.cache2.rating_changes_cache.get_all_ratings()
             await self._rating_hist(ctx,
                                     ratings,
                                     mode,
@@ -327,12 +326,11 @@ class Graphs(commands.Cog):
             zoom = False
 
         # Prepare data
-        rating_map = await cf_common.cache.get_user_rating(3600)
-
         intervals = [(rank.low, rank.high) for rank in cf.RATED_RANKS]
         colors = [rank.color_graph for rank in cf.RATED_RANKS]
 
-        ratings = np.array(sorted(rating_map.values()))
+        ratings = cf_common.cache2.rating_changes_cache.get_all_ratings()
+        ratings = np.array(sorted(ratings))
         n = len(ratings)
         perc = 100*np.arange(n)/n
 

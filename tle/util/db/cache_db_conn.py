@@ -1,3 +1,4 @@
+import json
 import sqlite3
 
 from tle.util import codeforces_api as cf
@@ -23,12 +24,11 @@ class CacheDbConn:
         )
         self.conn.execute(
             'CREATE TABLE IF NOT EXISTS problem ('
-            'name           TEXT NOT NULL,'
             'contest_id     INTEGER,'
-            'p_index        TEXT,'
-            'start_time     INTEGER,'
-            'rating         INTEGER,'
+            '[index]        TEXT,'
+            'name           TEXT NOT NULL,'
             'type           TEXT,'
+            'rating         INTEGER,'
             'tags           TEXT,'
             'PRIMARY KEY (name)'
             ')'
@@ -49,18 +49,6 @@ class CacheDbConn:
         self.conn.execute('CREATE INDEX IF NOT EXISTS ix_rating_change_handle '
                           'ON rating_change (handle)')
 
-    def fetch_contests(self):
-        query = ('SELECT id, name, start_time, duration, type, phase, prepared_by '
-                 'FROM contest')
-        res = self.conn.execute(query).fetchall()
-        return [cf.Contest._make(contest) for contest in res]
-
-    def fetch_problems(self):
-        query = ('SELECT contest_id, p_index, name, type, rating, tags, start_time '
-                 'FROM problem')
-        res = self.conn.execute(query).fetchall()
-        return [(cf.Problem._make(problem[:6]), problem[6]) for problem in res]
-
     def cache_contests(self, contests):
         query = ('INSERT OR REPLACE INTO contest '
                  '(id, name, start_time, duration, type, phase, prepared_by) '
@@ -69,13 +57,35 @@ class CacheDbConn:
         self.conn.commit()
         return rc
 
+    def fetch_contests(self):
+        query = ('SELECT id, name, start_time, duration, type, phase, prepared_by '
+                 'FROM contest')
+        res = self.conn.execute(query).fetchall()
+        return [cf.Contest._make(contest) for contest in res]
+
+    @staticmethod
+    def _squish_tags(problem):
+        return (problem.contestId, problem.index, problem.name, problem.type, problem.rating,
+                json.dumps(problem.tags))
+
     def cache_problems(self, problems):
         query = ('INSERT OR REPLACE INTO problem '
-                 '(name, contest_id, p_index, start_time, rating, type, tags) '
-                 'VALUES (?, ?, ?, ?, ?, ?, ?)')
-        rc = self.conn.executemany(query, problems).rowcount
+                 '(contest_id, [index], name, type, rating, tags) '
+                 'VALUES (?, ?, ?, ?, ?, ?)')
+        rc = self.conn.executemany(query, list(map(self._squish_tags, problems))).rowcount
         self.conn.commit()
         return rc
+
+    @staticmethod
+    def _unsquish_tags(problem):
+        args, tags = problem[:5], json.loads(problem[5])
+        return cf.Problem(*args, tags)
+
+    def fetch_problems(self):
+        query = ('SELECT contest_id, [index], name, type, rating, tags '
+                 'FROM problem')
+        res = self.conn.execute(query).fetchall()
+        return list(map(self._unsquish_tags, res))
 
     def save_rating_changes(self, changes):
         change_tuples = [(change.contestId,
