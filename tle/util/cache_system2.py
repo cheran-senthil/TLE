@@ -339,6 +339,8 @@ class RatingChangesCache:
                 self.update_task.cancel()
             if to_monitor:
                 self.update_task = asyncio.create_task(self._update_task(to_monitor))
+            else:
+                self.monitored_contests = []
 
     async def _update_task(self, contests):
         self.monitored_contests = contests
@@ -354,6 +356,7 @@ class RatingChangesCache:
             else:
                 self._save_changes(all_changes)
             await asyncio.sleep(self._RELOAD_DELAY)
+        self.monitored_contests = []
         self.logger.info('Rated changes fetched for contests that were being monitored, '
                          'halting update task.')
 
@@ -454,6 +457,8 @@ class RanklistCache:
                 self.update_task.cancel()
             if to_monitor:
                 self.update_task = asyncio.create_task(self._update_task(to_monitor))
+            else:
+                self.ranklist_by_contest = {}
 
     async def _update_task(self, contests):
         check = self.cache_master.rating_changes_cache.is_newly_finished_without_rating_changes
@@ -473,6 +478,7 @@ class RanklistCache:
                         ranklist_by_contest[contest.id] = self.ranklist_by_contest[contest.id]
                 self.ranklist_by_contest = ranklist_by_contest
             await asyncio.sleep(self._RELOAD_DELAY)
+        self.ranklist_by_contest = {}
         self.logger.info('Halting ranklist monitor task')
 
     async def _fetch(self, contests):

@@ -39,6 +39,8 @@ async def initialize(nodb):
     global event_sys
     global _contest_id_to_writers_map
 
+    await cf.initialize()
+
     if nodb:
         user_db = db.DummyUserDbConn()
     else:
