@@ -1,28 +1,14 @@
 import asyncio
 import logging
-import json
 import time
-import traceback
-from contextlib import contextmanager
 
 from discord.ext import commands
 
 from tle.util import codeforces_common as cf_common
 from tle.util import codeforces_api as cf
-from tle.util import db
 from tle.util.ranklist import Ranklist
 
 logger = logging.getLogger(__name__)
-
-
-@contextmanager
-def suppress(*exceptions):
-    assert all(issubclass(ex, BaseException) for ex in exceptions)
-    try:
-        yield
-    except exceptions as ex:
-        msg = '\n'.join(traceback.format_exception_only(type(ex), ex))
-        logger.info(f'Ignoring exception. {msg}')
 
 
 class CacheError(commands.CommandError):
@@ -85,14 +71,16 @@ class ContestCache:
         except KeyError:
             raise ContestNotFound(contest_id)
 
+    def get_contests_in_phase(self, phase):
+        return self.contests_by_phase[phase]
+
     async def _try_disk(self):
-        with suppress(db.DatabaseDisabledError):
-            async with self.reload_lock:
-                contests = self.cache_master.conn.fetch_contests()
-                if not contests:
-                    # Load failed.
-                    return
-                await self._update(contests, from_api=False)
+        async with self.reload_lock:
+            contests = self.cache_master.conn.fetch_contests()
+            if not contests:
+                # Load failed.
+                return
+            await self._update(contests, from_api=False)
 
     async def _contest_updater_task(self):
         self.logger.info('Running contest updater task')
@@ -121,9 +109,8 @@ class ContestCache:
         contests.sort(key=lambda contest: (contest.startTimeSeconds, contest.id))
 
         if from_api:
-            with suppress(db.DatabaseDisabledError):
-                rc = self.cache_master.conn.cache_contests(contests)
-                self.logger.info(f'{rc} contests stored in database')
+            rc = self.cache_master.conn.cache_contests(contests)
+            self.logger.info(f'{rc} contests stored in database')
 
         contests_by_phase = {phase: [] for phase in cf.Contest.PHASES}
         contests_by_phase['_RUNNING'] = []
@@ -168,6 +155,7 @@ class ProblemCache:
         self.cache_master = cache_master
 
         self.problems = []
+        self.problem_by_name = {}
         self.problems_last_cache = 0
 
         self.reload_lock = asyncio.Lock()
@@ -194,16 +182,14 @@ class ProblemCache:
             raise self.reload_exception
 
     async def _try_disk(self):
-        with suppress(db.DatabaseDisabledError):
-            async with self.reload_lock:
-                problem_res = self.cache_master.conn.fetch_problems()
-                if not problem_res:
-                    # Load failed.
-                    return
-                self.problem_start = {problem.name: start_time for problem, start_time in problem_res}
-                self.problems = [problem for problem, _ in problem_res]
-                self.problem_by_name = {problem.name: problem for problem in self.problems}
-                self.logger.info(f'{len(self.problems)} problems fetched from disk')
+        async with self.reload_lock:
+            problems = self.cache_master.conn.fetch_problems()
+            if not problems:
+                # Load failed.
+                return
+            self.problems = problems
+            self.problem_by_name = {problem.name: problem for problem in problems}
+            self.logger.info(f'{len(self.problems)} problems fetched from disk')
 
     async def _problem_updater_task(self):
         self.logger.info('Running problem updater task')
@@ -240,29 +226,14 @@ class ProblemCache:
             problem.name: problem  # This will discard some valid problems
             for problem in filtered_problems
         }
-        self.logger.info(f'Keeping {len(filtered_problems)} problems')
-        problem_start = {
-            problem.name: contest_map[problem.contestId].startTimeSeconds
-            for problem in filtered_problems
-        }
+        self.logger.info(f'Keeping {len(problem_by_name)} problems')
 
-        self.problems = filtered_problems
+        self.problems = list(problem_by_name.values())
         self.problem_by_name = problem_by_name
-        self.problem_start = problem_start
         self.problems_last_cache = time.time()
 
-        with suppress(db.DatabaseDisabledError):
-            def get_tuple_repr(problem):
-                return (problem.name,
-                        problem.contestId,
-                        problem.index,
-                        self.problem_start[problem.name],
-                        problem.rating,
-                        problem.type,
-                        json.dumps(problem.tags))
-
-            rc = self.cache_master.conn.cache_problems([get_tuple_repr(problem) for problem in self.problems])
-            self.logger.info(f'{rc} problems stored in database')
+        rc = self.cache_master.conn.cache_problems(self.problems)
+        self.logger.info(f'{rc} problems stored in database')
 
 
 class RatingChangesCache:
@@ -405,6 +376,9 @@ class RatingChangesCache:
 
     def get_current_rating_or_default(self, handle):
         return self.handle_rating_cache.get(handle, self.DEFAULT_RATING)
+
+    def get_all_ratings(self):
+        return list(self.handle_rating_cache.values())
 
 
 class RanklistCacheError(CacheError):

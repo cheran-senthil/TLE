@@ -17,8 +17,6 @@ from tle.util import paginator
 from tle.util import ranklist as rl
 from tle.util import table
 
-_CONTEST_RELOAD_INTERVAL = 60 * 60  # 1 hour
-_CONTEST_RELOAD_ACCEPTABLE_DELAY = 15 * 60  # 15 mins
 _CONTESTS_PER_PAGE = 5
 _CONTEST_PAGINATE_WAIT_TIME = 5 * 60
 _STANDINGS_PER_PAGE = 15
@@ -111,23 +109,16 @@ class Contests(commands.Cog):
         asyncio.create_task(self._updater_task())
 
     async def _updater_task(self):
+        self.logger.info('Running Contests cog updater task')
         while True:
             try:
+                await cf_common.event_sys.wait_for('EVENT_CONTEST_LIST_REFRESH')
                 await self._reload()
-            except Exception as ex:
-                self.logger.error(f'Unexpected exception in updater task, ignoring {ex}')
-            await asyncio.sleep(_CONTEST_RELOAD_INTERVAL)
+            except Exception:
+                self.logger.warning(f'Exception in Contests cog updater task, ignoring.', exc_info=True)
 
-    async def _reload(self, acceptable_delay=_CONTEST_RELOAD_ACCEPTABLE_DELAY):
-        contest_dict = await cf_common.cache.get_contests(acceptable_delay)
-        if contest_dict is None:
-            self.logger.warning('Could not update cache')
-            return
-
-        contests = [contest for contest in contest_dict.values() if contest.phase == 'BEFORE']
-        contests.sort(key=lambda c: c.startTimeSeconds)
-
-        self.future_contests = contests
+    async def _reload(self):
+        self.future_contests = cf_common.cache2.contest_cache.get_contests_in_phase('BEFORE')
         self.logger.info(f'Refreshed cache with {len(self.future_contests)} contests')
         self.contest_id_map = {c.id: c for c in self.future_contests}
         self.start_time_map.clear()

@@ -1,4 +1,3 @@
-import asyncio
 import functools
 import json
 import logging
@@ -13,7 +12,6 @@ from tle.util import codeforces_api as cf
 from tle.util import db
 from tle.util import discord_common
 from tle.util import event_system
-from tle.util.cache_system import CacheSystem
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +19,6 @@ logger = logging.getLogger(__name__)
 user_db = None
 
 # Cache system
-cache = None
 cache2 = None
 
 # Event system
@@ -29,15 +26,22 @@ event_sys = event_system.EventSystem()
 
 _contest_id_to_writers_map = None
 
+_initialize_done = False
+
 active_groups = defaultdict(set)
 
 
 async def initialize(nodb):
-    global cache
     global cache2
     global user_db
     global event_sys
     global _contest_id_to_writers_map
+    global _initialize_done
+
+    if _initialize_done:
+        # This happens if the bot loses connection to Discord and on_ready is triggered again
+        # when it reconnects.
+        return
 
     await cf.initialize()
 
@@ -46,17 +50,6 @@ async def initialize(nodb):
     else:
         user_db_file = os.path.join(constants.FILEDIR, constants.USER_DB_FILENAME)
         user_db = db.UserDbConn(user_db_file)
-
-    cache = CacheSystem(user_db)
-    # Initial fetch from CF API
-    await cache.force_update()
-    if cache.contest_last_cache and cache.problems_last_cache:
-        logger.info('Initial fetch done, cache loaded')
-    else:
-        # If fetch failed, load from disk
-        logger.info('Loading cache from disk')
-        cache.try_disk()
-    asyncio.create_task(_cache_refresher_task())
 
     cache_db_file = os.path.join(constants.FILEDIR, constants.CACHE_DB_FILENAME)
     cache_db = db.CacheDbConn(cache_db_file)
@@ -71,6 +64,8 @@ async def initialize(nodb):
         logger.info('Contest writers loaded from JSON file')
     except FileNotFoundError:
         logger.warning('JSON file containing contest writers not found')
+
+    _initialize_done = True
 
 
 # algmyr's guard idea:
@@ -93,16 +88,6 @@ def user_guard(*, group):
         return f
 
     return guard
-
-
-_CACHE_REFRESH_INTERVAL = 60 * 60
-
-
-async def _cache_refresher_task():
-    while True:
-        await asyncio.sleep(_CACHE_REFRESH_INTERVAL)
-        logger.info('Attempting cache refresh')
-        await cache.force_update()
 
 
 def is_contest_writer(contest_id, handle):
