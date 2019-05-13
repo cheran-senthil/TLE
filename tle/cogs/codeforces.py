@@ -357,7 +357,7 @@ class Codeforces(commands.Cog):
     @commands.command(brief="rectify")
     @commands.has_role('Admin')
     async def rectify(self, ctx):
-        cf_common.conn.rectify()
+        cf_common.user_db.rectify()
 
 
 def setup(bot):
