@@ -75,6 +75,10 @@ class Codeforces(commands.Cog):
     @commands.command(brief='Challenge')
     @cf_common.user_guard(group='gitgud')
     async def gitgud(self, ctx, delta: int = 0):
+        """Request a problem for gitgud points.
+        delta  | -300 | -200 | -100 |  0  | +100 | +200 | +300
+        points |   2  |   3  |   5  |  8  |  12  |  17  |  23
+        """
         handles = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         handle = handles[0]
 
