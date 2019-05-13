@@ -103,7 +103,8 @@ class UserDbConn:
             score = 0
             for delta, status in res:
                 if status == 0:
-                    score = score + delta // 100 + 3
+                    score_distrib = [2, 3, 5, 8, 12, 17, 23]
+                    score = score + score_distrib[delta // 100 + 3]
 
             if score != scores[i]:
                 print ('{}: {} -> {}'.format(self.gethandle(user_id), scores[i], score))
