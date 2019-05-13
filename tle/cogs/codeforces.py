@@ -92,8 +92,8 @@ class Codeforces(commands.Cog):
         solved = {sub.problem.name for sub in submissions}
 
         delta = round(delta, -2)
-        if delta < -200 or delta > 200:
-            await ctx.send('Delta can range from -200 to 200.')
+        if delta < -300 or delta > 300:
+            await ctx.send('Delta can range from -300 to 300.')
             return
         rating = round(rating, -2)
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
@@ -148,7 +148,9 @@ class Codeforces(commands.Cog):
         if not name in solved:
             await ctx.send('You haven\'t completed your challenge.')
             return
-        delta = delta // 100 + 3
+
+        score_distrib = [2, 3, 5, 8, 12, 17, 23]
+        delta = score_distrib[delta // 100 + 3]
         finish_time = int(datetime.datetime.now().timestamp())
         rc = cf_common.user_db.complete_challenge(user_id, challenge_id, finish_time, delta)
         if rc == 1:
