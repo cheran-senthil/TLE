@@ -146,7 +146,7 @@ class Codeforces(commands.Cog):
 
         resp = await cf_common.run_handle_related_coro(handles, cf.user.status)
         submissions = resp[0]
-        solved = {sub.problem.name for sub in submissions}
+        solved = {sub.problem.name for sub in submissions if sub.verdict == 'OK'}
 
         challenge_id, issue_time, name, contestId, index, delta = active
         if not name in solved:
