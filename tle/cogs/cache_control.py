@@ -41,7 +41,7 @@ class CacheControl(commands.Cog):
 
     @cache.command(usage='[contest_id|all|missing]')
     @timed_command
-    async def ratingchanges(self, ctx, contest_id):
+    async def ratingchanges(self, ctx, contest_id = 'missing'):
         if contest_id not in ('all', 'missing'):
             try:
                 contest_id = int(contest_id)
