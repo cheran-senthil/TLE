@@ -294,7 +294,7 @@ class Graphs(commands.Cog):
         if subcommand == 'server':
             mode = mode or 'normal'
             res = cf_common.user_db.getallhandleswithrating()
-            ratings = [rating for _, _, rating in res]
+            ratings = [rating for _, _, rating in res if rating]
             await self._rating_hist(ctx,
                                     ratings,
                                     mode,
