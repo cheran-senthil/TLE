@@ -101,6 +101,15 @@ class CacheDbConn:
         self.conn.commit()
         return rc
 
+    def clear_rating_changes(self, contest_id=None):
+        if contest_id is None:
+            query = 'DELETE FROM rating_change'
+            self.conn.execute(query)
+        else:
+            query = 'DELETE FROM rating_change WHERE contest_id = ?'
+            self.conn.execute(query, (contest_id,))
+        self.conn.commit()
+
     def get_all_rating_changes(self):
         query = ('SELECT contest_id, name, handle, rank, rating_update_time, old_rating, new_rating '
                  'FROM rating_change r '

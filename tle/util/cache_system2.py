@@ -259,6 +259,7 @@ class RatingChangesCache:
         """Fetch rating changes for a particular contest. Intended for manual trigger."""
         contest = self.cache_master.contest_cache.contest_by_id[contest_id]
         changes = await self._fetch([contest])
+        self.cache_master.conn.clear_rating_changes(contest_id=contest_id)
         self._save_changes(changes)
         return len(changes)
 
@@ -266,6 +267,7 @@ class RatingChangesCache:
         """Fetch rating changes for all contests. Intended for manual trigger."""
         contests = self.cache_master.contest_cache.contests_by_phase['FINISHED']
         changes = await self._fetch(contests)
+        self.cache_master.conn.clear_rating_changes()
         self._save_changes(changes)
         return len(changes)
 

@@ -39,9 +39,12 @@ class CacheControl(commands.Cog):
     async def problems(self, ctx):
         await cf_common.cache2.problem_cache.reload_now()
 
-    @cache.command(usage='[contest_id|all|missing]')
+    @cache.command(usage='[missing|all|contest_id]')
     @timed_command
-    async def ratingchanges(self, ctx, contest_id = 'missing'):
+    async def ratingchanges(self, ctx, contest_id='missing'):
+        """Defaults to 'missing'. Mode 'all' clears existing cached changes.
+        Mode 'contest_id' clears existing changes with the given contest id.
+        """
         if contest_id not in ('all', 'missing'):
             try:
                 contest_id = int(contest_id)
