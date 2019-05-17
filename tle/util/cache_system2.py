@@ -462,23 +462,34 @@ class RanklistCache:
         for contest in contests:
             try:
                 contest, problems, standings = await cf.contest.standings(contest_id=contest.id)
+                _, _, all_standings = await cf.contest.standings(contest_id=contest.id, show_unofficial=True)
                 self.logger.info(f'Ranklist fetched for contest {contest.id}')
             except cf.CodeforcesApiError as er:
-                self.logger.warning(f'Ranklist fetch failed for contest {contest.id}. {er}')
+                self.logger.warning(f'Ranklist fetch failed for contest {contest.id}. {er!r}')
+                continue
+
+            now = time.time()
+
+            # Exclude PRACTICE and MANAGER
+            all_standings = [row for row in all_standings
+                             if row.party.participantType in ('CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL')]
+
+            has_teams = any(row.party.teamId is not None for row in standings)
+            if cf_common.is_nonstandard_contest(contest) or has_teams:
+                # The contest is not rated
+                ranklist = Ranklist(contest, problems, all_standings, now)
             else:
-                now = time.time()
-                get_current_rating = self.cache_master.rating_changes_cache.get_current_rating_or_default
-                if cf_common.is_nonstandard_contest(contest):
-                    ranklist = Ranklist(contest, problems, standings, now, get_current_rating, is_rated=False)
-                else:
-                    rated_range = None
-                    if 'Educational' in contest.name:
-                        # For some reason educational contests return all contestants in ranklist even
-                        # when unofficial contestants are not requested.
-                        rated_range = range(-10000, 2100)
-                    ranklist = Ranklist(contest, problems, standings, now, get_current_rating, is_rated=True,
-                                        rated_range=rated_range)
-                ranklist_by_contest[contest.id] = ranklist
+                get_rating = self.cache_master.rating_changes_cache.get_current_rating_or_default
+                current_rating = {row.party.members[0].handle: get_rating(row.party.members[0].handle)
+                                  for row in standings}
+                if 'Educational' in contest.name:
+                    # For some reason educational contests return all contestants in ranklist even
+                    # when unofficial contestants are not requested.
+                    current_rating = {handle: rating
+                                      for handle, rating in current_rating.items() if rating < 2100}
+                ranklist = Ranklist(contest, problems, all_standings, now, current_rating)
+            ranklist_by_contest[contest.id] = ranklist
+
         return ranklist_by_contest
 
 

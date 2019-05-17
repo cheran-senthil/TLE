@@ -167,12 +167,6 @@ class Contests(commands.Cog):
             pages.append(('Future contests on Codeforces', embed))
         return pages
 
-    @commands.command(brief='Force contest recache')
-    @commands.has_role('Admin')
-    async def _recachecontests(self, ctx):
-        await self._reload(acceptable_delay=0)
-        await ctx.send('Recached contests')
-
     @commands.command(brief='Show future contests')
     async def future(self, ctx, contest_id: int = None, timezone: str = None):
         """Show all future contests or a specific contest in your timezone."""
@@ -294,7 +288,8 @@ class Contests(commands.Cog):
 
         body = []
         for handle, standing in handle_standings:
-            tokens = [standing.rank, handle + ':', maybe_int(standing.points)]
+            virtual = '#' if standing.party.participantType == 'VIRTUAL' else ''
+            tokens = [standing.rank, handle + ':' + virtual, maybe_int(standing.points)]
             for problem_result in standing.problemResults:
                 score = ''
                 if problem_result.points:
@@ -319,7 +314,8 @@ class Contests(commands.Cog):
 
         body = []
         for handle, standing in handle_standings:
-            tokens = [standing.rank, handle + ':', int(standing.points), int(standing.penalty)]
+            virtual = '#' if standing.party.participantType == 'VIRTUAL' else ''
+            tokens = [standing.rank, handle + ':' + virtual, int(standing.points), int(standing.penalty)]
             for problem_result in standing.problemResults:
                 score = '+' if problem_result.points else ''
                 if problem_result.rejectedAttemptCount:
@@ -373,9 +369,8 @@ class Contests(commands.Cog):
 
     @commands.command(brief='Show ranklist for given handles and/or server members')
     async def ranklist(self, ctx, contest_id: int, *handles: str):
-        """Shows ranklist for the contest with given contest id. If no handles are present,
-        the invokers's handle is assumed. If handles contains +server, all server
-        members are included.
+        """Shows ranklist for the contest with given contest id. If handles contains
+        '+server', all server members are included. No handles defaults to '+server'.
         """
 
         contest = cf_common.cache2.contest_cache.get_contest(contest_id)
@@ -383,8 +378,8 @@ class Contests(commands.Cog):
 
         handles = set(handles)
         if not handles:
-            handles.add('!' + str(ctx.author))
-        elif '+server' in handles:
+            handles.add('+server')
+        if '+server' in handles:
             handles.remove('+server')
             guild_handles = [handle for discord_id, handle
                              in cf_common.user_db.get_handles_for_guild(ctx.guild.id)]

@@ -156,6 +156,12 @@ async def initialize():
     _api_lock = asyncio.Lock()
 
 
+def _bool_to_str(value):
+    if type(value) is bool:
+        return 'true' if value else 'false'
+    raise TypeError(f'Expected bool, got {value} of type {type(value)}')
+
+
 async def _query_api(path, params=None):
     async with _api_lock:
         url = API_BASE_URL + path
@@ -174,7 +180,7 @@ async def _query_api(path, params=None):
                 except aiohttp.ContentTypeError:
                     pass
         except aiohttp.ClientError as e:
-            logger.error(f'Request to CF API encountered error: {e}')
+            logger.error(f'Request to CF API encountered error: {e!r}')
             raise ClientError(e) from e
         logger.warning(f'Query to CF API failed: {comment}')
         if 'not found' in comment:
@@ -190,10 +196,10 @@ async def _query_api(path, params=None):
 
 class contest:
     @staticmethod
-    async def list(*, gym=False):
+    async def list(*, gym=None):
         params = {}
-        if gym:
-            params['gym'] = 'true'
+        if gym is not None:
+            params['gym'] = _bool_to_str(gym)
         resp = await _query_api('contest.list', params)
         return [make_from_dict(Contest, contest_dict) for contest_dict in resp]
 
@@ -216,7 +222,7 @@ class contest:
         if room is not None:
             params['room'] = room
         if show_unofficial is not None:
-            params['showUnofficial'] = show_unofficial
+            params['showUnofficial'] = _bool_to_str(show_unofficial)
         resp = await _query_api('contest.standings', params)
         contest_ = make_from_dict(Contest, resp['contest'])
         problems = [make_from_dict(Problem, problem_dict) for problem_dict in resp['problems']]
@@ -259,10 +265,10 @@ class user:
         return [make_from_dict(RatingChange, ratingchange_dict) for ratingchange_dict in resp]
 
     @staticmethod
-    async def ratedList(*, activeOnly = True):
+    async def ratedList(*, activeOnly=None):
         params = {}
-        if activeOnly:
-            params['activeOnly'] = 'true'
+        if activeOnly is not None:
+            params['activeOnly'] = _bool_to_str(activeOnly)
         resp = await _query_api('user.ratedList', params=params)
         return [make_from_dict(User, user_dict) for user_dict in resp]
 
