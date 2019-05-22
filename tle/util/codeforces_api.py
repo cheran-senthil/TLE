@@ -71,7 +71,11 @@ class Contest(namedtuple('Contest', 'id name startTimeSeconds durationSeconds ty
         return f'{CONTESTS_BASE_URL}{self.id}'
 
 
-Party = namedtuple('Party', 'contestId members participantType teamId teamName room startTimeSeconds')
+class Party(namedtuple('Party',
+                       'contestId members participantType teamId teamName room startTimeSeconds')):
+    __slots__ = ()
+    PARTICIPANT_TYPES = ('CONTESTANT', 'PRACTICE', 'VIRTUAL', 'MANAGER', 'OUT_OF_COMPETITION')
+
 
 Member = namedtuple('Member', 'handle')
 

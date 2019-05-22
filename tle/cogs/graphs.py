@@ -18,8 +18,6 @@ from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
 from tle.util import discord_common
 
-_ZERO_WIDTH_SPACE = '\u200b'
-
 pandas.plotting.register_matplotlib_converters()
 
 
@@ -67,29 +65,31 @@ def _plot_rating(resp, mark='o', labels: List[str] = None):
     _plot_rating_bg()
 
 
-def _classify_subs(submissions, contests):
-    submissions.sort(key=lambda s: s.creationTimeSeconds)
+def _filter_solved_submissions(submissions, contests):
+    """Filters and keeps only solved submissions with problems that have a rating and belong to
+    some contest from given contests. If a problem is solved multiple times the first accepted
+    submission is kept. The unique id for a problem is (problem name, contest start time).
+    """
+    submissions.sort(key=lambda sub: sub.creationTimeSeconds)
     contest_id_map = {contest.id: contest for contest in contests}
-    regular, practice, virtual = {}, {}, {}
+    problems = set()
+    solved_subs = []
     for submission in submissions:
-        if submission.verdict != 'OK':
-            continue
-        problem = submission.problem
-        submission_time = datetime.datetime.fromtimestamp(submission.creationTimeSeconds)
-        contest = contest_id_map.get(problem.contestId)
-        if submission_time and problem.rating and contest:
-            contest_type = submission.author.participantType
-            entry = (submission_time, problem.rating)
-            problem_key = (problem.name, contest.startTimeSeconds)
-            if problem_key in practice or problem_key in virtual or problem_key in regular:
-                continue
-            if contest_type == 'PRACTICE':
-                practice[problem_key] = entry
-            elif contest_type == 'VIRTUAL':
-                virtual[problem_key] = entry
-            else:
-                regular[problem_key] = entry
-    return list(regular.values()), list(practice.values()), list(virtual.values())
+        contest = contest_id_map.get(submission.problem.contestId)
+        if submission.verdict == 'OK' and submission.problem.rating and contest:
+            # Assume (name, contest start time) is a unique identifier for problems
+            problem_key = (submission.problem.name, contest.startTimeSeconds)
+            if problem_key not in problems:
+                solved_subs.append(submission)
+                problems.add(problem_key)
+    return solved_subs
+
+
+def _classify_submissions(submissions):
+    solved_by_type = {sub_type: [] for sub_type in cf.Party.PARTICIPANT_TYPES}
+    for submission in submissions:
+        solved_by_type[submission.author.participantType].append(submission)
+    return solved_by_type
 
 
 def _plot_scatter(regular, practice, virtual):
@@ -153,7 +153,7 @@ class Graphs(commands.Cog):
         plt.clf()
         _plot_rating(resp)
         current_ratings = [rating_changes[-1].newRating if rating_changes else 'Unrated' for rating_changes in resp]
-        labels = [f'{_ZERO_WIDTH_SPACE}{handle} ({rating})' for handle, rating in zip(handles, current_ratings)]
+        labels = [f'\N{ZERO WIDTH SPACE}{handle} ({rating})' for handle, rating in zip(handles, current_ratings)]
         plt.legend(labels, loc='upper left')
 
         discord_file = _get_current_figure_as_file()
@@ -168,32 +168,48 @@ class Graphs(commands.Cog):
         handles = handles or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         resp = await cf_common.run_handle_related_coro(handles, cf.user.status)
+        contests = await cf.contest.list()
 
-        allratings = []
-        for submissions in resp:
-            problems = dict()
-            for submission in submissions:
-                problem = submission.problem
-                if submission.verdict == 'OK' and problem.rating:
-                    problems[problem.contest_identifier] = problem.rating
+        all_solved_subs = [_filter_solved_submissions(submissions, contests)
+                           for submissions in resp]
 
-            ratings = list(problems.values())
-            allratings.append(ratings)
+        if len(handles) == 1:
+            # Display solved problem separately by type for a single user.
+            handle, solved_by_type = handles[0], _classify_submissions(all_solved_subs[0])
 
-        # Adjust bin size so it looks nice
-        step = 100 if len(handles) == 1 else 200
-        hist_bins = list(range(500, 3800 + step, step))
+            types_to_show = ['CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL', 'PRACTICE']
+            all_ratings = [[sub.problem.rating for sub in solved_by_type[sub_type]]
+                           for sub_type in types_to_show]
+            nice_names = ['Contest: {}', 'Unofficial: {}', 'Virtual: {}', 'Practice: {}']
+            labels = [name.format(len(ratings)) for name, ratings in zip(nice_names, all_ratings)]
+            total = sum(map(len, all_ratings))
 
-        # NOTE: matplotlib ignores labels that begin with _
-        # https://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.legend
-        # Add zero-width space to work around this
-        labels = [f'{_ZERO_WIDTH_SPACE}{handle}: {len(ratings)}' for handle, ratings in zip(handles, allratings)]
+            step = 100
+            hist_bins = list(range(500, 3800 + step, step))
+            plt.clf()
+            plt.hist(all_ratings, stacked=True, bins=hist_bins, label=labels)
+            plt.xlabel('Problem rating')
+            plt.ylabel('Number solved')
+            plt.legend(title=f'{handle}: {total}', title_fontsize=plt.rcParams['legend.fontsize'],
+                       loc='upper right')
 
-        plt.clf()
-        plt.hist(allratings, bins=hist_bins, label=labels)
-        plt.xlabel('Problem rating')
-        plt.ylabel('Number solved')
-        plt.legend(loc='upper right')
+        else:
+            all_ratings = [[sub.problem.rating for sub in solved_subs]
+                           for solved_subs in all_solved_subs]
+
+            # NOTE: matplotlib ignores labels that begin with _
+            # https://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.legend
+            # Add zero-width space to work around this
+            labels = [f'\N{ZERO WIDTH SPACE}{handle}: {len(ratings)}'
+                      for handle, ratings in zip(handles, all_ratings)]
+
+            step = 200
+            hist_bins = list(range(500, 3800 + step, step))
+            plt.clf()
+            plt.hist(all_ratings, bins=hist_bins, label=labels)
+            plt.xlabel('Problem rating')
+            plt.ylabel('Number solved')
+            plt.legend(loc='upper right')
 
         discord_file = _get_current_figure_as_file()
         embed = discord_common.cf_color_embed(title='Histogram of problems solved on Codeforces')
@@ -218,7 +234,17 @@ class Graphs(commands.Cog):
         handle = handles[0]
         submissions = resp[0]
 
-        regular, practice, virtual = _classify_subs(submissions, contests)
+        def extract_time_and_rating(submissions):
+            return [(datetime.datetime.fromtimestamp(sub.creationTimeSeconds), sub.problem.rating)
+                    for sub in submissions]
+
+        solved_subs = _filter_solved_submissions(submissions, contests)
+        solved_by_type = _classify_submissions(solved_subs)
+        regular = extract_time_and_rating(solved_by_type['CONTESTANT'] +
+                                          solved_by_type['OUT_OF_COMPETITION'])
+        practice = extract_time_and_rating(solved_by_type['PRACTICE'])
+        virtual = extract_time_and_rating(solved_by_type['VIRTUAL'])
+
         plt.clf()
         _plot_scatter(regular, practice, virtual)
         labels = ['Practice', 'Regular', 'Virtual']
