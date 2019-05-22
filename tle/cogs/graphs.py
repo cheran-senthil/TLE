@@ -65,28 +65,30 @@ def _plot_rating(resp, mark='o', labels: List[str] = None):
     _plot_rating_bg()
 
 
-def _classify_solved_submissions(submissions, contests):
-    """Filters and keeps only solved submissions with problems that have a rating and belong
-    to some contest out of the provided contests. These are then grouped by the type of
-    submission (contest, practice, etc). A solved problem is grouped into the type of the first
-    accepted submission. The unique id for a problem is (problem name, contest start time).
+def _filter_solved_submissions(submissions, contests):
+    """Filters and keeps only solved submissions with problems that have a rating and belong to
+    some contest from given contests. If a problem is solved multiple times the first accepted
+    submission is kept. The unique id for a problem is (problem name, contest start time).
     """
-
     submissions.sort(key=lambda sub: sub.creationTimeSeconds)
     contest_id_map = {contest.id: contest for contest in contests}
     problems = set()
+    solved_subs = []
+    for submission in submissions:
+        contest = contest_id_map.get(submission.problem.contestId)
+        if submission.verdict == 'OK' and submission.problem.rating and contest:
+            # Assume (name, contest start time) is a unique identifier for problems
+            problem_key = (submission.problem.name, contest.startTimeSeconds)
+            if problem_key not in problems:
+                solved_subs.append(submission)
+                problems.add(problem_key)
+    return solved_subs
+
+
+def _classify_submissions(submissions):
     solved_by_type = {sub_type: [] for sub_type in cf.Party.PARTICIPANT_TYPES}
     for submission in submissions:
-        if submission.verdict != 'OK':
-            continue
-        contest = contest_id_map.get(submission.problem.contestId)
-        if submission.problem.rating and contest:
-            # Assume (name, start time) is a unique identifier for problems
-            problem_key = (submission.problem.name, contest.startTimeSeconds)
-            if problem_key in problems:
-                continue
-            solved_by_type[submission.author.participantType].append(submission)
-            problems.add(problem_key)
+        solved_by_type[submission.author.participantType].append(submission)
     return solved_by_type
 
 
@@ -168,24 +170,19 @@ class Graphs(commands.Cog):
         resp = await cf_common.run_handle_related_coro(handles, cf.user.status)
         contests = await cf.contest.list()
 
-        all_subs_classified = [_classify_solved_submissions(submissions, contests)
-                               for submissions in resp]
+        all_solved_subs = [_filter_solved_submissions(submissions, contests)
+                           for submissions in resp]
 
         if len(handles) == 1:
             # Display solved problem separately by type for a single user.
-            handle, solved_by_type = handles[0], all_subs_classified[0]
-            contest, unofficial, virtual, practice = (solved_by_type['CONTESTANT'],
-                                                      solved_by_type['OUT_OF_COMPETITION'],
-                                                      solved_by_type['VIRTUAL'],
-                                                      solved_by_type['PRACTICE'])
+            handle, solved_by_type = handles[0], _classify_submissions(all_solved_subs[0])
 
-            def extract_rating(submissions):
-                return [sub.problem.rating for sub in submissions]
-
-            all_ratings = list(map(extract_rating, (contest, unofficial, virtual, practice)))
+            types_to_show = ['CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL', 'PRACTICE']
+            all_ratings = [[sub.problem.rating for sub in solved_by_type[sub_type]]
+                           for sub_type in types_to_show]
             nice_names = ['Contest: {}', 'Unofficial: {}', 'Virtual: {}', 'Practice: {}']
             labels = [name.format(len(ratings)) for name, ratings in zip(nice_names, all_ratings)]
-            total = sum(len(ratings) for ratings in all_ratings)
+            total = sum(map(len, all_ratings))
 
             step = 100
             hist_bins = list(range(500, 3800 + step, step))
@@ -197,12 +194,8 @@ class Graphs(commands.Cog):
                        loc='upper right')
 
         else:
-            all_ratings = []
-            for solved_by_type in all_subs_classified:
-                ratings = [sub.problem.rating
-                           for submissions in solved_by_type.values()
-                           for sub in submissions]
-                all_ratings.append(ratings)
+            all_ratings = [[sub.problem.rating for sub in solved_subs]
+                           for solved_subs in all_solved_subs]
 
             # NOTE: matplotlib ignores labels that begin with _
             # https://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.legend
@@ -245,12 +238,12 @@ class Graphs(commands.Cog):
             return [(datetime.datetime.fromtimestamp(sub.creationTimeSeconds), sub.problem.rating)
                     for sub in submissions]
 
-        solved_by_type = _classify_solved_submissions(submissions, contests)
-        regular, practice, virtual = (solved_by_type['CONTESTANT']
-                                      + solved_by_type['OUT_OF_COMPETITION'],
-                                      solved_by_type['PRACTICE'],
-                                      solved_by_type['VIRTUAL'])
-        regular, practice, virtual = list(map(extract_time_and_rating, (regular, practice, virtual)))
+        solved_subs = _filter_solved_submissions(submissions, contests)
+        solved_by_type = _classify_submissions(solved_subs)
+        regular = extract_time_and_rating(solved_by_type['CONTESTANT'] +
+                                          solved_by_type['OUT_OF_COMPETITION'])
+        practice = extract_time_and_rating(solved_by_type['PRACTICE'])
+        virtual = extract_time_and_rating(solved_by_type['VIRTUAL'])
 
         plt.clf()
         _plot_scatter(regular, practice, virtual)
