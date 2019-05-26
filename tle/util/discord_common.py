@@ -46,6 +46,8 @@ async def bot_error_handler(ctx, exception):
         await ctx.send(embed=embed_alert('Sorry, the database is not available. Some features are disabled.'))
     elif isinstance(exception, commands.NoPrivateMessage):
         await ctx.send(embed=embed_alert('Commands are disabled in private channels'))
+    elif isinstance(exception, commands.DisabledCommand):
+        await ctx.send(embed=embed_alert('Sorry, this command is temporarily disabled'))
     else:
         exc_info = type(exception), exception, exception.__traceback__
         logger.exception('Ignoring exception in command {}:'.format(ctx.command), exc_info=exc_info)
