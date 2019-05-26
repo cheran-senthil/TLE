@@ -34,7 +34,8 @@ class Codeforces(commands.Cog):
 
         handles = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         handle = handles[0]
-        rating = cf_common.cache2.rating_changes_cache.get_current_rating_or_default(handle)
+        user = cf_common.user_db.fetch_cfuser(handle)
+        rating = user.rating
         resp = await cf_common.run_handle_related_coro(handles, cf.user.status)
         submissions = resp[0]
         solved = {sub.problem.name for sub in submissions}
@@ -90,7 +91,8 @@ class Codeforces(commands.Cog):
             await ctx.send(f'You have an active challenge {name} at {url}')
             return
 
-        rating = cf_common.cache2.rating_changes_cache.get_current_rating_or_default(handle)
+        user = cf_common.user_db.fetch_cfuser(handle)
+        rating = user.rating
         resp = await cf_common.run_handle_related_coro(handles, cf.user.status)
         submissions = resp[0]
         solved = {sub.problem.name for sub in submissions}
