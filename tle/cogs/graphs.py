@@ -21,6 +21,10 @@ from tle.util import discord_common
 pandas.plotting.register_matplotlib_converters()
 
 
+class GraphCogError(commands.CommandError):
+    pass
+
+
 def _get_current_figure_as_file():
     filename = os.path.join(constants.FILEDIR, f'tempplot_{time.time()}.png')
     plt.savefig(filename, facecolor=plt.gca().get_facecolor(), bbox_inches='tight', pad_inches=0.25)
@@ -150,6 +154,14 @@ class Graphs(commands.Cog):
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         resp = await cf_common.run_handle_related_coro(handles, cf.user.rating)
 
+        if not any(resp):
+            handles_str = ', '.join(f'`{handle}`' for handle in handles)
+            if len(handles) == 1:
+                message = f'User {handles_str} is not rated'
+            else:
+                message = f'None of the given users {handles_str} are rated'
+            raise GraphCogError(message)
+
         plt.clf()
         _plot_rating(resp)
         current_ratings = [rating_changes[-1].newRating if rating_changes else 'Unrated' for rating_changes in resp]
@@ -172,6 +184,14 @@ class Graphs(commands.Cog):
 
         all_solved_subs = [_filter_solved_submissions(submissions, contests)
                            for submissions in resp]
+
+        if not any(all_solved_subs):
+            handles_str = ', '.join(f'`{handle}`' for handle in handles)
+            if len(handles) == 1:
+                message = f'User {handles_str} has not solved any rated problem'
+            else:
+                message = f'None of the users {handles_str} have solved any rated problem'
+            raise GraphCogError(message)
 
         if len(handles) == 1:
             # Display solved problem separately by type for a single user.
@@ -223,8 +243,7 @@ class Graphs(commands.Cog):
         """Plot Codeforces rating overlaid on a scatter plot of problems solved.
         Also plots a running average of ratings of problems solved in practice."""
         if bin_size < 1:
-            await ctx.send(embed=discord_common.embed_alert('Moving average window size must be at least 1'))
-            return
+            raise GraphCogError('Moving average window size must be at least 1')
 
         handle = handle or '!' + str(ctx.author)
         handles = await cf_common.resolve_handles(ctx, self.converter, (handle,))
@@ -239,6 +258,10 @@ class Graphs(commands.Cog):
                     for sub in submissions]
 
         solved_subs = _filter_solved_submissions(submissions, contests)
+
+        if not any(rating_resp) and not any(solved_subs):
+            raise GraphCogError(f'User `{handle}` is not rated and has not solved any rated problem')
+
         solved_by_type = _classify_submissions(solved_subs)
         regular = extract_time_and_rating(solved_by_type['CONTESTANT'] +
                                           solved_by_type['OUT_OF_COMPETITION'])
@@ -459,6 +482,10 @@ class Graphs(commands.Cog):
         await ctx.send(embed=embed, file=discord_file)
 
     async def cog_command_error(self, ctx, error):
+        if isinstance(error, GraphCogError):
+            await ctx.send(embed=discord_common.embed_alert(error))
+            error.handled = True
+            return
         await cf_common.cf_handle_error_handler(ctx, error)
         await cf_common.run_handle_coro_error_handler(ctx, error)
 
