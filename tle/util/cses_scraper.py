@@ -21,8 +21,11 @@ async def _fetch(url):
 
 async def get_problems():
     tree = await _fetch('https://cses.fi/problemset/list/')
-    links = [a.get('href') for a in tree.xpath('//table[3]/tr/td/a')]
-    ids = [int(x.split('/')[-1]) for x in links]
+    links = [
+        a.get('href') for table in tree.xpath('//table')[2:]
+        for a in table.xpath('tr/td/a')
+    ]
+    ids = sorted(int(x.split('/')[-1]) for x in links)
     return ids
 
 

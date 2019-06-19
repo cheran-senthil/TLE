@@ -50,7 +50,10 @@ class CSES(commands.Cog):
             self.fast_placings = fast_placings
 
     def leaderboard(self, placings, num):
-        leaderboard = sorted(((k, score(v)) for k, v in placings.items()), key=lambda x: x[1], reverse=True)
+        leaderboard = sorted(
+            ((k, score(v)) for k, v in placings.items() if k != 'N/A'),
+            key=lambda x: x[1],
+            reverse=True)
 
         if not leaderboard:
             return 'Failed to load :<'
