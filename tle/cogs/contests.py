@@ -361,7 +361,7 @@ class Contests(commands.Cog):
             page_num_footer = f' # Page: {num_pages} / {num_chunks}' if num_chunks > 1 else ''
 
             # We use yaml to get nice colors in the ranklist.
-            content = f'{contest.name}\n```yaml\n{t}\n{page_num_footer}```'
+            content = f'```yaml\n{t}\n{page_num_footer}```'
             pages.append((content, None))
             num_pages += 1
 
@@ -374,7 +374,15 @@ class Contests(commands.Cog):
         """
 
         contest = cf_common.cache2.contest_cache.get_contest(contest_id)
-        ranklist = cf_common.cache2.ranklist_cache.get_ranklist(contest)
+        wait_msg = None
+        try:
+            ranklist = cf_common.cache2.ranklist_cache.get_ranklist(contest)
+            deltas_status = 'Predicted'
+        except cache_system2.RanklistNotMonitored:
+            wait_msg = await ctx.send('Please wait...')
+            ranklist = await cf_common.cache2.ranklist_cache.generate_ranklist(contest.id,
+                                                                               fetch_changes=True)
+            deltas_status = 'Final'
 
         handles = set(handles)
         if not handles:
@@ -406,6 +414,20 @@ class Contests(commands.Cog):
 
         problem_indices = [problem.index for problem in ranklist.problems]
         pages = self._make_standings_pages(contest, problem_indices, handle_standings, deltas)
+
+        embed = discord_common.cf_color_embed(title=contest.name, url=contest.url)
+        phase = contest.phase.lower().capitalize().replace('_', ' ')
+        embed.add_field(name='Phase', value=phase)
+        if ranklist.is_rated:
+            embed.add_field(name='Deltas', value=deltas_status)
+
+        if wait_msg:
+            try:
+                await wait_msg.delete()
+            except:
+                pass
+
+        await ctx.send(embed=embed)
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=_STANDINGS_PAGINATE_WAIT_TIME)
 
     async def cog_command_error(self, ctx, error):
