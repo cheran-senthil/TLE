@@ -21,14 +21,11 @@ _CONTESTS_PER_PAGE = 5
 _CONTEST_PAGINATE_WAIT_TIME = 5 * 60
 _STANDINGS_PER_PAGE = 15
 _STANDINGS_PAGINATE_WAIT_TIME = 2 * 60
+_FINISHED_CONTESTS_LIMIT = 5
 
 
-def _parse_timezone(tz_string):
-    if len(tz_string) != 6 or tz_string[0] not in '+-' or tz_string[3] != ':':
-        raise ValueError()
-    hours, minutes = int(tz_string[1:3]), int(tz_string[4:])
-    tz = datetime.timezone(datetime.timedelta(hours=hours, minutes=minutes))
-    return tz
+class ContestCogError(commands.CommandError):
+    pass
 
 
 def _secs_to_days_hrs_mins_secs(secs):
@@ -95,7 +92,8 @@ class Contests(commands.Cog):
         self.bot = bot
 
         self.future_contests = None
-        self.contest_id_map = {}
+        self.active_contests = None
+        self.finished_contests = None
         self.start_time_map = defaultdict(list)
         self.task_map = defaultdict(list)
 
@@ -118,9 +116,20 @@ class Contests(commands.Cog):
                 self.logger.warning(f'Exception in Contests cog updater task, ignoring.', exc_info=True)
 
     async def _reload(self):
-        self.future_contests = cf_common.cache2.contest_cache.get_contests_in_phase('BEFORE')
-        self.logger.info(f'Refreshed cache with {len(self.future_contests)} contests')
-        self.contest_id_map = {c.id: c for c in self.future_contests}
+        contest_cache = cf_common.cache2.contest_cache
+        self.future_contests = contest_cache.get_contests_in_phase('BEFORE')
+        self.active_contests = (contest_cache.get_contests_in_phase('CODING') +
+                                contest_cache.get_contests_in_phase('PENDING_SYSTEM_TEST') +
+                                contest_cache.get_contests_in_phase('SYSTEM_TEST'))
+        self.finished_contests = contest_cache.get_contests_in_phase('FINISHED')
+
+        # Future contests already sorted by start time.
+        self.active_contests.sort(key=lambda contest: contest.startTimeSeconds)
+        self.finished_contests.sort(key=lambda contest: contest.end_time, reverse=True)
+        # Keep most recent _FINISHED_LIMIT
+        self.finished_contests = self.finished_contests[:_FINISHED_CONTESTS_LIMIT]
+
+        self.logger.info(f'Refreshed cache')
         self.start_time_map.clear()
         for contest in self.future_contests:
             if not cf_common.is_nonstandard_contest(contest):
@@ -157,43 +166,53 @@ class Contests(commands.Cog):
                 self.task_map[guild_id].append(task)
         self.logger.info(f'{len(self.task_map[guild_id])} tasks scheduled for guild {guild_id}')
 
-    def _make_contest_pages(self):
+    @staticmethod
+    def _make_contest_pages(contests, title):
         pages = []
-        chunks = paginator.chunkify(self.future_contests, _CONTESTS_PER_PAGE)
+        chunks = paginator.chunkify(contests, _CONTESTS_PER_PAGE)
         for chunk in chunks:
             embed = discord_common.cf_color_embed()
             for name, value in _get_embed_fields_from_contests(chunk):
                 embed.add_field(name=name, value=value, inline=False)
-            pages.append(('Future contests on Codeforces', embed))
+            pages.append((title, embed))
         return pages
 
-    @commands.command(brief='Show future contests')
-    async def future(self, ctx, contest_id: int = None, timezone: str = None):
-        """Show all future contests or a specific contest in your timezone."""
-        if self.future_contests is None:
-            await ctx.send(embed=discord_common.embed_alert('Unable to connect to Codeforces API'))
+    async def _send_contest_list(self, ctx, contests, *, title, empty_msg):
+        if contests is None:
+            raise ContestCogError('Contest list not present')
+        if len(contests) == 0:
+            await ctx.send(embed=discord_common.embed_neutral(empty_msg))
             return
-        if len(self.future_contests) == 0:
-            await ctx.send(embed=discord_common.embed_neutral('No contests scheduled'))
-            return
-        if contest_id is None:
-            pages = self._make_contest_pages()
-            paginator.paginate(self.bot, ctx.channel, pages, wait_time=_CONTEST_PAGINATE_WAIT_TIME,
-                               set_pagenum_footers=True)
-        else:
-            if contest_id not in self.contest_id_map:
-                await ctx.send(embed=discord_common.embed_alert(f'Contest ID `{contest_id}` not in contest list'))
-                return
-            try:
-                tz = _parse_timezone(timezone)
-            except ValueError:
-                await ctx.send(embed=discord_common.embed_alert('Timezone should be in valid format such as `-09:00`'))
-                return
-            contest = self.contest_id_map[contest_id]
-            name, id_str, start, duration, url = _get_formatted_contest_info(contest, tz)
-            desc = _get_formatted_contest_desc(id_str, start, duration, url, len(duration))
-            embed = discord_common.cf_color_embed().add_field(name=name, value=desc)
-            await ctx.send(embed=embed)
+        pages = self._make_contest_pages(contests, title)
+        paginator.paginate(self.bot, ctx.channel, pages, wait_time=_CONTEST_PAGINATE_WAIT_TIME,
+                           set_pagenum_footers=True)
+
+    @commands.group(brief='Commands for listing contests',
+                    invoke_without_command=True)
+    async def clist(self, ctx):
+        await ctx.send_help(ctx.command)
+
+    @clist.command(brief='List future contests')
+    async def future(self, ctx):
+        """List future contests on Codeforces."""
+        await self._send_contest_list(ctx, self.future_contests,
+                                      title='Future contests on Codeforces',
+                                      empty_msg='No future contests scheduled')
+
+    @clist.command(brief='List active contests')
+    async def active(self, ctx):
+        """List active contests on Codeforces, namely those in coding phase, pending system
+        test or in system test."""
+        await self._send_contest_list(ctx, self.active_contests,
+                                      title='Active contests on Codeforces',
+                                      empty_msg='No contests currently active')
+
+    @clist.command(brief='List recent finished contests')
+    async def finished(self, ctx):
+        """List recently concluded contests on Codeforces."""
+        await self._send_contest_list(ctx, self.finished_contests,
+                                      title='Recently finished contests on Codeforces',
+                                      empty_msg='No finished contests found')
 
     @commands.group(brief='Commands for contest reminders',
                     invoke_without_command=True)
@@ -431,10 +450,11 @@ class Contests(commands.Cog):
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=_STANDINGS_PAGINATE_WAIT_TIME)
 
     async def cog_command_error(self, ctx, error):
-        await cf_common.cf_handle_error_handler(ctx, error)
-        if isinstance(error, (rl.RanklistError, cache_system2.CacheError)):
-            await ctx.send(embed=discord_common.embed_alert(str(error)))
+        if isinstance(error, (ContestCogError, rl.RanklistError, cache_system2.CacheError)):
+            await ctx.send(embed=discord_common.embed_alert(error))
             error.handled = True
+            return
+        await cf_common.cf_handle_error_handler(ctx, error)
 
 
 def setup(bot):
