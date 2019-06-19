@@ -457,38 +457,61 @@ class RanklistCache:
         self.ranklist_by_contest = {}
         self.logger.info('Halting ranklist monitor task')
 
-    async def _fetch(self, contests):
-        ranklist_by_contest = {}
-        for contest in contests:
+    async def generate_ranklist(self, contest_id, *, fetch_changes=False, predict_changes=False):
+        assert fetch_changes ^ predict_changes
+
+        contest, problems, standings = await cf.contest.standings(contest_id=contest_id,
+                                                                  show_unofficial=True)
+        now = time.time()
+
+        # Exclude PRACTICE and MANAGER
+        standings = [row for row in standings
+                     if row.party.participantType in ('CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL')]
+
+        if fetch_changes:
+            # Fetch final rating changes from CF.
+            # For older contests.
             try:
-                contest, problems, standings = await cf.contest.standings(contest_id=contest.id)
-                _, _, all_standings = await cf.contest.standings(contest_id=contest.id, show_unofficial=True)
-                self.logger.info(f'Ranklist fetched for contest {contest.id}')
-            except cf.CodeforcesApiError as er:
-                self.logger.warning(f'Ranklist fetch failed for contest {contest.id}. {er!r}')
-                continue
+                changes = await cf.contest.ratingChanges(contest_id=contest_id)
+            except cf.RatingChangesUnavailableError:
+                ranklist = Ranklist(contest, problems, standings, now, is_rated=False)
+            else:
+                delta_by_handle = {change.handle: change.newRating - change.oldRating
+                                   for change in changes}
+                ranklist = Ranklist(contest, problems, standings, now, is_rated=True)
+                ranklist.set_deltas(delta_by_handle)
+        elif predict_changes:
+            # Rating changes have not been applied yet, predict rating changes.
+            # For running/recent contests.
+            _, _, standings_official = await cf.contest.standings(contest_id=contest_id)
 
-            now = time.time()
-
-            # Exclude PRACTICE and MANAGER
-            all_standings = [row for row in all_standings
-                             if row.party.participantType in ('CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL')]
-
-            has_teams = any(row.party.teamId is not None for row in standings)
+            has_teams = any(row.party.teamId is not None for row in standings_official)
             if cf_common.is_nonstandard_contest(contest) or has_teams:
                 # The contest is not rated
-                ranklist = Ranklist(contest, problems, all_standings, now)
+                ranklist = Ranklist(contest, problems, standings, now, is_rated=False)
             else:
                 get_rating = self.cache_master.rating_changes_cache.get_current_rating_or_default
                 current_rating = {row.party.members[0].handle: get_rating(row.party.members[0].handle)
-                                  for row in standings}
+                                  for row in standings_official}
                 if 'Educational' in contest.name:
                     # For some reason educational contests return all contestants in ranklist even
                     # when unofficial contestants are not requested.
                     current_rating = {handle: rating
                                       for handle, rating in current_rating.items() if rating < 2100}
-                ranklist = Ranklist(contest, problems, all_standings, now, current_rating)
-            ranklist_by_contest[contest.id] = ranklist
+                ranklist = Ranklist(contest, problems, standings, now, is_rated=True)
+                ranklist.predict(current_rating)
+
+        return ranklist
+
+    async def _fetch(self, contests):
+        ranklist_by_contest = {}
+        for contest in contests:
+            try:
+                ranklist = await self.generate_ranklist(contest.id, predict_changes=True)
+                ranklist_by_contest[contest.id] = ranklist
+                self.logger.info(f'Ranklist fetched for contest {contest.id}')
+            except cf.CodeforcesApiError as er:
+                self.logger.warning(f'Ranklist fetch failed for contest {contest.id}. {er!r}')
 
         return ranklist_by_contest
 
