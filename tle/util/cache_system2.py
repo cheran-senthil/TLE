@@ -471,14 +471,17 @@ class RanklistCache:
         if fetch_changes:
             # Fetch final rating changes from CF.
             # For older contests.
+            is_rated = False
             try:
                 changes = await cf.contest.ratingChanges(contest_id=contest_id)
+                # For contests intended to be rated but declared unrated, an empty list is returned.
+                is_rated = len(changes) > 0
             except cf.RatingChangesUnavailableError:
-                ranklist = Ranklist(contest, problems, standings, now, is_rated=False)
-            else:
+                pass
+            ranklist = Ranklist(contest, problems, standings, now, is_rated=is_rated)
+            if is_rated:
                 delta_by_handle = {change.handle: change.newRating - change.oldRating
                                    for change in changes}
-                ranklist = Ranklist(contest, problems, standings, now, is_rated=True)
                 ranklist.set_deltas(delta_by_handle)
         elif predict_changes:
             # Rating changes have not been applied yet, predict rating changes.
