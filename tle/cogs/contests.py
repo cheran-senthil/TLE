@@ -398,6 +398,8 @@ class Contests(commands.Cog):
             ranklist = cf_common.cache2.ranklist_cache.get_ranklist(contest)
             deltas_status = 'Predicted'
         except cache_system2.RanklistNotMonitored:
+            if contest.phase == 'BEFORE':
+                raise ContestCogError(f'Contest `{contest.id} | {contest.name}` has not started')
             wait_msg = await ctx.send('Please wait...')
             ranklist = await cf_common.cache2.ranklist_cache.generate_ranklist(contest.id,
                                                                                fetch_changes=True)
@@ -435,7 +437,7 @@ class Contests(commands.Cog):
         pages = self._make_standings_pages(contest, problem_indices, handle_standings, deltas)
 
         embed = discord_common.cf_color_embed(title=contest.name, url=contest.url)
-        phase = contest.phase.lower().capitalize().replace('_', ' ')
+        phase = contest.phase.capitalize().replace('_', ' ')
         embed.add_field(name='Phase', value=phase)
         if ranklist.is_rated:
             embed.add_field(name='Deltas', value=deltas_status)
