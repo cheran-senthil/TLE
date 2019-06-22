@@ -147,10 +147,17 @@ class Graphs(commands.Cog):
         use a server member's name instead by prefixing it with '!'."""
         await ctx.send_help('plot')
 
-    @plot.command(brief='Plot Codeforces rating graph')
-    async def rating(self, ctx, *handles: str):
+    @plot.command(brief='Plot Codeforces rating graph', usage='[+zoom] [handles...]')
+    async def rating(self, ctx, *args: str):
         """Plots Codeforces rating graph for the handles provided."""
-        handles = handles or ('!' + str(ctx.author),)
+        args = list(args)
+        if '+zoom' in args:
+            zoom = True
+            args.remove('+zoom')
+        else:
+            zoom = False
+
+        handles = args or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         resp = await cf_common.run_handle_related_coro(handles, cf.user.rating)
 
@@ -167,6 +174,15 @@ class Graphs(commands.Cog):
         current_ratings = [rating_changes[-1].newRating if rating_changes else 'Unrated' for rating_changes in resp]
         labels = [f'\N{ZERO WIDTH SPACE}{handle} ({rating})' for handle, rating in zip(handles, current_ratings)]
         plt.legend(labels, loc='upper left')
+
+        if not zoom:
+            min_rating = 1100
+            max_rating = 1800
+            for rating_changes in resp:
+                for rating in rating_changes:
+                    min_rating = min(min_rating, rating.newRating)
+                    max_rating = max(max_rating, rating.newRating)
+            plt.ylim(min_rating - 100, max_rating + 200)
 
         discord_file = _get_current_figure_as_file()
         embed = discord_common.cf_color_embed(title='Rating graph on Codeforces')
