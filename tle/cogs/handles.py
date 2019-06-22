@@ -209,7 +209,7 @@ class Handles(commands.Cog):
         await ctx.send(msg)
 
     @handle.command(brief="Show all handles")
-    async def show(self, ctx):
+    async def list(self, ctx):
         """Shows all members of the server who have registered their handles and
         their Codeforces ratings.
         """
@@ -269,7 +269,7 @@ class Handles(commands.Cog):
             rank2role[rank.title.lower()] = await converter.convert(ctx, rank.title)
         return rank2role
 
-    @handle.command(brief='update roles (admin-only)')
+    @commands.command(brief='update roles (admin-only)')
     @commands.has_role('Admin')
     async def _updateroles(self, ctx):
         """update roles"""
