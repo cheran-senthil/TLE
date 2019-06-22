@@ -124,9 +124,13 @@ class Handles(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command(brief='sethandle [name] [handle] (admin-only)')
+    @commands.group(brief='Commands that have to do with handles', invoke_without_command=True)
+    async def handle(seld, ctx):
+        """Change or collect information about specific handles on Codeforces"""
+
+    @handle.command(brief='set [name] [handle] (admin-only)')
     @commands.has_role('Admin')
-    async def sethandle(self, ctx, member: discord.Member, handle: str):
+    async def set(self, ctx, member: discord.Member, handle: str):
         """Set Codeforces handle of a user"""
         try:
             users = await cf.user.info(handles=[handle])
@@ -143,8 +147,8 @@ class Handles(commands.Cog):
         embed = _make_profile_embed(member, user, mode='set')
         await ctx.send(embed=embed)
 
-    @commands.command(brief='gethandle [name]')
-    async def gethandle(self, ctx, member: discord.Member):
+    @handle.command(brief='get [name]')
+    async def get(self, ctx, member: discord.Member):
         """Show Codeforces handle of a user"""
         handle = cf_common.user_db.gethandle(member.id)
         if not handle:
@@ -159,9 +163,9 @@ class Handles(commands.Cog):
         embed = _make_profile_embed(member, user, mode='get')
         await ctx.send(embed=embed)
 
-    @commands.command(brief='removehandle [name] (admin-only)')
+    @handle.command(brief='remove [name] (admin-only)')
     @commands.has_role('Admin')
-    async def removehandle(self, ctx, member: discord.Member):
+    async def remove(self, ctx, member: discord.Member):
         """ remove handle """
         if not member:
             await ctx.send('Member not found!')
@@ -204,8 +208,8 @@ class Handles(commands.Cog):
             msg = 'showhandles error!'
         await ctx.send(msg)
 
-    @commands.command(brief="Show all handles")
-    async def showhandles(self, ctx):
+    @handle.command(brief="Show all handles")
+    async def show(self, ctx):
         """Shows all members of the server who have registered their handles and
         their Codeforces ratings.
         """
@@ -216,8 +220,8 @@ class Handles(commands.Cog):
         pages = _make_pages(users)
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=_PAGINATE_WAIT_TIME, set_pagenum_footers=True)
 
-    @commands.command(brief=";prettyhandles [page number]  (color handles ^_^")
-    async def prettyhandles(self, ctx: discord.ext.commands.Context, page_no: int = None):
+    @handle.command(brief="pretty [page number]  (color handles ^_^")
+    async def pretty(self, ctx: discord.ext.commands.Context, page_no: int = None):
         try:
             converter = commands.MemberConverter()
             res = cf_common.user_db.getallhandleswithrating()
@@ -265,7 +269,7 @@ class Handles(commands.Cog):
             rank2role[rank.title.lower()] = await converter.convert(ctx, rank.title)
         return rank2role
 
-    @commands.command(brief='update roles (admin-only)')
+    @handle.command(brief='update roles (admin-only)')
     @commands.has_role('Admin')
     async def _updateroles(self, ctx):
         """update roles"""
