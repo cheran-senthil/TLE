@@ -196,13 +196,13 @@ class Handles(commands.Cog):
                     if score!=0:
                         handle_display = f'{name} ({score})'
                         t += table.Data(index, handle_display)
-                        index = index + 1
+                        index += 1
                 except Exception as e:
                     print(e)
             if index>0:
                 msg = '```\n'+str(t)+'\n```'
             else:
-                msg = '```Noone has completed a gudgit challenge, send ;gitgud to request and ;gotgud to mark it as complete```'
+                msg = '```No one has completed a gitgud challenge, send ;gitgud to request and ;gotgud to mark it as complete```'
         except Exception as e:
             print(e)
             msg = 'showhandles error!'
