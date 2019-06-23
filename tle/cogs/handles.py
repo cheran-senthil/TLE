@@ -127,8 +127,9 @@ class Handles(commands.Cog):
     @commands.group(brief='Commands that have to do with handles', invoke_without_command=True)
     async def handle(seld, ctx):
         """Change or collect information about specific handles on Codeforces"""
+        await ctx.send_help(ctx.command)
 
-    @handle.command(brief='set [name] [handle] (admin-only)')
+    @handle.command(brief='Set Codeforces handle of a user (admin-only)')
     @commands.has_role('Admin')
     async def set(self, ctx, member: discord.Member, handle: str):
         """Set Codeforces handle of a user"""
@@ -147,7 +148,7 @@ class Handles(commands.Cog):
         embed = _make_profile_embed(member, user, mode='set')
         await ctx.send(embed=embed)
 
-    @handle.command(brief='get [name]')
+    @handle.command(brief='Get handle by Discord username')
     async def get(self, ctx, member: discord.Member):
         """Show Codeforces handle of a user"""
         handle = cf_common.user_db.gethandle(member.id)
@@ -163,7 +164,7 @@ class Handles(commands.Cog):
         embed = _make_profile_embed(member, user, mode='get')
         await ctx.send(embed=embed)
 
-    @handle.command(brief='remove [name] (admin-only)')
+    @handle.command(brief='Remove handle for Discord user (admin-only)')
     @commands.has_role('Admin')
     async def remove(self, ctx, member: discord.Member):
         """ remove handle """
@@ -220,7 +221,7 @@ class Handles(commands.Cog):
         pages = _make_pages(users)
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=_PAGINATE_WAIT_TIME, set_pagenum_footers=True)
 
-    @handle.command(brief="pretty [page number]  (color handles ^_^")
+    @handle.command(brief="Show colour handles")
     async def pretty(self, ctx: discord.ext.commands.Context, page_no: int = None):
         try:
             converter = commands.MemberConverter()
