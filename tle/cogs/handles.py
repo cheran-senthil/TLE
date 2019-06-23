@@ -193,12 +193,16 @@ class Handles(commands.Cog):
                 try:  # in case the person has left the server
                     member = await converter.convert(ctx, user_id)
                     name = member.nick if member.nick else member.name
-                    handle_display = f'{name} ({score})'
-                    t += table.Data(index, handle_display)
-                    index = index + 1
+                    if score!=0:
+                        handle_display = f'{name} ({score})'
+                        t += table.Data(index, handle_display)
+                        index = index + 1
                 except Exception as e:
                     print(e)
-            msg = '```\n'+str(t)+'\n```'
+            if index>0:
+                msg = '```\n'+str(t)+'\n```'
+            else:
+                msg = '```Noone has completed a gudgit challenge, send ;gitgud to request and ;gotgud to mark it as complete```'
         except Exception as e:
             print(e)
             msg = 'showhandles error!'
