@@ -225,10 +225,10 @@ class Contests(commands.Cog):
         """Sets reminder channel to current channel, role to the given role, and reminder
         times to the given values in minutes."""
         if not role.mentionable:
-            await ctx.send(embed=discord_common.embed_alert('The role for reminders must be mentionable'))
-            return
+            raise ContestCogError('The role for reminders must be mentionable')
         if not before or any(before_mins <= 0 for before_mins in before):
-            return
+            raise ContestCogError('Please provide valid `before` values')
+        before = sorted(before, reverse=True)
         cf_common.user_db.set_reminder_settings(ctx.guild.id, ctx.channel.id, role.id, json.dumps(before))
         await ctx.send(embed=discord_common.embed_success('Reminder settings saved successfully'))
         self._reschedule_tasks(ctx.guild.id)
@@ -251,11 +251,9 @@ class Contests(commands.Cog):
         channel_id, role_id, before = int(channel_id), int(role_id), json.loads(before)
         channel, role = ctx.guild.get_channel(channel_id), ctx.guild.get_role(role_id)
         if channel is None:
-            await ctx.send(embed=discord_common.embed_alert('The channel set for reminders is no longer available'))
-            return
+            raise ContestCogError('The channel set for reminders is no longer available')
         if role is None:
-            await ctx.send(embed=discord_common.embed_alert('The role set for reminders is no longer available'))
-            return
+            raise ContestCogError('The role set for reminders is no longer available')
         before_str = ', '.join(str(before_mins) for before_mins in before)
         embed = discord_common.embed_success('Current reminder settings')
         embed.add_field(name='Channel', value=channel.mention)
@@ -268,14 +266,11 @@ class Contests(commands.Cog):
     async def me(self, ctx, arg: str = None):
         settings = cf_common.user_db.get_reminder_settings(ctx.guild.id)
         if settings is None:
-            await ctx.send(
-                embed=discord_common.embed_alert('To use this command, reminder settings must be set by an admin'))
-            return
+            raise ContestCogError('To use this command, reminder settings must be set by an admin')
         _, role_id, _ = settings
         role = ctx.guild.get_role(int(role_id))
         if role is None:
-            await ctx.send(embed=discord_common.embed_alert('The role set for reminders is no longer available'))
-            return
+            raise ContestCogError('The role set for reminders is no longer available')
 
         if arg is None:
             if role in ctx.author.roles:
@@ -424,9 +419,7 @@ class Contests(commands.Cog):
             handle_standings.append((handle, standing))
 
         if not handle_standings:
-            msg = f'None of the handles are present in the ranklist of `{contest.name}`'
-            await ctx.send(embed=discord_common.embed_alert(msg))
-            return
+            raise ContestCogError(f'None of the handles are present in the ranklist of `{contest.name}`')
 
         handle_standings.sort(key=lambda data: data[1].rank)
         deltas = None
