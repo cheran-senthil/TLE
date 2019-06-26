@@ -4,6 +4,7 @@ import random
 import discord
 from discord.ext import commands
 
+from tle.util import codeforces_api as cf
 from tle.util import db
 
 logger = logging.getLogger(__name__)
@@ -48,6 +49,8 @@ async def bot_error_handler(ctx, exception):
         await ctx.send(embed=embed_alert('Commands are disabled in private channels'))
     elif isinstance(exception, commands.DisabledCommand):
         await ctx.send(embed=embed_alert('Sorry, this command is temporarily disabled'))
+    elif isinstance(exception, cf.CodeforcesApiError):
+        await ctx.send(embed=embed_alert(exception))
     else:
         exc_info = type(exception), exception, exception.__traceback__
         logger.exception('Ignoring exception in command {}:'.format(ctx.command), exc_info=exc_info)

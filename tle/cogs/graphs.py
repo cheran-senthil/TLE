@@ -159,7 +159,7 @@ class Graphs(commands.Cog):
 
         handles = args or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
-        resp = await cf_common.run_handle_related_coro(handles, cf.user.rating)
+        resp = [await cf.user.rating(handle=handle) for handle in handles]
 
         if not any(resp):
             handles_str = ', '.join(f'`{handle}`' for handle in handles)
@@ -195,7 +195,7 @@ class Graphs(commands.Cog):
         """Shows a histogram of problems solved on Codeforces for the handles provided."""
         handles = handles or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
-        resp = await cf_common.run_handle_related_coro(handles, cf.user.status)
+        resp = [await cf.user.status(handle=handle) for handle in handles]
         contests = await cf.contest.list()
 
         all_solved_subs = [_filter_solved_submissions(submissions, contests)
@@ -263,8 +263,8 @@ class Graphs(commands.Cog):
 
         handle = handle or '!' + str(ctx.author)
         handles = await cf_common.resolve_handles(ctx, self.converter, (handle,))
-        resp = await cf_common.run_handle_related_coro(handles, cf.user.status)
-        rating_resp = await cf_common.run_handle_related_coro(handles, cf.user.rating)
+        resp = [await cf.user.status(handle=handle) for handle in handles]
+        rating_resp = [await cf.user.rating(handle=handle) for handle in handles]
         contests = await cf.contest.list()
         handle = handles[0]
         submissions = resp[0]
@@ -405,20 +405,12 @@ class Graphs(commands.Cog):
                                                       args,
                                                       mincnt=0,
                                                       maxcnt=50)
-            try:
-                infos = await cf.user.info(handles=set(handles))
-            except cf.NotFoundError:
-                await ctx.send('Some handle not found')
-                return
-            except cf.CodeforcesApiError:
-                await ctx.send('Something happened :(')
-                return
+            infos = await cf.user.info(handles=set(handles))
 
             users_to_mark = {}
             for info in infos:
-                if info.rating == None:
-                    await ctx.send(f'{info.handle} has no rating')
-                    return
+                if info.rating is None:
+                    raise GraphCogError(f'User `{info.handle}` is not rated')
                 ix = bisect.bisect_left(ratings, info.rating)
                 cent = 100*ix/len(ratings)
                 users_to_mark[info.handle] = info.rating,cent
@@ -502,8 +494,7 @@ class Graphs(commands.Cog):
             await ctx.send(embed=discord_common.embed_alert(error))
             error.handled = True
             return
-        await cf_common.cf_handle_error_handler(ctx, error)
-        await cf_common.run_handle_coro_error_handler(ctx, error)
+        await cf_common.resolve_handle_error_handler(ctx, error)
 
 
 def setup(bot):

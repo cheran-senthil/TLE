@@ -36,8 +36,7 @@ class Codeforces(commands.Cog):
         handle = handles[0]
         user = cf_common.user_db.fetch_cfuser(handle)
         rating = user.rating
-        resp = await cf_common.run_handle_related_coro(handles, cf.user.status)
-        submissions = resp[0]
+        submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions}
 
         lower = bounds[0] if len(bounds) > 0 else None
@@ -93,8 +92,7 @@ class Codeforces(commands.Cog):
 
         user = cf_common.user_db.fetch_cfuser(handle)
         rating = user.rating
-        resp = await cf_common.run_handle_related_coro(handles, cf.user.status)
-        submissions = resp[0]
+        submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions}
 
         delta = round(delta, -2)
@@ -146,8 +144,7 @@ class Codeforces(commands.Cog):
             await ctx.send(f'You do not have an active challenge')
             return
 
-        resp = await cf_common.run_handle_related_coro(handles, cf.user.status)
-        submissions = resp[0]
+        submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions if sub.verdict == 'OK'}
 
         challenge_id, issue_time, name, contestId, index, delta = active
@@ -196,7 +193,7 @@ class Codeforces(commands.Cog):
         """Recommends a contest based on Codeforces rating of the handle provided."""
         handles = handles or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
-        resp = await cf_common.run_handle_related_coro(handles, cf.user.status)
+        resp = [await cf.user.status(handle=handle) for handle in handles]
 
         user_submissions = resp
         try:
@@ -228,8 +225,7 @@ class Codeforces(commands.Cog):
             await ctx.send(f'Recommended contest for `{str_handles}`', embed=embed)
 
     async def cog_command_error(self, ctx, error):
-        await cf_common.cf_handle_error_handler(ctx, error)
-        await cf_common.run_handle_coro_error_handler(ctx, error)
+        await cf_common.resolve_handle_error_handler(ctx, error)
 
 
 def setup(bot):
