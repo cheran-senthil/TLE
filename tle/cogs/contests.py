@@ -78,8 +78,13 @@ async def _send_reminder_at(channel, role, contests, before_secs, send_time):
         return
     await asyncio.sleep(delay)
     values = _secs_to_days_hrs_mins_secs(before_secs)
-    labels = 'days hrs mins secs'.split()
-    before_str = ' '.join(f'{value} {label}' for label, value in zip(labels, values) if value > 0)
+
+    def make(value, label):
+        tmp = f'{value} {label}'
+        return tmp if value == 1 else tmp + 's'
+
+    labels = 'day hr min sec'.split()
+    before_str = ' '.join(make(value, label) for label, value in zip(labels, values) if value > 0)
     desc = f'About to start in {before_str}'
     embed = discord_common.cf_color_embed(description=desc)
     for name, value in _get_embed_fields_from_contests(contests):
