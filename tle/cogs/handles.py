@@ -133,11 +133,8 @@ class Handles(commands.Cog):
     @commands.has_role('Admin')
     async def set(self, ctx, member: discord.Member, handle: str):
         """Set Codeforces handle of a user"""
-        try:
-            users = await cf.user.info(handles=[handle])
-            user = users[0]
-        except cf.CodeforcesApiError as er:
-            raise cf_common.RunHandleCoroFailedError(handle, er) from er
+        users = await cf.user.info(handles=[handle])
+        user = users[0]
 
         # CF API returns correct handle ignoring case, update to it
         handle = user.handle
@@ -329,7 +326,7 @@ class Handles(commands.Cog):
         await ctx.send(msg)
 
     async def cog_command_error(self, ctx, error):
-        await cf_common.run_handle_coro_error_handler(ctx, error)
+        pass
 
 
 def setup(bot):

@@ -4,6 +4,8 @@ from collections import namedtuple
 
 import aiohttp
 
+from discord.ext import commands
+
 API_BASE_URL = 'https://codeforces.com/api/'
 CONTEST_BASE_URL = 'https://codeforces.com/contest/'
 CONTESTS_BASE_URL = 'https://codeforces.com/contests/'
@@ -123,28 +125,40 @@ def make_from_dict(namedtuple_cls, dict_):
 
 # Error classes
 
-class CodeforcesApiError(Exception):
-    pass
+class CodeforcesApiError(commands.CommandError):
+    def __init__(self, comment=None, message='Codeforces API error'):
+        super().__init__(message)
+        self.comment = comment
 
 
 class ClientError(CodeforcesApiError):
-    pass
+    def __init__(self):
+        super().__init__(None, 'Error connecting to Codeforces API')
 
 
-class NotFoundError(CodeforcesApiError):
-    pass
+class HandleNotFoundError(CodeforcesApiError):
+    def __init__(self, comment, handle):
+        super().__init__(comment, f'Handle `{handle}` not found on Codeforces')
 
 
-class InvalidParamError(CodeforcesApiError):
-    pass
+class HandleInvalidError(CodeforcesApiError):
+    def __init__(self, comment, handle):
+        super().__init__(comment, f'`{handle}` is not a valid Codeforces handle')
 
 
 class CallLimitExceededError(CodeforcesApiError):
-    pass
+    def __init__(self, comment):
+        super().__init__(comment, 'Codeforces API call limit exceeded')
+
+
+class ContestNotFoundError(CodeforcesApiError):
+    def __init__(self, comment, contest_id):
+        super().__init__(comment, f'Contest with ID `{contest_id}` not found on Codeforces')
 
 
 class RatingChangesUnavailableError(CodeforcesApiError):
-    pass
+    def __init__(self, comment, contest_id):
+        super().__init__(comment, f'Rating changes unavailable for contest with ID `{contest_id}`')
 
 
 # Codeforces API query methods
@@ -185,16 +199,10 @@ async def _query_api(path, params=None):
                     pass
         except aiohttp.ClientError as e:
             logger.error(f'Request to CF API encountered error: {e!r}')
-            raise ClientError(e) from e
+            raise ClientError from e
         logger.warning(f'Query to CF API failed: {comment}')
-        if 'not found' in comment:
-            raise NotFoundError(comment)
-        if 'should contain' in comment:
-            raise InvalidParamError(comment)
         if 'limit exceeded' in comment:
             raise CallLimitExceededError(comment)
-        if 'Rating changes are unavailable' in comment:
-            raise RatingChangesUnavailableError(comment)
         raise CodeforcesApiError(comment)
 
 
@@ -210,7 +218,14 @@ class contest:
     @staticmethod
     async def ratingChanges(*, contest_id):
         params = {'contestId': contest_id}
-        resp = await _query_api('contest.ratingChanges', params)
+        try:
+            resp = await _query_api('contest.ratingChanges', params)
+        except CodeforcesApiError as e:
+            if 'not found' in e.comment:
+                raise ContestNotFoundError(e.comment, contest_id)
+            if 'Rating changes are unavailable' in e.comment:
+                raise RatingChangesUnavailableError(e.comment, contest_id)
+            raise
         return [make_from_dict(RatingChange, change_dict) for change_dict in resp]
 
     @staticmethod
@@ -227,7 +242,12 @@ class contest:
             params['room'] = room
         if show_unofficial is not None:
             params['showUnofficial'] = _bool_to_str(show_unofficial)
-        resp = await _query_api('contest.standings', params)
+        try:
+            resp = await _query_api('contest.standings', params)
+        except CodeforcesApiError as e:
+            if 'not found' in e.comment:
+                raise ContestNotFoundError(e.comment, contest_id)
+            raise
         contest_ = make_from_dict(Contest, resp['contest'])
         problems = [make_from_dict(Problem, problem_dict) for problem_dict in resp['problems']]
         for row in resp['rows']:
@@ -259,13 +279,27 @@ class user:
     @staticmethod
     async def info(*, handles):
         params = {'handles': ';'.join(handles)}
-        resp = await _query_api('user.info', params)
+        try:
+            resp = await _query_api('user.info', params)
+        except CodeforcesApiError as e:
+            if 'not found' in e.comment:
+                # Comment format is "handles: User with handle ***** not found"
+                handle = e.comment.partition('not found')[0].split()[-1]
+                raise HandleNotFoundError(e.comment, handle)
+            raise
         return [make_from_dict(User, user_dict) for user_dict in resp]
 
     @staticmethod
     async def rating(*, handle):
         params = {'handle': handle}
-        resp = await _query_api('user.rating', params)
+        try:
+            resp = await _query_api('user.rating', params)
+        except CodeforcesApiError as e:
+            if 'not found' in e.comment:
+                raise HandleNotFoundError(e.comment, handle)
+            if 'should contain' in e.comment:
+                raise HandleInvalidError(e.comment, handle)
+            raise
         return [make_from_dict(RatingChange, ratingchange_dict) for ratingchange_dict in resp]
 
     @staticmethod
@@ -283,7 +317,14 @@ class user:
             params['from'] = from_
         if count is not None:
             params['count'] = count
-        resp = await _query_api('user.status', params)
+        try:
+            resp = await _query_api('user.status', params)
+        except CodeforcesApiError as e:
+            if 'not found' in e.comment:
+                raise HandleNotFoundError(e.comment, handle)
+            if 'should contain' in e.comment:
+                raise HandleInvalidError(e.comment, handle)
+            raise
         for submission in resp:
             submission['problem'] = make_from_dict(Problem, submission['problem'])
             submission['author']['members'] = [make_from_dict(Member, member)

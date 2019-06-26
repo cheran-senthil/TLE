@@ -105,47 +105,30 @@ def is_nonstandard_contest(contest):
     return any(string in contest.name.lower() for string in _NONSTANDARD_CONTEST_INDICATORS)
 
 
-class CodeforcesHandleError(commands.CommandError):
+class ResolveHandleError(commands.CommandError):
     pass
 
 
-class HandleCountOutOfBoundsError(CodeforcesHandleError):
+class HandleCountOutOfBoundsError(ResolveHandleError):
     def __init__(self, mincnt, maxcnt):
         super().__init__(f'Number of handles must be between {mincnt} and {maxcnt}')
 
 
-class FindMemberFailedError(CodeforcesHandleError):
+class FindMemberFailedError(ResolveHandleError):
     def __init__(self, member):
         super().__init__(f'Unable to convert `{member}` to a server member')
 
 
-class HandleNotRegisteredError(CodeforcesHandleError):
+class HandleNotRegisteredError(ResolveHandleError):
     def __init__(self, member):
-        super().__init__(f'Codeforces handle for member {member.mention} not found in database')
+        super().__init__(f'Codeforces handle for {member.mention} not found in database')
 
 
-class HandleIsVjudgeError(CodeforcesHandleError):
+class HandleIsVjudgeError(ResolveHandleError):
     HANDLES = 'vjudge1 vjudge2 vjudge3 vjudge4 vjudge5'.split()
 
     def __init__(self, handle):
         super().__init__(f"`{handle}`? I'm not doing that!\n\n(╯°□°）╯︵ ┻━┻")
-
-
-class RunHandleCoroFailedError(commands.CommandError):
-    def __init__(self, handle, error):
-        message = None
-        if isinstance(error, cf.ClientError):
-            message = 'Error connecting to Codeforces API'
-        elif isinstance(error, cf.NotFoundError):
-            message = f'Handle not found on Codeforces: `{handle}`'
-        elif isinstance(error, cf.InvalidParamError):
-            message = f'Not a valid Codeforces handle: `{handle}`'
-        elif isinstance(error, cf.CodeforcesApiError):
-            message = 'Codeforces API error'
-        if message is not None:
-            super().__init__(message)
-        else:
-            super().__init__()
 
 
 async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
@@ -173,28 +156,7 @@ async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
     return resolved_handles
 
 
-async def run_handle_related_coro(handles, coro):
-    """Run a coroutine that takes a handle, for each handle in handles. Returns a list of results."""
-    # If this is called from a Discord command, it is recommended to call the
-    # run_handle_coro_error_handler function below from the command's error handler.
-    results = []
-    for handle in handles:
-        try:
-            res = await coro(handle=handle)
-            results.append(res)
-            continue
-        except cf.CodeforcesApiError as ex:
-            raise RunHandleCoroFailedError(handle, ex) from ex
-    return results
-
-
-async def cf_handle_error_handler(ctx, error):
-    if isinstance(error, CodeforcesHandleError):
-        await ctx.send(embed=discord_common.embed_alert(error))
-        error.handled = True
-
-
-async def run_handle_coro_error_handler(ctx, error):
-    if isinstance(error, RunHandleCoroFailedError):
+async def resolve_handle_error_handler(ctx, error):
+    if isinstance(error, ResolveHandleError):
         await ctx.send(embed=discord_common.embed_alert(error))
         error.handled = True

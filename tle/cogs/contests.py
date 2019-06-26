@@ -454,7 +454,7 @@ class Contests(commands.Cog):
             await ctx.send(embed=discord_common.embed_alert(error))
             error.handled = True
             return
-        await cf_common.cf_handle_error_handler(ctx, error)
+        await cf_common.resolve_handle_error_handler(ctx, error)
 
 
 def setup(bot):
