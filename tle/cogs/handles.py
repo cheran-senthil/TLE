@@ -67,7 +67,7 @@ def get_prettyhandles_image(rankings):
         s = f"{f'#{pos}':<4}{name:<18}{handle:<18}{rating:>6}"
 
         color = rating_to_color(rating)
-        if rating >= 3000:  # nutella
+        if rating!='N/A' and rating >= 3000:  # nutella
             draw.text((x, y), s[:22], fill=color, font=font)
             z = x + font.getsize(s[:22])[0]
             draw.text((z, y), s[22], fill=BLACK, font=font)
