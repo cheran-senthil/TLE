@@ -125,7 +125,7 @@ class Handles(commands.Cog):
         self.bot = bot
 
     @commands.group(brief='Commands that have to do with handles', invoke_without_command=True)
-    async def handle(seld, ctx):
+    async def handle(self, ctx):
         """Change or collect information about specific handles on Codeforces"""
         await ctx.send_help(ctx.command)
 
