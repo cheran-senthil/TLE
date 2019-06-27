@@ -26,12 +26,30 @@ Finally, in order to run the bot, you need to invite it to your Discord server a
 ```
 python -m tle
 ```
+
+In order for the bot to start, the following roles need to exist in your Discord server, which will be set to each of your users
+ - Newbie
+ - Pupil
+ - Specialist
+ - Expert
+ - Candidate Master
+ - Master
+ - International Master
+ - Grandmaster
+ - International Grandmaster
+ - Legendary Grandmaster
+
+These roles are needed even if none of the users in your server have these ranks in Codeforces
+
 ### Notes
  - In order to run admin-only commands, you need to have the `Admin` role, which needs to be created in your Discord server and assign it to yourself / other administrators
  - In order to prevent the bot suggesting an author's problems to the author, a python file needs to be run, since this can not be done through the Codeforces API, which will save the authors for specific contests to a file. To do this, run `python extra/scrape_cf_contest_writers.py`, which will generate a JSON file. 
 
 
 ## Usage
+
+In order to run any bot commands, you can either ping the bot at the beginning of the command, or prefix the command with a semicolon (;), e.g. `;handle pretty`
+The commands available are the following:
 
 ```
 CSES:
@@ -54,6 +72,37 @@ Handles:
   handle      Commands that have to do with handles
 ​No Category:
   help        Shows this message
+
+Type ;help command for more info on a command.
+You can also type ;help category for more info on a category.
+```
+```
+;plot
+
+Plot various graphs. Wherever Codeforces handles are accepted it is possible to
+use a server member's name instead by prefixing it with '!'.
+
+Commands:
+  centile Show percentile distribution on codeforces
+  distrib Show rating distribution
+  rating  Plot Codeforces rating graph
+  scatter Show history of problems solved by rating.
+  solved  Show histogram of solved problems on CF.
+
+Type ;help command for more info on a command.
+You can also type ;help category for more info on a category.
+```
+```
+;handle
+
+Change or collect information about specific handles on Codeforces
+
+Commands:
+  get    Get handle by Discord username
+  list   Show all handles
+  pretty Show colour handles
+  remove Remove handle for Discord user (admin-only)
+  set    Set Codeforces handle of a user (admin-only)
 
 Type ;help command for more info on a command.
 You can also type ;help category for more info on a category.
