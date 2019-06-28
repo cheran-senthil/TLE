@@ -105,7 +105,8 @@ class UserDbConn:
         self.conn.execute(
             'CREATE TABLE IF NOT EXISTS starboard_message ('
             'original_msg_id    TEXT PRIMARY KEY,'
-            'starboard_msg_id   TEXT'
+            'starboard_msg_id   TEXT,'
+            'guild_id           TEXT'
             ')'
         )
 
@@ -369,30 +370,30 @@ class UserDbConn:
         self.conn.execute(query, (guild_id,))
         self.conn.commit()
 
-    def get_starboard_settings(self, guild_id):
+    def get_starboard(self, guild_id):
         query = ('SELECT channel_id '
                  'FROM starboard '
                  'WHERE guild_id = ?')
         return self.conn.execute(query, (guild_id,)).fetchone()
 
-    def set_starboard_settings(self, guild_id, channel_id):
+    def set_starboard(self, guild_id, channel_id):
         query = ('INSERT OR REPLACE INTO starboard '
                  '(guild_id, channel_id) '
                  'VALUES (?, ?)')
         self.conn.execute(query, (guild_id, channel_id))
         self.conn.commit()
 
-    def clear_starboard_settings(self, guild_id):
+    def clear_starboard(self, guild_id):
         query = ('DELETE FROM starboard '
                  'WHERE guild_id = ?')
         self.conn.execute(query, (guild_id,))
         self.conn.commit()
 
-    def add_starboard_message(self, original_msg_id, starboard_msg_id):
+    def add_starboard_message(self, original_msg_id, starboard_msg_id, guild_id):
         query = ('INSERT INTO starboard_message '
-                 '(original_msg_id, starboard_msg_id) '
-                 'VALUES (?, ?)')
-        self.conn.execute(query, (original_msg_id, starboard_msg_id))
+                 '(original_msg_id, starboard_msg_id, guild_id) '
+                 'VALUES (?, ?, ?)')
+        self.conn.execute(query, (original_msg_id, starboard_msg_id, guild_id))
         self.conn.commit()
 
     def check_exists_starboard_message(self, original_msg_id):
@@ -406,6 +407,13 @@ class UserDbConn:
         query = ('DELETE FROM starboard_message '
                  'WHERE starboard_msg_id = ?')
         rc = self.conn.execute(query, (starboard_msg_id,)).rowcount
+        self.conn.commit()
+        return rc
+
+    def clear_starboard_messages_for_guild(self, guild_id):
+        query = ('DELETE FROM starboard_message '
+                 'WHERE guild_id = ?')
+        rc = self.conn.execute(query, (guild_id,)).rowcount
         self.conn.commit()
         return rc
 

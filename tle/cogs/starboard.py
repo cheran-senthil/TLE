@@ -26,7 +26,7 @@ class Starboard(commands.Cog):
     async def on_raw_reaction_add(self, payload):
         if str(payload.emoji) != _STAR or payload.guild_id is None:
             return
-        res = cf_common.user_db.get_starboard_settings(payload.guild_id)
+        res = cf_common.user_db.get_starboard(payload.guild_id)
         if res is None:
             return
         starboard_channel_id = int(res[0])
@@ -39,7 +39,7 @@ class Starboard(commands.Cog):
     async def on_raw_message_delete(self, payload):
         if payload.guild_id is None:
             return
-        res = cf_common.user_db.get_starboard_settings(payload.guild_id)
+        res = cf_common.user_db.get_starboard(payload.guild_id)
         if res is None:
             return
         starboard_channel_id = int(res[0])
@@ -52,6 +52,9 @@ class Starboard(commands.Cog):
     def prepare_embed(message):
         # Adapted from https://github.com/Rapptz/RoboDanny/blob/rewrite/cogs/stars.py
         embed = discord.Embed(color=_STAR_ORANGE, timestamp=message.created_at)
+        embed.add_field(name='Channel', value=message.channel.mention)
+        embed.add_field(name='Jump to', value=f'[Original]({message.jump_url})')
+
         if message.content:
             embed.add_field(name='Content', value=message.content, inline=False)
 
@@ -67,8 +70,6 @@ class Starboard(commands.Cog):
             else:
                 embed.add_field(name='Attachment', value=f'[{file.filename}]({file.url})', inline=False)
 
-        embed.add_field(name='Channel', value=message.channel.mention)
-        embed.add_field(name='Jump to', value=f'[Original]({message.jump_url})')
         embed.set_footer(text=str(message.author), icon_url=message.author.avatar_url)
         return embed
 
@@ -97,38 +98,50 @@ class Starboard(commands.Cog):
                 return
             embed = self.prepare_embed(message)
             starboard_message = await starboard_channel.send(embed=embed)
-            cf_common.user_db.add_starboard_message(message.id, starboard_message.id)
+            cf_common.user_db.add_starboard_message(message.id, starboard_message.id,
+                                                    payload.guild_id)
             self.logger.info(f'Added message {message.id} to starboard')
 
     @commands.group(brief='Starboard commands',
                     invoke_without_command=True)
     async def starboard(self, ctx):
-        """Group for commands involving the starboard"""
+        """Group for commands involving the starboard."""
         await ctx.send_help(ctx.command)
 
     @starboard.command(brief='Set starboard to current channel')
     @commands.has_role('Admin')
     async def here(self, ctx):
-        """Set the current channel as starboard"""
-        cf_common.user_db.set_starboard_settings(ctx.guild.id, ctx.channel.id)
+        """Set the current channel as starboard."""
+        res = cf_common.user_db.get_starboard(ctx.guild.id)
+        if res is not None:
+            raise StarboardCogError('The starboard channel is already set. Use `clear` before '
+                                    'attempting to set a different channel as starboard.')
+        cf_common.user_db.set_starboard(ctx.guild.id, ctx.channel.id)
         await ctx.send(embed=discord_common.embed_success('Starboard channel set'))
 
     @starboard.command(brief='Clear starboard settings')
     @commands.has_role('Admin')
     async def clear(self, ctx):
-        """Remove the current starboard channel, if set, from starboard settings"""
-        cf_common.user_db.clear_starboard_settings(ctx.guild.id)
-        await ctx.send(embed=discord_common.embed_success('Starboard settings cleared'))
+        """Stop tracking starboard messages and remove the currently set starboard channel
+        from settings."""
+        cf_common.user_db.clear_starboard(ctx.guild.id)
+        cf_common.user_db.clear_starboard_messages_for_guild(ctx.guild.id)
+        await ctx.send(embed=discord_common.embed_success('Starboard channel cleared'))
 
     @starboard.command(brief='Remove a message from starboard')
     @commands.has_role('Admin')
     async def remove(self, ctx, starboard_message_id: int):
-        """Remove a particular message from the starboard database"""
+        """Remove a particular message from the starboard database."""
         rc = cf_common.user_db.remove_starboard_message(starboard_message_id)
         if rc:
-            await ctx.send(embed=discord_common.embed_success('Success'))
+            await ctx.send(embed=discord_common.embed_success('Successfully removed'))
         else:
             await ctx.send(embed=discord_common.embed_alert('Not found in database'))
+
+    async def cog_command_error(self, ctx, error):
+        if isinstance(error, StarboardCogError):
+            await ctx.send(embed=discord_common.embed_alert(error))
+            error.handled = True
 
 
 def setup(bot):
