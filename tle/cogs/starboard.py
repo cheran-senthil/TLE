@@ -45,7 +45,7 @@ class Starboard(commands.Cog):
         starboard_channel_id = int(res[0])
         if payload.channel_id != starboard_channel_id:
             return
-        cf_common.user_db.remove_starboard_message(payload.message_id)
+        cf_common.user_db.remove_starboard_message(starboard_msg_id=payload.message_id)
         self.logger.info(f'Removed message {payload.message_id} from starboard')
 
     @staticmethod
@@ -74,7 +74,8 @@ class Starboard(commands.Cog):
         return embed
 
     async def check_and_add_to_starboard(self, starboard_channel_id, payload):
-        starboard_channel = self.bot.get_guild(payload.guild_id).get_channel(starboard_channel_id)
+        guild = self.bot.get_guild(payload.guild_id)
+        starboard_channel = guild.get_channel(starboard_channel_id)
         if starboard_channel is None:
             raise StarboardCogError('Starboard channel not found')
 
@@ -84,8 +85,9 @@ class Starboard(commands.Cog):
                 len(message.content) == 0 and len(message.attachments) == 0):
             raise StarboardCogError('Cannot starboard this message')
 
-        is_admin = any(str(role) == 'Admin' for role in message.author.roles)
-        reaction_count = sum(str(reaction) == _STAR for reaction in message.reactions)
+        is_admin = 'Admin' in map(str, guild.get_member(payload.user_id).roles)
+        reaction_count = sum(reaction.count for reaction in message.reactions
+                             if str(reaction) == _STAR)
         if not is_admin and reaction_count < _STAR_THRESHOLD:
             return
 
@@ -98,8 +100,7 @@ class Starboard(commands.Cog):
                 return
             embed = self.prepare_embed(message)
             starboard_message = await starboard_channel.send(embed=embed)
-            cf_common.user_db.add_starboard_message(message.id, starboard_message.id,
-                                                    payload.guild_id)
+            cf_common.user_db.add_starboard_message(message.id, starboard_message.id, guild.id)
             self.logger.info(f'Added message {message.id} to starboard')
 
     @commands.group(brief='Starboard commands',
@@ -130,9 +131,9 @@ class Starboard(commands.Cog):
 
     @starboard.command(brief='Remove a message from starboard')
     @commands.has_role('Admin')
-    async def remove(self, ctx, starboard_message_id: int):
+    async def remove(self, ctx, original_message_id: int):
         """Remove a particular message from the starboard database."""
-        rc = cf_common.user_db.remove_starboard_message(starboard_message_id)
+        rc = cf_common.user_db.remove_starboard_message(original_msg_id=original_message_id)
         if rc:
             await ctx.send(embed=discord_common.embed_success('Successfully removed'))
         else:

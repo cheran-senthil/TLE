@@ -403,10 +403,16 @@ class UserDbConn:
         res = self.conn.execute(query, (original_msg_id,)).fetchone()
         return res is not None
 
-    def remove_starboard_message(self, starboard_msg_id):
-        query = ('DELETE FROM starboard_message '
-                 'WHERE starboard_msg_id = ?')
-        rc = self.conn.execute(query, (starboard_msg_id,)).rowcount
+    def remove_starboard_message(self, *, original_msg_id=None, starboard_msg_id=None):
+        assert (original_msg_id is None) ^ (starboard_msg_id is None)
+        if original_msg_id is not None:
+            query = ('DELETE FROM starboard_message '
+                     'WHERE original_msg_id = ?')
+            rc = self.conn.execute(query, (original_msg_id,)).rowcount
+        else:
+            query = ('DELETE FROM starboard_message '
+                     'WHERE starboard_msg_id = ?')
+            rc = self.conn.execute(query, (starboard_msg_id,)).rowcount
         self.conn.commit()
         return rc
 
