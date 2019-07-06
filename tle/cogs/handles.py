@@ -1,4 +1,3 @@
-import logging
 import io
 
 import discord
@@ -13,7 +12,12 @@ from tle.util import table
 from PIL import Image, ImageFont, ImageDraw
 
 _HANDLES_PER_PAGE = 15
+_NAME_MAX_LEN = 20
 _PAGINATE_WAIT_TIME = 5 * 60  # 5 minutes
+
+
+class HandleCogError(commands.CommandError):
+    pass
 
 
 def rating_to_color(rating):
@@ -81,12 +85,11 @@ def get_prettyhandles_image(rankings):
 
 
 def _make_profile_embed(member, user, *, mode):
+    assert mode in ('set', 'get')
     if mode == 'set':
-        desc = f'Handle for **{member.display_name}** successfully set to **[{user.handle}]({user.url})**'
-    elif mode == 'get':
-        desc = f'Handle for **{member.display_name}** is currently set to **[{user.handle}]({user.url})**'
+        desc = f'Handle for {member.mention} successfully set to **[{user.handle}]({user.url})**'
     else:
-        return None
+        desc = f'Handle for {member.mention} is currently set to **[{user.handle}]({user.url})**'
     if user.rating is None:
         embed = discord.Embed(description=desc)
         embed.add_field(name='Rating', value='Unrated', inline=True)
@@ -109,10 +112,12 @@ def _make_pages(users):
         t += table.Header('#', 'Name', 'Handle', 'Rating')
         t += table.Line()
         for i, (member, handle, rating) in enumerate(chunk):
+            name = member.display_name
+            if len(name) > _NAME_MAX_LEN:
+                name = name[:_NAME_MAX_LEN - 3] + '...'
             rank = cf.rating2rank(rating)
             rating_str = 'N/A' if rating is None else str(rating)
-            t += table.Data(i + done, member.display_name, handle,
-                            f'{rating_str} ({rank.title_abbr})')
+            t += table.Data(i + done, name, handle, f'{rating_str} ({rank.title_abbr})')
         table_str = '```\n'+str(t)+'\n```'
         embed = discord_common.cf_color_embed(description=table_str)
         pages.append(('Handles of server members', embed))
@@ -129,85 +134,84 @@ class Handles(commands.Cog):
         """Change or collect information about specific handles on Codeforces"""
         await ctx.send_help(ctx.command)
 
-    @handle.command(brief='Set Codeforces handle of a user (admin-only)')
+    async def update_member_rank_role(self, member, role_to_assign):
+        has_role = False
+        role_names_to_remove = set(rank.title for rank in cf.RATED_RANKS)
+        to_remove = []
+        for role in member.roles:
+            if role == role_to_assign:
+                has_role = True
+            elif role.name in role_names_to_remove:
+                to_remove.append(role)
+        if to_remove:
+            await member.remove_roles(*to_remove, reason='Codeforces rank update')
+        if not has_role:
+            await member.add_roles(role_to_assign, reason='Codeforces rank update')
+
+    @handle.command(brief='Set Codeforces handle of a user')
     @commands.has_role('Admin')
     async def set(self, ctx, member: discord.Member, handle: str):
-        """Set Codeforces handle of a user"""
+        """Set Codeforces handle of a user."""
         users = await cf.user.info(handles=[handle])
         user = users[0]
 
         # CF API returns correct handle ignoring case, update to it
         handle = user.handle
-
         cf_common.user_db.cache_cfuser(user)
         cf_common.user_db.sethandle(member.id, handle)
-
         embed = _make_profile_embed(member, user, mode='set')
         await ctx.send(embed=embed)
 
+        if user.rank == cf.UNRATED_RANK:
+            return
+        roles = [role for role in ctx.guild.roles if role.name == user.rank.title]
+        if not roles:
+            raise HandleCogError(f'Role for rank `{user.rank.title}` not present in the server')
+        await self.update_member_rank_role(member, roles[0])
+
     @handle.command(brief='Get handle by Discord username')
     async def get(self, ctx, member: discord.Member):
-        """Show Codeforces handle of a user"""
+        """Show Codeforces handle of a user."""
         handle = cf_common.user_db.gethandle(member.id)
         if not handle:
-            await ctx.send(f'Handle for user {member.display_name} not found in database')
-            return
+            raise HandleCogError(f'Handle for {member.mention} not found in database')
         user = cf_common.user_db.fetch_cfuser(handle)
-        if user is None:
-            # Not cached, should not happen
-            logging.error(f'Handle info for {handle} not cached')
-            return
-
         embed = _make_profile_embed(member, user, mode='get')
         await ctx.send(embed=embed)
 
-    @handle.command(brief='Remove handle for Discord user (admin-only)')
+    @handle.command(brief='Remove handle for a user')
     @commands.has_role('Admin')
     async def remove(self, ctx, member: discord.Member):
-        """ remove handle """
-        if not member:
-            await ctx.send('Member not found!')
-            return
-        try:
-            r = cf_common.user_db.removehandle(member.id)
-            if r == 1:
-                msg = f'removehandle: {member.name} removed'
-            else:
-                msg = f'removehandle: {member.name} not found'
-        except Exception as e:
-            print(e)
-            msg = 'removehandle error!'
-        await ctx.send(msg)
+        """Remove Codeforces handle of a user."""
+        rc = cf_common.user_db.removehandle(member.id)
+        if not rc:
+            raise HandleCogError(f'Handle for {member.mention} not found in database')
+        embed = discord_common.embed_success(f'Removed handle for {member.mention}')
+        await ctx.send(embed=embed)
 
-    @commands.command(brief="show gudgitters", aliases=["gitgudders"])
+    @commands.command(brief="Show gudgitters", aliases=["gitgudders"])
     async def gudgitters(self, ctx):
-        try:
-            converter = commands.MemberConverter()
-            res = cf_common.user_db.get_gudgitters()
-            res.sort(key=lambda r: r[1], reverse=True)
+        """Show the list of users of gitgud with their scores."""
+        res = cf_common.user_db.get_gudgitters()
+        res.sort(key=lambda r: r[1], reverse=True)
 
-            style = table.Style('{:>}  {:<}')
-            t = table.Table(style)
-            t += table.Header('#', 'Name')
-            t += table.Line()
-            index = 0
-            for user_id, score in res:
-                try:  # in case the person has left the server
-                    member = await converter.convert(ctx, user_id)
-                    name = member.nick if member.nick else member.name
-                    if score!=0:
-                        handle_display = f'{name} ({score})'
-                        t += table.Data(index, handle_display)
-                        index += 1
-                except Exception as e:
-                    print(e)
-            if index>0:
-                msg = '```\n'+str(t)+'\n```'
-            else:
-                msg = '```No one has completed a gitgud challenge, send ;gitgud to request and ;gotgud to mark it as complete```'
-        except Exception as e:
-            print(e)
-            msg = 'showhandles error!'
+        style = table.Style('{:>}  {:<}')
+        t = table.Table(style)
+        t += table.Header('#', 'Name')
+        t += table.Line()
+        index = 0
+        for user_id, score in res:
+            member = ctx.guild.get_member(int(user_id))
+            if member is None:
+                continue
+            if score > 0:
+                handle_display = f'{member.display_name} ({score})'
+                t += table.Data(index, handle_display)
+                index += 1
+        if index > 0:
+            msg = '```\n' + str(t) + '\n```'
+        else:
+            msg = '```No one has completed a gitgud challenge, send ;gitgud to request and ;gotgud to mark it as complete```'
         await ctx.send(msg)
 
     @handle.command(brief="Show all handles")
@@ -224,109 +228,70 @@ class Handles(commands.Cog):
 
     @handle.command(brief="Show colour handles")
     async def pretty(self, ctx: discord.ext.commands.Context, page_no: int = None):
-        try:
-            converter = commands.MemberConverter()
-            res = cf_common.user_db.getallhandleswithrating()
-            res.sort(key=lambda r: r[2] if r[2] is not None else -1, reverse=True)
-            rankings = []
-            pos = 0
-            author_pos = 0
-            for user_id, handle, rating in res:
-                try:  # in case the person has left the server
-                    member = await converter.convert(ctx, user_id)
-                    if member == ctx.author:
-                        author_pos = pos
-                    if rating is None:
-                        rating = 'N/A'
-                    name = member.nick if member.nick else member.name
-                    rankings.append((pos, name, handle, rating))
-                    pos += 1
-                except Exception as e:
-                    print(e)
+        res = cf_common.user_db.getallhandleswithrating()
+        res.sort(key=lambda r: r[2] if r[2] is not None else -1, reverse=True)
+        rankings = []
+        pos = 0
+        author_pos = 0
+        for user_id, handle, rating in res:
+            member = ctx.guild.get_member(int(user_id))
+            if member is None:
+                continue
+            if member == ctx.author:
+                author_pos = pos
+            if rating is None:
+                rating = 'N/A'
+            rankings.append((pos, member.display_name, handle, rating))
+            pos += 1
 
-            if isinstance(page_no, int):
-                page_no = max(page_no + 1, 1)
-                upto = page_no * 10
-                if upto > len(rankings):
-                    await ctx.send(f"Page number should be at most {len(rankings) // 10} !\n"
-                                   f"Showing last 10 handles.")
-                rankings = rankings[-10:] if len(rankings) < upto else rankings[upto - 10: upto]
-            else:
-                # Show rankings around invoker
-                rankings = rankings[max(0, author_pos - 4): author_pos + 6]
+        if page_no is not None:
+            page_no = max(page_no + 1, 1)
+            upto = page_no * 10
+            if upto > len(rankings):
+                await ctx.send(f"Page number should be at most {len(rankings) // 10} !\n"
+                               f"Showing last 10 handles.")
+            rankings = rankings[-10:] if len(rankings) < upto else rankings[upto - 10: upto]
+        else:
+            # Show rankings around invoker
+            rankings = rankings[max(0, author_pos - 4): author_pos + 6]
 
-            img = get_prettyhandles_image(rankings)
-            buffer = io.BytesIO()
-            img.save(buffer, 'png')
-            buffer.seek(0)
-            await ctx.send(file=discord.File(buffer, "handles.png"))
-        except Exception as e:
-            logging.error(f"prettyhandles error: {e}")
-            await ctx.send(f"prettyhandles error!")
-
-    async def make_rank2role(self, ctx):
-        converter = commands.RoleConverter()
-        rank2role = {}
-        for rank in cf.RATED_RANKS:
-            rank2role[rank.title.lower()] = await converter.convert(ctx, rank.title)
-        return rank2role
+        img = get_prettyhandles_image(rankings)
+        buffer = io.BytesIO()
+        img.save(buffer, 'png')
+        buffer.seek(0)
+        await ctx.send(file=discord.File(buffer, "handles.png"))
 
     @commands.command(brief='update roles (admin-only)')
     @commands.has_role('Admin')
-    async def _updateroles(self, ctx):
-        """update roles"""
-        # TODO: Add permission check for manage roles
-        try:
-            rank2role = await self.make_rank2role(ctx)
-        except Exception as e:
-            print(e)
-            await ctx.send('error fetching roles!')
-            return
+    async def updateroles(self, ctx):
+        """Update Codeforces rank roles for everyone."""
+        res = cf_common.user_db.getallhandles()
+        member_handles = [(ctx.guild.get_member(int(user_id)), handle) for user_id, handle in res]
+        member_handles = [(member, handle) for member, handle in member_handles if member is not None]
+        if not member_handles:
+            raise HandleCogError('Handles not set for any user')
+        members, handles = zip(*member_handles)
+        users = await cf.user.info(handles=handles)
+        for user in users:
+            cf_common.user_db.cache_cfuser(user)
 
-        try:
-            res = cf_common.user_db.getallhandles()
-            handles = [handle for _, handle in res]
-            users = await cf.user.info(handles=handles)
-            await ctx.send('caching handles...')
-            try:
-                for user in users:
-                    cf_common.user_db.cache_cfuser(user)
-            except Exception as e:
-                print(e)
-        except Exception as e:
-            print(e)
-            await ctx.send('error getting data from cf')
-            return
+        required_roles = set(user.rank.title for user in users if user.rank != cf.UNRATED_RANK)
+        rank2role = {role.name: role for role in ctx.guild.roles if role.name in required_roles}
+        missing_roles = required_roles - rank2role.keys()
+        if missing_roles:
+            roles_str = ', '.join(f'`{role}`' for role in missing_roles)
+            plural = 's' if len(missing_roles) > 1 else ''
+            raise HandleCogError(f'Role{plural} for rank{plural} {roles_str} not present in the server')
 
-        await ctx.send('updating roles...')
-        try:
-            converter = commands.MemberConverter()
-            for (user_id, handle), user in zip(res, users):
-                try:
-                    member = await converter.convert(ctx, user_id)
-                    rank = user.rank.title.lower()
-                    rm_list = []
-                    add = True
-                    for role in member.roles:
-                        name = role.name.lower()
-                        if name == rank:
-                            add = False
-                        elif name in rank2role:
-                            rm_list.append(role)
-                    if rm_list:
-                        await member.remove_roles(*rm_list)
-                    if add:
-                        await member.add_roles(rank2role[rank])
-                except Exception as e:
-                    print(e)
-            msg = 'Update roles completed.'
-        except Exception as e:
-            msg = 'updateroles error!'
-            print(e)
-        await ctx.send(msg)
+        for member, user in zip(members, users):
+            await self.update_member_rank_role(member, rank2role[user.rank.title])
+
+        await ctx.send(embed=discord_common.embed_success('Roles updated successfully'))
 
     async def cog_command_error(self, ctx, error):
-        pass
+        if isinstance(error, HandleCogError):
+            await ctx.send(embed=discord_common.embed_alert(error))
+            error.handled = True
 
 
 def setup(bot):
