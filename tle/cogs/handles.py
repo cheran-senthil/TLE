@@ -114,7 +114,7 @@ def _make_pages(users):
         for i, (member, handle, rating) in enumerate(chunk):
             name = member.display_name
             if len(name) > _NAME_MAX_LEN:
-                name = name[:_NAME_MAX_LEN - 3] + '...'
+                name = name[:_NAME_MAX_LEN - 1] + '…'
             rank = cf.rating2rank(rating)
             rating_str = 'N/A' if rating is None else str(rating)
             t += table.Data(i + done, name, handle, f'{rating_str} ({rank.title_abbr})')
@@ -135,17 +135,11 @@ class Handles(commands.Cog):
         await ctx.send_help(ctx.command)
 
     async def update_member_rank_role(self, member, role_to_assign):
-        has_role = False
-        role_names_to_remove = set(rank.title for rank in cf.RATED_RANKS)
-        to_remove = []
-        for role in member.roles:
-            if role == role_to_assign:
-                has_role = True
-            elif role.name in role_names_to_remove:
-                to_remove.append(role)
+        role_names_to_remove = {rank.title for rank in cf.RATED_RANKS} - {role_to_assign.name}
+        to_remove = [role for role in member.roles if role.name in role_names_to_remove]
         if to_remove:
             await member.remove_roles(*to_remove, reason='Codeforces rank update')
-        if not has_role:
+        if role_to_assign not in member.roles:
             await member.add_roles(role_to_assign, reason='Codeforces rank update')
 
     @handle.command(brief='Set Codeforces handle of a user')
@@ -261,7 +255,7 @@ class Handles(commands.Cog):
         buffer.seek(0)
         await ctx.send(file=discord.File(buffer, "handles.png"))
 
-    @commands.command(brief='update roles (admin-only)')
+    @commands.command(brief='Update Codeforces rank roles')
     @commands.has_role('Admin')
     async def updateroles(self, ctx):
         """Update Codeforces rank roles for everyone."""
@@ -275,7 +269,7 @@ class Handles(commands.Cog):
         for user in users:
             cf_common.user_db.cache_cfuser(user)
 
-        required_roles = set(user.rank.title for user in users if user.rank != cf.UNRATED_RANK)
+        required_roles = {user.rank.title for user in users if user.rank != cf.UNRATED_RANK}
         rank2role = {role.name: role for role in ctx.guild.roles if role.name in required_roles}
         missing_roles = required_roles - rank2role.keys()
         if missing_roles:
