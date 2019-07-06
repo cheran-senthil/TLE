@@ -34,7 +34,7 @@ To start TLE export the token as an environment variable
 ```
 export BOT_TOKEN="<BOT_TOKEN_FROM_DISCORD_CONSOLE>"
 ```
-and run using Python 3.7
+and run using Python 3.7 or later
 ```
 python -m tle
 ```
