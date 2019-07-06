@@ -50,63 +50,7 @@ These roles are needed even if none of the users in your server have these ranks
 
 In order to run any bot commands, you can either ping the bot at the beginning of the command, or prefix the command with a semicolon (;), e.g. `;handle pretty`
 The commands available are the following:
-
-```
-CSES:
-  _updatecses Force update the CSES leaderboard
-  cses        Shows compiled CSES leaderboard
-Codeforces:
-  gimme       Recommend a problem
-  gitgud      Challenge
-  gotgud      Report challenge completion
-  nogud       Skip challenge
-  vc          Recommend a contest
-Contests:
-  clist       Commands for listing contests
-  ranklist    Show ranklist for given handles and/or server members
-  remind      Commands for contest reminders
-Graphs:
-  plot        Graphs for analyzing Codeforces activity
-Handles:
-  gudgitters  show gudgitters
-  handle      Commands that have to do with handles
-​No Category:
-  help        Shows this message
-
-Type ;help command for more info on a command.
-You can also type ;help category for more info on a category.
-```
-```
-;plot
-
-Plot various graphs. Wherever Codeforces handles are accepted it is possible to
-use a server member's name instead by prefixing it with '!'.
-
-Commands:
-  centile Show percentile distribution on codeforces
-  distrib Show rating distribution
-  rating  Plot Codeforces rating graph
-  scatter Show history of problems solved by rating.
-  solved  Show histogram of solved problems on CF.
-
-Type ;help command for more info on a command.
-You can also type ;help category for more info on a category.
-```
-```
-;handle
-
-Change or collect information about specific handles on Codeforces
-
-Commands:
-  get    Get handle by Discord username
-  list   Show all handles
-  pretty Show colour handles
-  remove Remove handle for Discord user (admin-only)
-  set    Set Codeforces handle of a user (admin-only)
-
-Type ;help command for more info on a command.
-You can also type ;help category for more info on a category.
-```
+In order to find the commands which are available, you can execute the command `;help`. This will bring a list of commands / groups of commands which are available to use at the moment. To get more details about a specific command, you can type `;help <command-name>`
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
