@@ -1,8 +1,24 @@
 # TLE
 
 TLE is a Discord bot centered around Competitive Programming, which shows statistics and suggests problems/contests to solve.
-## Installation
 
+## Features
+The features of the bot is split into a number of cogs, each handling their own set of commands.
+
+### Codeforces cogs
+- Codeforces: Commands that can recommend problems or contests to users, taking their rating into account.
+- Contests: Shows details of upcoming/running contests.
+- Graphs: Plots various data gathered from Codeforces. For example rating distributions and user problem statistics.
+- Handles: Gets or sets information about a specific user's Codeforces handle, or shows list of Codeforces handles.
+
+### CSES cog
+- CSES: Commands related to the [CSES problemset](https://cses.fi/problemset/), such as showing leaderboards.
+
+### Other cogs
+- Starboard: Commands related to the starboard, which adds messages to a specific channel when enough users react with a `:star:`
+- CacheControl: Commands related to data caching.
+
+## Installation
 Firstly, clone the repository to copy the source files to your computer
 ```bash
 git clone https://github.com/cheran-senthil/TLE
@@ -27,7 +43,7 @@ Finally, in order to run the bot, you need to invite it to your Discord server a
 python -m tle
 ```
 
-In order for the bot to start, the following roles need to exist in your Discord server, which will be set to each of your users
+In order for the bot to function properly, the following roles need to exist in your Discord server, which will be set to each of your users
  - Newbie
  - Pupil
  - Specialist
@@ -47,7 +63,6 @@ These roles are needed even if none of the users in your server have these ranks
 
 
 ## Usage
-
 In order to run any bot commands, you can either ping the bot at the beginning of the command, or prefix the command with a semicolon (;), e.g. `;handle pretty`
 The commands available are the following:
 In order to find the commands which are available, you can execute the command `;help`. This will bring a list of commands / groups of commands which are available to use at the moment. To get more details about a specific command, you can type `;help <command-name>`
