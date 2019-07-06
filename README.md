@@ -14,7 +14,7 @@ The features of the bot is split into a number of cogs, each handling their own 
 - **CSES** Commands related to the [CSES problemset](https://cses.fi/problemset/), such as showing leaderboards.
 
 ### Other cogs
-- **Starboard** Commands related to the starboard, which adds messages to a specific channel when enough users react with a `:star:`.
+- **Starboard** Commands related to the starboard, which adds messages to a specific channel when enough users react with a ⭐️.
 - **CacheControl** Commands related to data caching.
 
 ## Installation
@@ -34,26 +34,25 @@ To start TLE export the token as an environment variable
 ```
 export BOT_TOKEN="<BOT_TOKEN_FROM_DISCORD_CONSOLE>"
 ```
-and run
+and run using Python 3.7
 ```
 python -m tle
 ```
 
-In order for the bot to function properly the following roles need to exist in your Discord server, which will be assigned by the bot to your users
- - Newbie
- - Pupil
- - Specialist
- - Expert
- - Candidate Master
- - Master
- - International Master
- - Grandmaster
- - International Grandmaster
- - Legendary Grandmaster
-
 ### Notes
  - In order to run admin-only commands you need to have the `Admin` role, which needs to be created in your Discord server and assign it to yourself/other administrators.
- - In order to prevent the bot suggesting an author's problems to the author a python file needs to be run (since this can not be done through the Codeforces API) which will save the authors for specific contests to a file. To do this run `python extra/scrape_cf_contest_writers.py` which will generate a JSON file. 
+ - In order to prevent the bot suggesting an author's problems to the author a python file needs to be run (since this can not be done through the Codeforces API) which will save the authors for specific contests to a file. To do this run `python extra/scrape_cf_contest_writers.py` which will generate a JSON file which should be placed in the `/files` folder. 
+ - One of the bot's features is to assign roles to users based on their rating on Codeforces. In order for this functionality to work properly the following roles need to exist in your Discord server
+     - Newbie
+     - Pupil
+     - Specialist
+     - Expert
+     - Candidate Master
+     - Master
+     - International Master
+     - Grandmaster
+     - International Grandmaster
+     - Legendary Grandmaster
 
 ## Usage
 In order to run bot commands you can either ping the bot at the beginning of the command or prefix the command with a semicolon (;), e.g. `;handle pretty`.
