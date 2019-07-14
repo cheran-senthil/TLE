@@ -489,6 +489,27 @@ class Graphs(commands.Cog):
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
 
+    @plot.command(brief='Plot histogram of gudgiting')
+    async def howgud(self, ctx, *members: discord.Member):
+        # shift the [-300, 300] gitgud range to center the test
+        hist_bins = list(range(-300 + 50, 300 + 50 + 1, 100))
+        deltas = [[x[0] for x in cf_common.user_db.howgud(member.id)] for member in members]
+        labels = [f'\N{ZERO WIDTH SPACE}{member.display_name}: {len(delta)}'
+                  for member, delta in zip(members, deltas)]
+
+        plt.clf()
+        plt.margins(x=0)
+        plt.hist(deltas, bins=hist_bins, label=labels, rwidth=1)
+        plt.xlabel('Problem delta')
+        plt.ylabel('Number solved')
+        plt.legend()
+
+        discord_file = _get_current_figure_as_file()
+        embed = discord_common.cf_color_embed(title='Histogram of gudgitting')
+        discord_common.attach_image(embed, discord_file)
+        discord_common.set_author_footer(embed, ctx.author)
+        await ctx.send(embed=embed, file=discord_file)
+
     async def cog_command_error(self, ctx, error):
         if isinstance(error, GraphCogError):
             await ctx.send(embed=discord_common.embed_alert(error))
