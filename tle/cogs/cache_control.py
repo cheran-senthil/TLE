@@ -30,16 +30,19 @@ class CacheControl(commands.Cog):
         await ctx.send_help('cache')
 
     @cache.command()
+    @commands.has_role('Admin')
     @timed_command
     async def contests(self, ctx):
         await cf_common.cache2.contest_cache.reload_now()
 
     @cache.command()
+    @commands.has_role('Admin')
     @timed_command
     async def problems(self, ctx):
         await cf_common.cache2.problem_cache.reload_now()
 
     @cache.command(usage='[missing|all|contest_id]')
+    @commands.has_role('Admin')
     @timed_command
     async def ratingchanges(self, ctx, contest_id='missing'):
         """Defaults to 'missing'. Mode 'all' clears existing cached changes.
