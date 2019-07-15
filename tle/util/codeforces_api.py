@@ -1,6 +1,7 @@
 import asyncio
 import logging
-from collections import namedtuple
+import time
+from collections import namedtuple, deque
 
 import aiohttp
 
@@ -183,6 +184,27 @@ def _bool_to_str(value):
     raise TypeError(f'Expected bool, got {value} of type {type(value)}')
 
 
+def cf_ratelimit(f):
+    per_second = 5
+    last = deque([0]*per_second)
+    async def wrapped(*args, **kwargs):
+        now = time.time()
+
+        # Next valid slot is 1s after the `per_second`th last request
+        next_valid = max(now, 1 + last[0])
+        last.append(next_valid)
+        last.popleft()
+
+        # Delay as needed
+        delay = next_valid - now
+        if delay > 0:
+            await asyncio.sleep(delay)
+
+        return await f(*args, **kwargs)
+    return wrapped
+
+
+# TODO integrate rate limiter, consider necessity of locks, ...
 async def _query_api(path, params=None):
     async with _api_lock:
         url = API_BASE_URL + path
