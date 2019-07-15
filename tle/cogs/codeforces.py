@@ -37,7 +37,7 @@ class Codeforces(commands.Cog):
         user = cf_common.user_db.fetch_cfuser(handle)
         rating = user.rating
         submissions = await cf.user.status(handle=handle)
-        solved = {sub.problem.name for sub in submissions}
+        solved = {sub.problem.name for sub in submissions if sub.verdict == 'OK'}
 
         lower = bounds[0] if len(bounds) > 0 else None
         if lower is None:
