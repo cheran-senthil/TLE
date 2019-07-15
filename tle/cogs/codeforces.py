@@ -72,6 +72,26 @@ class Codeforces(commands.Cog):
             embed.add_field(name='Matched tags', value=tagslist)
         await ctx.send(f'Recommended problem for `{handle}`', embed=embed)
 
+    @commands.command(brief='Print recently solved problems by user')
+    async def stalk(self, ctx, handle: str):
+        handle = handle or '!' + str(ctx.author)
+        handles = await cf_common.resolve_handles(ctx, self.converter, (handle,))
+        handle = handles[0]
+        user = cf_common.user_db.fetch_cfuser(handle)
+        submissions = await cf.user.status(handle=handle)
+        submissions = list({sub.problem.name : sub for sub in submissions
+                            if sub.author.participantType == 'PRACTICE'
+                            and sub.verdict == 'OK'}.values())
+        submissions.sort(key=lambda sub: -sub.creationTimeSeconds)
+        problems = [sub.problem for sub in submissions]
+
+        msg = ''
+        for i in range(min(5, len(problems))):
+            prob = problems[i]
+            rating = prob.rating if prob.rating else '?'
+            msg += f'{prob.name} [{rating}] - <{prob.url}>\n'
+        await ctx.send(msg)
+
     @commands.command(brief='Challenge')
     @cf_common.user_guard(group='gitgud')
     async def gitgud(self, ctx, delta: int = 0):
