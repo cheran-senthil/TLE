@@ -17,6 +17,8 @@ from tle import constants
 from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
 from tle.util import discord_common
+from tle.util import cache_system2
+from tle.util import ranklist
 
 pandas.plotting.register_matplotlib_converters()
 
@@ -146,6 +148,50 @@ class Graphs(commands.Cog):
         """Plot various graphs. Wherever Codeforces handles are accepted it is possible to
         use a server member's name instead by prefixing it with '!'."""
         await ctx.send_help('plot')
+
+    @plot.command(brief='Plot Codeforces contest performance graph', usage='[handles...]')
+    async def perf(self, ctx, *args: str):
+        """Plots Codeforces contest performance graph for the handles provided."""
+        handles = args or ('!' + str(ctx.author),)
+        handles = await cf_common.resolve_handles(ctx, self.converter, handles)
+        resp = [await cf.user.rating(handle=handle) for handle in handles]
+
+        plt.clf()
+        for i, user in enumerate(resp):
+            perfs = []
+            times = []
+            for change in user:
+                contest_id = change.contestId
+                contest = cf_common.cache2.contest_cache.get_contest(contest_id)
+                changes = await cf.contest.ratingChanges(contest_id=contest_id)
+                try:
+                    ranklist = cf_common.cache2.ranklist_cache.get_ranklist(contest)
+                except cache_system2.RanklistNotMonitored:
+                    ranklist = await cf_common.cache2.ranklist_cache.generate_ranklist(contest.id,
+                                                                                       fetch_changes=True)
+
+                current_rating = dict()
+                for change in changes:
+                    current_rating[change.handle] = change.oldRating
+                if 'Educational' in contest.name:
+                    current_rating = {handle:rating for handle, rating in current_rating.items() if rating < 2100}
+                perfs.append(ranklist.get_perf(current_rating, handles[i]))
+                times.append(datetime.datetime.fromtimestamp(change.ratingUpdateTimeSeconds))
+
+            plt.plot(times,
+                     perfs,
+                     linestyle='-',
+                     marker='o',
+                     markersize=3,
+                     markerfacecolor='white',
+                     markeredgewidth=0.5)
+
+        _plot_rating_bg()
+        discord_file = _get_current_figure_as_file()
+        embed = discord_common.cf_color_embed(title='Contest performance graph on Codeforces')
+        discord_common.attach_image(embed, discord_file)
+        discord_common.set_author_footer(embed, ctx.author)
+        await ctx.send(embed=embed, file=discord_file)
 
     @plot.command(brief='Plot Codeforces rating graph', usage='[+zoom] [handles...]')
     async def rating(self, ctx, *args: str):

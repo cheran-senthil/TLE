@@ -40,6 +40,12 @@ class CodeforcesRatingCalculator:
         """Return a mapping between contestants and their corresponding delta."""
         return {contestant.party: contestant.delta for contestant in self.contestants}
 
+    def calculate_performance(self, handle):
+        for a in self.contestants:
+            if a.party == handle:
+                return self._rank_to_rating(a.rank, a)
+        return 0
+
     def get_seed(self, rating, me=None):
         """Get seed given a rating and user."""
         seed = self.seed[rating]

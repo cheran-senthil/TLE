@@ -62,6 +62,11 @@ class Ranklist:
             raise HandleNotPresentError(self.contest, handle)
         return self.delta_by_handle.get(handle)
 
+    def get_perf(self, current_rating, handle):
+        standings = [(id_, row.points, row.penalty, current_rating[id_])
+                     for id_, row in self.standing_by_id.items() if id_ in current_rating]
+        return CodeforcesRatingCalculator(standings).calculate_performance(handle)
+
     def get_standing_row(self, handle):
         try:
             return self.standing_by_id[handle]
