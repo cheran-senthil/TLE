@@ -152,12 +152,25 @@ class Codeforces(commands.Cog):
             await ctx.send('You haven\'t completed your challenge.')
             return
 
+        def pretty_time_delta(seconds):
+            seconds = int(seconds)
+            days, seconds = divmod(seconds, 86400)
+            hours, seconds = divmod(seconds, 3600)
+            minutes, seconds = divmod(seconds, 60)
+            if days > 0:
+                return '%d days %d hours %d minutes' % (days, hours, minutes)
+            elif hours > 0:
+                return '%d hours %d minutes' % (hours, minutes)
+            else:
+                return '%d minutes' % (minutes)
+
         score_distrib = [2, 3, 5, 8, 12, 17, 23]
         delta = score_distrib[delta // 100 + 3]
         finish_time = int(datetime.datetime.now().timestamp())
         rc = cf_common.user_db.complete_challenge(user_id, challenge_id, finish_time, delta)
         if rc == 1:
-            await ctx.send(f'Challenge completed. {handle} gained {delta} points.')
+            duration = pretty_time_delta(issue_time - finish_time)
+            await ctx.send(f'Challenge completed in {duration}. {handle} gained {delta} points.')
         else:
             await ctx.send('You have already claimed your points')
 
