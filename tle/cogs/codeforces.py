@@ -7,6 +7,8 @@ from discord.ext import commands
 from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
 
+_GITGUD_NO_SKIP_TIME = 3 * 60 * 60
+
 
 class Codeforces(commands.Cog):
     def __init__(self, bot):
@@ -172,8 +174,9 @@ class Codeforces(commands.Cog):
             return
         challenge_id, issue_time, name, contestId, index, delta = active
         finish_time = int(datetime.datetime.now().timestamp())
-        if finish_time - issue_time < 10800:
-            await ctx.send(f'You can\'t skip your challenge yet. Think more.')
+        if finish_time - issue_time < _GITGUD_NO_SKIP_TIME:
+            skip_time = (int(issue_time) + _GITGUD_NO_SKIP_TIME - finish_time) // 60
+            await ctx.send(f'Think more. You can skip your challenge in {skip_time} minutes.')
             return
         cf_common.user_db.skip_challenge(user_id, challenge_id)
         await ctx.send(f'Challenge skipped.')
