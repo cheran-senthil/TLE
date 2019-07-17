@@ -6,6 +6,7 @@ from discord.ext import commands
 
 from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
+from tle.util import discord_common
 
 _GITGUD_NO_SKIP_TIME = 3 * 60 * 60
 
@@ -22,24 +23,59 @@ class Codeforces(commands.Cog):
         rc = cf_common.user_db.update_status(active_ids)
         await ctx.send(f'{rc} members active with handle')
 
-    @commands.command(brief='Recommend an unsolved problem from a contest you participated in')
+    async def _gitgud(self, ctx, handle, problem, delta):
+        user_id = ctx.message.author.id
+        active = cf_common.user_db.check_challenge(user_id)
+        if active is not None:
+            challenge_id, issue_time, name, contest_id, index, c_delta = active
+            url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
+            await ctx.send(f'You have an active challenge {name} at {url}')
+            return
+
+        issue_time = datetime.datetime.now().timestamp()
+        rc = cf_common.user_db.new_challenge(user_id, issue_time, problem, delta)
+        if rc != 1:
+            await ctx.send('Your challenge has already been added to the database!')
+            return
+
+        title = f'{problem.index}. {problem.name}'
+        desc = cf_common.cache2.contest_cache.get_contest(problem.contestId).name
+        embed = discord.Embed(title=title, url=problem.url, description=desc)
+        embed.add_field(name='Rating', value=problem.rating)
+        await ctx.send(f'Challenge problem for `{handle}`', embed=embed)
+
+    @commands.command(brief='Upsolve a problem')
     @cf_common.user_guard(group='gitgud')
-    async def upsolve(self, ctx):
+    async def upsolve(self, ctx, choice: int = -1):
+        """Request an unsolved problem from a contest you participated in
+        delta  | -300 | -200 | -100 |  0  | +100 | +200 | +300
+        points |   2  |   3  |   5  |  8  |  12  |  17  |  23
+        """
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
+        user = cf_common.user_db.fetch_cfuser(handle)
+        rating = round(user.rating, -2)
         resp = await cf.user.rating(handle=handle)
         contests = {change.contestId for change in resp}
         submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions if sub.verdict == 'OK'}
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
-                    if prob.name not in solved and prob.contestId in contests]
+                    if prob.name not in solved and prob.contestId in contests
+                    and abs(rating - prob.rating) <= 300]
 
         if not problems:
             await ctx.send('Problems not found within the search parameters')
             return
 
         problems.sort(key=lambda problem: problem.rating)
-        msg = '\n'.join(f'{prob.name} [{prob.rating}] - <{prob.url}>' for prob in problems[:5])
-        await ctx.send(msg)
+        if choice > 0 and choice <= len(problems):
+            problem = problems[choice - 1]
+            await self._gitgud(ctx, handle, problem, abs(rating - problem.rating))
+        else:
+            msg = '\n'.join(f'{i + 1}: [{prob.name}]({prob.url}) [{prob.rating}]'
+                            for i, prob in enumerate(problems[:5]))
+
+            embed = discord_common.cf_color_embed(description=msg)
+            await ctx.send(embed=embed)
 
     @commands.command(brief='Recommend a problem',
                       usage='[tags...] [lower] [upper]')
@@ -117,16 +153,8 @@ class Codeforces(commands.Cog):
         points |   2  |   3  |   5  |  8  |  12  |  17  |  23
         """
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
-        user_id = ctx.message.author.id
-        active = cf_common.user_db.check_challenge(user_id)
-        if active is not None:
-            challenge_id, issue_time, name, contest_id, index, c_delta = active
-            url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
-            await ctx.send(f'You have an active challenge {name} at {url}')
-            return
-
         user = cf_common.user_db.fetch_cfuser(handle)
-        rating = user.rating
+        rating = round(user.rating, -2)
         submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions}
 
@@ -134,7 +162,7 @@ class Codeforces(commands.Cog):
         if delta < -300 or delta > 300:
             await ctx.send('Delta can range from -300 to 300.')
             return
-        rating = round(rating, -2)
+
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
                     if prob.rating == rating + delta and prob.name not in solved]
 
@@ -152,20 +180,7 @@ class Codeforces(commands.Cog):
             problem.contestId).startTimeSeconds)
 
         choice = max([random.randrange(len(problems)) for _ in range(2)])
-        problem = problems[choice]
-
-        issue_time = datetime.datetime.now().timestamp()
-
-        rc = cf_common.user_db.new_challenge(user_id, issue_time, problem, delta)
-        if rc != 1:
-            # await ctx.send('Error updating the database')
-            await ctx.send('Your challenge has already been added to the database!')
-            return
-        title = f'{problem.index}. {problem.name}'
-        desc = cf_common.cache2.contest_cache.get_contest(problem.contestId).name
-        embed = discord.Embed(title=title, url=problem.url, description=desc)
-        embed.add_field(name='Rating', value=problem.rating)
-        await ctx.send(f'Challenge problem for `{handle}`', embed=embed)
+        await self._gitgud(ctx, handle, problems[choice], delta)
 
     @commands.command(brief='Report challenge completion')
     @cf_common.user_guard(group='gitgud')
