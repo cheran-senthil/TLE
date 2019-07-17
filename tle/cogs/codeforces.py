@@ -53,8 +53,7 @@ class Codeforces(commands.Cog):
             else:
                 tags.append(arg)
 
-        handles = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
-        handle = handles[0]
+        handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         user = cf_common.user_db.fetch_cfuser(handle)
         rating = user.rating
         submissions = await cf.user.status(handle=handle)
@@ -93,6 +92,23 @@ class Codeforces(commands.Cog):
             embed.add_field(name='Matched tags', value=tagslist)
         await ctx.send(f'Recommended problem for `{handle}`', embed=embed)
 
+    @commands.command(brief='Print recently solved practice problems by user')
+    async def stalk(self, ctx, handle: str):
+        handle = handle or '!' + str(ctx.author)
+        handle, = await cf_common.resolve_handles(ctx, self.converter, (handle,))
+        user = cf_common.user_db.fetch_cfuser(handle)
+        submissions = await cf.user.status(handle=handle)
+        submissions = list({sub.problem.name : sub for sub in submissions
+                            if sub.author.participantType == 'PRACTICE'
+                            and sub.verdict == 'OK'}.values())
+        submissions.sort(key=lambda sub: sub.creationTimeSeconds, reverse=True)
+        problems = [sub.problem for sub in submissions]
+
+        msg = '\n'.join(
+            f'{prob.name} [{prob.rating if prob.rating else "?"}] - <{prob.url}>'
+            for prob in problems[:5])
+        await ctx.send(msg)
+
     @commands.command(brief='Challenge')
     @cf_common.user_guard(group='gitgud')
     async def gitgud(self, ctx, delta: int = 0):
@@ -100,9 +116,7 @@ class Codeforces(commands.Cog):
         delta  | -300 | -200 | -100 |  0  | +100 | +200 | +300
         points |   2  |   3  |   5  |  8  |  12  |  17  |  23
         """
-        handles = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
-        handle = handles[0]
-
+        handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         user_id = ctx.message.author.id
         active = cf_common.user_db.check_challenge(user_id)
         if active is not None:
@@ -156,9 +170,7 @@ class Codeforces(commands.Cog):
     @commands.command(brief='Report challenge completion')
     @cf_common.user_guard(group='gitgud')
     async def gotgud(self, ctx):
-        handles = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
-        handle = handles[0]
-
+        handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         user_id = ctx.message.author.id
         active = cf_common.user_db.check_challenge(user_id)
         if not active:
