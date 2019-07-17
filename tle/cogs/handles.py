@@ -278,7 +278,8 @@ class Handles(commands.Cog):
             raise HandleCogError(f'Role{plural} for rank{plural} {roles_str} not present in the server')
 
         for member, user in zip(members, users):
-            await self.update_member_rank_role(member, rank2role[user.rank.title])
+            if user.rank != cf.UNRATED_RANK:
+                await self.update_member_rank_role(member, rank2role[user.rank.title])
 
         await ctx.send(embed=discord_common.embed_success('Roles updated successfully'))
 
