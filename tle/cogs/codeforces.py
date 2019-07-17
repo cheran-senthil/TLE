@@ -147,6 +147,43 @@ class Codeforces(commands.Cog):
             for prob in problems[:5])
         await ctx.send(msg)
 
+    @commands.command(brief='Create a mashup')
+    async def mashup(self, ctx, *handles: str):
+        """Create a mashup contest using problems within +-100 of average rating of handles provided.
+        """
+        handles = handles or ('!' + str(ctx.author),)
+        handles = await cf_common.resolve_handles(ctx, self.converter, handles)
+        resp = [await cf.user.status(handle=handle) for handle in handles]
+        submissions = [sub for user in resp for sub in user]
+        solved = {sub.problem.name for sub in submissions}
+        info = await cf.user.info(handles=handles)
+        rating = int(round(sum(user.rating or 1500 for user in info) / len(handles), -2))
+        problems = [prob for prob in cf_common.cache2.problem_cache.problems
+                    if abs(prob.rating - rating) <= 100 and prob.name not in solved
+                    and not any(cf_common.is_contest_writer(prob.contestId, handle) for handle in handles)]
+
+        if len(problems) < 4:
+            await ctx.send('Problems not found within the search parameters')
+            return
+
+        problems.sort(key=lambda problem: cf_common.cache2.contest_cache.get_contest(
+            problem.contestId).startTimeSeconds)
+
+        choices = []
+        for i in range(4):
+            k = max(random.randrange(len(problems) - i) for _ in range(2))
+            for c in choices:
+                if k >= c:
+                    k += 1
+            choices.append(k)
+            choices.sort()
+
+        problems = reversed([problems[k] for k in choices])
+        msg = '\n'.join(f'{"ABCD"[i]}: [{p.name}]({p.url}) [{p.rating}]' for i, p in enumerate(problems))
+        str_handles = '`, `'.join(handles)
+        embed = discord_common.cf_color_embed(description=msg)
+        await ctx.send(f'Mashup contest for `{str_handles}`', embed=embed)
+
     @commands.command(brief='Challenge')
     @cf_common.user_guard(group='gitgud')
     async def gitgud(self, ctx, delta: int = 0):
@@ -181,7 +218,7 @@ class Codeforces(commands.Cog):
         problems.sort(key=lambda problem: cf_common.cache2.contest_cache.get_contest(
             problem.contestId).startTimeSeconds)
 
-        choice = max([random.randrange(len(problems)) for _ in range(2)])
+        choice = max(random.randrange(len(problems)) for _ in range(2))
         await self._gitgud(ctx, handle, problems[choice], delta)
 
     @commands.command(brief='Report challenge completion')
@@ -259,18 +296,12 @@ class Codeforces(commands.Cog):
         """Recommends a contest based on Codeforces rating of the handle provided."""
         handles = handles or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
-        resp = [await cf.user.status(handle=handle) for handle in handles]
-
-        user_submissions = resp
-        try:
-            info = await cf.user.info(handles=handles)
-            contests = await cf.contest.list()
-        except cf.CodeforcesApiError:
-            await ctx.send('Codeforces API error.')
-            return
+        user_submissions = [await cf.user.status(handle=handle) for handle in handles]
+        info = await cf.user.info(handles=handles)
+        contests = await cf.contest.list()
 
         # TODO: div1 classification is wrong
-        divr = sum([user.rating or 1500 for user in info]) / len(handles)
+        divr = sum(user.rating or 1500 for user in info) / len(handles)
         divs = 'Div. 3' if divr < 1600 else 'Div. 2' if divr < 2100 else 'Div. 1'
         recommendations = {contest.id for contest in contests if divs in contest.name}
 
