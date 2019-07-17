@@ -20,21 +20,23 @@ class Codeforces(commands.Cog):
         rc = cf_common.user_db.update_status(active_ids)
         await ctx.send(f'{rc} members active with handle')
 
-    @commands.command(brief='Recommend an unsolved problem')
+    @commands.command(brief='Recommend an unsolved problem from a contest you participated in')
     @cf_common.user_guard(group='gitgud')
     async def upsolve(self, ctx):
-        handles = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
-        resp = await cf.user.rating(handle=handles[0])
+        handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
+        resp = await cf.user.rating(handle=handle)
         contests = {change.contestId for change in resp}
-        submissions = await cf.user.status(handle=handles[0])
+        submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions if sub.verdict == 'OK'}
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
                     if prob.name not in solved and prob.contestId in contests]
+
+        if not problems:
+            await ctx.send('Problems not found within the search parameters')
+            return
+
         problems.sort(key=lambda problem: problem.rating)
-        msg = ''
-        for i in range(min(5, len(problems))):
-            prob = problems[i]
-            msg += f'{prob.name} [{prob.rating}] - <{prob.url}>\n'
+        msg = '\n'.join(f'{prob.name} [{prob.rating}] - <{prob.url}>' for prob in problems[:5])
         await ctx.send(msg)
 
     @commands.command(brief='Recommend a problem',
