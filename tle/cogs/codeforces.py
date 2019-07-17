@@ -73,8 +73,8 @@ class Codeforces(commands.Cog):
         else:
             msg = '\n'.join(f'{i + 1}: [{prob.name}]({prob.url}) [{prob.rating}]'
                             for i, prob in enumerate(problems[:5]))
-
-            embed = discord_common.cf_color_embed(description=msg)
+            title = f'Select a problem to upsolve (1-{len(problems)}):'
+            embed = discord_common.cf_color_embed(title=title, description=msg)
             await ctx.send(embed=embed)
 
     @commands.command(brief='Recommend a problem',
