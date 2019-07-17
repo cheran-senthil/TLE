@@ -148,9 +148,9 @@ class Codeforces(commands.Cog):
         solved = {sub.problem.name for sub in submissions if sub.verdict == 'OK'}
 
         challenge_id, issue_time, name, contestId, index, delta = active
-        #if not name in solved:
-            #await ctx.send('You haven\'t completed your challenge.')
-            #return
+        if not name in solved:
+            await ctx.send('You haven\'t completed your challenge.')
+            return
 
         def pretty_time_delta(seconds):
             seconds = int(seconds)
