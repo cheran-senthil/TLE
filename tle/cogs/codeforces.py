@@ -66,7 +66,9 @@ class Codeforces(commands.Cog):
             await ctx.send('Problems not found within the search parameters')
             return
 
-        problems.sort(key=lambda problem: problem.rating)
+        problems.sort(key=lambda problem: cf_common.cache2.contest_cache.get_contest(
+            problem.contestId).startTimeSeconds, reverse=True)
+
         if choice > 0 and choice <= len(problems):
             problem = problems[choice - 1]
             await self._gitgud(ctx, handle, problem, abs(rating - problem.rating))
