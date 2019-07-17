@@ -142,10 +142,10 @@ class Codeforces(commands.Cog):
         submissions.sort(key=lambda sub: sub.creationTimeSeconds, reverse=True)
         problems = [sub.problem for sub in submissions]
 
-        msg = '\n'.join(
-            f'{prob.name} [{prob.rating if prob.rating else "?"}] - <{prob.url}>'
-            for prob in problems[:5])
-        await ctx.send(msg)
+        msg = '\n'.join(f'[{prob.name}]({prob.url}) [{prob.rating if prob.rating else "?"}]'
+                        for prob in problems[:5])
+        embed = discord_common.cf_color_embed(description=msg)
+        await ctx.send(f'Recently solved practice problems by `{handle}`', embed=embed)
 
     @commands.command(brief='Create a mashup')
     async def mashup(self, ctx, *handles: str):
