@@ -299,7 +299,7 @@ class Graphs(commands.Cog):
 
     async def _rating_hist(self, ctx, ratings, mode, binsize, title):
         if mode not in ('log', 'normal'):
-            raise GraphCogError('Mode should be either `log` or `normal`'))
+            raise GraphCogError('Mode should be either `log` or `normal`')
         title += ' (log scale)' if mode == 'log' else ' (normal scale)'
 
         ratings = [max(r, 0) for r in ratings]
@@ -368,7 +368,7 @@ class Graphs(commands.Cog):
                                     mode,
                                     binsize=100,
                                     title='Rating distribution of server members')
-        elif subcommand in ('cf', 'codeforces'):
+        elif subcommand in 'cf':
             mode = mode or 'log'
             ratings = cf_common.cache2.rating_changes_cache.get_all_ratings()
             await self._rating_hist(ctx,
