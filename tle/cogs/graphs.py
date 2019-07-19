@@ -368,7 +368,7 @@ class Graphs(commands.Cog):
                                     mode,
                                     binsize=100,
                                     title='Rating distribution of server members')
-        elif subcommand in 'cf':
+        elif subcommand == 'cf':
             mode = mode or 'log'
             ratings = cf_common.cache2.rating_changes_cache.get_all_ratings()
             await self._rating_hist(ctx,
