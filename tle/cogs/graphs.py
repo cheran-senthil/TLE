@@ -299,8 +299,8 @@ class Graphs(commands.Cog):
 
     async def _rating_hist(self, ctx, ratings, mode, binsize, title):
         if mode not in ('log', 'normal'):
-            await ctx.send(embed=discord_common.embed_alert('Mode should be either `log` or `normal`.'))
-            return
+            raise GraphCogError('Mode should be either `log` or `normal`')
+        title += ' (log scale)' if mode == 'log' else ' (normal scale)'
 
         ratings = [max(r, 0) for r in ratings]
 
@@ -355,7 +355,10 @@ class Graphs(commands.Cog):
 
     @plot.command(brief='Show rating distribution', usage='[server/cf] [normal/log]')
     async def distrib(self, ctx, subcommand: str = None, mode: str = None):
-        """Plots rating distribution"""
+        """Plots rating distribution of users on Codeforces or in this server, in either
+        normal or log scale. Default mode for Codeforces is log and default mode for
+        server is normal.
+        """
         if subcommand == 'server':
             mode = mode or 'normal'
             res = cf_common.user_db.getallhandleswithrating()
@@ -365,18 +368,16 @@ class Graphs(commands.Cog):
                                     mode,
                                     binsize=100,
                                     title='Rating distribution of server members')
-        elif subcommand in ('cf', 'codeforces'):
+        elif subcommand == 'cf':
             mode = mode or 'log'
             ratings = cf_common.cache2.rating_changes_cache.get_all_ratings()
             await self._rating_hist(ctx,
                                     ratings,
                                     mode,
                                     binsize=100,
-                                    title='Rating distribution of cf users')
+                                    title='Rating distribution of Codeforces users')
         else:
-            await ctx.send(
-                f'Unknown subcommand: {subcommand}\nValid subcommands: server, cf'
-            )
+            raise GraphCogError('Subcommand should be either `server` or `cf`')
 
     @plot.command(brief='Show percentile distribution on codeforces', usage='[+zoom] [handles...]')
     async def centile(self, ctx, *args: str):
