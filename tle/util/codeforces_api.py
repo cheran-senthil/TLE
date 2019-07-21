@@ -9,7 +9,9 @@ from discord.ext import commands
 API_BASE_URL = 'https://codeforces.com/api/'
 CONTEST_BASE_URL = 'https://codeforces.com/contest/'
 CONTESTS_BASE_URL = 'https://codeforces.com/contests/'
+GYM_BASE_URL = 'https://codeforces.com/gym/'
 PROFILE_BASE_URL = 'https://codeforces.com/profile/'
+GYM_ID_THRESHOLD = 100000
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +68,7 @@ class Contest(namedtuple('Contest', 'id name startTimeSeconds durationSeconds ty
 
     @property
     def url(self):
-        return f'{CONTEST_BASE_URL}{self.id}'
+        return f'{CONTEST_BASE_URL if self.id < GYM_ID_THRESHOLD else GYM_BASE_URL}{self.id}'
 
     @property
     def register_url(self):
@@ -91,7 +93,8 @@ class Problem(namedtuple('Problem', 'contestId index name type rating tags')):
 
     @property
     def url(self):
-        return f'{CONTEST_BASE_URL}{self.contestId}/problem/{self.index}'
+        base = CONTEST_BASE_URL if self.contestId < GYM_ID_THRESHOLD else GYM_BASE_URL
+        return f'{base}{self.contestId}/problem/{self.index}'
 
     def has_metadata(self):
         return self.contestId is not None and self.rating is not None

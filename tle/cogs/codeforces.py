@@ -144,8 +144,9 @@ class Codeforces(commands.Cog):
 
         msg = '\n'.join(f'[{prob.name}]({prob.url}) [{prob.rating if prob.rating else "?"}]'
                         for prob in problems[:5])
-        embed = discord_common.cf_color_embed(description=msg)
-        await ctx.send(f'Recently solved practice problems by `{handle}`', embed=embed)
+        embed = discord_common.cf_color_embed(title=f'Recently solved practice problems by `{handle}`',
+                                              description=msg)
+        await ctx.send(embed=embed)
 
     @commands.command(brief='Create a mashup')
     async def mashup(self, ctx, *handles: str):
