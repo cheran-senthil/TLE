@@ -94,7 +94,7 @@ class Problem(namedtuple('Problem', 'contestId index name type rating tags')):
     @property
     def url(self):
         base = CONTEST_BASE_URL if self.contestId < GYM_ID_THRESHOLD else GYM_BASE_URL
-        return (f'{base}{self.contestId}/problem/{self.index}'
+        return f'{base}{self.contestId}/problem/{self.index}'
 
     def has_metadata(self):
         return self.contestId is not None and self.rating is not None
