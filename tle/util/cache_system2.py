@@ -364,6 +364,9 @@ class RatingChangesCache:
         self.handle_rating_cache = handle_rating_cache
         self.logger.info(f'Ratings for {len(handle_rating_cache)} handles cached')
 
+    def get_users_with_more_than_n_contests(self, time_cutoff, n):
+        return self.cache_master.conn.get_users_with_more_than_n_contests(time_cutoff, n)
+
     def get_rating_changes_for_contest(self, contest_id):
         return self.cache_master.conn.get_rating_changes_for_contest(contest_id)
 

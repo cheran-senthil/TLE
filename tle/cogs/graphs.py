@@ -20,6 +20,9 @@ from tle.util import discord_common
 
 pandas.plotting.register_matplotlib_converters()
 
+# A user is considered active if the duration since his last contest is not more than this
+CONTEST_ACTIVE_TIME_CUTOFF = 90 * 24 * 60 * 60 # 90 days
+
 
 class GraphCogError(commands.CommandError):
     pass
@@ -300,9 +303,8 @@ class Graphs(commands.Cog):
     async def _rating_hist(self, ctx, ratings, mode, binsize, title):
         if mode not in ('log', 'normal'):
             raise GraphCogError('Mode should be either `log` or `normal`')
-        title += ' (log scale)' if mode == 'log' else ' (normal scale)'
 
-        ratings = [max(r, 0) for r in ratings]
+        ratings = [r for r in ratings if r >= 0]
 
         assert 100%binsize == 0 # because bins is semi-hardcoded
         bins = 39*100//binsize
@@ -319,7 +321,7 @@ class Graphs(commands.Cog):
             height[r // binsize] += 1
 
         csum = 0
-        cent = []
+        cent = [0]
         users = sum(height)
         for h in height:
             csum += h
@@ -353,31 +355,35 @@ class Graphs(commands.Cog):
         await ctx.send(embed=embed, file=discord_file)
         plt.close(fig)
 
-    @plot.command(brief='Show rating distribution', usage='[server/cf] [normal/log]')
-    async def distrib(self, ctx, subcommand: str = None, mode: str = None):
-        """Plots rating distribution of users on Codeforces or in this server, in either
-        normal or log scale. Default mode for Codeforces is log and default mode for
-        server is normal.
+    @plot.command(brief='Show server rating distribution')
+    async def distrib(self, ctx):
+        """Plots rating distribution of users in this server"""
+        res = cf_common.user_db.getallhandleswithrating()
+        ratings = [rating for _, _, rating in res if rating]
+        await self._rating_hist(ctx,
+                                ratings,
+                                'normal',
+                                binsize=100,
+                                title='Rating distribution of server members')
+
+    @plot.command(brief='Show Codeforces rating distribution', usage='[normal/log] [active/all] [contest_cutoff=5]')
+    async def cfdistrib(self, ctx, mode: str = 'log', activity = 'active', contest_cutoff: int = 5):
+        """Plots rating distribution of either active or all users on Codeforces, in either normal or log scale.
+        Default mode is log, default activity is active (competed in last 90 days)
+        Default contest cutoff is 5 (competed at least five times overall)
         """
-        if subcommand == 'server':
-            mode = mode or 'normal'
-            res = cf_common.user_db.getallhandleswithrating()
-            ratings = [rating for _, _, rating in res if rating]
-            await self._rating_hist(ctx,
-                                    ratings,
-                                    mode,
-                                    binsize=100,
-                                    title='Rating distribution of server members')
-        elif subcommand == 'cf':
-            mode = mode or 'log'
-            ratings = cf_common.cache2.rating_changes_cache.get_all_ratings()
-            await self._rating_hist(ctx,
-                                    ratings,
-                                    mode,
-                                    binsize=100,
-                                    title='Rating distribution of Codeforces users')
-        else:
-            raise GraphCogError('Subcommand should be either `server` or `cf`')
+        if activity not in ['active', 'all']:
+            raise GraphCogError('Activity should be either `active` or `all`')
+
+        time_cutoff = int(time.time()) - CONTEST_ACTIVE_TIME_CUTOFF if activity == 'active' else 0
+        handles = cf_common.cache2.rating_changes_cache.get_users_with_more_than_n_contests(time_cutoff, contest_cutoff)
+        ratings = [cf_common.cache2.rating_changes_cache.get_current_rating(handle) for handle in handles]
+        title = f'Rating distribution of {activity} Codeforces users ({mode} scale)'
+        await self._rating_hist(ctx,
+                                ratings,
+                                mode,
+                                binsize=100,
+                                title=title)
 
     @plot.command(brief='Show percentile distribution on codeforces', usage='[+zoom] [handles...]')
     async def centile(self, ctx, *args: str):
