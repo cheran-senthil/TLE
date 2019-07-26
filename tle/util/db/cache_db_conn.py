@@ -110,6 +110,13 @@ class CacheDbConn:
             self.conn.execute(query, (contest_id,))
         self.conn.commit()
 
+    def get_users_with_more_than_n_contests(self, time_cutoff, n):
+        query = ('SELECT handle, COUNT(*) AS num_contests '
+                 'FROM rating_change GROUP BY handle HAVING num_contests >= ? '
+                 'AND MAX(rating_update_time) >= ?')
+        res = self.conn.execute(query, (n, time_cutoff,)).fetchall()
+        return [user[0] for user in res]
+
     def get_all_rating_changes(self):
         query = ('SELECT contest_id, name, handle, rank, rating_update_time, old_rating, new_rating '
                  'FROM rating_change r '
