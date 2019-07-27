@@ -305,6 +305,7 @@ class Graphs(commands.Cog):
             raise GraphCogError('Mode should be either `log` or `normal`')
 
         ratings = [r for r in ratings if r >= 0]
+        assert ratings, 'Cannot histogram plot empty list of ratings'
 
         assert 100%binsize == 0 # because bins is semi-hardcoded
         bins = 39*100//binsize
@@ -349,11 +350,12 @@ class Graphs(commands.Cog):
         plt.ylabel('Number of users')
 
         discord_file = _get_current_figure_as_file()
+        plt.close(fig)
+
         embed = discord_common.cf_color_embed(title=title)
         discord_common.attach_image(embed, discord_file)
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
-        plt.close(fig)
 
     @plot.command(brief='Show server rating distribution')
     async def distrib(self, ctx):
@@ -377,6 +379,9 @@ class Graphs(commands.Cog):
 
         time_cutoff = int(time.time()) - CONTEST_ACTIVE_TIME_CUTOFF if activity == 'active' else 0
         handles = cf_common.cache2.rating_changes_cache.get_users_with_more_than_n_contests(time_cutoff, contest_cutoff)
+        if not handles:
+            raise GraphCogError('No Codeforces users meet the specified criteria')
+
         ratings = [cf_common.cache2.rating_changes_cache.get_current_rating(handle) for handle in handles]
         title = f'Rating distribution of {activity} Codeforces users ({mode} scale)'
         await self._rating_hist(ctx,
