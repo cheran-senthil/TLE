@@ -185,7 +185,8 @@ def cf_ratelimit(f):
     per_second = 5
     last = deque([0]*per_second)
     async def wrapped(*args, **kwargs):
-        while True:
+        tries = 3
+        for i in range(tries):
             now = time.time()
 
             # Next valid slot is 1s after the `per_second`th last request
@@ -200,8 +201,12 @@ def cf_ratelimit(f):
 
             try:
                 return await f(*args, **kwargs)
-            except (ClientError, CallLimitExceededError):
-                logger.info('Retrying query...')
+            except (ClientError, CallLimitExceededError) as e:
+                if i < tries - 1:
+                    logger.info(f'Try {i+1}/{tries} at query failed. Retrying...')
+                else:
+                    logger.info(f'Try {i+1}/{tries} at query failed. Aborting.')
+                    raise e
     return wrapped
 
 
