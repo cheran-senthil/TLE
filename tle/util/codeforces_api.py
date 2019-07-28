@@ -200,7 +200,7 @@ def cf_ratelimit(f):
 
             try:
                 return await f(*args, **kwargs)
-            except ClientError:
+            except CodeforcesApiError:
                 logger.info('Retrying query...')
     return wrapped
 
