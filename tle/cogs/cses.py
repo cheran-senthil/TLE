@@ -79,7 +79,7 @@ class CSES(commands.Cog):
         
         return self.format_leaderboard(top, placings)
     
-    def leaderboard_individual(self, placings, *handles: str):
+    def leaderboard_individual(self, placings, handles):
         leaderboard = sorted(
             ((k, score(v)) for k, v in placings.items() if k != 'N/A' and k in handles),
             key=lambda x: x[1],
@@ -100,14 +100,14 @@ class CSES(commands.Cog):
     def shortest(self, num=10):
         return self.leaderboard(self.short_placings, num)
 
-    def fastest_individual(self, *handles: str):
-        return self.leaderboard_individual(self.fast_placings, *handles)
+    def fastest_individual(self, handles):
+        return self.leaderboard_individual(self.fast_placings, handles)
 
-    def shortest_individual(self, *handles: str):
-        return self.leaderboard_individual(self.short_placings, *handles)
+    def shortest_individual(self, handles):
+        return self.leaderboard_individual(self.short_placings, handles)
 
     @commands.command(brief='Shows compiled CSES leaderboard', usage='[handles...]')
-    async def cses(self, ctx, *handles):
+    async def cses(self, ctx, *handles: str):
         """Shows compiled CSES leaderboard. If handles are given, leaderboard will contain only those indicated handles, otherwise leaderboard will contain overall top ten."""
         if not handles:
             await ctx.send('```\n' 'Fastest\n' + self.fastest + '\n\n' + 'Shortest\n' + self.shortest + '\n' + '```')
@@ -115,7 +115,7 @@ class CSES(commands.Cog):
             await ctx.send('```Please indicate at most 10 users```')
         else:
             handles = set(handles)
-            await ctx.send('```\n' 'Fastest\n' + self.fastest_individual(*handles) + '\n\n' + 'Shortest\n' + self.shortest_individual(*handles) + '\n' + '```')
+            await ctx.send('```\n' 'Fastest\n' + self.fastest_individual(handles) + '\n\n' + 'Shortest\n' + self.shortest_individual(handles) + '\n' + '```')
 
     @commands.command(brief='Force update the CSES leaderboard')
     async def _updatecses(self, ctx):
