@@ -49,16 +49,9 @@ class CSES(commands.Cog):
             self.short_placings = short_placings
             self.fast_placings = fast_placings
 
-    def leaderboard(self, placings, num):
-        leaderboard = sorted(
-            ((k, score(v)) for k, v in placings.items() if k != 'N/A'),
-            key=lambda x: x[1],
-            reverse=True)
-
-        if not leaderboard:
+    def format_leaderboard(self, top, placings):
+        if not top:
             return 'Failed to load :<'
-
-        top = leaderboard[:num]
 
         header = ' 1st 2nd 3rd 4th 5th '.split(' ')
 
@@ -74,42 +67,30 @@ class CSES(commands.Cog):
             hist = [placings[user].count(i + 1) for i in range(5)]
             t += table.Data(user, *hist, points)
 
-        return str(t)
+        return str(t)        
 
+    def leaderboard(self, placings, num):
+        leaderboard = sorted(
+            ((k, score(v)) for k, v in placings.items() if k != 'N/A'),
+            key=lambda x: x[1],
+            reverse=True)
+
+        top = leaderboard[:num]
+        
+        return self.format_leaderboard(top, placings)
+    
     def leaderboard_individual(self, placings, *handles: str):
         leaderboard = sorted(
             ((k, score(v)) for k, v in placings.items() if k != 'N/A' and k in handles),
             key=lambda x: x[1],
             reverse=True)
         
-        _placings = defaultdict(list)
         included = [handle for handle, score in leaderboard]
-        for handle in handles:
-            if handle not in included:
-                leaderboard.append((handle, 0))
-            else:
-                _placings[handle] = placings[handle]
-        
-        if not leaderboard:
-            return 'Failed to load :<'
+        leaderboard += [(handle, 0) for handle in handles if handle not in included]
         
         top = leaderboard
-
-        header = ' 1st 2nd 3rd 4th 5th '.split(' ')
-
-        style = table.Style(
-                header = '{:>}   {:>} {:>} {:>} {:>} {:>}   {:>}',
-                body   = '{:>} | {:>} {:>} {:>} {:>} {:>} | {:>} pts'
-        )
-
-        t = table.Table(style)
-        t += table.Header(*header)
-
-        for user, points in top:
-            hist = [_placings[user].count(i + 1) for i in range(5)]
-            t += table.Data(user, *hist, points)
-
-        return str(t)
+        
+        return self.format_leaderboard(top, placings)
 
     @property
     def fastest(self, num=10):
@@ -125,16 +106,13 @@ class CSES(commands.Cog):
     def shortest_individual(self, *handles: str):
         return self.leaderboard_individual(self.short_placings, *handles)
 
-    @commands.command(brief='Shows compiled CSES leaderboard')
-    async def cses(self, ctx):
-        """Shows compiled CSES leaderboard."""
-        await ctx.send('```\n' 'Fastest\n' + self.fastest + '\n\n' + 'Shortest\n' + self.shortest + '\n' + '```')
-
-    @commands.command(brief='Shows compiled CSES leaderboard for individuals')
-    async def cses_individual(self, ctx, *handles: str):
-        """Shows compiled CSES leaderboard for individuals."""
-        if len(handles) == 0 or len(handles) > 10:
-            await ctx.send('```Number of handles must be between 1 and 10```')
+    @commands.command(brief='Shows compiled CSES leaderboard', usage='[handles...]')
+    async def cses(self, ctx, *handles):
+        """Shows compiled CSES leaderboard. If handles are given, leaderboard will contain only those indicated handles, otherwise leaderboard will contain overall top ten."""
+        if not handles:
+            await ctx.send('```\n' 'Fastest\n' + self.fastest + '\n\n' + 'Shortest\n' + self.shortest + '\n' + '```')
+        elif len(handles) > 10:
+            await ctx.send('```Please indicate at most 10 users```')
         else:
             handles = set(handles)
             await ctx.send('```\n' 'Fastest\n' + self.fastest_individual(*handles) + '\n\n' + 'Shortest\n' + self.shortest_individual(*handles) + '\n' + '```')
