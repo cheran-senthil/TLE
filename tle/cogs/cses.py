@@ -76,6 +76,41 @@ class CSES(commands.Cog):
 
         return str(t)
 
+    def leaderboard_individual(self, placings, *handles: str):
+        leaderboard = sorted(
+            ((k, score(v)) for k, v in placings.items() if k != 'N/A' and k in handles),
+            key=lambda x: x[1],
+            reverse=True)
+        
+        _placings = defaultdict(list)
+        included = [handle for handle, score in leaderboard]
+        for handle in handles:
+            if handle not in included:
+                leaderboard.append((handle, 0))
+            else:
+                _placings[handle] = placings[handle]
+        
+        if not leaderboard:
+            return 'Failed to load :<'
+        
+        top = leaderboard
+
+        header = ' 1st 2nd 3rd 4th 5th '.split(' ')
+
+        style = table.Style(
+                header = '{:>}   {:>} {:>} {:>} {:>} {:>}   {:>}',
+                body   = '{:>} | {:>} {:>} {:>} {:>} {:>} | {:>} pts'
+        )
+
+        t = table.Table(style)
+        t += table.Header(*header)
+
+        for user, points in top:
+            hist = [_placings[user].count(i + 1) for i in range(5)]
+            t += table.Data(user, *hist, points)
+
+        return str(t)
+
     @property
     def fastest(self, num=10):
         return self.leaderboard(self.fast_placings, num)
@@ -84,10 +119,25 @@ class CSES(commands.Cog):
     def shortest(self, num=10):
         return self.leaderboard(self.short_placings, num)
 
+    def fastest_individual(self, *handles: str):
+        return self.leaderboard_individual(self.fast_placings, *handles)
+
+    def shortest_individual(self, *handles: str):
+        return self.leaderboard_individual(self.short_placings, *handles)
+
     @commands.command(brief='Shows compiled CSES leaderboard')
     async def cses(self, ctx):
         """Shows compiled CSES leaderboard."""
         await ctx.send('```\n' 'Fastest\n' + self.fastest + '\n\n' + 'Shortest\n' + self.shortest + '\n' + '```')
+
+    @commands.command(brief='Shows compiled CSES leaderboard for individuals')
+    async def cses_individual(self, ctx, *handles: str):
+        """Shows compiled CSES leaderboard for individuals."""
+        if len(handles) == 0 or len(handles) > 10:
+            await ctx.send('```Number of handles must be between 1 and 10```')
+        else:
+            handles = set(handles)
+            await ctx.send('```\n' 'Fastest\n' + self.fastest_individual(*handles) + '\n\n' + 'Shortest\n' + self.shortest_individual(*handles) + '\n' + '```')
 
     @commands.command(brief='Force update the CSES leaderboard')
     async def _updatecses(self, ctx):
