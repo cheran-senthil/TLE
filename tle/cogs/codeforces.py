@@ -161,7 +161,8 @@ class Codeforces(commands.Cog):
         rating = int(round(sum(user.rating or 1500 for user in info) / len(handles), -2))
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
                     if abs(prob.rating - rating) <= 100 and prob.name not in solved
-                    and not any(cf_common.is_contest_writer(prob.contestId, handle) for handle in handles)]
+                    and not any(cf_common.is_contest_writer(prob.contestId, handle) for handle in handles)
+                    and not cf_common.is_nonstandard_contest(cf_common.cache2.contest_cache.get_contest(prob.contestId))]
 
         if len(problems) < 4:
             await ctx.send('Problems not found within the search parameters')
