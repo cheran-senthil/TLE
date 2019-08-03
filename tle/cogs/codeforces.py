@@ -294,18 +294,30 @@ class Codeforces(commands.Cog):
             await ctx.send(f'Failed to force challenge skip.')
 
     @commands.command(brief='Recommend a contest')
-    async def vc(self, ctx, *handles: str):
+    async def vc(self, ctx, *args: str):
         """Recommends a contest based on Codeforces rating of the handle provided."""
-        handles = handles or ('!' + str(ctx.author),)
+        args = list(args)
+        markers = [x for x in args if x[0] == '+']
+        for x in markers:
+            args.remove(x)
+
+        def strfilt(s):
+            return ''.join(x for x in s.lower() if x.isalnum())
+
+        divs = strfilt(markers[0]) if markers else None
+        handles = args or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         user_submissions = [await cf.user.status(handle=handle) for handle in handles]
         info = await cf.user.info(handles=handles)
         contests = await cf.contest.list()
 
-        # TODO: div1 classification is wrong
-        divr = sum(user.rating or 1500 for user in info) / len(handles)
-        divs = 'Div. 3' if divr < 1600 else 'Div. 2' if divr < 2100 else 'Div. 1'
-        recommendations = {contest.id for contest in contests if divs in contest.name}
+        if not divs:
+            divr = sum(user.rating or 1500 for user in info) / len(handles)
+            # TODO: div1 classification is wrong - e.g. global rounds
+            divs = 'div3' if divr < 1600 else 'div2' if divr < 2100 else 'div1'
+
+        recommendations = {contest.id for contest in contests if divs in strfilt(contest.name)
+                           and not cf_common.is_nonstandard_contest(contest)}
 
         for subs in user_submissions:
             for sub in subs:
