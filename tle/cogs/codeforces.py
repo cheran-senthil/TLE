@@ -293,19 +293,30 @@ class Codeforces(commands.Cog):
         else:
             await ctx.send(f'Failed to force challenge skip.')
 
-    @commands.command(brief='Recommend a contest')
-    async def vc(self, ctx, *handles: str):
-        """Recommends a contest based on Codeforces rating of the handle provided."""
-        handles = handles or ('!' + str(ctx.author),)
+    @commands.command(brief='Recommend a contest', usage='[handles...] [+pattern...]')
+    async def vc(self, ctx, *args: str):
+        """Recommends a contest based on Codeforces rating of the handle provided.
+        e.g ;vc mblazev c1729 +global +hello +goodbye +avito"""
+        def strfilt(s):
+            return ''.join(x for x in s.lower() if x.isalnum())
+
+        markers = [x for x in args if x[0] == '+']
+        handles = [x for x in args if x[0] != '+'] or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         user_submissions = [await cf.user.status(handle=handle) for handle in handles]
         info = await cf.user.info(handles=handles)
         contests = await cf.contest.list()
 
-        # TODO: div1 classification is wrong
-        divr = sum(user.rating or 1500 for user in info) / len(handles)
-        divs = 'Div. 3' if divr < 1600 else 'Div. 2' if divr < 2100 else 'Div. 1'
-        recommendations = {contest.id for contest in contests if divs in contest.name}
+        if not markers:
+            divr = sum(user.rating or 1500 for user in info) / len(handles)
+            div1_indicators = ['div1', 'global', 'avito', 'goodbye', 'hello']
+            divs = ['div3'] if divr < 1600 else ['div2'] if divr < 2100 else div1_indicators
+        else:
+            divs = [strfilt(x) for x in markers]
+
+        recommendations = {contest.id for contest in contests
+                           if any(tag in strfilt(contest.name) for tag in divs)
+                           and not cf_common.is_nonstandard_contest(contest)}
 
         for subs in user_submissions:
             for sub in subs:
