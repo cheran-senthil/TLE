@@ -1,6 +1,7 @@
 import io
 
 import discord
+import random
 from discord.ext import commands
 
 from tle.util import codeforces_api as cf
@@ -128,6 +129,7 @@ def _make_pages(users):
 class Handles(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.identify_map = dict()
 
     @commands.group(brief='Commands that have to do with handles', invoke_without_command=True)
     async def handle(self, ctx):
@@ -136,6 +138,8 @@ class Handles(commands.Cog):
 
     async def update_member_rank_role(self, member, role_to_assign):
         role_names_to_remove = {rank.title for rank in cf.RATED_RANKS} - {role_to_assign.name}
+        if role_to_assign.name not in ['Newbie', 'Pupil', 'Specialist', 'Expert']:
+            role_names_to_remove.add('Purgatory')
         to_remove = [role for role in member.roles if role.name in role_names_to_remove]
         if to_remove:
             await member.remove_roles(*to_remove, reason='Codeforces rank update')
@@ -146,10 +150,11 @@ class Handles(commands.Cog):
     @commands.has_role('Admin')
     async def set(self, ctx, member: discord.Member, handle: str):
         """Set Codeforces handle of a user."""
-        users = await cf.user.info(handles=[handle])
-        user = users[0]
-
         # CF API returns correct handle ignoring case, update to it
+        users = await cf.user.info(handles=[handle])
+        await self._set(ctx, member, users[0])
+
+    async def _set(self, ctx, member, user):
         handle = user.handle
         cf_common.user_db.cache_cfuser(user)
         cf_common.user_db.sethandle(member.id, handle)
@@ -162,6 +167,35 @@ class Handles(commands.Cog):
         if not roles:
             raise HandleCogError(f'Role for rank `{user.rank.title}` not present in the server')
         await self.update_member_rank_role(member, roles[0])
+
+    @handle.command(brief='Identify yourself')
+    async def identify(self, ctx, handle: str):
+        users = await cf.user.info(handles=[handle])
+        if not users:
+            await ctx.send('`{handle}` not found on codeforces')
+            return
+
+        invoker = str(ctx.author)
+        problem = random.choice(cf_common.cache2.problem_cache.problems)
+        handle, name, url = (users[0].handle, problem.name, problem.url)
+        self.identify_map[invoker] = (handle, name, url)
+        await ctx.send(f'`{invoker}`, submit a compile error to <{url}> and then run `;handle report`')
+
+    @handle.command(brief='Report identification')
+    async def report(self, ctx):
+        invoker = str(ctx.author)
+        if not invoker in self.identify_map:
+            await ctx.send(f'`{invoker}`, you have nothing to report')
+            return
+
+        handle, prob, url = self.identify_map[invoker]
+        subs = await cf.user.status(handle=handle, count=5)
+        if any(sub.problem.name == prob and sub.verdict == 'COMPILATION_ERROR' for sub in subs):
+            self.identify_map.pop(invoker)
+            users = await cf.user.info(handles=[handle])
+            await self._set(ctx, ctx.author, users[0])
+        else:
+            await ctx.send(f'Sorry `{invoker}`, can you try again?')
 
     @handle.command(brief='Get handle by Discord username')
     async def get(self, ctx, member: discord.Member):

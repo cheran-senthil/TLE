@@ -80,6 +80,9 @@ class Starboard(commands.Cog):
             raise StarboardCogError('Starboard channel not found')
 
         channel = self.bot.get_channel(payload.channel_id)
+        if channel.name == 'gitgud' or 'purgatory' in channel.name:
+            return
+
         message = await channel.fetch_message(payload.message_id)
         if (message.type != discord.MessageType.default or
                 len(message.content) == 0 and len(message.attachments) == 0):
