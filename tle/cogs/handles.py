@@ -236,6 +236,8 @@ class Handles(commands.Cog):
                 handle_display = f'{member.display_name} ({score})'
                 t += table.Data(index, handle_display)
                 index += 1
+            if index == 20:
+                break
         if index > 0:
             msg = '```\n' + str(t) + '\n```'
         else:
