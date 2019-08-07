@@ -255,7 +255,6 @@ class Codeforces(commands.Cog):
 			]
 
 			timeprint = []
-
 			for count, singular, plural in timespec:
 				if count:
 					timeprint.append ((count, singular, plural))
