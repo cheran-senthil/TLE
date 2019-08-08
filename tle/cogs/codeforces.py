@@ -242,7 +242,6 @@ class Codeforces(commands.Cog):
             return
 
         def pretty_time_delta(seconds):
-            
             seconds = int(seconds)
             days, seconds = divmod(seconds, 86400)
             hours, seconds = divmod(seconds, 3600)
@@ -253,9 +252,8 @@ class Codeforces(commands.Cog):
                 (hours, 'hour', 'hours'),
                 (minutes, 'minute', 'minutes'),
             ]
-
+                        
             timeprint = [(count,singular,plural) for count,singular,plural in timespec if count]
-
             if not timeprint:
                 timeprint.append((seconds, 'second', 'seconds'))
 
