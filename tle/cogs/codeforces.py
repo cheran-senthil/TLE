@@ -252,8 +252,13 @@ class Codeforces(commands.Cog):
                 (hours, 'hour', 'hours'),
                 (minutes, 'minute', 'minutes'),
             ]
+                        
+            timeprint = [(count,singular,plural) for count,singular,plural in timespec if count]
+            if not timeprint:
+                timeprint.append((seconds, 'second', 'seconds'))
+
             return ' '.join(f'{count} {singular if count == 1 else plural}'
-                            for count, singular, plural in timespec)
+                            for count, singular, plural in timeprint)
 
         score_distrib = [2, 3, 5, 8, 12, 17, 23]
         delta = score_distrib[delta // 100 + 3]
