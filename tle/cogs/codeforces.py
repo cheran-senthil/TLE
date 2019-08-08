@@ -243,7 +243,7 @@ class Codeforces(commands.Cog):
 
         def pretty_time_delta(seconds):
             
-            seconds = int (input ())
+            seconds = int(seconds)
             days, seconds = divmod(seconds, 86400)
             hours, seconds = divmod(seconds, 3600)
             minutes, seconds = divmod(seconds, 60)
@@ -254,13 +254,10 @@ class Codeforces(commands.Cog):
                 (minutes, 'minute', 'minutes'),
             ]
 
-            timeprint = []
-            for count, singular, plural in timespec:
-                if count:
-                    timeprint.append ((count, singular, plural))
+            timeprint = [(count,singular,plural) for count,singular,plural in timespec if count]
 
             if not timeprint:
-                timeprint.append ((seconds, 'second', 'seconds'))
+                timeprint.append((seconds, 'second', 'seconds'))
 
             return ' '.join(f'{count} {singular if count == 1 else plural}'
                             for count, singular, plural in timeprint)
