@@ -165,9 +165,6 @@ class RatingChangesUnavailableError(CodeforcesApiError):
     def __init__(self, comment, contest_id):
         super().__init__(comment, f'Rating changes unavailable for contest with ID `{contest_id}`')
 
-class ClientError(CodeforcesApiError):
-    def __init__(self):
-        super().__init__(None, 'Error connecting to Codeforces API')
 
 # Codeforces API query methods
 
