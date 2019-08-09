@@ -165,6 +165,9 @@ class RatingChangesUnavailableError(CodeforcesApiError):
     def __init__(self, comment, contest_id):
         super().__init__(comment, f'Rating changes unavailable for contest with ID `{contest_id}`')
 
+class ClientError(CodeforcesApiError):
+    def __init__(self):
+        super().__init__(None, 'Error connecting to Codeforces API')
 
 # Codeforces API query methods
 
@@ -183,11 +186,9 @@ def _bool_to_str(value):
 
 
 def cf_ratelimit(f):
+    tries = 3
     per_second = 5
     last = deque([0]*per_second)
-    tries = 3
-    busylimit = 60
-    delays = [i*5 for i in range(tries)]
 
     @functools.wraps(f)
     async def wrapped(*args, **kwargs):
@@ -195,16 +196,12 @@ def cf_ratelimit(f):
             now = time.time()
 
             # Next valid slot is 1s after the `per_second`th last request
-            next_valid = max(now + delays[i], 1 + last[0])
+            next_valid = max(now, 1 + last[0])
             last.append(next_valid)
             last.popleft()
 
             # Delay as needed
             delay = next_valid - now
-            if delay > busylimit:
-                logger.info('Query queue is busy and the query will be dropped.')
-                logger.info(f'The task was scheduled {delay} seconds in the future.')
-                raise ClientError("Query queue is busy.")
             if delay > 0:
                 await asyncio.sleep(delay)
 
