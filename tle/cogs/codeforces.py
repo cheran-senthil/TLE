@@ -152,6 +152,9 @@ class Codeforces(commands.Cog):
     async def mashup(self, ctx, *handles: str):
         """Create a mashup contest using problems within +-100 of average rating of handles provided.
         """
+        handles = [arg for arg in args if arg[0] != '+']
+        tags = [arg[1:] for arg in args if arg[0] == '+' and len (arg) > 1]
+        
         handles = handles or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         resp = [await cf.user.status(handle=handle) for handle in handles]
@@ -163,7 +166,8 @@ class Codeforces(commands.Cog):
                     if abs(prob.rating - rating) <= 100 and prob.name not in solved
                     and not any(cf_common.is_contest_writer(prob.contestId, handle) for handle in handles)
                     and not cf_common.is_nonstandard_contest(cf_common.cache2.contest_cache.get_contest(prob.contestId))]
-
+        if tags: problems = [prob for prob in problems if prob.tag_matches(tags)]
+            
         if len(problems) < 4:
             await ctx.send('Problems not found within the search parameters')
             return
@@ -252,8 +256,13 @@ class Codeforces(commands.Cog):
                 (hours, 'hour', 'hours'),
                 (minutes, 'minute', 'minutes'),
             ]
+                        
+            timeprint = [(count,singular,plural) for count,singular,plural in timespec if count]
+            if not timeprint:
+                timeprint.append((seconds, 'second', 'seconds'))
+
             return ' '.join(f'{count} {singular if count == 1 else plural}'
-                            for count, singular, plural in timespec)
+                            for count, singular, plural in timeprint)
 
         score_distrib = [2, 3, 5, 8, 12, 17, 23]
         delta = score_distrib[delta // 100 + 3]
