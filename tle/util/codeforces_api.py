@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import time
+import functools
 from collections import namedtuple, deque
 
 import aiohttp
@@ -184,28 +185,38 @@ def _bool_to_str(value):
 def cf_ratelimit(f):
     per_second = 5
     last = deque([0]*per_second)
+    tries = 3
+    busylimit = 60
+    delays = [i*5 for i in range(tries)]
+
+    @functools.wraps(f)
     async def wrapped(*args, **kwargs):
-        tries = 3
         for i in range(tries):
             now = time.time()
 
             # Next valid slot is 1s after the `per_second`th last request
-            next_valid = max(now, 1 + last[0])
+            next_valid = max(now + delays[i], 1 + last[0])
             last.append(next_valid)
             last.popleft()
 
             # Delay as needed
             delay = next_valid - now
+            if delay > busylimit:
+                logger.info('Query queue is busy and the query will be dropped.')
+                logger.info(f'The task was scheduled {delay} seconds in the future.')
+                raise ClientError("Query queue is busy.")
             if delay > 0:
                 await asyncio.sleep(delay)
 
             try:
                 return await f(*args, **kwargs)
             except (ClientError, CallLimitExceededError) as e:
+                logger.info(f'Try {i+1}/{tries} at query failed.')
+                logger.info(repr(e))
                 if i < tries - 1:
-                    logger.info(f'Try {i+1}/{tries} at query failed. Retrying...')
+                    logger.info(f'Retrying...')
                 else:
-                    logger.info(f'Try {i+1}/{tries} at query failed. Aborting.')
+                    logger.info(f'Aborting.')
                     raise e
     return wrapped
 
