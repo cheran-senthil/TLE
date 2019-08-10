@@ -109,7 +109,8 @@ class Codeforces(commands.Cog):
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
                     if lower <= prob.rating and prob.name not in solved]
         problems = [prob for prob in problems if not cf_common.is_contest_writer(prob.contestId, handle)]
-        if tags: problems = [prob for prob in problems if prob.tag_matches(tags)]
+        if tags: 
+            problems = [prob for prob in problems if prob.tag_matches(tags)]
         if not problems:
             await ctx.send('Problems not found within the search parameters')
             return
@@ -148,10 +149,14 @@ class Codeforces(commands.Cog):
                                               description=msg)
         await ctx.send(embed=embed)
 
-    @commands.command(brief='Create a mashup')
-    async def mashup(self, ctx, *handles: str):
+    @commands.command(brief='Create a mashup', usage='[handles] [+tags]')
+    async def mashup(self, ctx, *args):
         """Create a mashup contest using problems within +-100 of average rating of handles provided.
+        Add tags with "+" before them.
         """
+        handles = [arg for arg in args if arg[0] != '+']
+        tags = [arg[1:] for arg in args if arg[0] == '+' and len(arg) > 1]
+        
         handles = handles or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         resp = [await cf.user.status(handle=handle) for handle in handles]
@@ -163,7 +168,9 @@ class Codeforces(commands.Cog):
                     if abs(prob.rating - rating) <= 100 and prob.name not in solved
                     and not any(cf_common.is_contest_writer(prob.contestId, handle) for handle in handles)
                     and not cf_common.is_nonstandard_contest(cf_common.cache2.contest_cache.get_contest(prob.contestId))]
-
+        if tags:
+            problems = [prob for prob in problems if prob.tag_matches(tags)]
+            
         if len(problems) < 4:
             await ctx.send('Problems not found within the search parameters')
             return
