@@ -109,7 +109,8 @@ class Codeforces(commands.Cog):
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
                     if lower <= prob.rating and prob.name not in solved]
         problems = [prob for prob in problems if not cf_common.is_contest_writer(prob.contestId, handle)]
-        if tags: problems = [prob for prob in problems if prob.tag_matches(tags)]
+        if tags: 
+            problems = [prob for prob in problems if prob.tag_matches(tags)]
         if not problems:
             await ctx.send('Problems not found within the search parameters')
             return
@@ -149,8 +150,9 @@ class Codeforces(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command(brief='Create a mashup')
-    async def mashup(self, ctx, *handles: str):
+    async def mashup(self, ctx, *args):
         """Create a mashup contest using problems within +-100 of average rating of handles provided.
+        add tags with "+" before them. Example: ;mashup +dsu +greedy.
         """
         handles = [arg for arg in args if arg[0] != '+']
         tags = [arg[1:] for arg in args if arg[0] == '+' and len(arg) > 1]
