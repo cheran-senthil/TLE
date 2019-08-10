@@ -149,10 +149,10 @@ class Codeforces(commands.Cog):
                                               description=msg)
         await ctx.send(embed=embed)
 
-    @commands.command(brief='Create a mashup')
+    @commands.command(brief='Create a mashup', usage='[handles] [+tags]')
     async def mashup(self, ctx, *args):
         """Create a mashup contest using problems within +-100 of average rating of handles provided.
-        add tags with "+" before them. Example: ;mashup +dsu +greedy.
+        Add tags with "+" before them.
         """
         handles = [arg for arg in args if arg[0] != '+']
         tags = [arg[1:] for arg in args if arg[0] == '+' and len(arg) > 1]
