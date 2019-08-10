@@ -153,7 +153,7 @@ class Codeforces(commands.Cog):
         """Create a mashup contest using problems within +-100 of average rating of handles provided.
         """
         handles = [arg for arg in args if arg[0] != '+']
-        tags = [arg[1:] for arg in args if arg[0] == '+' and len (arg) > 1]
+        tags = [arg[1:] for arg in args if arg[0] == '+' and len(arg) > 1]
         
         handles = handles or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
