@@ -72,18 +72,20 @@ def _plot_rating(resp, mark='o', labels: List[str] = None):
     _plot_rating_bg()
 
 
-def _filter_solved_submissions(submissions, contests):
+def _filter_solved_submissions(submissions, contests, tags = []):
     """Filters and keeps only solved submissions with problems that have a rating and belong to
-    some contest from given contests. If a problem is solved multiple times the first accepted
+    some contest from given contests. The first argument of *args may contain a list of tags
+    to filter problems. If a problem is solved multiple times the first accepted
     submission is kept. The unique id for a problem is (problem name, contest start time).
     """
     submissions.sort(key=lambda sub: sub.creationTimeSeconds)
     contest_id_map = {contest.id: contest for contest in contests}
     problems = set()
     solved_subs = []
+    
     for submission in submissions:
         contest = contest_id_map.get(submission.problem.contestId)
-        if submission.verdict == 'OK' and submission.problem.rating and contest:
+        if submission.verdict == 'OK' and submission.problem.rating and contest and (not tags or submission.problem.tag_matches(tags)):
             # Assume (name, contest start time) is a unique identifier for problems
             problem_key = (submission.problem.name, contest.startTimeSeconds)
             if problem_key not in problems:
@@ -194,14 +196,23 @@ class Graphs(commands.Cog):
         await ctx.send(embed=embed, file=discord_file)
 
     @plot.command(brief='Show histogram of solved problems on CF.')
-    async def solved(self, ctx, *handles: str):
+    async def solved(self, ctx, *args: str):
         """Shows a histogram of problems solved on Codeforces for the handles provided."""
+        handles = []
+        tags = []
+
+        for arg in args:
+            if arg[0] == '+':
+                tags.append(arg[1:])
+            else:
+                handles.append(arg)
+        
         handles = handles or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         resp = [await cf.user.status(handle=handle) for handle in handles]
         contests = await cf.contest.list()
 
-        all_solved_subs = [_filter_solved_submissions(submissions, contests)
+        all_solved_subs = [_filter_solved_submissions(submissions, contests, tags)
                            for submissions in resp]
 
         if not any(all_solved_subs):

@@ -413,7 +413,7 @@ class Contests(commands.Cog):
             guild_handles = [handle for discord_id, handle
                              in cf_common.user_db.get_handles_for_guild(ctx.guild.id)]
             handles.update(guild_handles)
-        handles = await cf_common.resolve_handles(ctx, self.member_converter, handles, maxcnt=100)
+        handles = await cf_common.resolve_handles(ctx, self.member_converter, handles, maxcnt=256)
 
         handle_standings = []
         for handle in handles:

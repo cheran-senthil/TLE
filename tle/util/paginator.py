@@ -80,7 +80,7 @@ def paginate(bot, channel, pages, *, wait_time, set_pagenum_footers=False):
         raise NoPagesError()
     permissions = channel.permissions_for(channel.guild.me)
     if not permissions.manage_messages:
-        raise InsufficientPermissionsError()
+        raise InsufficientPermissionsError('Permission to manage messages required')
     if len(pages) > 1 and set_pagenum_footers:
         for i, (content, embed) in enumerate(pages):
             embed.set_footer(text=f'Page {i + 1} / {len(pages)}')
