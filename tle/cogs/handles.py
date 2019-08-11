@@ -129,7 +129,7 @@ def _make_pages(users):
 class Handles(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.identify_map = dict()
+        self.identify_map = {}
 
     @commands.group(brief='Commands that have to do with handles', invoke_without_command=True)
     async def handle(self, ctx):
@@ -177,9 +177,8 @@ class Handles(commands.Cog):
 
         invoker = str(ctx.author)
         problem = random.choice(cf_common.cache2.problem_cache.problems)
-        handle, name, url = (users[0].handle, problem.name, problem.url)
-        self.identify_map[invoker] = (handle, name, url)
-        await ctx.send(f'`{invoker}`, submit a compile error to <{url}> and then run `;handle report`')
+        self.identify_map[invoker] = (users[0].handle, problem.name)
+        await ctx.send(f'`{invoker}`, submit a compile error to <{problem.url}> and then run `;handle report`')
 
     @handle.command(brief='Report identification')
     async def report(self, ctx):
@@ -188,10 +187,10 @@ class Handles(commands.Cog):
             await ctx.send(f'`{invoker}`, you have nothing to report')
             return
 
-        handle, prob, url = self.identify_map[invoker]
+        handle, prob = self.identify_map[invoker]
         subs = await cf.user.status(handle=handle, count=5)
         if any(sub.problem.name == prob and sub.verdict == 'COMPILATION_ERROR' for sub in subs):
-            self.identify_map.pop(invoker)
+            del self.identify_map[invoker]
             users = await cf.user.info(handles=[handle])
             await self._set(ctx, ctx.author, users[0])
         else:
