@@ -248,31 +248,12 @@ class Codeforces(commands.Cog):
             await ctx.send('You haven\'t completed your challenge.')
             return
 
-        def pretty_time_delta(seconds):
-            seconds = int(seconds)
-            days, seconds = divmod(seconds, 86400)
-            hours, seconds = divmod(seconds, 3600)
-            minutes, seconds = divmod(seconds, 60)
-
-            timespec = [
-                (days, 'day', 'days'),
-                (hours, 'hour', 'hours'),
-                (minutes, 'minute', 'minutes'),
-            ]
-                        
-            timeprint = [(count,singular,plural) for count,singular,plural in timespec if count]
-            if not timeprint:
-                timeprint.append((seconds, 'second', 'seconds'))
-
-            return ' '.join(f'{count} {singular if count == 1 else plural}'
-                            for count, singular, plural in timeprint)
-
         score_distrib = [2, 3, 5, 8, 12, 17, 23]
         delta = score_distrib[delta // 100 + 3]
         finish_time = int(datetime.datetime.now().timestamp())
         rc = cf_common.user_db.complete_challenge(user_id, challenge_id, finish_time, delta)
         if rc == 1:
-            duration = pretty_time_delta(finish_time - issue_time)
+            duration = cf_common.time_format(finish_time - issue_time, "string")
             await ctx.send(f'Challenge completed in {duration}. {handle} gained {delta} points.')
         else:
             await ctx.send('You have already claimed your points')
