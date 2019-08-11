@@ -4,6 +4,7 @@ import functools
 import json
 import logging
 import time
+
 from collections import defaultdict
 
 import discord
@@ -28,18 +29,11 @@ class ContestCogError(commands.CommandError):
     pass
 
 
-def _secs_to_days_hrs_mins_secs(secs):
-    days, secs = divmod(secs, 60 * 60 * 24)
-    hrs, secs = divmod(secs, 60 * 60)
-    mins, secs = divmod(secs, 60)
-    return days, hrs, mins, secs
-
-
 def _get_formatted_contest_info(contest, tz):
     start = datetime.datetime.fromtimestamp(contest.startTimeSeconds, tz)
     start = f'{start.strftime("%d %b %y, %H:%M")} {tz}'
 
-    duration_days, duration_hrs, duration_mins, _ = _secs_to_days_hrs_mins_secs(contest.durationSeconds)
+    duration_days, duration_hrs, duration_mins, _ = cf_common.time_format(contest.durationSeconds, "zimbabwe")
     duration = f'{duration_hrs}h {duration_mins}m'
     if duration_days > 0:
         duration = f'{duration_days}d ' + duration
@@ -77,7 +71,7 @@ async def _send_reminder_at(channel, role, contests, before_secs, send_time):
     if delay <= 0:
         return
     await asyncio.sleep(delay)
-    values = _secs_to_days_hrs_mins_secs(before_secs)
+    values = cf_common.time_format(before_secs, "no")
 
     def make(value, label):
         tmp = f'{value} {label}'
