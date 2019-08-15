@@ -33,7 +33,7 @@ def _get_formatted_contest_info(contest, tz):
     start = datetime.datetime.fromtimestamp(contest.startTimeSeconds, tz)
     start = f'{start.strftime("%d %b %y, %H:%M")} {tz}'
 
-    duration_days, duration_hrs, duration_mins, _ = cf_common.time_format(contest.durationSeconds, "zimbabwe")
+    duration_days, duration_hrs, duration_mins, _ = cf_common.time_format(contest.durationSeconds)
     duration = f'{duration_hrs}h {duration_mins}m'
     if duration_days > 0:
         duration = f'{duration_days}d ' + duration
@@ -71,7 +71,7 @@ async def _send_reminder_at(channel, role, contests, before_secs, send_time):
     if delay <= 0:
         return
     await asyncio.sleep(delay)
-    values = cf_common.time_format(before_secs, "no")
+    values = cf_common.time_format(before_secs)
 
     def make(value, label):
         tmp = f'{value} {label}'
