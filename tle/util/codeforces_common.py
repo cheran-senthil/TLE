@@ -136,6 +136,11 @@ def time_format(seconds, form):
     hours, seconds = divmod(seconds, 3600)
     minutes, seconds = divmod(seconds, 60)
 
+    return days, hours, minutes, seconds
+
+def pretty_time_format (seconds):
+    days, hours, minutes, seconds = time_format(seconds)
+    
     timespec = [
         (days, 'day', 'days'),
         (hours, 'hour', 'hours'),
@@ -146,11 +151,8 @@ def time_format(seconds, form):
     if not timeprint:
         timeprint.append((seconds, 'second', 'seconds'))
 
-    if form == "string":
-        return ' '.join(f'{count} {singular if count == 1 else plural}'
-                for count, singular, plural in timeprint)
-    else:
-        return days, hours, minutes, seconds
+    return ' '.join(f'{count} {singular if count == 1 else plural}'
+            for count, singular, plural in timeprint)
 
 async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
     """Convert an iterable of strings to CF handles. A string beginning with ! indicates Discord username,
