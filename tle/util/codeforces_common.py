@@ -130,6 +130,29 @@ class HandleIsVjudgeError(ResolveHandleError):
     def __init__(self, handle):
         super().__init__(f"`{handle}`? I'm not doing that!\n\n(╯°□°）╯︵ ┻━┻")
 
+def time_format(seconds, form):
+    seconds = int(seconds)
+    days, seconds = divmod(seconds, 86400)
+    hours, seconds = divmod(seconds, 3600)
+    minutes, seconds = divmod(seconds, 60)
+
+    return days, hours, minutes, seconds
+
+def pretty_time_format (seconds):
+    days, hours, minutes, seconds = time_format(seconds)
+    
+    timespec = [
+        (days, 'day', 'days'),
+        (hours, 'hour', 'hours'),
+        (minutes, 'minute', 'minutes'),
+    ]
+                        
+    timeprint = [(count,singular,plural) for count,singular,plural in timespec if count]
+    if not timeprint:
+        timeprint.append((seconds, 'second', 'seconds'))
+
+    return ' '.join(f'{count} {singular if count == 1 else plural}'
+            for count, singular, plural in timeprint)
 
 async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
     """Convert an iterable of strings to CF handles. A string beginning with ! indicates Discord username,
