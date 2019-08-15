@@ -253,7 +253,7 @@ class Codeforces(commands.Cog):
         finish_time = int(datetime.datetime.now().timestamp())
         rc = cf_common.user_db.complete_challenge(user_id, challenge_id, finish_time, delta)
         if rc == 1:
-            duration = cf_common.time_format(finish_time - issue_time, "string")
+            duration = cf_common.pretty_time_format(finish_time - issue_time)
             await ctx.send(f'Challenge completed in {duration}. {handle} gained {delta} points.')
         else:
             await ctx.send('You have already claimed your points')
