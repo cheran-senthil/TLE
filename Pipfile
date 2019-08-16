@@ -1,0 +1,16 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+pytest = "~=3.0"
+
+[packages]
+discord-py = "~=1.1"
+seaborn = "~=0.9"
+lxml = "~=4.3"
+pillow = "~=5.4"
+
+[requires]
+python_version = "3.7"
