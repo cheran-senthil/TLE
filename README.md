@@ -22,10 +22,10 @@ Clone the repository
 ```bash
 git clone https://github.com/cheran-senthil/TLE
 ```
-Now all dependencies need to be installed. TLE uses [Poetry](https://poetry.eustace.io/) to manage dependencies. After installing Poetry navigate to the root of the repo and run
+Now all dependencies need to be installed. TLE uses [Pipenv](https://docs.pipenv.org/en/latest/) to manage dependencies. After installing Pipenv navigate to the root of the repo and run
 
 ```bash
-poetry install
+pipenv install
 ```
 
 You will need to setup a bot on your server before continuing, follow the directions [here](https://github.com/reactiflux/discord-irc/wiki/Creating-a-discord-bot-&-getting-a-token). Following this you should have your bot appearing in your server and you should have the Discord bot token.
@@ -33,10 +33,7 @@ You will need to setup a bot on your server before continuing, follow the direct
 To start TLE export the token as an environment variable
 ```
 export BOT_TOKEN="<BOT_TOKEN_FROM_DISCORD_CONSOLE>"
-```
-and run using Python 3.7 or later
-```
-python -m tle
+pipenv run python -m tle
 ```
 
 ### Notes
