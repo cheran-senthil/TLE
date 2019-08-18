@@ -177,7 +177,9 @@ class Handles(commands.Cog):
             return
 
         invoker = str(ctx.author)
-        problem = random.choice(cf_common.cache2.problem_cache.problems)
+        problems = [prob for prob in cf_common.cache2.problem_cache.problems
+                    if prob.rating <= 1200]
+        problem = random.choice(problems)
         self.identify_map[invoker] = (users[0].handle, problem.name)
         await ctx.send(f'`{invoker}`, submit a compile error to <{problem.url}> and then run `;handle report`')
 
