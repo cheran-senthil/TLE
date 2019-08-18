@@ -99,7 +99,7 @@ def is_contest_writer(contest_id, handle):
 
 _NONSTANDARD_CONTEST_INDICATORS = [
     'wild', 'fools', 'unrated', 'surprise', 'unknown', 'friday', 'q#', 'testing', 
-    'marathon', 'kotlin', 'MemSQL Start[c]UP 3.0 - Round 2']
+    'marathon', 'kotlin', 'onsite', 'experimental']
 
 
 
