@@ -1,4 +1,5 @@
 import io
+import asyncio
 
 import discord
 import random
@@ -129,7 +130,6 @@ def _make_pages(users):
 class Handles(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.identify_map = {}
 
     @commands.group(brief='Commands that have to do with handles', invoke_without_command=True)
     async def handle(self, ctx):
@@ -177,23 +177,15 @@ class Handles(commands.Cog):
             return
 
         invoker = str(ctx.author)
+        handle = users[0].handle
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
                     if prob.rating <= 1200]
         problem = random.choice(problems)
-        self.identify_map[invoker] = (users[0].handle, problem.name)
-        await ctx.send(f'`{invoker}`, submit a compile error to <{problem.url}> and then run `;handle report`')
-
-    @handle.command(brief='Report identification')
-    async def report(self, ctx):
-        invoker = str(ctx.author)
-        if not invoker in self.identify_map:
-            await ctx.send(f'`{invoker}`, you have nothing to report')
-            return
-
-        handle, prob = self.identify_map[invoker]
+        await ctx.send(f'`{invoker}`, submit a compile error to <{problem.url}> within 60 seconds')
+        await asyncio.sleep(60)
+        
         subs = await cf.user.status(handle=handle, count=5)
-        if any(sub.problem.name == prob and sub.verdict == 'COMPILATION_ERROR' for sub in subs):
-            del self.identify_map[invoker]
+        if any(sub.problem.name == problem.name and sub.verdict == 'COMPILATION_ERROR' for sub in subs):
             users = await cf.user.info(handles=[handle])
             await self._set(ctx, ctx.author, users[0])
         else:
