@@ -98,7 +98,9 @@ def is_contest_writer(contest_id, handle):
 
 
 _NONSTANDARD_CONTEST_INDICATORS = [
-    'wild', 'fools', 'unrated', 'surprise', 'unknown', 'friday', 'q#', 'testing', 'marathon', 'kotlin']
+    'wild', 'fools', 'unrated', 'surprise', 'unknown', 'friday', 'q#', 'testing', 
+    'marathon', 'kotlin', 'onsite', 'experimental']
+
 
 
 def is_nonstandard_contest(contest):
