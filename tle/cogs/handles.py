@@ -172,10 +172,6 @@ class Handles(commands.Cog):
     async def identify(self, ctx, handle: str):
         """Link a codeforces account to discord account by submitting a compile error to a random problem"""
         users = await cf.user.info(handles=[handle])
-        if not users:
-            await ctx.send('`{handle}` not found on codeforces')
-            return
-
         invoker = str(ctx.author)
         handle = users[0].handle
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
