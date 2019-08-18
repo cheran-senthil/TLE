@@ -168,8 +168,8 @@ class Handles(commands.Cog):
             raise HandleCogError(f'Role for rank `{user.rank.title}` not present in the server')
         await self.update_member_rank_role(member, roles[0])
 
-    @cf_common.user_guard(group='handle')
     @handle.command(brief='Identify yourself', usage='[handle]')
+    @cf_common.user_guard(group='handle')
     async def identify(self, ctx, handle: str):
         """Link a codeforces account to discord account by submitting a compile error to a random problem"""
         users = await cf.user.info(handles=[handle])
