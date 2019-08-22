@@ -36,7 +36,7 @@ export BOT_TOKEN="<BOT_TOKEN_FROM_DISCORD_CONSOLE>"
 ```
 and run using Python 3.7 or later
 ```
-python -m tle
+poetry run python -m tle
 ```
 
 ### Notes
