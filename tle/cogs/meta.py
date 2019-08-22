@@ -57,14 +57,14 @@ class Meta(commands.Cog):
         # Really, we just exit with a special code
         # the magic is handled elsewhere
         await ctx.send('Restarting...')
-        sys.exit(RESTART)
+        os._exit(RESTART)
 
     @meta.command(brief='Kill TLE')
     @commands.has_role('Admin')
     async def kill(self, ctx):
         """Restarts the bot."""
         await ctx.send('Dying...')
-        sys.exit(0)
+        os._exit(0)
 
     @meta.command(brief='Is TLE up?')
     async def ping(self, ctx):
