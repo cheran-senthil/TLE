@@ -132,7 +132,7 @@ class HandleIsVjudgeError(ResolveHandleError):
     def __init__(self, handle):
         super().__init__(f"`{handle}`? I'm not doing that!\n\n(╯°□°）╯︵ ┻━┻")
 
-def time_format(seconds, form):
+def time_format(seconds):
     seconds = int(seconds)
     days, seconds = divmod(seconds, 86400)
     hours, seconds = divmod(seconds, 3600)
@@ -140,7 +140,7 @@ def time_format(seconds, form):
 
     return days, hours, minutes, seconds
 
-def pretty_time_format (seconds):
+def pretty_time_format(seconds):
     days, hours, minutes, seconds = time_format(seconds)
     
     timespec = [
