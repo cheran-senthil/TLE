@@ -85,6 +85,7 @@ def _filter_solved_submissions(submissions, contests, tags = []):
     
     for submission in submissions:
         contest = contest_id_map.get(submission.problem.contestId)
+
         if submission.verdict == 'OK' and submission.problem.rating and contest and (not tags or submission.problem.tag_matches(tags)):
             # Assume (name, contest start time) is a unique identifier for problems
             problem_key = (submission.problem.name, contest.startTimeSeconds)
@@ -92,6 +93,80 @@ def _filter_solved_submissions(submissions, contests, tags = []):
                 solved_subs.append(submission)
                 problems.add(problem_key)
     return solved_subs
+
+def take_extreme(user, contest, submissions, problems):
+    by_user = [sub for sub in submissions if user.handle == sub.author.members[0].handle and sub.verdict == 'OK' 
+                            and sub.creationTimeSeconds < contest.end_time]
+
+    problems_on_contest = set()
+
+    for problem in problems:
+        problems_on_contest.add((problem.index, problem.rating))
+    #[1] from here will be the second element i.e. problem rating
+
+    min_rating = max(problems_on_contest, key=lambda pr: pr[1])[1]
+    max_rating = min(problems_on_contest, key=lambda pr: pr[1])[1] - 100
+
+    for sub in by_user:
+        problem_key = (sub.problem.index, sub.problem.rating)
+        if problem_key in problems_on_contest:
+            max_rating = max(max_rating, problem_key[1])
+            problems_on_contest.remove(problem_key)
+
+    for problem in problems_on_contest:
+        min_rating = min(min_rating, problem[1])
+
+    return min_rating, max_rating + 20
+
+def _running_mean(x, bin_size):
+    n = len(x)
+
+    cum_sum = [0] * (n + 1)
+    for i in range(n):
+        cum_sum[i + 1] = x[i] + cum_sum[i]
+
+    res = [0] * (n - bin_size + 1)
+    for i in range(bin_size, n + 1):
+        res[i - bin_size] = (cum_sum[i] - cum_sum[i - bin_size]) / bin_size
+
+    return res
+
+def _plot_extreme(rating_changes, user, statuses, problems, bin_size=3, mark='o', label=''):
+    plot_min, plot_max, times = [], [], []
+
+    for rating_change, status, problemset in zip(rating_changes, statuses, problems):
+        contest = cf_common.cache2.contest_cache.get_contest(rating_change.contestId)
+        t_min, t_max = take_extreme(user[0], contest, status, problemset)
+
+        plot_min.append(t_min)
+        plot_max.append(t_max)
+
+        times.append(datetime.datetime.fromtimestamp(rating_change.ratingUpdateTimeSeconds))
+
+    plt.scatter(times, plot_min, zorder=10, s=3, alpha=0.5)
+    plt.scatter(times, plot_max, zorder=10, s=3, alpha=0.5)
+
+    times_int = _running_mean([t.timestamp() for t in times], bin_size)
+    times_plot = [datetime.datetime.fromtimestamp(timestamp) for timestamp in times_int]
+
+    if len(times) > bin_size:
+        plt.plot(times_plot,
+                 _running_mean(plot_min, bin_size),
+                 linestyle='-',
+                 marker='',
+                 markerfacecolor='white',
+                 markeredgewidth=0.5,
+                 label=label)
+        plt.plot(times_plot,
+                 _running_mean(plot_max, bin_size),
+                 linestyle='-',
+                 marker='',
+                 markerfacecolor='white',
+                 markeredgewidth=0.5,
+                 label=label)
+
+    _plot_rating_bg()
+
 
 
 def _classify_submissions(submissions):
@@ -106,20 +181,6 @@ def _plot_scatter(regular, practice, virtual):
         if contest:
             times, ratings = zip(*contest)
             plt.scatter(times, ratings, zorder=10, s=3, alpha=0.5)
-
-
-def _running_mean(x, bin_size):
-    n = len(x)
-
-    cum_sum = [0] * (n + 1)
-    for i in range(n):
-        cum_sum[i + 1] = x[i] + cum_sum[i]
-
-    res = [0] * (n - bin_size + 1)
-    for i in range(bin_size, n + 1):
-        res[i - bin_size] = (cum_sum[i] - cum_sum[i - bin_size]) / bin_size
-
-    return res
 
 
 def _plot_average(practice, bin_size, label: str = ''):
@@ -191,6 +252,48 @@ class Graphs(commands.Cog):
 
         discord_file = _get_current_figure_as_file()
         embed = discord_common.cf_color_embed(title='Rating graph on Codeforces')
+        discord_common.attach_image(embed, discord_file)
+        discord_common.set_author_footer(embed, ctx.author)
+        await ctx.send(embed=embed, file=discord_file)
+
+    @plot.command(brief='Plot Codeforces lowest rating unsolved/highest rating solved problems on contests graph', usage='[+zoom] handle')
+    async def extreme(self, ctx, *args: str):
+        """Plots Codeforces lowest unsolved problem/highest solved on codeforces graph for the handle provided."""
+        args = list(args)
+        if '+zoom' in args:
+            zoom = True
+            args.remove('+zoom')
+        else:
+            zoom = False
+
+        handles = args or ('!' + str(ctx.author),)
+        handles = await cf_common.resolve_handles(ctx, self.converter, handles)
+
+        if len(handles) > 1:
+            raise GraphCogError('Too many users, try one at a time.')
+
+        resp = await cf.user.rating(handle=handles[0])
+
+        contests = [cf_common.cache2.contest_cache.get_contest(change.contestId) for change in resp]
+        user_status = await cf.user.status(handle=handles[0])
+        statuses = [[submission for submission in user_status if submission.contestId == c.id] for c in contests]
+        problems = [problems for _, problems, _ in [await cf.contest.standings(contest_id=c.id, from_=1, count=1) for c in contests]]
+
+        if not resp:
+            raise GraphCogError('This user is not rated.')  
+
+        plt.clf()
+        _plot_extreme(resp, await cf.user.info(handles=set(handles)), statuses, problems)
+        current_rating = resp[-1].newRating
+        labels = [f'\N{ZERO WIDTH SPACE}{handles[0]} ({current_rating})']
+        plt.legend(labels, loc='upper left')
+
+        if not zoom:
+            min_rating = 600
+            max_rating = 3000
+
+        discord_file = _get_current_figure_as_file()
+        embed = discord_common.cf_color_embed(title='Extremes graph on Codeforces')
         discord_common.attach_image(embed, discord_file)
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
