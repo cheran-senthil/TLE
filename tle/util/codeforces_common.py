@@ -96,8 +96,10 @@ def is_contest_writer(contest_id, handle):
     writers = _contest_id_to_writers_map.get(contest_id)
     return writers and handle in writers
 
+
 _NONSTANDARD_CONTEST_INDICATORS = [
-    'wild', 'fools', 'unrated', 'surprise', 'unknown', 'friday', 'q#', 'testing', 'marathon', 'kotlin', 'MemSQL Start[c]UP 3.0 - Round 2']
+    'wild', 'fools', 'unrated', 'surprise', 'unknown', 'friday', 'q#', 'testing',
+    'marathon', 'kotlin', 'MemSQL Start[c]UP 3.0 - Round 2']
 
 
 def is_nonstandard_contest(contest):
