@@ -165,6 +165,10 @@ class RatingChangesUnavailableError(CodeforcesApiError):
     def __init__(self, comment, contest_id):
         super().__init__(comment, f'Rating changes unavailable for contest with ID `{contest_id}`')
 
+class StatusUnavailableError(CodeforcesApiError):
+    def __init__(self, comment, contest_id):
+        super().__init__(comment, f'Status unavailable for contest with ID `{contest_id}`')
+
 
 # Codeforces API query methods
 
@@ -262,6 +266,30 @@ class contest:
                 raise RatingChangesUnavailableError(e.comment, contest_id)
             raise
         return [make_from_dict(RatingChange, change_dict) for change_dict in resp]
+
+    @staticmethod
+    async def status(*, contest_id, handle=None, from_=None, count=None):
+        params = {'contestId': contest_id}
+        if handle is not None:
+            params['handle'] = handle
+        if from_ is not None:
+            params['from'] = from_
+        if count is not None:
+            params['count'] = count
+        try:
+            resp = await _query_api('contest.status', params)
+        except CodeforcesApiError as e:
+            if 'not found' in e.comment:
+                raise HandleNotFoundError(e.comment, handle)
+            if 'should contain' in e.comment:
+                raise HandleInvalidError(e.comment, handle)
+            raise
+        for submission in resp:
+            submission['problem'] = make_from_dict(Problem, submission['problem'])
+            submission['author']['members'] = [make_from_dict(Member, member)
+                                               for member in submission['author']['members']]
+            submission['author'] = make_from_dict(Party, submission['author'])
+        return [make_from_dict(Submission, submission_dict) for submission_dict in resp]
 
     @staticmethod
     async def standings(*, contest_id, from_=None, count=None, handles=None, room=None,
