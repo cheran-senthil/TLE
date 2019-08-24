@@ -102,7 +102,7 @@ def take_extreme(user, contest, submissions, problems):
 
     for problem in problems:
         problems_on_contest.add((problem.index, problem.rating))
-    """[1] from here will be the second element i.e. problem rating"""
+    #[1] from here will be the second element i.e. problem rating
 
     min_rating = max(problems_on_contest, key=lambda pr: pr[1])[1]
     max_rating = min(problems_on_contest, key=lambda pr: pr[1])[1] - 100
