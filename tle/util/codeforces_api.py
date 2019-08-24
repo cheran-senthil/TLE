@@ -59,6 +59,8 @@ class User(namedtuple('User', 'handle rating titlePhoto')):
 RatingChange = namedtuple('RatingChange',
                           'contestId contestName handle rank ratingUpdateTimeSeconds oldRating newRating')
 
+status = namedtuple('status', 'contestId from count', rename = True)
+
 
 class Contest(namedtuple('Contest', 'id name startTimeSeconds durationSeconds type phase preparedBy')):
     __slots__ = ()
@@ -277,7 +279,7 @@ class contest:
         if count is not None:
             params['count'] = count
         try:
-            resp = await _query_api('user.status', params)
+            resp = await _query_api('contest.status', params)
         except CodeforcesApiError as e:
             if 'not found' in e.comment:
                 raise HandleNotFoundError(e.comment, handle)
