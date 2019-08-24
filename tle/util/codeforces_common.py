@@ -96,11 +96,18 @@ def is_contest_writer(contest_id, handle):
     writers = _contest_id_to_writers_map.get(contest_id)
     return writers and handle in writers
 
+def get_problem_duplicate (problem):
+    problems_list = cache2.problem_cache.problems
+
+    for candidate in problems_list:
+        if candidate.name == problem.name and abs (candidate.contestId - problem.contestId) <= 1:
+            return candidate
+
+    return problem
+
 
 _NONSTANDARD_CONTEST_INDICATORS = [
-    'wild', 'fools', 'unrated', 'surprise', 'unknown', 'friday', 'q#', 'testing', 
-    'marathon', 'kotlin', 'onsite', 'experimental']
-
+    'wild', 'fools', 'unrated', 'surprise', 'unknown', 'friday', 'q#', 'testing', 'marathon', 'kotlin', 'MemSQL Start[c]UP 3.0 - Round 2']
 
 
 def is_nonstandard_contest(contest):
@@ -132,7 +139,7 @@ class HandleIsVjudgeError(ResolveHandleError):
     def __init__(self, handle):
         super().__init__(f"`{handle}`? I'm not doing that!\n\n(╯°□°）╯︵ ┻━┻")
 
-def time_format(seconds):
+def time_format(seconds, form):
     seconds = int(seconds)
     days, seconds = divmod(seconds, 86400)
     hours, seconds = divmod(seconds, 3600)
@@ -140,7 +147,7 @@ def time_format(seconds):
 
     return days, hours, minutes, seconds
 
-def pretty_time_format(seconds):
+def pretty_time_format (seconds):
     days, hours, minutes, seconds = time_format(seconds)
     
     timespec = [
