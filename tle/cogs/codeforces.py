@@ -307,13 +307,25 @@ class Codeforces(commands.Cog):
         else:
             divs = [strfilt(x) for x in markers]
 
-        recommendations = {contest.id for contest in contests
-                           if any(tag in strfilt(contest.name) for tag in divs)
-                           and not cf_common.is_nonstandard_contest(contest)}
+        contest_startTime = {}
+        for contest in contests:
+            contest_startTime[contest.id] = contest.startTimeSeconds
+
+        temp_recommendations = {contest.id for contest in contests
+                                if any(tag in strfilt(contest.name) for tag in divs)
+                                and not cf_common.is_nonstandard_contest(contest)}
+
+        discard_startTimes = set()
+        recommendations = set()
 
         for subs in user_submissions:
             for sub in subs:
-                recommendations.discard(sub.problem.contestId)
+                if (sub.problem.contestId in contest_startTime):
+                    discard_startTimes.add(contest_startTime[sub.problem.contestId])
+
+        for contest_id in temp_recommendations:
+            if (contest_startTime[contest_id] not in discard_startTimes):
+                recommendations.add(contest_id)
 
         if not recommendations:
             await ctx.send('Unable to recommend a contest')
