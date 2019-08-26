@@ -136,6 +136,8 @@ def _plot_extreme(rating_changes, user, statuses, problems, bin_size=3, mark='o'
 
     for rating_change, status, problemset in zip(rating_changes, statuses, problems):
         contest = cf_common.cache2.contest_cache.get_contest(rating_change.contestId)
+        if not problemset[0].rating:
+            continue
         t_min, t_max = take_extreme(user[0], contest, status, problemset)
 
         plot_min.append(t_min)
