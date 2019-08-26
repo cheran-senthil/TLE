@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import time
+import shelve
 
 from discord.ext import commands
 
@@ -38,6 +39,7 @@ class ContestCache:
 
         self.contests = []
         self.contest_by_id = {}
+        self.standings = {}
         self.contests_by_phase = {phase: [] for phase in cf.Contest.PHASES}
         self.contests_by_phase['_RUNNING'] = []
         self.contests_last_cache = 0
@@ -70,6 +72,13 @@ class ContestCache:
             return self.contest_by_id[contest_id]
         except KeyError:
             raise ContestNotFound(contest_id)
+
+    def get_standings(self, contest_id):
+        with shelve.open('standings_shelve') as db:
+            try:
+                return db[str(contest_id)]
+            except KeyError:
+                raise ContestNotFound(contest_id)
 
     def get_contests_in_phase(self, phase):
         return self.contests_by_phase[phase]
@@ -115,11 +124,19 @@ class ContestCache:
         contests_by_phase = {phase: [] for phase in cf.Contest.PHASES}
         contests_by_phase['_RUNNING'] = []
         contest_by_id = {}
+        standings = {}
         for contest in contests:
             contests_by_phase[contest.phase].append(contest)
             contest_by_id[contest.id] = contest
             if contest.phase in self._RUNNING_PHASES:
                 contests_by_phase['_RUNNING'].append(contest)
+            if contest.phase == 'FINISHED':
+                with shelve.open('standings_shelve') as db:
+                    if str(contest.id) not in db:
+                        try:
+                            db[str(contest.id)] = await cf.contest.standings(contest_id=contest.id, from_=1, count=1)
+                        except cf.ContestNotFoundError:
+                            print('ok')
 
         now = time.time()
         delay = self._NORMAL_CONTEST_RELOAD_DELAY
