@@ -277,7 +277,7 @@ class Graphs(commands.Cog):
         contests = [cf_common.cache2.contest_cache.get_contest(change.contestId) for change in resp]
         user_status = await cf.user.status(handle=handles[0])
         statuses = [[submission for submission in user_status if submission.contestId == c.id] for c in contests]
-        problems = [problems for _, problems, _ in [await cf.contest.standings(contest_id=c.id, from_=1, count=1) for c in contests]]
+        problems = [problems for _, problems, _ in [cf_common.cache2.contest_cache.get_standings(contest_id=c.id) for c in contests]]
 
         if not resp:
             raise GraphCogError('This user is not rated.')  
