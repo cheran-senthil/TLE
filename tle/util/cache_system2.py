@@ -136,7 +136,7 @@ class ContestCache:
                         try:
                             db[str(contest.id)] = await cf.contest.standings(contest_id=contest.id, from_=1, count=1)
                         except cf.ContestNotFoundError:
-                            print('ok')
+                            pass
 
         now = time.time()
         delay = self._NORMAL_CONTEST_RELOAD_DELAY
