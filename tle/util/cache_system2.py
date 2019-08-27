@@ -74,11 +74,7 @@ class ContestCache:
             raise ContestNotFound(contest_id)
 
     def get_standings(self, contest_id):
-        with shelve.open('standings_shelve') as db:
-            try:
-                return db[str(contest_id)]
-            except KeyError:
-                raise ContestNotFound(contest_id)
+        return self.cache_master.conn.get_problemset_from_contest(contest_id)
 
     def get_contests_in_phase(self, phase):
         return self.contests_by_phase[phase]
@@ -124,7 +120,7 @@ class ContestCache:
         contests_by_phase = {phase: [] for phase in cf.Contest.PHASES}
         contests_by_phase['_RUNNING'] = []
         contest_by_id = {}
-        standings = {}
+        standings_updated = [s[0] for s in self.cache_master.conn.check_all_cached_standings()]
         for contest in contests:
             contests_by_phase[contest.phase].append(contest)
             contest_by_id[contest.id] = contest
@@ -137,6 +133,13 @@ class ContestCache:
                             db[str(contest.id)] = await cf.contest.standings(contest_id=contest.id, from_=1, count=1)
                         except cf.ContestNotFoundError:
                             pass
+
+            if contest.phase == 'FINISHED' and contest.id not in standings_updated:
+                try:
+                    t = await cf.contest.standings(contest_id=contest.id)
+                    rc = self.cache_master.conn.save_standings(t[1])
+                except cf.CodeforcesApiError:
+                    pass
 
         now = time.time()
         delay = self._NORMAL_CONTEST_RELOAD_DELAY

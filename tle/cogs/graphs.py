@@ -116,7 +116,7 @@ def take_extreme(user, contest, submissions, problems):
     for problem in problems_on_contest:
         min_rating = min(min_rating, problem[1])
 
-    return min_rating, max_rating + 20
+    return min_rating, max_rating
 
 def _running_mean(x, bin_size):
     n = len(x)
