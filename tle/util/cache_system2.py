@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import time
-import shelve
 
 from discord.ext import commands
 
