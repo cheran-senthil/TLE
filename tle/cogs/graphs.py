@@ -1,5 +1,5 @@
 import bisect
-import datetime
+from datetime import datetime
 import io
 import time
 import os
@@ -58,7 +58,7 @@ def _plot_rating(resp, mark='o', labels: List[str] = None):
         ratings, times = [], []
         for rating_change in rating_changes:
             ratings.append(rating_change.newRating)
-            times.append(datetime.datetime.fromtimestamp(rating_change.ratingUpdateTimeSeconds))
+            times.append(datetime.fromtimestamp(rating_change.ratingUpdateTimeSeconds))
 
         plt.plot(times,
                  ratings,
@@ -107,10 +107,10 @@ def _user_submissions(user, contest, submissions, problems):
     }
     unsolved = problems_on_contest - solved
 
-    min_rating = min(unsolved, key=lambda pr: pr[1])
-    max_rating = min(solved, key=lambda pr: pr[1])
+    min_rating = min(unsolved, key=lambda pr: pr[1]) if unsolved else max(problems_on_contest, key=lambda pr: pr[1])
+    max_rating = max(solved, key=lambda pr: pr[1]) if solved else min(problems_on_contest, key=lambda pr: pr[1] - 100)
 
-    return min_rating, max_rating
+    return min_rating[1], max_rating[1]
 
 def _running_mean(x, bin_size):
     n = len(x)
@@ -138,12 +138,13 @@ def _plot_extreme(rating_changes, user, statuses, problems, bin_size=3, mark='o'
         plot_max.append(t_max)
 
     times = [rating_change.ratingUpdateTimeSeconds for rating_change in rating_changes]
+    time_scatter = [datetime.fromtimestamp(t) for t in times]
 
-    plt.scatter(times, plot_min, zorder=10, s=3, alpha=0.5)
-    plt.scatter(times, plot_max, zorder=10, s=3, alpha=0.5)
+    plt.scatter(time_scatter, plot_min, zorder=10, s=3, alpha=0.5)
+    plt.scatter(time_scatter, plot_max, zorder=10, s=3, alpha=0.5)
 
     times_mean = _running_mean(times, bin_size)
-    times_plot = [datetime.datetime.fromtimestamp(timestamp) for timestamp in times_mean]
+    times_plot = [datetime.fromtimestamp(timestamp) for timestamp in times_mean]
 
     if len(times) > bin_size:
         plt.plot(times_plot,
@@ -185,7 +186,7 @@ def _plot_average(practice, bin_size, label: str = ''):
 
         sub_timestamps = [sub_time.timestamp() for sub_time in sub_times]
         mean_sub_timestamps = _running_mean(sub_timestamps, bin_size)
-        mean_sub_times = [datetime.datetime.fromtimestamp(timestamp) for timestamp in mean_sub_timestamps]
+        mean_sub_times = [datetime.fromtimestamp(timestamp) for timestamp in mean_sub_timestamps]
         mean_ratings = _running_mean(ratings, bin_size)
 
         plt.plot(mean_sub_times,
@@ -383,7 +384,7 @@ class Graphs(commands.Cog):
         submissions = resp[0]
 
         def extract_time_and_rating(submissions):
-            return [(datetime.datetime.fromtimestamp(sub.creationTimeSeconds), sub.problem.rating)
+            return [(datetime.fromtimestamp(sub.creationTimeSeconds), sub.problem.rating)
                     for sub in submissions]
 
         solved_subs = _filter_solved_submissions(submissions, contests)
