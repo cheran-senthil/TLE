@@ -308,7 +308,7 @@ class Codeforces(commands.Cog):
             divs = [strfilt(x) for x in markers]
 
         recommendations = {contest.id for contest in contests
-                           if any(tag in strfilt(contest.name) for tag in divs)
+                           if contest.phase == 'FINISHED' and any(tag in strfilt(contest.name) for tag in divs)
                            and not cf_common.is_nonstandard_contest(contest)}
 
         for subs in user_submissions:
