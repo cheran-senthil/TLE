@@ -94,27 +94,21 @@ def _filter_solved_submissions(submissions, contests, tags = []):
                 problems.add(problem_key)
     return solved_subs
 
-def take_extreme(user, contest, submissions, problems):
+def _user_submissions(user, contest, submissions, problems):
     by_user = [sub for sub in submissions if user.handle == sub.author.members[0].handle and sub.verdict == 'OK' 
                             and sub.creationTimeSeconds < contest.end_time]
-
-    problems_on_contest = set()
-
-    for problem in problems:
-        problems_on_contest.add((problem.index, problem.rating))
+    
+    problems_on_contest = {(problem.index, problem.rating) for problem in problems}
     #[1] from here will be the second element i.e. problem rating
 
-    min_rating = max(problems_on_contest, key=lambda pr: pr[1])[1]
-    max_rating = min(problems_on_contest, key=lambda pr: pr[1])[1] - 100
+    solved = {
+        (sub.problem.index, sub.problem.rating) for sub in by_user
+        if (sub.problem.index, sub.problem.rating) in problems_on_contest
+    }
+    unsolved = problems_on_contest - solved
 
-    for sub in by_user:
-        problem_key = (sub.problem.index, sub.problem.rating)
-        if problem_key in problems_on_contest:
-            max_rating = max(max_rating, problem_key[1])
-            problems_on_contest.remove(problem_key)
-
-    for problem in problems_on_contest:
-        min_rating = min(min_rating, problem[1])
+    min_rating = min(unsolved, key=lambda pr: pr[1])
+    max_rating = min(solved, key=lambda pr: pr[1])
 
     return min_rating, max_rating
 
@@ -138,18 +132,18 @@ def _plot_extreme(rating_changes, user, statuses, problems, bin_size=3, mark='o'
         contest = cf_common.cache2.contest_cache.get_contest(rating_change.contestId)
         if not problemset[0].rating:
             continue
-        t_min, t_max = take_extreme(user[0], contest, status, problemset)
+        t_min, t_max = _user_submissions(user[0], contest, status, problemset)
 
         plot_min.append(t_min)
         plot_max.append(t_max)
 
-        times.append(datetime.datetime.fromtimestamp(rating_change.ratingUpdateTimeSeconds))
+    times = [rating_change.ratingUpdateTimeSeconds for rating_change in rating_changes]
 
     plt.scatter(times, plot_min, zorder=10, s=3, alpha=0.5)
     plt.scatter(times, plot_max, zorder=10, s=3, alpha=0.5)
 
-    times_int = _running_mean([t.timestamp() for t in times], bin_size)
-    times_plot = [datetime.datetime.fromtimestamp(timestamp) for timestamp in times_int]
+    times_mean = _running_mean(times, bin_size)
+    times_plot = [datetime.datetime.fromtimestamp(timestamp) for timestamp in times_mean]
 
     if len(times) > bin_size:
         plt.plot(times_plot,
