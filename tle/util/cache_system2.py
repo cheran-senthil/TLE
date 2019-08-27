@@ -126,13 +126,6 @@ class ContestCache:
             contest_by_id[contest.id] = contest
             if contest.phase in self._RUNNING_PHASES:
                 contests_by_phase['_RUNNING'].append(contest)
-            if contest.phase == 'FINISHED':
-                with shelve.open('standings_shelve') as db:
-                    if str(contest.id) not in db:
-                        try:
-                            db[str(contest.id)] = await cf.contest.standings(contest_id=contest.id, from_=1, count=1)
-                        except cf.ContestNotFoundError:
-                            pass
 
             if contest.phase == 'FINISHED' and contest.id not in standings_updated:
                 try:
