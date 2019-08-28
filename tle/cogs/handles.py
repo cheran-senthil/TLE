@@ -67,10 +67,10 @@ def get_prettyhandles_image(rankings):
     y += int(y_inc * 1.5)
     for pos, name, handle, rating in rankings:
         if len(name) > 17:
-            name = name[:14] + "..."
+            name = name[:16] + "…"
         if len(handle) > 17:
-            handle = handle[:14] + "..."
-        s = f"{f'#{pos}':<4}{name:<18}{handle:<18}{rating:>6}"
+            handle = handle[:16] + "…"
+        s = f"{pos:<4}{name:<18}{handle:<18}{rating:>6}"
 
         color = rating_to_color(rating)
         if rating!='N/A' and rating >= 3000:  # nutella
