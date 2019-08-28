@@ -38,7 +38,6 @@ class ContestCache:
 
         self.contests = []
         self.contest_by_id = {}
-        self.standings = {}
         self.contests_by_phase = {phase: [] for phase in cf.Contest.PHASES}
         self.contests_by_phase['_RUNNING'] = []
         self.contests_last_cache = 0
@@ -72,7 +71,7 @@ class ContestCache:
         except KeyError:
             raise ContestNotFound(contest_id)
 
-    def get_standings(self, contest_id):
+    def get_problems(self, contest_id):
         return self.cache_master.conn.get_problemset_from_contest(contest_id)
 
     def get_contests_in_phase(self, phase):
@@ -119,18 +118,18 @@ class ContestCache:
         contests_by_phase = {phase: [] for phase in cf.Contest.PHASES}
         contests_by_phase['_RUNNING'] = []
         contest_by_id = {}
-        standings_updated = [s[0] for s in self.cache_master.conn.check_all_cached_standings()]
         for contest in contests:
             contests_by_phase[contest.phase].append(contest)
             contest_by_id[contest.id] = contest
             if contest.phase in self._RUNNING_PHASES:
                 contests_by_phase['_RUNNING'].append(contest)
 
-            if contest.phase == 'FINISHED' and contest.id not in standings_updated:
+            if contest.phase == 'FINISHED' and not self.cache_master.conn.has_problemset_saved(contest.id):
                 try:
-                    t = await cf.contest.standings(contest_id=contest.id)
-                    rc = self.cache_master.conn.save_standings(t[1])
+                    _, problems, _ = await cf.contest.standings(contest_id=contest.id)
+                    self.cache_master.conn.save_standings(problems)
                 except cf.CodeforcesApiError:
+                    self.logger.info('Contest without standings error, usual thing, skipping...')
                     pass
 
         now = time.time()

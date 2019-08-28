@@ -130,10 +130,12 @@ class CacheDbConn:
          return list(map(self._unsquish_tags, res))
 
 
-    def check_all_cached_standings(self):
-        query = ('SELECT contest_id FROM standings')
-        cached_ids = self.conn.execute(query).fetchall()
-        return list(set(cached_ids))
+    def has_problemset_saved(self, contest_id):
+        query = ('SELECT contest_id '
+                 'FROM standings '
+                 'WHERE contest_id = ?')
+        res = self.conn.execute(query, (contest_id,)).fetchone()
+        return res is not None
 
     def clear_rating_changes(self, contest_id=None):
         if contest_id is None:

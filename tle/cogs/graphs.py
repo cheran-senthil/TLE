@@ -1,5 +1,5 @@
 import bisect
-from datetime import datetime
+import datetime as dt
 import io
 import time
 import os
@@ -58,7 +58,7 @@ def _plot_rating(resp, mark='o', labels: List[str] = None):
         ratings, times = [], []
         for rating_change in rating_changes:
             ratings.append(rating_change.newRating)
-            times.append(datetime.fromtimestamp(rating_change.ratingUpdateTimeSeconds))
+            times.append(dt.datetime.fromtimestamp(rating_change.ratingUpdateTimeSeconds))
 
         plt.plot(times,
                  ratings,
@@ -85,7 +85,6 @@ def _filter_solved_submissions(submissions, contests, tags = []):
     
     for submission in submissions:
         contest = contest_id_map.get(submission.problem.contestId)
-
         if submission.verdict == 'OK' and submission.problem.rating and contest and (not tags or submission.problem.tag_matches(tags)):
             # Assume (name, contest start time) is a unique identifier for problems
             problem_key = (submission.problem.name, contest.startTimeSeconds)
@@ -94,25 +93,19 @@ def _filter_solved_submissions(submissions, contests, tags = []):
                 problems.add(problem_key)
     return solved_subs
 
-def _user_submissions(user, contest, submissions, problems):
-    by_user = [sub for sub in submissions if user.handle == sub.author.members[0].handle and sub.verdict == 'OK' 
-                            and sub.creationTimeSeconds < contest.end_time]
-    
-    problems_on_contest = {(problem.index, problem.rating) for problem in problems}
-    #[1] from here will be the second element i.e. problem rating
+def get_extremes(user, contest, submissions, problems):
 
-    solved = {
-        (sub.problem.index, sub.problem.rating) for sub in by_user
-        if (sub.problem.index, sub.problem.rating) in problems_on_contest
-    }
-    unsolved = problems_on_contest - solved
+    def check(sub):
+        return sub.verdict == 'OK' and sub.author.participantType == 'CONTESTANT' and sub.problem.rating is not None
 
-    min_rating = min(unsolved, key=lambda pr: pr[1]) if unsolved else max(problems_on_contest, key=lambda pr: pr[1])
-    max_rating = max(solved, key=lambda pr: pr[1]) if solved else min(problems_on_contest, key=lambda pr: pr[1] - 100)
+    solved = {sub.problem.index: sub.problem.rating for sub in submissions if check(sub)}
 
-    return min_rating[1], max_rating[1]
+    max_solved = max(solved.values(), default=None)
+    min_unsolved = min([problem.rating for problem in problems if problem.rating is not None and problem.index not in solved], default=None)
+    return min_unsolved, max_solved
 
 def _running_mean(x, bin_size):
+
     n = len(x)
 
     cum_sum = [0] * (n + 1)
@@ -125,26 +118,28 @@ def _running_mean(x, bin_size):
 
     return res
 
-def _plot_extreme(rating_changes, user, statuses, problems, bin_size=3, mark='o', label=''):
+def _plot_extreme(user, rating_changes, statuses, problemsets, bin_size=3, mark='o', label=''):
     plot_min, plot_max, times = [], [], []
 
-    for rating_change, status, problemset in zip(rating_changes, statuses, problems):
+    for rating_change, status, problems in zip(rating_changes, statuses, problemsets):
         contest = cf_common.cache2.contest_cache.get_contest(rating_change.contestId)
-        if not problemset[0].rating:
-            continue
-        t_min, t_max = _user_submissions(user[0], contest, status, problemset)
+        if all([problem.rating for problem in problems]):
+            t_min, t_max = get_extremes(user[0], contest, status, problems)
 
-        plot_min.append(t_min)
-        plot_max.append(t_max)
+            if not t_min or not t_max:
+                continue
 
-    times = [rating_change.ratingUpdateTimeSeconds for rating_change in rating_changes]
-    time_scatter = [datetime.fromtimestamp(t) for t in times]
+            plot_min.append(t_min)
+            plot_max.append(t_max)
+            times.append(rating_change.ratingUpdateTimeSeconds)
+
+    time_scatter = [dt.datetime.fromtimestamp(t) for t in times]
 
     plt.scatter(time_scatter, plot_min, zorder=10, s=3, alpha=0.5)
     plt.scatter(time_scatter, plot_max, zorder=10, s=3, alpha=0.5)
 
     times_mean = _running_mean(times, bin_size)
-    times_plot = [datetime.fromtimestamp(timestamp) for timestamp in times_mean]
+    times_plot = [dt.datetime.fromtimestamp(timestamp) for timestamp in times_mean]
 
     if len(times) > bin_size:
         plt.plot(times_plot,
@@ -186,7 +181,7 @@ def _plot_average(practice, bin_size, label: str = ''):
 
         sub_timestamps = [sub_time.timestamp() for sub_time in sub_times]
         mean_sub_timestamps = _running_mean(sub_timestamps, bin_size)
-        mean_sub_times = [datetime.fromtimestamp(timestamp) for timestamp in mean_sub_timestamps]
+        mean_sub_times = [dt.datetime.fromtimestamp(timestamp) for timestamp in mean_sub_timestamps]
         mean_ratings = _running_mean(ratings, bin_size)
 
         plt.plot(mean_sub_times,
@@ -264,30 +259,34 @@ class Graphs(commands.Cog):
             zoom = False
 
         handles = args or ('!' + str(ctx.author),)
-        handles = await cf_common.resolve_handles(ctx, self.converter, handles)
-
         if len(handles) > 1:
             raise GraphCogError('Too many users, try one at a time.')
 
+        handles = await cf_common.resolve_handles(ctx, self.converter, handles)
+
         resp = await cf.user.rating(handle=handles[0])
 
-        contests = [cf_common.cache2.contest_cache.get_contest(change.contestId) for change in resp]
-        user_status = await cf.user.status(handle=handles[0])
-        statuses = [[submission for submission in user_status if submission.contestId == c.id] for c in contests]
-        problems = [problems for _, problems, _ in [cf_common.cache2.contest_cache.get_standings(contest_id=c.id) for c in contests]]
-
         if not resp:
-            raise GraphCogError('This user is not rated.')  
+            raise GraphCogError('This user is not rated.')
+
+        contests = [cf_common.cache2.contest_cache.get_contest(change.contestId) for change in resp]
+        contest_ids = set([c.id for c in contests])
+        user_status = [submission for submission in await cf.user.status(handle=handles[0]) if submission.contestId in contest_ids]
+        user_status.sort(key=lambda sub: sub.contestId)
+
+        statuses = []
+        for submission in user_status:
+            if not statuses or statuses[-1][0].contestId != submission.contestId:
+                statuses.append([])
+            statuses[-1].append(submission)
+
+        problemsets = [problems for problems in [cf_common.cache2.contest_cache.get_problems(contest_id=c.id) for c in contests]]  
 
         plt.clf()
-        _plot_extreme(resp, await cf.user.info(handles=set(handles)), statuses, problems)
+        _plot_extreme(await cf.user.info(handles=set(handles)), resp, statuses, problemsets)
         current_rating = resp[-1].newRating
         labels = [f'\N{ZERO WIDTH SPACE}{handles[0]} ({current_rating})']
         plt.legend(labels, loc='upper left')
-
-        if not zoom:
-            min_rating = 600
-            max_rating = 3000
 
         discord_file = _get_current_figure_as_file()
         embed = discord_common.cf_color_embed(title='Extremes graph on Codeforces')
@@ -384,7 +383,7 @@ class Graphs(commands.Cog):
         submissions = resp[0]
 
         def extract_time_and_rating(submissions):
-            return [(datetime.fromtimestamp(sub.creationTimeSeconds), sub.problem.rating)
+            return [(dt.datetime.fromtimestamp(sub.creationTimeSeconds), sub.problem.rating)
                     for sub in submissions]
 
         solved_subs = _filter_solved_submissions(submissions, contests)
