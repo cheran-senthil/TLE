@@ -71,6 +71,9 @@ class ContestCache:
         except KeyError:
             raise ContestNotFound(contest_id)
 
+    def get_contestlist(self):
+        return self.cache_master.conn.fetch_contests()
+
     def get_contests_in_phase(self, phase):
         return self.contests_by_phase[phase]
 
