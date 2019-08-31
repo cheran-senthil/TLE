@@ -93,7 +93,7 @@ def _filter_solved_submissions(submissions, contests, tags = []):
                 problems.add(problem_key)
     return solved_subs
 
-def get_extremes(user, contest, submissions, problems):
+def get_extremes(user, submissions, problems):
 
     def check(sub):
         return sub.verdict == 'OK' and sub.author.participantType == 'CONTESTANT' and sub.problem.rating is not None
@@ -122,16 +122,13 @@ def _plot_extreme(user, rating_changes, statuses, problemsets, bin_size=3, mark=
     plot_min, plot_max, times = [], [], []
 
     for rating_change, status, problems in zip(rating_changes, statuses, problemsets):
-        contest = cf_common.cache2.contest_cache.get_contest(rating_change.contestId)
         if all([problem.rating for problem in problems]):
-            t_min, t_max = get_extremes(user[0], contest, status, problems)
+            t_min, t_max = get_extremes(user[0], status, problems)
 
-            if not t_min or not t_max:
-                continue
-
-            plot_min.append(t_min)
-            plot_max.append(t_max)
-            times.append(rating_change.ratingUpdateTimeSeconds)
+            if t_min and t_max:
+                plot_min.append(t_min)
+                plot_max.append(t_max)
+                times.append(rating_change.ratingUpdateTimeSeconds)
 
     time_scatter = [dt.datetime.fromtimestamp(t) for t in times]
 
@@ -251,13 +248,6 @@ class Graphs(commands.Cog):
     @plot.command(brief='Plot Codeforces lowest rating unsolved/highest rating solved problems on contests graph', usage='[+zoom] handle')
     async def extreme(self, ctx, *args: str):
         """Plots Codeforces lowest unsolved problem/highest solved on codeforces graph for the handle provided."""
-        args = list(args)
-        if '+zoom' in args:
-            zoom = True
-            args.remove('+zoom')
-        else:
-            zoom = False
-
         handles = args or ('!' + str(ctx.author),)
         if len(handles) > 1:
             raise GraphCogError('Too many users, try one at a time.')
