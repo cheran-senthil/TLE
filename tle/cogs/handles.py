@@ -214,9 +214,9 @@ class Handles(commands.Cog):
         res = cf_common.user_db.get_gudgitters()
         res.sort(key=lambda r: r[1], reverse=True)
 
-        style = table.Style('{:>}  {:<}')
+        style = table.Style('{:>}  {:<}  {:<}  {:<}')
         t = table.Table(style)
-        t += table.Header('#', 'Name')
+        t += table.Header('#', 'Name', 'Handle', 'Rating')
         t += table.Line()
         index = 0
         for user_id, score in res:
@@ -224,8 +224,10 @@ class Handles(commands.Cog):
             if member is None:
                 continue
             if score > 0:
+                handle = cf_common.user_db.gethandle(user_id)
+                user = cf_common.user_db.fetch_cfuser(handle)
                 handle_display = f'{member.display_name} ({score})'
-                t += table.Data(index, handle_display)
+                t += table.Data(index, handle_display, handle, user.rating)
                 index += 1
             if index == 20:
                 break
