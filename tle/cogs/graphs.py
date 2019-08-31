@@ -104,6 +104,20 @@ def get_extremes(user, submissions, problems):
     min_unsolved = min([problem.rating for problem in problems if problem.rating is not None and problem.index not in solved], default=None)
     return min_unsolved, max_solved
 
+
+def _classify_submissions(submissions):
+    solved_by_type = {sub_type: [] for sub_type in cf.Party.PARTICIPANT_TYPES}
+    for submission in submissions:
+        solved_by_type[submission.author.participantType].append(submission)
+    return solved_by_type
+
+
+def _plot_scatter(regular, practice, virtual):
+    for contest in [practice, regular, virtual]:
+        if contest:
+            times, ratings = zip(*contest)
+            plt.scatter(times, ratings, zorder=10, s=3, alpha=0.5)
+
 def _running_mean(x, bin_size):
 
     n = len(x)
@@ -122,7 +136,7 @@ def _plot_extreme(user, rating_changes, statuses, problemsets, bin_size=3, mark=
     plot_min, plot_max, times = [], [], []
 
     for rating_change, status, problems in zip(rating_changes, statuses, problemsets):
-        if all([problem.rating for problem in problems]):
+        if all(problem.rating for problem in problems):
             t_min, t_max = get_extremes(user[0], status, problems)
 
             if t_min and t_max:
@@ -155,21 +169,6 @@ def _plot_extreme(user, rating_changes, statuses, problemsets, bin_size=3, mark=
                  label=label)
 
     _plot_rating_bg()
-
-
-
-def _classify_submissions(submissions):
-    solved_by_type = {sub_type: [] for sub_type in cf.Party.PARTICIPANT_TYPES}
-    for submission in submissions:
-        solved_by_type[submission.author.participantType].append(submission)
-    return solved_by_type
-
-
-def _plot_scatter(regular, practice, virtual):
-    for contest in [practice, regular, virtual]:
-        if contest:
-            times, ratings = zip(*contest)
-            plt.scatter(times, ratings, zorder=10, s=3, alpha=0.5)
 
 
 def _plot_average(practice, bin_size, label: str = ''):
