@@ -44,6 +44,18 @@ class CacheDbConn:
             'UNIQUE (contest_id, handle)'
             ')'
         )
+        self.conn.execute(
+            'CREATE TABLE IF NOT EXISTS standings ('
+            'contest_id     INTEGER,'
+            '[index]        TEXT,'
+            'name           TEXT NOT NULL,'
+            'type           TEXT,'
+            'rating         INTEGER,'
+            'tags           TEXT,'
+            'PRIMARY KEY (contest_id, [index])'
+            ')'
+        )
+
         self.conn.execute('CREATE INDEX IF NOT EXISTS ix_rating_change_contest_id '
                           'ON rating_change (contest_id)')
         self.conn.execute('CREATE INDEX IF NOT EXISTS ix_rating_change_handle '
@@ -100,6 +112,30 @@ class CacheDbConn:
         rc = self.conn.executemany(query, change_tuples).rowcount
         self.conn.commit()
         return rc
+
+    def save_standings(self, problems):
+        query = ('INSERT OR REPLACE INTO standings '
+                 '(contest_id, [index], name, type, rating, tags) '
+                 'VALUES (?, ?, ?, ?, ?, ?)')
+
+        rc = self.conn.executemany(query, list(map(self._squish_tags, problems))).rowcount
+        self.conn.commit()
+        return rc
+
+    def get_problemset_from_contest(self, contest_id):
+         query = ('SELECT contest_id, [index], name, type, rating, tags '
+                  'FROM standings r '
+                  'WHERE r.contest_id = ?')
+         res = self.conn.execute(query, (contest_id,)).fetchall()
+         return list(map(self._unsquish_tags, res))
+
+
+    def has_problemset_saved(self, contest_id):
+        query = ('SELECT contest_id '
+                 'FROM standings '
+                 'WHERE contest_id = ?')
+        res = self.conn.execute(query, (contest_id,)).fetchone()
+        return res is not None
 
     def clear_rating_changes(self, contest_id=None):
         if contest_id is None:
