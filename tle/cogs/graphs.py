@@ -82,7 +82,7 @@ def _filter_solved_submissions(submissions, contests, tags = []):
     contest_id_map = {contest.id: contest for contest in contests}
     problems = set()
     solved_subs = []
-    
+
     for submission in submissions:
         contest = contest_id_map.get(submission.problem.contestId)
         if submission.verdict == 'OK' and submission.problem.rating and contest and (not tags or submission.problem.tag_matches(tags)):
@@ -96,12 +96,17 @@ def _filter_solved_submissions(submissions, contests, tags = []):
 def get_extremes(user, submissions, problems):
 
     def check(sub):
-        return sub.verdict == 'OK' and sub.author.participantType == 'CONTESTANT' and sub.problem.rating is not None
+        return sub.verdict == 'OK' and \
+               sub.author.participantType == 'CONTESTANT' and \
+               sub.problem.rating is not None
 
     solved = {sub.problem.index: sub.problem.rating for sub in submissions if check(sub)}
 
     max_solved = max(solved.values(), default=None)
-    min_unsolved = min([problem.rating for problem in problems if problem.rating is not None and problem.index not in solved], default=None)
+    min_unsolved = min(
+        (problem.rating for problem in problems
+         if problem.rating is not None and problem.index not in solved),
+        default=None)
     return min_unsolved, max_solved
 
 
@@ -119,7 +124,6 @@ def _plot_scatter(regular, practice, virtual):
             plt.scatter(times, ratings, zorder=10, s=3, alpha=0.5)
 
 def _running_mean(x, bin_size):
-
     n = len(x)
 
     cum_sum = [0] * (n + 1)
@@ -132,41 +136,72 @@ def _running_mean(x, bin_size):
 
     return res
 
-def _plot_extreme(user, rating_changes, statuses, problemsets, bin_size=3, mark='o', label=''):
-    plot_min, plot_max, times = [], [], []
 
-    for rating_change, status, problems in zip(rating_changes, statuses, problemsets):
-        if all(problem.rating for problem in problems):
-            t_min, t_max = get_extremes(user[0], status, problems)
+def _plot_extreme(user, rating_changes, statuses, problemsets):
+    solvedcolor = 'tab:orange'
+    unsolvedcolor = 'tab:blue'
+    linecolor = '#00000022'
+    outlinecolor = '#00000022'
+    circlecolor = '#000000'
 
-            if t_min and t_max:
-                plot_min.append(t_min)
-                plot_max.append(t_max)
-                times.append(rating_change.ratingUpdateTimeSeconds)
+    def scatter_outline(*args, **kwargs):
+        plt.scatter(*args, **kwargs)
+        kwargs['zorder'] -= 1
+        kwargs['color'] = outlinecolor
+        if kwargs['marker'] == '*':
+            kwargs['s'] *= 3
+        elif kwargs['marker'] == 's':
+            kwargs['s'] *= 1.5
+        else:
+            kwargs['s'] *= 2
+        if 'alpha' in kwargs:
+            del kwargs['alpha']
+        if 'label' in kwargs:
+            del kwargs['label']
+        plt.scatter(*args, **kwargs)
 
-    time_scatter = [dt.datetime.fromtimestamp(t) for t in times]
+    extremes = [
+        get_extremes(user, status, problems)
+        for status, problems in zip(statuses, problemsets)
+    ]
+    times = [
+        dt.datetime.fromtimestamp(rating_change.ratingUpdateTimeSeconds)
+        for rating_change in rating_changes
+    ]
 
-    plt.scatter(time_scatter, plot_min, zorder=10, s=3, alpha=0.5)
-    plt.scatter(time_scatter, plot_max, zorder=10, s=3, alpha=0.5)
+    regular = []
+    fullsolves = []
+    nosolves = []
+    for t,extreme in zip(times, extremes):
+        mn,mx = extreme
+        if mn and mx:
+            regular.append((t,mn,mx))
+        elif mx:
+            fullsolves.append((t,mx))
+        else:
+            nosolves.append((t,mn))
 
-    times_mean = _running_mean(times, bin_size)
-    times_plot = [dt.datetime.fromtimestamp(timestamp) for timestamp in times_mean]
+    time_scatter,plot_min,plot_max = zip(*regular)
+    scatter_outline(time_scatter, plot_min, zorder=10,
+                    s=14, marker='o', color=unsolvedcolor,
+                    label='easiest unsolved')
+    scatter_outline(time_scatter, plot_max, zorder=10,
+                    s=14, marker='o', color=solvedcolor,
+                    label='hardest solved')
 
-    if len(times) > bin_size:
-        plt.plot(times_plot,
-                 _running_mean(plot_min, bin_size),
-                 linestyle='-',
-                 marker='',
-                 markerfacecolor='white',
-                 markeredgewidth=0.5,
-                 label=label)
-        plt.plot(times_plot,
-                 _running_mean(plot_max, bin_size),
-                 linestyle='-',
-                 marker='',
-                 markerfacecolor='white',
-                 markeredgewidth=0.5,
-                 label=label)
+    ax = plt.gca()
+    for t,mn,mx in regular:
+        ax.add_line(mlines.Line2D((t,t), (mn,mx), color=linecolor))
+
+    scatter_outline(*zip(*fullsolves), zorder=15,
+                    s=42, marker='*',
+                    color=solvedcolor)
+    scatter_outline(*zip(*nosolves), zorder=15,
+                    s=32, marker='X',
+                    color=unsolvedcolor)
+
+    plt.title(f'{user.handle} ({user.rating})')
+    plt.legend(loc='upper left').set_zorder(20)
 
     _plot_rating_bg()
 
@@ -269,13 +304,13 @@ class Graphs(commands.Cog):
                 statuses.append([])
             statuses[-1].append(submission)
 
-        problemsets = [problems for problems in [cf_common.cache2.contest_cache.get_problems(contest_id=c.id) for c in contests]]  
+        problemsets = [problems for problems in [cf_common.cache2.contest_cache.get_problems(contest_id=c.id) for c in contests]]
 
         plt.clf()
-        _plot_extreme(await cf.user.info(handles=set(handles)), resp, statuses, problemsets)
+        users = await cf.user.info(handles=set(handles))
+        _plot_extreme(users[0], resp, statuses, problemsets)
         current_rating = resp[-1].newRating
         labels = [f'\N{ZERO WIDTH SPACE}{handles[0]} ({current_rating})']
-        plt.legend(labels, loc='upper left')
 
         discord_file = _get_current_figure_as_file()
         embed = discord_common.cf_color_embed(title='Extremes graph on Codeforces')
@@ -294,7 +329,7 @@ class Graphs(commands.Cog):
                 tags.append(arg[1:])
             else:
                 handles.append(arg)
-        
+
         handles = handles or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         resp = [await cf.user.status(handle=handle) for handle in handles]
