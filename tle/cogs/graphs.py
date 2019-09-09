@@ -93,7 +93,7 @@ def _filter_solved_submissions(submissions, contests, tags = []):
                 problems.add(problem_key)
     return solved_subs
 
-def get_extremes(user, submissions, problems):
+def get_extremes(submissions, problems):
 
     def check(sub):
         return sub.verdict == 'OK' and \
@@ -161,7 +161,7 @@ def _plot_extreme(user, rating_changes, statuses, problemsets):
         plt.scatter(*args, **kwargs)
 
     extremes = [
-        get_extremes(user, status, problems)
+        get_extremes(status, problems)
         for status, problems in zip(statuses, problemsets)
     ]
     times = [
