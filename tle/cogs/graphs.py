@@ -296,7 +296,8 @@ class Graphs(commands.Cog):
             raise GraphCogError('This user is not rated.')
 
         contests = [cf_common.cache2.contest_cache.get_contest(change.contestId) for change in resp]
-        contest_ids = set([c.id for c in contests])
+        contests.sort(key=lambda c: c.id)
+        contest_ids = set(c.id for c in contests)
         user_status = [submission for submission in await cf.user.status(handle=handles[0]) if submission.contestId in contest_ids]
         user_status.sort(key=lambda sub: sub.contestId)
 
