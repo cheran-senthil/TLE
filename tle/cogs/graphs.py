@@ -96,9 +96,9 @@ def _filter_solved_submissions(submissions, contests, tags = []):
 def get_extremes(submissions, problems):
 
     def check(sub):
-        return sub.verdict == 'OK' and \
-               sub.author.participantType == 'CONTESTANT' and \
-               sub.problem.rating is not None
+        return (sub.verdict == 'OK' and
+                sub.author.participantType == 'CONTESTANT' and
+                sub.problem.rating is not None)
 
     solved = {sub.problem.index: sub.problem.rating for sub in submissions if check(sub)}
 
@@ -172,16 +172,16 @@ def _plot_extreme(user, rating_changes, statuses, problemsets):
     regular = []
     fullsolves = []
     nosolves = []
-    for t,extreme in zip(times, extremes):
-        mn,mx = extreme
+    for t, extreme in zip(times, extremes):
+        mn, mx = extreme
         if mn and mx:
-            regular.append((t,mn,mx))
+            regular.append((t, mn, mx))
         elif mx:
-            fullsolves.append((t,mx))
+            fullsolves.append((t, mx))
         else:
-            nosolves.append((t,mn))
+            nosolves.append((t, mn))
 
-    time_scatter,plot_min,plot_max = zip(*regular)
+    time_scatter, plot_min, plot_max = zip(*regular)
     scatter_outline(time_scatter, plot_min, zorder=10,
                     s=14, marker='o', color=unsolvedcolor,
                     label='easiest unsolved')
@@ -190,8 +190,8 @@ def _plot_extreme(user, rating_changes, statuses, problemsets):
                     label='hardest solved')
 
     ax = plt.gca()
-    for t,mn,mx in regular:
-        ax.add_line(mlines.Line2D((t,t), (mn,mx), color=linecolor))
+    for t, mn, mx in regular:
+        ax.add_line(mlines.Line2D((t, t), (mn, mx), color=linecolor))
 
     scatter_outline(*zip(*fullsolves), zorder=15,
                     s=42, marker='*',
@@ -307,8 +307,8 @@ class Graphs(commands.Cog):
         problemsets = [problems for problems in [cf_common.cache2.contest_cache.get_problems(contest_id=c.id) for c in contests]]
 
         plt.clf()
-        users = await cf.user.info(handles=set(handles))
-        _plot_extreme(users[0], resp, statuses, problemsets)
+        user, = await cf.user.info(handles=handles)
+        _plot_extreme(user, resp, statuses, problemsets)
         current_rating = resp[-1].newRating
         labels = [f'\N{ZERO WIDTH SPACE}{handles[0]} ({current_rating})']
 
