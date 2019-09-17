@@ -193,12 +193,14 @@ def _plot_extreme(user, rating_changes, statuses, problemsets):
     for t, mn, mx in regular:
         ax.add_line(mlines.Line2D((t, t), (mn, mx), color=linecolor))
 
-    scatter_outline(*zip(*fullsolves), zorder=15,
-                    s=42, marker='*',
-                    color=solvedcolor)
-    scatter_outline(*zip(*nosolves), zorder=15,
-                    s=32, marker='X',
-                    color=unsolvedcolor)
+    if fullsolves:
+        scatter_outline(*zip(*fullsolves), zorder=15,
+                        s=42, marker='*',
+                        color=solvedcolor)
+    if nosolves:
+        scatter_outline(*zip(*nosolves), zorder=15,
+                        s=32, marker='X',
+                        color=unsolvedcolor)
 
     plt.title(f'{user.handle} ({user.rating})')
     plt.legend(loc='upper left').set_zorder(20)
