@@ -137,7 +137,7 @@ def _running_mean(x, bin_size):
     return res
 
 
-def _plot_extreme(user, rating_changes, statuses, problemsets):
+def _plot_extreme(user, rating_changes, subs):
     solvedcolor = 'tab:orange'
     unsolvedcolor = 'tab:blue'
     linecolor = '#00000022'
@@ -162,7 +162,7 @@ def _plot_extreme(user, rating_changes, statuses, problemsets):
 
     extremes = [
         get_extremes(status, problems)
-        for status, problems in zip(statuses, problemsets)
+        for status, problems in subs
     ]
     times = [
         dt.datetime.fromtimestamp(rating_change.ratingUpdateTimeSeconds)
@@ -308,10 +308,13 @@ class Graphs(commands.Cog):
             statuses[-1].append(submission)
 
         problemsets = [problems for problems in [cf_common.cache2.contest_cache.get_problems(contest_id=c.id) for c in contests]]
+        subs = list(zip(statuses, problemsets, contests))
+        subs.sort(key=lambda tup: tup[2].startTimeSeconds)
+        subs = [(tup[0], tup[1]) for tup in subs]
 
         plt.clf()
         user, = await cf.user.info(handles=handles)
-        _plot_extreme(user, resp, statuses, problemsets)
+        _plot_extreme(user, resp, subs)
         current_rating = resp[-1].newRating
         labels = [f'\N{ZERO WIDTH SPACE}{handles[0]} ({current_rating})']
 
