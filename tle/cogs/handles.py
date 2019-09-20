@@ -227,7 +227,8 @@ class Handles(commands.Cog):
                 handle = cf_common.user_db.gethandle(user_id)
                 user = cf_common.user_db.fetch_cfuser(handle)
                 handle_display = f'{member.display_name} ({score})'
-                t += table.Data(index, handle_display, handle, user.rating)
+                rating = user.rating if user.rating is not None else 'Unrated'
+                t += table.Data(index, handle_display, handle, rating)
                 index += 1
             if index == 20:
                 break
