@@ -130,37 +130,45 @@ def make_from_dict(namedtuple_cls, dict_):
 # Error classes
 
 class CodeforcesApiError(commands.CommandError):
-    def __init__(self, comment=None, message='Codeforces API error'):
+    """Base class for all API related errors."""
+    def __init__(self, message=None):
+        super().__init__(message or 'Codeforces API error')
+
+
+class TrueApiError(CodeforcesApiError):
+    """An error originating from a valid response of the API."""
+    def __init__(self, comment, message=None):
         super().__init__(message)
         self.comment = comment
 
 
 class ClientError(CodeforcesApiError):
+    """An error caused by a request to the API failing."""
     def __init__(self):
-        super().__init__(None, 'Error connecting to Codeforces API')
+        super().__init__('Error connecting to Codeforces API')
 
 
-class HandleNotFoundError(CodeforcesApiError):
+class HandleNotFoundError(TrueApiError):
     def __init__(self, comment, handle):
         super().__init__(comment, f'Handle `{handle}` not found on Codeforces')
 
 
-class HandleInvalidError(CodeforcesApiError):
+class HandleInvalidError(TrueApiError):
     def __init__(self, comment, handle):
         super().__init__(comment, f'`{handle}` is not a valid Codeforces handle')
 
 
-class CallLimitExceededError(CodeforcesApiError):
+class CallLimitExceededError(TrueApiError):
     def __init__(self, comment):
         super().__init__(comment, 'Codeforces API call limit exceeded')
 
 
-class ContestNotFoundError(CodeforcesApiError):
+class ContestNotFoundError(TrueApiError):
     def __init__(self, comment, contest_id):
         super().__init__(comment, f'Contest with ID `{contest_id}` not found on Codeforces')
 
 
-class RatingChangesUnavailableError(CodeforcesApiError):
+class RatingChangesUnavailableError(TrueApiError):
     def __init__(self, comment, contest_id):
         super().__init__(comment, f'Rating changes unavailable for contest with ID `{contest_id}`')
 
@@ -222,22 +230,21 @@ async def _query_api(path, params=None):
         # Explicitly state encoding (though aiohttp accepts gzip by default)
         headers = {'Accept-Encoding': 'gzip'}
         async with _session.get(url, params=params, headers=headers) as resp:
-            if resp.status == 200:
-                resp = await resp.json()
-                return resp['result']
-            comment = f'HTTP Error {resp.status}'
             try:
                 respjson = await resp.json()
-                comment += f', {respjson.get("comment")}'
             except aiohttp.ContentTypeError:
-                pass
+                logger.warning(f'CF API did not respond with JSON, status {resp.status}.')
+                raise CodeforcesApiError
+            if resp.status == 200:
+                return respjson['result']
+            comment = f'HTTP Error {resp.status}, {respjson.get("comment")}'
     except aiohttp.ClientError as e:
         logger.error(f'Request to CF API encountered error: {e!r}')
         raise ClientError from e
     logger.warning(f'Query to CF API failed: {comment}')
     if 'limit exceeded' in comment:
         raise CallLimitExceededError(comment)
-    raise CodeforcesApiError(comment)
+    raise TrueApiError(comment)
 
 
 class contest:
@@ -254,7 +261,7 @@ class contest:
         params = {'contestId': contest_id}
         try:
             resp = await _query_api('contest.ratingChanges', params)
-        except CodeforcesApiError as e:
+        except TrueApiError as e:
             if 'not found' in e.comment:
                 raise ContestNotFoundError(e.comment, contest_id)
             if 'Rating changes are unavailable' in e.comment:
@@ -278,7 +285,7 @@ class contest:
             params['showUnofficial'] = _bool_to_str(show_unofficial)
         try:
             resp = await _query_api('contest.standings', params)
-        except CodeforcesApiError as e:
+        except TrueApiError as e:
             if 'not found' in e.comment:
                 raise ContestNotFoundError(e.comment, contest_id)
             raise
@@ -315,7 +322,7 @@ class user:
         params = {'handles': ';'.join(handles)}
         try:
             resp = await _query_api('user.info', params)
-        except CodeforcesApiError as e:
+        except TrueApiError as e:
             if 'not found' in e.comment:
                 # Comment format is "handles: User with handle ***** not found"
                 handle = e.comment.partition('not found')[0].split()[-1]
@@ -328,7 +335,7 @@ class user:
         params = {'handle': handle}
         try:
             resp = await _query_api('user.rating', params)
-        except CodeforcesApiError as e:
+        except TrueApiError as e:
             if 'not found' in e.comment:
                 raise HandleNotFoundError(e.comment, handle)
             if 'should contain' in e.comment:
@@ -353,7 +360,7 @@ class user:
             params['count'] = count
         try:
             resp = await _query_api('user.status', params)
-        except CodeforcesApiError as e:
+        except TrueApiError as e:
             if 'not found' in e.comment:
                 raise HandleNotFoundError(e.comment, handle)
             if 'should contain' in e.comment:
