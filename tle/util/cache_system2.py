@@ -51,7 +51,7 @@ class ContestCache:
 
     async def run(self):
         await self._try_disk()
-        self._update_task.start(self)
+        self._update_task.start()
 
     async def reload_now(self):
         """Force a reload. If currently reloading it will wait until done."""
@@ -62,7 +62,7 @@ class ContestCache:
             async with self.reload_lock:
                 pass
         else:
-            await self._update_task.manual_trigger(self)
+            await self._update_task.manual_trigger()
 
         if self.reload_exception:
             raise self.reload_exception
@@ -87,7 +87,7 @@ class ContestCache:
                 return
             await self._update(contests, from_api=False)
 
-    @tasks.task(name='ContestCacheUpdate')
+    @tasks.task_spec(name='ContestCacheUpdate')
     async def _update_task(self, _):
         async with self.reload_lock:
             self.next_delay = await self._reload_contests()
@@ -176,7 +176,7 @@ class ProblemCache:
 
     async def run(self):
         await self._try_disk()
-        self._update_task.start(self)
+        self._update_task.start()
 
     async def reload_now(self):
         """Force a reload. If currently reloading it will wait until done."""
@@ -187,7 +187,7 @@ class ProblemCache:
             async with self.reload_lock:
                 pass
         else:
-            await self._update_task.manual_trigger(self)
+            await self._update_task.manual_trigger()
 
         if self.reload_exception:
             raise self.reload_exception
@@ -202,8 +202,8 @@ class ProblemCache:
             self.problem_by_name = {problem.name: problem for problem in problems}
             self.logger.info(f'{len(self.problems)} problems fetched from disk')
 
-    @tasks.task(name='ProblemCacheUpdate',
-                waiter=tasks.Waiter.constant_delay(_RELOAD_INTERVAL))
+    @tasks.task_spec(name='ProblemCacheUpdate',
+                     waiter=tasks.Waiter.fixed_delay(_RELOAD_INTERVAL))
     async def _update_task(self, _):
         async with self.reload_lock:
             await self._reload_problems()
@@ -256,7 +256,7 @@ class RatingChangesCache:
 
     async def run(self):
         self._refresh_handle_cache()
-        self._update_task.start(self)
+        self._update_task.start()
 
     async def fetch_contest(self, contest_id):
         """Fetch rating changes for a particular contest. Intended for manual trigger."""
@@ -289,8 +289,8 @@ class RatingChangesCache:
                 now - contest.end_time < self._RATED_DELAY and
                 not self.has_rating_changes_saved(contest.id))
 
-    @tasks.task(name='RatingChangesCacheUpdate',
-                waiter=tasks.Waiter.for_event('EVENT_CONTEST_LIST_REFRESH'))
+    @tasks.task_spec(name='RatingChangesCacheUpdate',
+                     waiter=tasks.Waiter.for_event('EVENT_CONTEST_LIST_REFRESH'))
     async def _update_task(self, _):
         # Some notes:
         # A hack phase is tagged as FINISHED with empty list of rating changes. After the hack
@@ -307,12 +307,12 @@ class RatingChangesCache:
             self._monitor_task.stop()
             if to_monitor:
                 self.monitored_contests = to_monitor
-                self._monitor_task.start(self)
+                self._monitor_task.start()
             else:
                 self.monitored_contests = []
 
-    @tasks.task(name='RatingChangesCacheUpdate.MonitorNewlyFinishedContests',
-                waiter=tasks.Waiter.constant_delay(_RELOAD_DELAY))
+    @tasks.task_spec(name='RatingChangesCacheUpdate.MonitorNewlyFinishedContests',
+                     waiter=tasks.Waiter.fixed_delay(_RELOAD_DELAY))
     async def _monitor_task(self, _):
         self.monitored_contests = [contest for contest in self.monitored_contests
                                    if self.is_newly_finished_without_rating_changes(contest)]
@@ -394,11 +394,10 @@ class RanklistCache:
         self.cache_master = cache_master
         self.monitored_contests = []
         self.ranklist_by_contest = {}
-
         self.logger = logging.getLogger(self.__class__.__name__)
 
     async def run(self):
-        self._update_task.start(self)
+        self._update_task.start()
 
     def get_ranklist(self, contest):
         try:
@@ -406,8 +405,8 @@ class RanklistCache:
         except KeyError:
             raise RanklistNotMonitored(contest)
 
-    @tasks.task(name='RanklistCacheUpdate',
-                waiter=tasks.Waiter.for_event('EVENT_CONTEST_LIST_REFRESH'))
+    @tasks.task_spec(name='RanklistCacheUpdate',
+                     waiter=tasks.Waiter.for_event('EVENT_CONTEST_LIST_REFRESH'))
     async def _update_task(self, _):
         contests_by_phase = self.cache_master.contest_cache.contests_by_phase
         running_contests = contests_by_phase['_RUNNING']
@@ -418,12 +417,12 @@ class RanklistCache:
             self._monitor_task.stop()
             if to_monitor:
                 self.monitored_contests = to_monitor
-                self._monitor_task.start(self)
+                self._monitor_task.start()
             else:
                 self.ranklist_by_contest = {}
 
-    @tasks.task(name='RanklistCacheUpdate.MonitorActiveContests',
-                waiter=tasks.Waiter.constant_delay(_RELOAD_DELAY))
+    @tasks.task_spec(name='RanklistCacheUpdate.MonitorActiveContests',
+                     waiter=tasks.Waiter.fixed_delay(_RELOAD_DELAY))
     async def _monitor_task(self, _):
         check = self.cache_master.rating_changes_cache.is_newly_finished_without_rating_changes
         self.monitored_contests = [contest for contest in self.monitored_contests

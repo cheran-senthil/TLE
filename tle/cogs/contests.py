@@ -104,10 +104,10 @@ class Contests(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        self._update_task.start(self)
+        self._update_task.start()
 
-    @tasks.task(name='ContestCogUpdate',
-                waiter=tasks.Waiter.for_event('EVENT_CONTEST_LIST_REFRESH'))
+    @tasks.task_spec(name='ContestCogUpdate',
+                     waiter=tasks.Waiter.for_event('EVENT_CONTEST_LIST_REFRESH'))
     async def _update_task(self, _):
         contest_cache = cf_common.cache2.contest_cache
         self.future_contests = contest_cache.get_contests_in_phase('BEFORE')
