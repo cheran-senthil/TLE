@@ -136,15 +136,22 @@ class Handles(commands.Cog):
         """Change or collect information about specific handles on Codeforces"""
         await ctx.send_help(ctx.command)
 
-    async def update_member_rank_role(self, member, role_to_assign):
-        role_names_to_remove = {rank.title for rank in cf.RATED_RANKS} - {role_to_assign.name}
-        if role_to_assign.name not in ['Newbie', 'Pupil', 'Specialist', 'Expert']:
-            role_names_to_remove.add('Purgatory')
+    @staticmethod
+    async def update_member_rank_role(member, role_to_assign, *, reason):
+        """Sets the `member` to only have the rank role of `role_to_assign`. All other rank roles
+        on the member, if any, will be removed. If `role_to_assign` is None all existing rank roles
+        on the member will be removed.
+        """
+        role_names_to_remove = {rank.title for rank in cf.RATED_RANKS}
+        if role_to_assign is not None:
+            role_names_to_remove.discard(role_to_assign.name)
+            if role_to_assign.name not in ['Newbie', 'Pupil', 'Specialist', 'Expert']:
+                role_names_to_remove.add('Purgatory')
         to_remove = [role for role in member.roles if role.name in role_names_to_remove]
         if to_remove:
-            await member.remove_roles(*to_remove, reason='Codeforces rank update')
-        if role_to_assign not in member.roles:
-            await member.add_roles(role_to_assign, reason='Codeforces rank update')
+            await member.remove_roles(*to_remove, reason=reason)
+        if role_to_assign is not None and role_to_assign not in member.roles:
+            await member.add_roles(role_to_assign, reason=reason)
 
     @handle.command(brief='Set Codeforces handle of a user')
     @commands.has_role('Admin')
@@ -162,11 +169,14 @@ class Handles(commands.Cog):
         await ctx.send(embed=embed)
 
         if user.rank == cf.UNRATED_RANK:
-            return
-        roles = [role for role in ctx.guild.roles if role.name == user.rank.title]
-        if not roles:
-            raise HandleCogError(f'Role for rank `{user.rank.title}` not present in the server')
-        await self.update_member_rank_role(member, roles[0])
+            role_to_assign = None
+        else:
+            roles = [role for role in ctx.guild.roles if role.name == user.rank.title]
+            if not roles:
+                raise HandleCogError(f'Role for rank `{user.rank.title}` not present in the server')
+            role_to_assign = roles[0]
+        await self.update_member_rank_role(member, role_to_assign,
+                                           reason='New handle set for user')
 
     @handle.command(brief='Identify yourself', usage='[handle]')
     @cf_common.user_guard(group='handle')
@@ -180,7 +190,7 @@ class Handles(commands.Cog):
         problem = random.choice(problems)
         await ctx.send(f'`{invoker}`, submit a compile error to <{problem.url}> within 60 seconds')
         await asyncio.sleep(60)
-        
+
         subs = await cf.user.status(handle=handle, count=5)
         if any(sub.problem.name == problem.name and sub.verdict == 'COMPILATION_ERROR' for sub in subs):
             users = await cf.user.info(handles=[handle])
@@ -207,6 +217,8 @@ class Handles(commands.Cog):
             raise HandleCogError(f'Handle for {member.mention} not found in database')
         embed = discord_common.embed_success(f'Removed handle for {member.mention}')
         await ctx.send(embed=embed)
+        await self.update_member_rank_role(member, role_to_assign=None,
+                                           reason='Handle removed for user')
 
     @commands.command(brief="Show gudgitters", aliases=["gitgudders"])
     async def gudgitters(self, ctx):
@@ -308,8 +320,9 @@ class Handles(commands.Cog):
             raise HandleCogError(f'Role{plural} for rank{plural} {roles_str} not present in the server')
 
         for member, user in zip(members, users):
-            if user.rank != cf.UNRATED_RANK:
-                await self.update_member_rank_role(member, rank2role[user.rank.title])
+            role_to_assign = None if user.rank == cf.UNRATED_RANK else rank2role[user.rank.title]
+            await self.update_member_rank_role(member, role_to_assign,
+                                               reason='Codeforces rank update')
 
         await ctx.send(embed=discord_common.embed_success('Roles updated successfully'))
 
