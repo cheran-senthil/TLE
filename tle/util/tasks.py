@@ -83,7 +83,7 @@ class ExceptionHandler:
 class Task:
     """A task that repeats until stopped. A task must have a name, a coroutine function `func` to
     execute periodically and another coroutine function `waiter` to wait on between calls to `func`.
-     The return value of `waiter` is passed to `func` in the next call. An optional coroutine
+    The return value of `waiter` is passed to `func` in the next call. An optional coroutine
     function `exception_handler` may be provided to which exceptions will be reported.
     """
 
@@ -167,6 +167,10 @@ class Task:
 
 
 class TaskSpec:
+    """A descriptor intended to be an interface between an instance and its tasks. It creates
+    the expected task when `__get__` is called from an instance for the first time. No two task
+    specs in the same class should have the same name."""
+
     def __init__(self, name, func, waiter=None, exception_handler=None):
         _ensure_coroutine_func(func)
         self.name = name
