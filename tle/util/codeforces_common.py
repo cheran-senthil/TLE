@@ -102,9 +102,22 @@ _NONSTANDARD_CONTEST_INDICATORS = [
     'marathon', 'kotlin', 'onsite', 'experimental', 'abbyy']
 
 
-
 def is_nonstandard_contest(contest):
     return any(string in contest.name.lower() for string in _NONSTANDARD_CONTEST_INDICATORS)
+
+
+# These are special rated-for-all contests which have a combined ranklist for onsite and online
+# participants. The onsite participants have their submissions marked as out of competition. Just
+# Codeforces things.
+_RATED_FOR_ONSITE_CONTEST_IDS = [
+    86,   # Yandex.Algorithm 2011 Round 2 https://codeforces.com/contest/86
+    173,  # Croc Champ 2012 - Round 1 https://codeforces.com/contest/173
+    335,  # MemSQL start[c]up Round 2 - online version https://codeforces.com/contest/335
+]
+
+
+def is_rated_for_onsite_contest(contest):
+    return contest.id in _RATED_FOR_ONSITE_CONTEST_IDS
 
 
 class ResolveHandleError(commands.CommandError):

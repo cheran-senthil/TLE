@@ -93,22 +93,6 @@ def _filter_solved_submissions(submissions, contests, tags = []):
                 problems.add(problem_key)
     return solved_subs
 
-def get_extremes(submissions, problems):
-
-    def check(sub):
-        return (sub.verdict == 'OK' and
-                sub.author.participantType == 'CONTESTANT' and
-                sub.problem.rating is not None)
-
-    solved = {sub.problem.index: sub.problem.rating for sub in submissions if check(sub)}
-
-    max_solved = max(solved.values(), default=None)
-    min_unsolved = min(
-        (problem.rating for problem in problems
-         if problem.rating is not None and problem.index not in solved),
-        default=None)
-    return min_unsolved, max_solved
-
 
 def _classify_submissions(submissions):
     solved_by_type = {sub_type: [] for sub_type in cf.Party.PARTICIPANT_TYPES}
@@ -122,6 +106,7 @@ def _plot_scatter(regular, practice, virtual):
         if contest:
             times, ratings = zip(*contest)
             plt.scatter(times, ratings, zorder=10, s=3, alpha=0.5)
+
 
 def _running_mean(x, bin_size):
     n = len(x)
@@ -137,12 +122,43 @@ def _running_mean(x, bin_size):
     return res
 
 
-def _plot_extreme(user, rating_changes, subs):
+def _get_extremes(contest, problemset, submissions):
+
+    def sub_filter(sub):
+        return (sub.author.participantType == 'CONTESTANT' or
+                (cf_common.is_rated_for_onsite_contest(contest) and
+                 sub.author.participantType == 'OUT_OF_COMPETITION'))
+
+    problemset = [prob for prob in problemset if prob.rating is not None]
+    submissions = [sub for sub in submissions if sub_filter(sub)]
+    solved = {sub.problem.index: sub.problem.rating for sub in submissions if
+              sub.verdict == 'OK'}
+    max_solved = max(solved.values(), default=None)
+    min_unsolved = min((prob.rating for prob in problemset if prob.index not in solved),
+                       default=None)
+    return min_unsolved, max_solved
+
+
+def _plot_extreme(handle, rating, packed_contest_subs_problemset):
+    extremes = [
+        (dt.datetime.fromtimestamp(contest.end_time), _get_extremes(contest, problemset, subs))
+        for contest, problemset, subs in packed_contest_subs_problemset
+    ]
+    regular = []
+    fullsolves = []
+    nosolves = []
+    for t, (mn, mx) in extremes:
+        if mn and mx:
+            regular.append((t, mn, mx))
+        elif mx:
+            fullsolves.append((t, mx))
+        else:
+            nosolves.append((t, mn))
+
     solvedcolor = 'tab:orange'
     unsolvedcolor = 'tab:blue'
     linecolor = '#00000022'
     outlinecolor = '#00000022'
-    circlecolor = '#000000'
 
     def scatter_outline(*args, **kwargs):
         plt.scatter(*args, **kwargs)
@@ -160,34 +176,14 @@ def _plot_extreme(user, rating_changes, subs):
             del kwargs['label']
         plt.scatter(*args, **kwargs)
 
-    extremes = [
-        get_extremes(status, problems)
-        for status, problems in subs
-    ]
-    times = [
-        dt.datetime.fromtimestamp(rating_change.ratingUpdateTimeSeconds)
-        for rating_change in rating_changes
-    ]
-
-    regular = []
-    fullsolves = []
-    nosolves = []
-    for t, extreme in zip(times, extremes):
-        mn, mx = extreme
-        if mn and mx:
-            regular.append((t, mn, mx))
-        elif mx:
-            fullsolves.append((t, mx))
-        else:
-            nosolves.append((t, mn))
-
+    plt.clf()
     time_scatter, plot_min, plot_max = zip(*regular)
     scatter_outline(time_scatter, plot_min, zorder=10,
                     s=14, marker='o', color=unsolvedcolor,
-                    label='easiest unsolved')
+                    label='Easiest unsolved')
     scatter_outline(time_scatter, plot_max, zorder=10,
                     s=14, marker='o', color=solvedcolor,
-                    label='hardest solved')
+                    label='Hardest solved')
 
     ax = plt.gca()
     for t, mn, mx in regular:
@@ -202,9 +198,8 @@ def _plot_extreme(user, rating_changes, subs):
                         s=32, marker='X',
                         color=unsolvedcolor)
 
-    plt.title(f'{user.handle} ({user.rating})')
-    plt.legend(loc='upper left').set_zorder(20)
-
+    plt.legend(title=f'{handle}: {rating}', title_fontsize=plt.rcParams['legend.fontsize'],
+               loc='upper left').set_zorder(20)
     _plot_rating_bg()
 
 
@@ -281,45 +276,35 @@ class Graphs(commands.Cog):
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
 
-    @plot.command(brief='Plot Codeforces lowest rating unsolved/highest rating solved problems on contests graph', usage='[+zoom] handle')
-    async def extreme(self, ctx, *args: str):
-        """Plots Codeforces lowest unsolved problem/highest solved on codeforces graph for the handle provided."""
-        handles = args or ('!' + str(ctx.author),)
-        if len(handles) > 1:
-            raise GraphCogError('Too many users, try one at a time.')
+    @plot.command(brief='Plot Codeforces extremes graph')
+    async def extreme(self, ctx, handle: str = None):
+        """Plots pairs of lowest rated unsolved problem and highest rated solved problem for every
+        contest that was rated for the given user.
+        """
+        handle = handle or '!' + str(ctx.author)
+        handle, = await cf_common.resolve_handles(ctx, self.converter, [handle])
+        ratingchanges = await cf.user.rating(handle=handle)
+        if not ratingchanges:
+            raise GraphCogError(f'User {handle} is not rated')
 
-        handles = await cf_common.resolve_handles(ctx, self.converter, handles)
+        contest_ids = [change.contestId for change in ratingchanges]
+        subs_by_contest_id = {contest_id: [] for contest_id in contest_ids}
+        for sub in await cf.user.status(handle=handle):
+            if sub.contestId in subs_by_contest_id:
+                subs_by_contest_id[sub.contestId].append(sub)
 
-        resp = await cf.user.rating(handle=handles[0])
+        cache = cf_common.cache2.contest_cache
+        packed_contest_subs_problemset = [
+            (cache.get_contest(contest_id), cache.get_problemset(contest_id),
+             subs_by_contest_id[contest_id])
+            for contest_id in contest_ids
+        ]
 
-        if not resp:
-            raise GraphCogError('This user is not rated.')
-
-        contests = [cf_common.cache2.contest_cache.get_contest(change.contestId) for change in resp]
-        contests.sort(key=lambda c: c.id)
-        contest_ids = set(c.id for c in contests)
-        user_status = [submission for submission in await cf.user.status(handle=handles[0]) if submission.contestId in contest_ids]
-        user_status.sort(key=lambda sub: sub.contestId)
-
-        statuses = []
-        for submission in user_status:
-            if not statuses or statuses[-1][0].contestId != submission.contestId:
-                statuses.append([])
-            statuses[-1].append(submission)
-
-        problemsets = [problems for problems in [cf_common.cache2.contest_cache.get_problems(contest_id=c.id) for c in contests]]
-        subs = list(zip(statuses, problemsets, contests))
-        subs.sort(key=lambda tup: tup[2].startTimeSeconds)
-        subs = [(tup[0], tup[1]) for tup in subs]
-
-        plt.clf()
-        user, = await cf.user.info(handles=handles)
-        _plot_extreme(user, resp, subs)
-        current_rating = resp[-1].newRating
-        labels = [f'\N{ZERO WIDTH SPACE}{handles[0]} ({current_rating})']
+        rating = max(ratingchanges, key=lambda change: change.ratingUpdateTimeSeconds).newRating
+        _plot_extreme(handle, rating, packed_contest_subs_problemset)
 
         discord_file = _get_current_figure_as_file()
-        embed = discord_common.cf_color_embed(title='Extremes graph on Codeforces')
+        embed = discord_common.cf_color_embed(title='Codeforces extremes graph')
         discord_common.attach_image(embed, discord_file)
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
