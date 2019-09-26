@@ -17,6 +17,7 @@ from tle.util import discord_common
 from tle.util import paginator
 from tle.util import ranklist as rl
 from tle.util import table
+from tle.util import tasks
 
 _CONTESTS_PER_PAGE = 5
 _CONTEST_PAGINATE_WAIT_TIME = 5 * 60
@@ -103,18 +104,11 @@ class Contests(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        asyncio.create_task(self._updater_task())
+        self._update_task.start()
 
-    async def _updater_task(self):
-        self.logger.info('Running Contests cog updater task')
-        while True:
-            try:
-                await cf_common.event_sys.wait_for('EVENT_CONTEST_LIST_REFRESH')
-                await self._reload()
-            except Exception:
-                self.logger.warning(f'Exception in Contests cog updater task, ignoring.', exc_info=True)
-
-    async def _reload(self):
+    @tasks.task_spec(name='ContestCogUpdate',
+                     waiter=tasks.Waiter.for_event('EVENT_CONTEST_LIST_REFRESH'))
+    async def _update_task(self, _):
         contest_cache = cf_common.cache2.contest_cache
         self.future_contests = contest_cache.get_contests_in_phase('BEFORE')
         self.active_contests = (contest_cache.get_contests_in_phase('CODING') +
