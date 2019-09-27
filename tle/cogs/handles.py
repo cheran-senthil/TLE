@@ -56,32 +56,49 @@ def get_prettyhandles_image(rankings):
     BLACK = (0, 0, 0)
     img = Image.new("RGB", (900, 450), color=SMOKE_WHITE)
 
-    font = ImageFont.truetype("tle/assets/fonts/Cousine-Regular.ttf", size=30)
+    font = ImageFont.truetype("tle/assets/fonts/NotoSansCJK-Bold.ttc", size=26)
     draw = ImageDraw.Draw(img)
-    x = 20
-    y = 20
-    y_inc, _ = font.getsize("hg")
 
-    header = f"{'#':<4}{'Username':<18}{'Handle':<18}{'Rating':>7}"
-    draw.text((x, y), header, fill=BLACK, font=font)
-    y += int(y_inc * 1.5)
+    START_X, START_Y = 20, 20
+    Y_INC = 32
+    WIDTH_RANK = 64
+    WIDTH_NAME = 320
+
+    x, y = START_X, START_Y
+
+    def draw_row(pos, username, handle, rating, color):
+        nonlocal x, y
+        draw.text((x, y), pos, fill=color, font=font)
+        x += WIDTH_RANK
+        draw.text((x, y), username, fill=color, font=font)
+        x += WIDTH_NAME
+        draw.text((x, y), handle, fill=color, font=font)
+        x += WIDTH_NAME
+        draw.text((x, y), rating, fill=color, font=font)
+        x = START_X
+        y += Y_INC
+
+    # draw header
+    draw_row('#', 'Username', 'Handle', 'Rating', BLACK)
+    y += int(Y_INC * 0.5)
+
+    # trim name to fit in the column width
+    def _trim(name):
+        width = WIDTH_NAME - 10
+        while font.getsize(name)[0] > width:
+            name = name[:-3] + '..'
+        return name
+
     for pos, name, handle, rating in rankings:
-        if len(name) > 17:
-            name = name[:16] + "…"
-        if len(handle) > 17:
-            handle = handle[:16] + "…"
-        s = f"{pos:<4}{name:<18}{handle:<18}{rating:>6}"
-
+        name = _trim(name)
+        handle = _trim(handle)
         color = rating_to_color(rating)
-        if rating!='N/A' and rating >= 3000:  # nutella
-            draw.text((x, y), s[:22], fill=color, font=font)
-            z = x + font.getsize(s[:22])[0]
-            draw.text((z, y), s[22], fill=BLACK, font=font)
-            z += font.getsize((s[22]))[0]
-            draw.text((z, y), s[23:], fill=color, font=font)
-        else:
-            draw.text((x, y), s, fill=color, font=font)
-        y += y_inc
+        draw_row(str(pos), name, handle, str(rating), color)
+        if rating != 'N/A' and rating >= 3000:  # nutella
+            nutella_x, nutella_y = x + WIDTH_RANK, y - Y_INC
+            draw.text((nutella_x, nutella_y), name[0], fill=BLACK, font=font)
+            nutella_x += WIDTH_NAME
+            draw.text((nutella_x, nutella_y), handle[0], fill=BLACK, font=font)
 
     return img
 
