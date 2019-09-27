@@ -152,8 +152,12 @@ def _plot_extreme(handle, rating, packed_contest_subs_problemset):
             regular.append((t, mn, mx))
         elif mx:
             fullsolves.append((t, mx))
-        else:
+        elif mn:
             nosolves.append((t, mn))
+        else:
+            # No rated problems in the contest, which means rating is not yet available for
+            # problems in this contest. Skip this data point.
+            pass
 
     solvedcolor = 'tab:orange'
     unsolvedcolor = 'tab:blue'
@@ -293,9 +297,9 @@ class Graphs(commands.Cog):
             if sub.contestId in subs_by_contest_id:
                 subs_by_contest_id[sub.contestId].append(sub)
 
-        cache = cf_common.cache2.contest_cache
         packed_contest_subs_problemset = [
-            (cache.get_contest(contest_id), cache.get_problemset(contest_id),
+            (cf_common.cache2.contest_cache.get_contest(contest_id),
+             cf_common.cache2.problemset_cache.get_problemset(contest_id),
              subs_by_contest_id[contest_id])
             for contest_id in contest_ids
         ]

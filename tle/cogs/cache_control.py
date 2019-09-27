@@ -20,6 +20,8 @@ def timed_command(coro):
 
 
 class CacheControl(commands.Cog):
+    """Cog to manually trigger update of cached data. Intended for dev/admin use."""
+
     def __init__(self, bot):
         self.bot = bot
 
@@ -63,8 +65,28 @@ class CacheControl(commands.Cog):
             count = await cf_common.cache2.rating_changes_cache.fetch_contest(contest_id)
         await ctx.send(f'Done, fetched {count} changes and recached handle ratings')
 
+    @cache.command(usage='contest_id|all')
+    @commands.has_role('Admin')
+    @timed_command
+    async def problemsets(self, ctx, contest_id):
+        """Mode 'all' clears all existing cached problems. Mode 'contest_id'
+        clears existing problems with the given contest id.
+        """
+        if contest_id != 'all':
+            try:
+                contest_id = int(contest_id)
+            except ValueError:
+                return
+        if contest_id == 'all':
+            await ctx.send('This will take a while')
+            count = await cf_common.cache2.problemset_cache.update_for_all()
+        else:
+            count = await cf_common.cache2.problemset_cache.update_for_contest(contest_id)
+        await ctx.send(f'Done, fetched {count} problems')
+
     async def cog_command_error(self, ctx, error):
-        error = error.__cause__
+        if isinstance(error, commands.CommandInvokeError):
+            error = error.__cause__
         lines = traceback.format_exception(type(error), error, error.__traceback__)
         msg = '\n'.join(lines)
         discord_msg_char_limit = 2000
