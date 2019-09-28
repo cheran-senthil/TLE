@@ -1,5 +1,7 @@
 import io
 import asyncio
+import logging
+import os
 
 import discord
 import random
@@ -16,6 +18,9 @@ from PIL import Image, ImageFont, ImageDraw
 _HANDLES_PER_PAGE = 15
 _NAME_MAX_LEN = 20
 _PAGINATE_WAIT_TIME = 5 * 60  # 5 minutes
+_FONT_PATH = "tle/assets/fonts/NotoSansCJK-Bold.ttc"
+
+logger = logging.getLogger(__name__)
 
 
 class HandleCogError(commands.CommandError):
@@ -55,19 +60,17 @@ def get_prettyhandles_image(rankings):
     SMOKE_WHITE = (250, 250, 250)
     BLACK = (0, 0, 0)
     img = Image.new("RGB", (900, 450), color=SMOKE_WHITE)
-
-    font = ImageFont.truetype("tle/assets/fonts/NotoSansCJK-Bold.ttc", size=26)
     draw = ImageDraw.Draw(img)
+
+    font = ImageFont.truetype(_FONT_PATH, size=26)
 
     START_X, START_Y = 20, 20
     Y_INC = 32
     WIDTH_RANK = 64
-    WIDTH_NAME = 320
+    WIDTH_NAME = 340
 
-    x, y = START_X, START_Y
-
-    def draw_row(pos, username, handle, rating, color):
-        nonlocal x, y
+    def draw_row(pos, username, handle, rating, color, y):
+        x = START_X
         draw.text((x, y), pos, fill=color, font=font)
         x += WIDTH_RANK
         draw.text((x, y), username, fill=color, font=font)
@@ -75,30 +78,30 @@ def get_prettyhandles_image(rankings):
         draw.text((x, y), handle, fill=color, font=font)
         x += WIDTH_NAME
         draw.text((x, y), rating, fill=color, font=font)
-        x = START_X
-        y += Y_INC
 
+    y = START_Y
     # draw header
-    draw_row('#', 'Username', 'Handle', 'Rating', BLACK)
-    y += int(Y_INC * 0.5)
+    draw_row('#', 'Username', 'Handle', 'Rating', BLACK, y)
+    y += int(Y_INC * 1.5)
 
     # trim name to fit in the column width
     def _trim(name):
         width = WIDTH_NAME - 10
         while font.getsize(name)[0] > width:
-            name = name[:-3] + '..'
+            name = name[:-3] + '..'  # "…" is printed as floating dots
         return name
 
     for pos, name, handle, rating in rankings:
         name = _trim(name)
         handle = _trim(handle)
         color = rating_to_color(rating)
-        draw_row(str(pos), name, handle, str(rating), color)
+        draw_row(str(pos), name, handle, str(rating), color, y)
         if rating != 'N/A' and rating >= 3000:  # nutella
-            nutella_x, nutella_y = x + WIDTH_RANK, y - Y_INC
-            draw.text((nutella_x, nutella_y), name[0], fill=BLACK, font=font)
+            nutella_x = START_X + WIDTH_RANK
+            draw.text((nutella_x, y), name[0], fill=BLACK, font=font)
             nutella_x += WIDTH_NAME
-            draw.text((nutella_x, nutella_y), handle[0], fill=BLACK, font=font)
+            draw.text((nutella_x, y), handle[0], fill=BLACK, font=font)
+        y += Y_INC
 
     return img
 
@@ -197,7 +200,7 @@ class Handles(commands.Cog):
         problem = random.choice(problems)
         await ctx.send(f'`{invoker}`, submit a compile error to <{problem.url}> within 60 seconds')
         await asyncio.sleep(60)
-        
+
         subs = await cf.user.status(handle=handle, count=5)
         if any(sub.problem.name == problem.name and sub.verdict == 'COMPILATION_ERROR' for sub in subs):
             users = await cf.user.info(handles=[handle])
@@ -269,6 +272,10 @@ class Handles(commands.Cog):
 
     @handle.command(brief="Show colour handles")
     async def pretty(self, ctx: discord.ext.commands.Context, page_no: int = None):
+        if not os.path.isfile(_FONT_PATH):
+            logger.warning(f"Font file {_FONT_PATH} not found. Pretty handles is disabled"
+                           "Download from https://noto-website-2.storage.googleapis.com/pkgs/NotoSansCJK-Bold.ttc.zip")
+            return
         res = cf_common.user_db.getallhandleswithrating()
         res.sort(key=lambda r: r[2] if r[2] is not None else -1, reverse=True)
         rankings = []
