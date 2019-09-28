@@ -88,7 +88,7 @@ def get_prettyhandles_image(rankings):
     def _trim(name):
         width = WIDTH_NAME - 10
         while font.getsize(name)[0] > width:
-            name = name[:-3] + '..'  # "…" is printed as floating dots
+            name = name[:-4] + '...'  # "…" is printed as floating dots
         return name
 
     for pos, name, handle, rating in rankings:
@@ -258,8 +258,8 @@ class Handles(commands.Cog):
             msg = '```No one has completed a gitgud challenge, send ;gitgud to request and ;gotgud to mark it as complete```'
         await ctx.send(msg)
 
-    @handle.command(brief="Show all handles")
-    async def list(self, ctx):
+    @handle.command(name="list", brief="Show all handles")
+    async def _list(self, ctx):
         """Shows all members of the server who have registered their handles and
         their Codeforces ratings.
         """
