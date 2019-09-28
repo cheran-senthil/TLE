@@ -1,7 +1,6 @@
 import io
 import asyncio
 import logging
-import os
 
 import discord
 import random
@@ -12,15 +11,13 @@ from tle.util import codeforces_common as cf_common
 from tle.util import discord_common
 from tle.util import paginator
 from tle.util import table
+from tle import constants
 
 from PIL import Image, ImageFont, ImageDraw
 
 _HANDLES_PER_PAGE = 15
 _NAME_MAX_LEN = 20
 _PAGINATE_WAIT_TIME = 5 * 60  # 5 minutes
-_FONT_PATH = "tle/assets/fonts/NotoSansCJK-Bold.ttc"
-
-logger = logging.getLogger(__name__)
 
 
 class HandleCogError(commands.CommandError):
@@ -55,14 +52,12 @@ def rating_to_color(rating):
     return RED
 
 
-def get_prettyhandles_image(rankings):
+def get_prettyhandles_image(rankings, font):
     """return PIL image for rankings"""
     SMOKE_WHITE = (250, 250, 250)
     BLACK = (0, 0, 0)
-    img = Image.new("RGB", (900, 450), color=SMOKE_WHITE)
+    img = Image.new('RGB', (900, 450), color=SMOKE_WHITE)
     draw = ImageDraw.Draw(img)
-
-    font = ImageFont.truetype(_FONT_PATH, size=26)
 
     START_X, START_Y = 20, 20
     Y_INC = 32
@@ -150,6 +145,17 @@ def _make_pages(users):
 class Handles(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.font = None           # font for ;handle pretty
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        try:
+            self.font = ImageFont.truetype(constants.NOTO_SANS_CJK_FONT_PATH, size=26)
+        except OSError:
+            self.logger.warning(f'Font file {constants.NOTO_SANS_CJK_FONT_PATH} not found. '
+                                f'Pretty handles is disabled. Download from {constants.NOTO_SANS_CJK_FONT_URL}.')
+            self.handle.remove_command(self.pretty.name)
 
     @commands.group(brief='Commands that have to do with handles', invoke_without_command=True)
     async def handle(self, ctx):
@@ -272,10 +278,6 @@ class Handles(commands.Cog):
 
     @handle.command(brief="Show colour handles")
     async def pretty(self, ctx: discord.ext.commands.Context, page_no: int = None):
-        if not os.path.isfile(_FONT_PATH):
-            logger.warning(f"Font file {_FONT_PATH} not found. Pretty handles is disabled"
-                           "Download from https://noto-website-2.storage.googleapis.com/pkgs/NotoSansCJK-Bold.ttc.zip")
-            return
         res = cf_common.user_db.getallhandleswithrating()
         res.sort(key=lambda r: r[2] if r[2] is not None else -1, reverse=True)
         rankings = []
@@ -303,7 +305,7 @@ class Handles(commands.Cog):
             # Show rankings around invoker
             rankings = rankings[max(0, author_pos - 4): author_pos + 6]
 
-        img = get_prettyhandles_image(rankings)
+        img = get_prettyhandles_image(rankings, self.font)
         buffer = io.BytesIO()
         img.save(buffer, 'png')
         buffer.seek(0)
