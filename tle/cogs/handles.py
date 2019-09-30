@@ -264,8 +264,8 @@ class Handles(commands.Cog):
             msg = '```No one has completed a gitgud challenge, send ;gitgud to request and ;gotgud to mark it as complete```'
         await ctx.send(msg)
 
-    @handle.command(name="list", brief="Show all handles")
-    async def _list(self, ctx):
+    @handle.command(brief="Show all handles")
+    async def list(self, ctx):
         """Shows all members of the server who have registered their handles and
         their Codeforces ratings.
         """
