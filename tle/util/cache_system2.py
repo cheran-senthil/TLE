@@ -279,7 +279,7 @@ class ProblemsetCache:
         # We assume it is possible for problems in the same contest to get assigned rating at
         # different times.
         new_contest_ids = []
-        saved_contests = {}
+        contests_to_refetch = []  # List of (id, set of saved rated problem indices) pairs.
         if force_fetch:
             new_contest_ids = [contest.id for contest in contests]
         else:
@@ -294,12 +294,12 @@ class ProblemsetCache:
                     continue
                 rated_problem_idx = {prob.index for prob in problemset if prob.rating is not None}
                 if len(rated_problem_idx) < len(problemset):
-                    saved_contests[contest.id] = rated_problem_idx
+                    contests_to_refetch.append((contest.id, rated_problem_idx))
 
         new_problems, updated_problems = [], []
         for contest_id in new_contest_ids:
             new_problems += await self._fetch_for_contest(contest_id)
-        for contest_id, rated_problem_idx in saved_contests.items():
+        for contest_id, rated_problem_idx in contests_to_refetch:
             updated_problems += [prob for prob in await self._fetch_for_contest(contest_id)
                                  if prob.rating is not None and prob.index not in rated_problem_idx]
 

@@ -72,15 +72,14 @@ class CacheControl(commands.Cog):
         """Mode 'all' clears all existing cached problems. Mode 'contest_id'
         clears existing problems with the given contest id.
         """
-        if contest_id != 'all':
-            try:
-                contest_id = int(contest_id)
-            except ValueError:
-                return
         if contest_id == 'all':
             await ctx.send('This will take a while')
             count = await cf_common.cache2.problemset_cache.update_for_all()
         else:
+            try:
+                contest_id = int(contest_id)
+            except ValueError:
+                return
             count = await cf_common.cache2.problemset_cache.update_for_contest(contest_id)
         await ctx.send(f'Done, fetched {count} problems')
 
