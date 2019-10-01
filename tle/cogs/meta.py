@@ -69,7 +69,11 @@ class Meta(commands.Cog):
     @meta.command(brief='Is TLE up?')
     async def ping(self, ctx):
         """Replies to a ping."""
-        await ctx.send("pong")
+        start = time.perf_counter()
+        message = await ctx.send("Pong!")
+        end = time.perf_counter()
+        duration = (end - start) * 1000
+        await message.edit(content=f':ping_pong: {duration:.2f}ms')
 
     @meta.command(brief='Get git information')
     async def git(self, ctx):
