@@ -71,7 +71,7 @@ class Codeforces(commands.Cog):
 
         if choice > 0 and choice <= len(problems):
             problem = problems[choice - 1]
-            await self._gitgud(ctx, handle, problem, abs(rating - problem.rating))
+            await self._gitgud(ctx, handle, problem, problem.rating - rating)
         else:
             msg = '\n'.join(f'{i + 1}: [{prob.name}]({prob.url}) [{prob.rating}]'
                             for i, prob in enumerate(problems[:5]))
