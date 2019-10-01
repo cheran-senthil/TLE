@@ -124,14 +124,6 @@ class ContestCache:
             if contest.phase in self._RUNNING_PHASES:
                 contests_by_phase['_RUNNING'].append(contest)
 
-            if contest.phase == 'FINISHED' and not self.cache_master.conn.has_problemset_saved(contest.id):
-                try:
-                    _, problems, _ = await cf.contest.standings(contest_id=contest.id)
-                    self.cache_master.conn.save_standings(problems)
-                except cf.CodeforcesApiError:
-                    self.logger.info('Contest without standings error, usual thing, skipping...')
-                    pass
-
         now = time.time()
         delay = self._NORMAL_CONTEST_RELOAD_DELAY
 
@@ -241,6 +233,93 @@ class ProblemCache:
 
         rc = self.cache_master.conn.cache_problems(self.problems)
         self.logger.info(f'{rc} problems stored in database')
+
+
+class ProblemsetCache:
+    _MONITOR_PERIOD_SINCE_CONTEST_END = 14 * 24 * 60 * 60
+    _RELOAD_DELAY = 60 * 60
+
+    def __init__(self, cache_master):
+        self.cache_master = cache_master
+        self.update_lock = asyncio.Lock()
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+    async def run(self):
+        self._update_task.start()
+
+    async def update_for_contest(self, contest_id):
+        """Update problemset for a particular contest. Intended for manual trigger."""
+        async with self.update_lock:
+            contest = self.cache_master.contest_cache.get_contest(contest_id)
+            problemset, _ = await self._fetch_problemsets([contest], force_fetch=True)
+            self.cache_master.conn.clear_problemset(contest_id)
+            self._save_problems(problemset)
+            return len(problemset)
+
+    async def update_for_all(self):
+        """Update problemsets for all finished contests. Intended for manual trigger."""
+        async with self.update_lock:
+            contests = self.cache_master.contest_cache.contests_by_phase['FINISHED']
+            problemsets, _ = await self._fetch_problemsets(contests, force_fetch=True)
+            self.cache_master.conn.clear_problemset()
+            self._save_problems(problemsets)
+            return len(problemsets)
+
+    @tasks.task_spec(name='ProblemsetCacheUpdate',
+                     waiter=tasks.Waiter.fixed_delay(_RELOAD_DELAY))
+    async def _update_task(self, _):
+        async with self.update_lock:
+            contests = self.cache_master.contest_cache.contests_by_phase['FINISHED']
+            new_problems, updated_problems = await self._fetch_problemsets(contests)
+            self._save_problems(new_problems + updated_problems)
+            self.logger.info(f'{len(new_problems)} new problems saved and {len(updated_problems)} '
+                             'saved problems updated.')
+
+    async def _fetch_problemsets(self, contests, *, force_fetch=False):
+        # We assume it is possible for problems in the same contest to get assigned rating at
+        # different times.
+        new_contest_ids = []
+        contests_to_refetch = []  # List of (id, set of saved rated problem indices) pairs.
+        if force_fetch:
+            new_contest_ids = [contest.id for contest in contests]
+        else:
+            now = time.time()
+            for contest in contests:
+                if now > contest.end_time + self._MONITOR_PERIOD_SINCE_CONTEST_END:
+                    # Contest too old, we do not want to check it.
+                    continue
+                problemset = self.cache_master.conn.fetch_problemset(contest.id)
+                if not problemset:
+                    new_contest_ids.append(contest.id)
+                    continue
+                rated_problem_idx = {prob.index for prob in problemset if prob.rating is not None}
+                if len(rated_problem_idx) < len(problemset):
+                    contests_to_refetch.append((contest.id, rated_problem_idx))
+
+        new_problems, updated_problems = [], []
+        for contest_id in new_contest_ids:
+            new_problems += await self._fetch_for_contest(contest_id)
+        for contest_id, rated_problem_idx in contests_to_refetch:
+            updated_problems += [prob for prob in await self._fetch_for_contest(contest_id)
+                                 if prob.rating is not None and prob.index not in rated_problem_idx]
+
+        return new_problems, updated_problems
+
+    async def _fetch_for_contest(self, contest_id):
+        try:
+            _, problemset, _ = await cf.contest.standings(contest_id=contest_id, from_=1,
+                                                          count=1)
+        except cf.CodeforcesApiError as er:
+            self.logger.warning(f'Problemset fetch failed for contest {contest_id}. {er!r}')
+            problemset = []
+        return problemset
+
+    def _save_problems(self, problems):
+        rc = self.cache_master.conn.cache_problemset(problems)
+        self.logger.info(f'Saved {rc} problems to database.')
+
+    def get_problemset(self, contest_id):
+        return self.cache_master.conn.fetch_problemset(contest_id)
 
 
 class RatingChangesCache:
@@ -507,9 +586,11 @@ class CacheSystem:
         self.problem_cache = ProblemCache(self)
         self.rating_changes_cache = RatingChangesCache(self)
         self.ranklist_cache = RanklistCache(self)
+        self.problemset_cache = ProblemsetCache(self)
 
     async def run(self):
         await self.rating_changes_cache.run()
         await self.ranklist_cache.run()
         await self.contest_cache.run()
         await self.problem_cache.run()
+        await self.problemset_cache.run()
