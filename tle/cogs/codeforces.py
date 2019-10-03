@@ -131,9 +131,11 @@ class Codeforces(commands.Cog):
             embed.add_field(name='Matched tags', value=tagslist)
         await ctx.send(f'Recommended problem for `{handle}`', embed=embed)
 
-    @commands.command(brief='Print recently solved practice problems by user')
+    @commands.command(brief='List solved problems')
     async def stalk(self, ctx, *args):
-        type = 'CONTESTANT' if '+contest' in args else 'PRACTICE'
+        hardest = '+best' in args
+        contest = '+contest' in args
+        type = 'CONTESTANT' if contest else 'PRACTICE'
         handles = [arg for arg in args if arg[0] != '+']
         handles = handles or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
@@ -141,7 +143,7 @@ class Codeforces(commands.Cog):
         submissions = list({sub.problem.name : sub for subs in submissions for sub in subs
                             if sub.verdict == 'OK' and sub.author.participantType == type}.values())
 
-        if '+best' in args:
+        if hardest:
             submissions.sort(key=lambda sub: sub.problem.rating if sub.problem.rating else 0, reverse=True)
         else:
             submissions.sort(key=lambda sub: sub.creationTimeSeconds, reverse=True)
@@ -149,8 +151,10 @@ class Codeforces(commands.Cog):
         problems = [sub.problem for sub in submissions]
         msg = '\n'.join(f'[{prob.name}]({prob.url}) [{prob.rating if prob.rating else "?"}]'
                         for prob in problems[:5])
-        embed = discord_common.cf_color_embed(title=f'Recently solved practice problems by `{handles}`',
-                                              description=msg)
+        title = '{} solved {} problems by `{}`'.format('Hardest' if hardest else 'Recently',
+                                                       'contest' if contest else 'practice',
+                                                       '`, `'.join(handles))
+        embed = discord_common.cf_color_embed(title=title, description=msg)
         await ctx.send(embed=embed)
 
     @commands.command(brief='Create a mashup', usage='[handles] [+tags]')
