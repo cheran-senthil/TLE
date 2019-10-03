@@ -634,7 +634,7 @@ class Graphs(commands.Cog):
     async def howgud(self, ctx, *members: discord.Member):
         members = members or (ctx.author,)
         # shift the [-300, 300] gitgud range to center the test
-        hist_bins = list(range(-300 + 50, 300 + 50 + 1, 100))
+        hist_bins = list(range(-300 - 50, 300 + 50 + 1, 100))
         deltas = [[x[0] for x in cf_common.user_db.howgud(member.id)] for member in members]
         labels = [f'\N{ZERO WIDTH SPACE}{member.display_name}: {len(delta)}'
                   for member, delta in zip(members, deltas)]
