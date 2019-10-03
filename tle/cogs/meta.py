@@ -43,6 +43,7 @@ def git_history():
 
 class Meta(commands.Cog):
     def __init__(self, bot):
+        self.bot = bot
         self.start_time = time.time()
 
     @commands.group(brief='Bot control', invoke_without_command=True)
@@ -69,7 +70,12 @@ class Meta(commands.Cog):
     @meta.command(brief='Is TLE up?')
     async def ping(self, ctx):
         """Replies to a ping."""
-        await ctx.send("pong")
+        start = time.perf_counter()
+        message = await ctx.send(':ping_pong: Pong!')
+        end = time.perf_counter()
+        duration = (end - start) * 1000
+        await message.edit(content=f'REST API latency: {int(duration)}ms\n'
+                                   f'Gateway API latency: {int(self.bot.latency * 1000)}ms')
 
     @meta.command(brief='Get git information')
     async def git(self, ctx):
