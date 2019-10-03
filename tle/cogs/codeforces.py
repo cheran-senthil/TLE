@@ -109,7 +109,7 @@ class Codeforces(commands.Cog):
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
                     if lower <= prob.rating and prob.name not in solved]
         problems = [prob for prob in problems if not cf_common.is_contest_writer(prob.contestId, handle)]
-        if tags: 
+        if tags:
             problems = [prob for prob in problems if prob.tag_matches(tags)]
         if not problems:
             await ctx.send('Problems not found within the search parameters')
@@ -132,20 +132,24 @@ class Codeforces(commands.Cog):
         await ctx.send(f'Recommended problem for `{handle}`', embed=embed)
 
     @commands.command(brief='Print recently solved practice problems by user')
-    async def stalk(self, ctx, handle: str):
-        handle = handle or '!' + str(ctx.author)
-        handle, = await cf_common.resolve_handles(ctx, self.converter, (handle,))
-        user = cf_common.user_db.fetch_cfuser(handle)
-        submissions = await cf.user.status(handle=handle)
-        submissions = list({sub.problem.name : sub for sub in submissions
-                            if sub.author.participantType == 'PRACTICE'
-                            and sub.verdict == 'OK'}.values())
-        submissions.sort(key=lambda sub: sub.creationTimeSeconds, reverse=True)
-        problems = [sub.problem for sub in submissions]
+    async def stalk(self, ctx, *args):
+        type = 'CONTESTANT' if '+contest' in args else 'PRACTICE'
+        handles = [arg for arg in args if arg[0] != '+']
+        handles = handles or ('!' + str(ctx.author),)
+        handles = await cf_common.resolve_handles(ctx, self.converter, handles)
+        submissions = [await cf.user.status(handle=handle) for handle in handles]
+        submissions = list({sub.problem.name : sub for subs in submissions for sub in subs
+                            if sub.verdict == 'OK' and sub.author.participantType == type}.values())
 
+        if '+best' in args:
+            submissions.sort(key=lambda sub: sub.problem.rating if sub.problem.rating else 0, reverse=True)
+        else:
+            submissions.sort(key=lambda sub: sub.creationTimeSeconds, reverse=True)
+
+        problems = [sub.problem for sub in submissions]
         msg = '\n'.join(f'[{prob.name}]({prob.url}) [{prob.rating if prob.rating else "?"}]'
                         for prob in problems[:5])
-        embed = discord_common.cf_color_embed(title=f'Recently solved practice problems by `{handle}`',
+        embed = discord_common.cf_color_embed(title=f'Recently solved practice problems by `{handles}`',
                                               description=msg)
         await ctx.send(embed=embed)
 
@@ -156,7 +160,7 @@ class Codeforces(commands.Cog):
         """
         handles = [arg for arg in args if arg[0] != '+']
         tags = [arg[1:] for arg in args if arg[0] == '+' and len(arg) > 1]
-        
+
         handles = handles or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         resp = [await cf.user.status(handle=handle) for handle in handles]
@@ -170,7 +174,7 @@ class Codeforces(commands.Cog):
                     and not cf_common.is_nonstandard_contest(cf_common.cache2.contest_cache.get_contest(prob.contestId))]
         if tags:
             problems = [prob for prob in problems if prob.tag_matches(tags)]
-            
+
         if len(problems) < 4:
             await ctx.send('Problems not found within the search parameters')
             return
