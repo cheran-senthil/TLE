@@ -135,6 +135,12 @@ class Codeforces(commands.Cog):
     async def stalk(self, ctx, *args):
         """Print problems solved in practice (default) or in contest sorted by time (default) or rating.
         """
+        def ok(problem):
+            # acmsguru and gyms are fine for recent practice list
+            if not problem.contestId or problem.contestId >= cf.GYM_ID_THRESHOLD:
+                return True
+            return not cf_common.is_nonstandard_problem(problem)
+
         hardest = '+hardest' in args
         contest = '+contest' in args
         type_ = 'CONTESTANT' if contest else 'PRACTICE'
@@ -144,8 +150,7 @@ class Codeforces(commands.Cog):
         submissions = [await cf.user.status(handle=handle) for handle in handles]
         submissions = list({sub.problem.name : sub for subs in submissions for sub in subs
                             if sub.verdict == 'OK' and sub.author.participantType == type_
-                            and not cf_common.is_nonstandard_problem(sub.problem)
-                            and len(sub.author.members) == 1}.values())
+                            and ok(sub.problem) and len(sub.author.members) == 1}.values())
 
         if hardest:
             submissions.sort(key=lambda sub: sub.problem.rating or 0, reverse=True)
