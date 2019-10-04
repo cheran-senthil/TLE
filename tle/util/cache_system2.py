@@ -211,14 +211,12 @@ class ProblemCache:
 
     async def _update(self, problems):
         self.logger.info(f'{len(problems)} problems fetched from API')
-        banned_tags = ['*special']
         contest_map = {problem.contestId: self.cache_master.contest_cache.contest_by_id.get(problem.contestId)
                        for problem in problems}
 
         def keep(problem):
             return (contest_map[problem.contestId] and
-                    problem.has_metadata() and
-                    not problem.tag_matches(banned_tags))
+                    problem.has_metadata())
 
         filtered_problems = list(filter(keep, problems))
         problem_by_name = {

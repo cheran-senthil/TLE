@@ -10,6 +10,7 @@ from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
 from tle.util import discord_common
 from tle.util.db.user_db_conn import Gitgud
+from tle.util import paginator
 
 _GITGUD_NO_SKIP_TIME = 3 * 60 * 60
 
@@ -252,6 +253,30 @@ class Codeforces(commands.Cog):
 
         choice = max(random.randrange(len(problems)) for _ in range(2))
         await self._gitgud(ctx, handle, problems[choice], delta)
+
+    @commands.command(brief='Print user gitgud history')
+    async def gitlog(self, ctx, member: discord.Member = None):
+        def _make_pages(data):
+            now = datetime.datetime.now().timestamp()
+            problems = cf_common.cache2.problem_cache.problem_by_name
+            chunks = paginator.chunkify(data, 7)
+            pages = []
+
+            for chunk in chunks:
+                log_str = ''
+                for i, (issue, finish, name, contest, index, delta, status) in enumerate(chunk):
+                    url = f'{cf.CONTEST_BASE_URL}{contest}/problem/{index}'
+                    time_str = cf_common.days_ago(finish) if finish else 'never'
+                    problem = cf_common.cache2.problem_cache.problem_by_name[name]
+                    status = ['gotgud', 'gitgud', 'nogud', 'force'][status]
+                    log_str += f'[{name}]({url})\N{EN SPACE}[{problem.rating}]\N{EN SPACE}{time_str}\N{EN SPACE}[{status}]\n'
+                embed = discord_common.cf_color_embed(description=log_str)
+                pages.append(('Gitgud log', embed))
+            return pages
+
+        member = member or (ctx.author,)
+        pages = _make_pages(cf_common.user_db.gitlog(member.id))
+        paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
     @commands.command(brief='Report challenge completion')
     @cf_common.user_guard(group='gitgud')
