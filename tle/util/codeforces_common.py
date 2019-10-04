@@ -1,7 +1,9 @@
 import functools
 import json
 import logging
+import math
 import os
+import time
 from collections import defaultdict
 
 from discord.ext import commands
@@ -170,6 +172,14 @@ def pretty_time_format(seconds):
 
     return ' '.join(f'{count} {singular if count == 1 else plural}'
             for count, singular, plural in timeprint)
+
+def days_ago(t):
+    days = (time.time() - t)/(60*60*24)
+    if days <= 1:
+        return 'today'
+    if days <= 2:
+        return 'yesterday'
+    return f'{math.ceil(days)} days ago'
 
 async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
     """Convert an iterable of strings to CF handles. A string beginning with ! indicates Discord username,
