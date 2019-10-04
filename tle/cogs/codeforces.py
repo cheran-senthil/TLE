@@ -1,5 +1,7 @@
 import datetime
+import math
 import random
+import time
 
 import discord
 from discord.ext import commands
@@ -152,9 +154,20 @@ class Codeforces(commands.Cog):
         else:
             submissions.sort(key=lambda sub: sub.creationTimeSeconds, reverse=True)
 
-        problems = [sub.problem for sub in submissions]
-        msg = '\n'.join(f'[{prob.name}]({prob.url}) [{prob.rating if prob.rating else "?"}]'
-                        for prob in problems[:10])
+        def days_ago(t):
+            days = (time.time() - t)/(60*60*24)
+            if days <= 1:
+                return 'today'
+            if days <= 2:
+                return 'yesterday'
+            return f'{math.ceil(days)} days ago'
+
+        msg = '\n'.join(
+                f'[{sub.problem.name}]({sub.problem.url})' +
+                f'[{sub.problem.rating if sub.problem.rating else "?"}]' +
+                f'({days_ago(sub.creationTimeSeconds)})'
+                for sub in submissions[:10]
+        )
         title = '{} solved {} problems by `{}`'.format('Hardest' if hardest else 'Recently',
                                                        'contest' if contest else 'practice',
                                                        '`, `'.join(handles))
