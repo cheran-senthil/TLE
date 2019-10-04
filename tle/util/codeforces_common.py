@@ -98,7 +98,7 @@ def is_contest_writer(contest_id, handle):
 
 
 _NONSTANDARD_CONTEST_INDICATORS = [
-    'wild', 'fools', 'unrated', 'surprise', 'unknown', 'friday', 'q#', 'testing', 
+    'wild', 'fools', 'unrated', 'surprise', 'unknown', 'friday', 'q#', 'testing',
     'marathon', 'kotlin', 'onsite', 'experimental', 'abbyy']
 
 
@@ -145,29 +145,34 @@ class HandleIsVjudgeError(ResolveHandleError):
     def __init__(self, handle):
         super().__init__(f"`{handle}`? I'm not doing that!\n\n(╯°□°）╯︵ ┻━┻")
 
+
 def time_format(seconds):
     seconds = int(seconds)
     days, seconds = divmod(seconds, 86400)
     hours, seconds = divmod(seconds, 3600)
     minutes, seconds = divmod(seconds, 60)
-
     return days, hours, minutes, seconds
 
-def pretty_time_format(seconds):
+
+def pretty_time_format(seconds, *, shorten=False, only_most_significant=False):
     days, hours, minutes, seconds = time_format(seconds)
-    
     timespec = [
         (days, 'day', 'days'),
         (hours, 'hour', 'hours'),
         (minutes, 'minute', 'minutes'),
     ]
-                        
-    timeprint = [(count,singular,plural) for count,singular,plural in timespec if count]
+    timeprint = [(cnt, singular, plural) for cnt, singular, plural in timespec if cnt]
     if not timeprint:
         timeprint.append((seconds, 'second', 'seconds'))
+    if only_most_significant:
+        timeprint = [timeprint[0]]
 
-    return ' '.join(f'{count} {singular if count == 1 else plural}'
-            for count, singular, plural in timeprint)
+    def format_(triple):
+        cnt, singular, plural = triple
+        return f'{cnt}{singular[0]}' if shorten else f'{cnt} {singular if cnt == 1 else plural}'
+
+    return ' '.join(map(format_, timeprint))
+
 
 async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
     """Convert an iterable of strings to CF handles. A string beginning with ! indicates Discord username,
