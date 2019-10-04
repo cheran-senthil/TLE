@@ -133,24 +133,24 @@ class Codeforces(commands.Cog):
 
     @commands.command(brief='List solved problems')
     async def stalk(self, ctx, *args):
-        hardest = '+best' in args
+        hardest = '+hardest' in args
         contest = '+contest' in args
-        type = 'CONTESTANT' if contest else 'PRACTICE'
+        type_ = 'CONTESTANT' if contest else 'PRACTICE'
         handles = [arg for arg in args if arg[0] != '+']
         handles = handles or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         submissions = [await cf.user.status(handle=handle) for handle in handles]
         submissions = list({sub.problem.name : sub for subs in submissions for sub in subs
-                            if sub.verdict == 'OK' and sub.author.participantType == type}.values())
+                            if sub.verdict == 'OK' and sub.author.participantType == type_}.values())
 
         if hardest:
-            submissions.sort(key=lambda sub: sub.problem.rating if sub.problem.rating else 0, reverse=True)
+            submissions.sort(key=lambda sub: sub.problem.rating or 0, reverse=True)
         else:
             submissions.sort(key=lambda sub: sub.creationTimeSeconds, reverse=True)
 
         problems = [sub.problem for sub in submissions]
         msg = '\n'.join(f'[{prob.name}]({prob.url}) [{prob.rating if prob.rating else "?"}]'
-                        for prob in problems[:5])
+                        for prob in problems[:10])
         title = '{} solved {} problems by `{}`'.format('Hardest' if hardest else 'Recently',
                                                        'contest' if contest else 'practice',
                                                        '`, `'.join(handles))
