@@ -131,8 +131,10 @@ class Codeforces(commands.Cog):
             embed.add_field(name='Matched tags', value=tagslist)
         await ctx.send(f'Recommended problem for `{handle}`', embed=embed)
 
-    @commands.command(brief='List solved problems')
+    @commands.command(brief='List solved problems', usage='[handles] [+hardest] [+contest]')
     async def stalk(self, ctx, *args):
+        """Print problems solved in practice (default) or in contest sorted by time (default) or rating.
+        """
         hardest = '+hardest' in args
         contest = '+contest' in args
         type_ = 'CONTESTANT' if contest else 'PRACTICE'
