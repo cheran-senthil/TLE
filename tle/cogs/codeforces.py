@@ -143,7 +143,9 @@ class Codeforces(commands.Cog):
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         submissions = [await cf.user.status(handle=handle) for handle in handles]
         submissions = list({sub.problem.name : sub for subs in submissions for sub in subs
-                            if sub.verdict == 'OK' and sub.author.participantType == type_}.values())
+                            if sub.verdict == 'OK' and sub.author.participantType == type_
+                            and not cf_common.is_nonstandard_problem(sub.problem)
+                            and len(sub.author.members) == 1}.values())
 
         if hardest:
             submissions.sort(key=lambda sub: sub.problem.rating or 0, reverse=True)
@@ -177,7 +179,7 @@ class Codeforces(commands.Cog):
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
                     if abs(prob.rating - rating) <= 100 and prob.name not in solved
                     and not any(cf_common.is_contest_writer(prob.contestId, handle) for handle in handles)
-                    and not cf_common.is_nonstandard_contest(cf_common.cache2.contest_cache.get_contest(prob.contestId))]
+                    and not cf_common.is_nonstandard_problem(prob)]
         if tags:
             problems = [prob for prob in problems if prob.tag_matches(tags)]
 

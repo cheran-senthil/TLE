@@ -105,6 +105,8 @@ _NONSTANDARD_CONTEST_INDICATORS = [
 def is_nonstandard_contest(contest):
     return any(string in contest.name.lower() for string in _NONSTANDARD_CONTEST_INDICATORS)
 
+def is_nonstandard_problem(problem):
+    return is_nonstandard_contest(cache2.contest_cache.get_contest(problem.contestId))
 
 # These are special rated-for-all contests which have a combined ranklist for onsite and online
 # participants. The onsite participants have their submissions marked as out of competition. Just
