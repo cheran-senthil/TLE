@@ -72,11 +72,11 @@ def _plot_rating(resp, mark='o', labels: List[str] = None):
     _plot_rating_bg()
 
 
-def _filter_solved_submissions(submissions, contests, tags = []):
+def _filter_solved_submissions(submissions, contests, tags=None):
     """Filters and keeps only solved submissions with problems that have a rating and belong to
-    some contest from given contests. The first argument of *args may contain a list of tags
-    to filter problems. If a problem is solved multiple times the first accepted
-    submission is kept. The unique id for a problem is (problem name, contest start time).
+    some contest from given contests. If a problem is solved multiple times the first accepted
+    submission is kept. The unique id for a problem is (problem name, contest start time). A list
+    of tags may be provided to filter out problems that do not have *all* of the given tags.
     """
     submissions.sort(key=lambda sub: sub.creationTimeSeconds)
     contest_id_map = {contest.id: contest for contest in contests}
@@ -84,10 +84,12 @@ def _filter_solved_submissions(submissions, contests, tags = []):
     solved_subs = []
 
     for submission in submissions:
-        contest = contest_id_map.get(submission.problem.contestId)
-        if submission.verdict == 'OK' and submission.problem.rating and contest and (not tags or submission.problem.tag_matches(tags)):
+        problem = submission.problem
+        contest = contest_id_map.get(problem.contestId)
+        tag_match = tags is None or problem.tag_matches(tags)
+        if submission.verdict == 'OK' and problem.rating and contest and tag_match:
             # Assume (name, contest start time) is a unique identifier for problems
-            problem_key = (submission.problem.name, contest.startTimeSeconds)
+            problem_key = (problem.name, contest.startTimeSeconds)
             if problem_key not in problems:
                 solved_subs.append(submission)
                 problems.add(problem_key)
@@ -316,11 +318,11 @@ class Graphs(commands.Cog):
     @plot.command(brief='Show histogram of solved problems on CF.')
     async def solved(self, ctx, *args: str):
         """Shows a histogram of problems solved on Codeforces for the handles provided."""
-        handles = []
-        tags = []
-
+        handles, tags = [], []
         for arg in args:
             if arg[0] == '+':
+                if len(arg) == 1:
+                    raise GraphCogError('Problem tag cannot be empty.')
                 tags.append(arg[1:])
             else:
                 handles.append(arg)
@@ -335,10 +337,15 @@ class Graphs(commands.Cog):
 
         if not any(all_solved_subs):
             handles_str = ', '.join(f'`{handle}`' for handle in handles)
+            tags_str = ''
+            if tags:
+                tags_str = (('with tag ' if len(tags) == 1 else 'with tags ')
+                            + ', '.join(f'`{tag}`' for tag in tags))
             if len(handles) == 1:
-                message = f'User {handles_str} has not solved any rated problem'
+                message = f'User {handles_str} has not solved any rated problem {tags_str}.'
             else:
-                message = f'None of the users {handles_str} have solved any rated problem'
+                message = (f'None of the users {handles_str} have solved any rated problem '
+                           f'{tags_str}.')
             raise GraphCogError(message)
 
         if len(handles) == 1:
