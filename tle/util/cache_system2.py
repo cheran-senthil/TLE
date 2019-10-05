@@ -83,7 +83,7 @@ class ContestCache:
         async with self.reload_lock:
             contests = self.cache_master.conn.fetch_contests()
             if not contests:
-                # Load failed.
+                self.logger.info('Contest cache on disk is empty.')
                 return
             await self._update(contests, from_api=False)
 
@@ -188,7 +188,7 @@ class ProblemCache:
         async with self.reload_lock:
             problems = self.cache_master.conn.fetch_problems()
             if not problems:
-                # Load failed.
+                self.logger.info('Problem cache on disk is empty.')
                 return
             self.problems = problems
             self.problem_by_name = {problem.name: problem for problem in problems}
@@ -235,6 +235,15 @@ class ProblemCache:
         self.logger.info(f'{rc} problems stored in database')
 
 
+class ProblemsetCacheError(CacheError):
+    pass
+
+
+class ProblemsetNotCached(ProblemsetCacheError):
+    def __init__(self, contest_id):
+        super().__init__(f'Problemset for contest with id {contest_id} not cached.')
+
+
 class ProblemsetCache:
     _MONITOR_PERIOD_SINCE_CONTEST_END = 14 * 24 * 60 * 60
     _RELOAD_DELAY = 60 * 60
@@ -245,6 +254,9 @@ class ProblemsetCache:
         self.logger = logging.getLogger(self.__class__.__name__)
 
     async def run(self):
+        if self.cache_master.conn.problemset_empty():
+            self.logger.warning('Problemset cache on disk is empty. This must be populated '
+                                'manually before use.')
         self._update_task.start()
 
     async def update_for_contest(self, contest_id):
@@ -319,7 +331,10 @@ class ProblemsetCache:
         self.logger.info(f'Saved {rc} problems to database.')
 
     def get_problemset(self, contest_id):
-        return self.cache_master.conn.fetch_problemset(contest_id)
+        problemset = self.cache_master.conn.fetch_problemset(contest_id)
+        if not problemset:
+            raise ProblemsetNotCached(contest_id)
+        return problemset
 
 
 class RatingChangesCache:
@@ -335,6 +350,9 @@ class RatingChangesCache:
 
     async def run(self):
         self._refresh_handle_cache()
+        if not self.handle_rating_cache:
+            self.logger.warning('Rating changes cache on disk is empty. This must be populated '
+                                'manually before use.')
         self._update_task.start()
 
     async def fetch_contest(self, contest_id):

@@ -41,30 +41,6 @@ class UserDbConn:
             )
         ''')
         self.conn.execute('''
-            CREATE TABLE IF NOT EXISTS "contest" (
-                "id"	INTEGER,
-                "name"	TEXT,
-                "start_time"	INTEGER,
-                "duration"	INTEGER,
-                "type"	TEXT,
-                "phase"	TEXT,
-                "prepared_by"	TEXT,
-                PRIMARY KEY("id")
-            );
-        ''')
-        self.conn.execute('''
-            CREATE TABLE IF NOT EXISTS "problem" (
-                "name"	TEXT,
-                "contest_id"	INTEGER,
-                "p_index"	TEXT,
-                "start_time"	INTEGER,
-                "rating"	INTEGER,
-                "type"	TEXT,
-                "tags"	TEXT,
-                PRIMARY KEY("name")
-            )
-        ''')
-        self.conn.execute('''
             CREATE TABLE IF NOT EXISTS "challenge" (
                 "id"	INTEGER PRIMARY KEY AUTOINCREMENT,
                 "user_id"	TEXT NOT NULL,
@@ -109,21 +85,6 @@ class UserDbConn:
             'guild_id           TEXT'
             ')'
         )
-
-    def fetch_contests(self):
-        query = 'SELECT id, name, start_time, duration, type, phase, prepared_by FROM contest'
-        res = self.conn.execute(query).fetchall()
-        if res is None: return None
-        return [cf.Contest(*r) for r in res]
-
-    def fetch_problems(self):
-        query = '''
-            SELECT contest_id, p_index, name, type, rating, tags, start_time
-            FROM problem
-        '''
-        res = self.conn.execute(query).fetchall()
-        if res is None: return None
-        return [(cf.Problem(*r[:6]), r[6]) for r in res]
 
     def _insert_one(self, table: str, columns, values: tuple):
         n = len(values)
@@ -244,18 +205,6 @@ class UserDbConn:
             return 0
         self.conn.commit()
         return 1
-
-    def cache_contests(self, contests: list):
-        return self._insert_many('contest',
-            ['id', 'name', 'start_time', 'duration', 'type', 'phase', 'prepared_by'],
-            contests
-        )
-
-    def cache_problems(self, problems: list):
-        return self._insert_many('problem',
-            ['name', 'contest_id', 'p_index', 'start_time', 'rating', 'type', 'tags'],
-            problems
-        )
 
     def cache_cfuser(self, user):
         return self._insert_one('cf_cache',

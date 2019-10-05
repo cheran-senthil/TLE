@@ -13,6 +13,7 @@ CONTEST_BASE_URL = 'https://codeforces.com/contest/'
 CONTESTS_BASE_URL = 'https://codeforces.com/contests/'
 GYM_BASE_URL = 'https://codeforces.com/gym/'
 PROFILE_BASE_URL = 'https://codeforces.com/profile/'
+ACMSGURU_BASE_URL = 'https://codeforces.com/problemsets/acmsguru/'
 GYM_ID_THRESHOLD = 100000
 
 logger = logging.getLogger(__name__)
@@ -85,7 +86,8 @@ class Party(namedtuple('Party',
 
 Member = namedtuple('Member', 'handle')
 
-class Problem(namedtuple('Problem', 'contestId index name type rating tags')):
+
+class Problem(namedtuple('Problem', 'contestId problemsetName index name type points rating tags')):
     __slots__ = ()
 
     @property
@@ -94,6 +96,9 @@ class Problem(namedtuple('Problem', 'contestId index name type rating tags')):
 
     @property
     def url(self):
+        if self.contestId is None:
+            assert self.problemsetName == 'acmsguru', f'Unknown problemset {self.problemsetName}'
+            return f'{ACMSGURU_BASE_URL}problem/99999/{self.index}'
         base = CONTEST_BASE_URL if self.contestId < GYM_ID_THRESHOLD else GYM_BASE_URL
         return f'{base}{self.contestId}/problem/{self.index}'
 
