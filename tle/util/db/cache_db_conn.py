@@ -193,7 +193,7 @@ class CacheDbConn:
             self.conn.execute(query, (contest_id,))
 
     def fetch_problemset(self, contest_id):
-        query = ('SELECT contest_id, [index], name, type, rating, tags '
+        query = ('SELECT contest_id, problemset_name, [index], name, type, points, rating, tags '
                  'FROM problem2 '
                  'WHERE contest_id = ?')
         res = self.conn.execute(query, (contest_id,)).fetchall()
