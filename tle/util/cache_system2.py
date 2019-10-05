@@ -401,7 +401,7 @@ class RatingChangesCache:
         cur_ids = {contest.id for contest in self.monitored_contests}
         new_ids = {contest.id for contest in to_monitor}
         if new_ids != cur_ids:
-            self._monitor_task.stop()
+            await self._monitor_task.stop()
             if to_monitor:
                 self.monitored_contests = to_monitor
                 self._monitor_task.start()
@@ -415,7 +415,7 @@ class RatingChangesCache:
                                    if self.is_newly_finished_without_rating_changes(contest)]
         if not self.monitored_contests:
             self.logger.info('Rated changes fetched for contests that were being monitored.')
-            self._monitor_task.stop()
+            await self._monitor_task.stop()
             return
 
         all_changes = await self._fetch(self.monitored_contests)
@@ -509,9 +509,10 @@ class RanklistCache:
         running_contests = contests_by_phase['_RUNNING']
         check = self.cache_master.rating_changes_cache.is_newly_finished_without_rating_changes
         to_monitor = running_contests + list(filter(check, contests_by_phase['FINISHED']))
+        cur_ids = {contest.id for contest in self.monitored_contests}
         new_ids = {contest.id for contest in to_monitor}
-        if new_ids != self.ranklist_by_contest.keys():
-            self._monitor_task.stop()
+        if new_ids != cur_ids:
+            await self._monitor_task.stop()
             if to_monitor:
                 self.monitored_contests = to_monitor
                 self._monitor_task.start()
@@ -527,7 +528,7 @@ class RanklistCache:
         if not self.monitored_contests:
             self.ranklist_by_contest = {}
             self.logger.info('No more active contests for which to monitor ranklists.')
-            self._monitor_task.stop()
+            await self._monitor_task.stop()
             return
 
         ranklist_by_contest = await self._fetch(self.monitored_contests)

@@ -140,11 +140,12 @@ class Task:
         self.logger.info(f'Manually triggering task `{self.name}`.')
         await self._execute_func(arg)
 
-    def stop(self):
+    async def stop(self):
         """Stops the task, interrupting the currently running coroutines."""
         if self.running:
             self.logger.info(f'Stopping task `{self.name}`.')
             self.asyncio_task.cancel()
+            await asyncio.sleep(0)  # To ensure cancellation if called from within the task itself.
 
     async def _task(self):
         arg = None
