@@ -69,7 +69,7 @@ async def initialize(nodb):
 
 
 # algmyr's guard idea:
-def user_guard(*, group):
+def user_guard(*, group, get_exception=None):
     active = active_groups[group]
 
     def guard(fun):
@@ -78,6 +78,8 @@ def user_guard(*, group):
             user = ctx.message.author.id
             if user in active:
                 logger.info(f'{user} repeatedly calls {group} group')
+                if get_exception is not None:
+                    raise get_exception()
                 return
             active.add(user)
             try:
