@@ -332,7 +332,7 @@ class Graphs(commands.Cog):
         resp = [await cf.user.status(handle=handle) for handle in handles]
         contests = await cf.contest.list()
 
-        all_solved_subs = [_filter_solved_submissions(submissions, contests, tags)
+        all_solved_subs = [_filter_solved_submissions(submissions, contests, tags or None)
                            for submissions in resp]
 
         if not any(all_solved_subs):
