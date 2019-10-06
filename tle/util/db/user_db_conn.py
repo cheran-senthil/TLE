@@ -1,10 +1,16 @@
 import sqlite3
 import time
+from enum import IntEnum
 
 from discord.ext import commands
 
 from tle.util import codeforces_api as cf
 
+class Gitgud(IntEnum):
+    GOTGUD = 0
+    GITGUD = 1
+    NOGUD = 2
+    FORCED_NOGUD = 3
 
 class DatabaseDisabledError(commands.CommandError):
     pass
@@ -162,9 +168,9 @@ class UserDbConn:
         return self.conn.execute(query, (user_id,)).fetchall()
 
     def complete_challenge(self, user_id, challenge_id, finish_time, delta):
-        query1 = '''
-            UPDATE challenge SET finish_time = ?, status = 0
-            WHERE id = ? AND status = 1
+        query1 = f'''
+            UPDATE challenge SET finish_time = ?, status = {Gitgud.GOTGUD}
+            WHERE id = ? AND status = {Gitgud.GITGUD}
         '''
         query2 = '''
             UPDATE user_challenge SET score = score + ?, num_completed = num_completed + 1,
@@ -182,24 +188,19 @@ class UserDbConn:
         self.conn.commit()
         return 1
 
-    def force_skip_challenge(self, user_id):
-        query = '''
-            UPDATE user_challenge SET active_challenge_id = NULL, issue_time = NULL
-            WHERE user_id = ?
-        '''
-        rc = self.conn.execute(query, (user_id,)).rowcount
-        if rc != 1:
-            self.conn.rollback()
-            return 0
-        self.conn.commit()
-        return 1
-
-    def skip_challenge(self, user_id, challenge_id):
-        query = '''
+    def skip_challenge(self, user_id, challenge_id, status):
+        query1 = '''
             UPDATE user_challenge SET active_challenge_id = NULL, issue_time = NULL
             WHERE user_id = ? AND active_challenge_id = ?
         '''
-        rc = self.conn.execute(query, (user_id, challenge_id)).rowcount
+        query2 = f'''
+            UPDATE challenge SET status = ? WHERE id = ? AND status = {Gitgud.GITGUD}
+        '''
+        rc = self.conn.execute(query1, (user_id, challenge_id)).rowcount
+        if rc != 1:
+            self.conn.rollback()
+            return 0
+        rc = self.conn.execute(query2, (status, challenge_id)).rowcount
         if rc != 1:
             self.conn.rollback()
             return 0
