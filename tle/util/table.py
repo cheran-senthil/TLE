@@ -51,7 +51,8 @@ class Style:
         return self._pad(data, self._header).format(*data)
 
     def format_line(self, c):
-        return self._pad(['']*self.ncols, self._header).replace(':', ':'+c)
+        data = ['']*self.ncols
+        return self._pad(data, self._header).replace(':', ':'+c).format(*data)
 
     def format_body(self, data):
         return self._pad(data, self._body).format(*data)
