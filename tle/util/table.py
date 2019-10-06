@@ -1,8 +1,10 @@
+from wcwidth import wcswidth
+
 class Content:
     def __init__(self, *args):
         self.data = args
     def sizes(self):
-        return [len(str(x)) for x in self.data]
+        return [wcswidth(str(x)) for x in self.data]
     def __len__(self):
         return len(self.data)
     
