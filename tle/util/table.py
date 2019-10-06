@@ -10,18 +10,18 @@ class Content:
     
 class Header(Content):
     def layout(self, style):
-        return style.header.format(*self.data)
+        return style.format_header(self.data)
 
 class Data(Content):
     def layout(self, style):
-        return style.body.format(*self.data)
+        return style.format_body(self.data)
 
 class Line:
     def __init__(self, c='-'):
         self.c = c
     def layout(self, style):
-        fmt = style.header.replace(':', ':'+self.c)
-        return fmt.format(*['']*style.ncols)
+        self.data = ['']*style.ncols
+        return style.format_line(self.c)
 
 class Style:
     def __init__(self, body, header=None):
@@ -29,13 +29,15 @@ class Style:
         self._header = header or body
         self.ncols = body.count('}')
 
-    def _pad(self, fmt):
+    def _pad(self, data, fmt):
         S = []
         lastc = None
         size = iter(self.sizes)
+        datum = iter(data)
         for c in fmt:
             if lastc == ':':
-                sz = str(next(size))
+                d = next(datum)
+                sz = str(next(size) - (wcswidth(d) - len(d)))
                 if c in '<>^':
                     S.append(c + sz)
                 else:
@@ -45,10 +47,17 @@ class Style:
             lastc = c
         return ''.join(S)
 
-    def apply_padding(self, sizes):
+    def format_header(self, data):
+        return self._pad(data, self._header).format(*data)
+
+    def format_line(self, c):
+        return self._pad(['']*self.ncols, self._header).replace(':', ':'+c)
+
+    def format_body(self, data):
+        return self._pad(data, self._body).format(*data)
+
+    def set_colwidths(self, sizes):
         self.sizes = sizes
-        self.body   = self._pad(self._body)
-        self.header = self._pad(self._header)
 
 class Table:
     def __init__(self, style):
@@ -63,6 +72,6 @@ class Table:
     def __repr__(self):
         sizes = [row.sizes() for row in self.rows if isinstance(row, Content)]
         max_colsize = [max(s[i] for s in sizes) for i in range(self.style.ncols)]
-        self.style.apply_padding(max_colsize)
+        self.style.set_colwidths(max_colsize)
         return '\n'.join(row.layout(self.style) for row in self.rows)
     __str__ = __repr__
