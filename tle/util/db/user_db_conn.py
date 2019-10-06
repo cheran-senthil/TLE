@@ -130,6 +130,72 @@ class UserDbConn:
                 self.conn.execute(query2, (score, user_id))
         self.conn.commit()
 
+    def rectify2(self):
+        data = [[549307888070295583, # floygun
+                 (1029, 'E'),
+                 (1110, 'E'),
+                 (819, 'A'),
+                 (920, 'E'),
+                 (999, 'F')],
+
+                [362219823603908619, # pikmike
+                 (1133, 'F2'),
+                 (1070, 'A'),
+                 (908, 'F'),
+                 (444, 'B'),
+                 (976, 'D'),
+                 (1041, 'F'),
+                 (847, 'J'),
+                 (570, 'D'),
+                 (1070, 'G')],
+
+                [440409850405584926, # aeren
+                 (316, 'F1')],
+
+#                    [188617636899192833, # heon
+#                     (375, 'A')],
+
+                [378369682610192385, # aneesh
+                 (441, 'C'),
+                 (580, 'B')],
+
+                [349904445259251712, # stefdasca
+                 (89, 'B')],
+
+                [398095711159451650, # rahul
+                 (929, 'C')],
+
+                [245304816685940737, # mblazev
+                 (149, 'C')],
+
+                [268056199902003202, # mbrc
+                 (1043, 'F')],
+
+                [518676901309448192, # jamom
+                 (524, 'B')],
+
+                [421006409564553216, # hugopm
+                 (630, 'P')]]
+
+        for usr in data:
+            usrid = usr[0]
+            probs = usr[1:]
+            for num, ind in probs:
+                query = 'SELECT status FROM challenge WHERE contest_id = ? AND p_index = ? AND user_id = ?'
+                res = self.conn.execute(query, (num, ind, usrid)).fetchall()
+                query2 = 'UPDATE challenge SET status = 3 WHERE contest_id = ? AND p_index = ? AND user_id = ?'
+                print(res)
+                self.conn.execute(query2, (num, ind, usrid))
+        heon = 'UPDATE challenge SET status = 3 WHERE id = 126'
+        self.conn.execute(heon)
+        query = 'SELECT user_id, active_challenge_id FROM user_challenge'
+        res = self.conn.execute(query).fetchall()
+        for usrid, active in res:
+            active = active or -1
+            query3 = 'UPDATE challenge SET status = 2 WHERE status = 1 AND user_id = ? AND id != ?'
+            print(self.conn.execute(query3, (usrid, active)).rowcount)
+        self.conn.commit()
+
     def fetch_contests(self):
         query = 'SELECT id, name, start_time, duration, type, phase, prepared_by FROM contest'
         res = self.conn.execute(query).fetchall()
