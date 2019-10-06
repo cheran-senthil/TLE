@@ -182,24 +182,19 @@ class UserDbConn:
         self.conn.commit()
         return 1
 
-    def force_skip_challenge(self, user_id):
-        query = '''
-            UPDATE user_challenge SET active_challenge_id = NULL, issue_time = NULL
-            WHERE user_id = ?
-        '''
-        rc = self.conn.execute(query, (user_id,)).rowcount
-        if rc != 1:
-            self.conn.rollback()
-            return 0
-        self.conn.commit()
-        return 1
-
-    def skip_challenge(self, user_id, challenge_id):
-        query = '''
+    def skip_challenge(self, user_id, challenge_id, status):
+        query1 = '''
             UPDATE user_challenge SET active_challenge_id = NULL, issue_time = NULL
             WHERE user_id = ? AND active_challenge_id = ?
         '''
-        rc = self.conn.execute(query, (user_id, challenge_id)).rowcount
+        query2 = '''
+            UPDATE challenge SET status = ? WHERE id = ? AND status = 1
+        '''
+        rc = self.conn.execute(query1, (user_id, challenge_id)).rowcount
+        if rc != 1:
+            self.conn.rollback()
+            return 0
+        rc = self.conn.execute(query2, (status, challenge_id)).rowcount
         if rc != 1:
             self.conn.rollback()
             return 0
