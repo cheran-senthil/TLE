@@ -1,5 +1,7 @@
 import datetime
+import math
 import random
+import time
 
 import discord
 from discord.ext import commands
@@ -157,9 +159,12 @@ class Codeforces(commands.Cog):
         else:
             submissions.sort(key=lambda sub: sub.creationTimeSeconds, reverse=True)
 
-        problems = [sub.problem for sub in submissions]
-        msg = '\n'.join(f'[{prob.name}]({prob.url}) [{prob.rating if prob.rating else "?"}]'
-                        for prob in problems[:10])
+        msg = '\n'.join(
+                f'[{sub.problem.name}]({sub.problem.url})\N{EN SPACE}'
+                f'[{sub.problem.rating if sub.problem.rating else "?"}]\N{EN SPACE}'
+                f'({cf_common.days_ago(sub.creationTimeSeconds)})'
+                for sub in submissions[:10]
+        )
         title = '{} solved {} problems by `{}`'.format('Hardest' if hardest else 'Recently',
                                                        'contest' if contest else 'practice',
                                                        '`, `'.join(handles))
