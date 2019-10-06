@@ -189,11 +189,11 @@ class UserDbConn:
         return 1
 
     def skip_challenge(self, user_id, challenge_id, status):
-        query1 = f'''
+        query1 = '''
             UPDATE user_challenge SET active_challenge_id = NULL, issue_time = NULL
             WHERE user_id = ? AND active_challenge_id = ?
         '''
-        query2 = '''
+        query2 = f'''
             UPDATE challenge SET status = ? WHERE id = ? AND status = {Gitgud.GITGUD}
         '''
         rc = self.conn.execute(query1, (user_id, challenge_id)).rowcount
