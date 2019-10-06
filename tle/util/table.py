@@ -36,8 +36,8 @@ class Style:
         datum = iter(data)
         for c in fmt:
             if lastc == ':':
-                d = next(datum)
-                sz = str(next(size) - (wcswidth(d) - len(d)))
+                dstr = str(next(datum))
+                sz = str(next(size) - (wcswidth(dstr) - len(dstr)))
                 if c in '<>^':
                     S.append(c + sz)
                 else:
