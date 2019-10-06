@@ -155,8 +155,8 @@ class Codeforces(commands.Cog):
             submissions.sort(key=lambda sub: sub.creationTimeSeconds, reverse=True)
 
         msg = '\n'.join(
-                f'[{sub.problem.name}]({sub.problem.url}) '
-                f'[{sub.problem.rating if sub.problem.rating else "?"}] '
+                f'[{sub.problem.name}]({sub.problem.url})\N{EN SPACE}'
+                f'[{sub.problem.rating if sub.problem.rating else "?"}]\N{EN SPACE}'
                 f'({cf_common.days_ago(sub.creationTimeSeconds)})'
                 for sub in submissions[:10]
         )
