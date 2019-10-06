@@ -295,7 +295,7 @@ class Codeforces(commands.Cog):
             skip_time = (int(issue_time) + _GITGUD_NO_SKIP_TIME - finish_time) // 60
             await ctx.send(f'Think more. You can skip your challenge in {skip_time} minutes.')
             return
-        cf_common.user_db.skip_challenge(user_id, challenge_id, 2)
+        cf_common.user_db.skip_challenge(user_id, challenge_id, Gitgud.NOGUD)
         await ctx.send(f'Challenge skipped.')
 
     @commands.command(brief='Force skip a challenge')
@@ -303,7 +303,7 @@ class Codeforces(commands.Cog):
     @commands.has_role('Admin')
     async def _nogud(self, ctx, user: str):
         active = cf_common.user_db.check_challenge(user)
-        rc = cf_common.user_db.skip_challenge(user, active, 3)
+        rc = cf_common.user_db.skip_challenge(user, active, Gitgud.FORCED_NOGUD)
         if rc == 1:
             await ctx.send(f'Challenge skip forced.')
         else:
