@@ -15,6 +15,7 @@ from tle.util import paginator
 _GITGUD_NO_SKIP_TIME = 3 * 60 * 60
 _GITGUD_SCORE_DISTRIB = [2, 3, 5, 8, 12, 17, 23]
 
+
 class Codeforces(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
