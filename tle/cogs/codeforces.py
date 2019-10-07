@@ -9,6 +9,7 @@ from discord.ext import commands
 from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
 from tle.util import discord_common
+from tle.util.db.user_db_conn import Gitgud
 
 _GITGUD_NO_SKIP_TIME = 3 * 60 * 60
 
