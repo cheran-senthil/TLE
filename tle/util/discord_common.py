@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import random
 
@@ -54,3 +55,14 @@ async def bot_error_handler(ctx, exception):
     else:
         exc_info = type(exception), exception, exception.__traceback__
         logger.exception('Ignoring exception in command {}:'.format(ctx.command), exc_info=exc_info)
+
+
+async def presence(bot):
+    await bot.change_presence(activity=discord.Game(
+        name="I'm ready for inputs!"))
+    await asyncio.sleep(10)
+    while True:
+        target = random.choice(bot.users)
+        await bot.change_presence(activity=discord.Game(
+            name=f"{target.name} orz"))
+        await asyncio.sleep(60)

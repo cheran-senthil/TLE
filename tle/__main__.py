@@ -69,6 +69,8 @@ def main():
     @bot.event
     async def on_ready():
         await cf_common.initialize(args.nodb)
+        await discord_common.presence(bot)
+        
 
     bot.add_listener(discord_common.bot_error_handler, name='on_command_error')
 
