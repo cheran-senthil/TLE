@@ -275,7 +275,7 @@ class Codeforces(commands.Cog):
                         log_str += f'\N{EN SPACE}{time_str}\N{EN SPACE}[{points}]'
                     log_str += '\n'
                 embed = discord_common.cf_color_embed(description=log_str)
-                pages.append(('Gitgud log', embed))
+                pages.append((f'{member.mention}\'s gitgud log', embed))
             return pages
 
         member = member or ctx.author
