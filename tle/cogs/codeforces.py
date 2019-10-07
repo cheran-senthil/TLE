@@ -263,7 +263,7 @@ class Codeforces(commands.Cog):
 
         for chunk in paginator.chunkify(data, 7):
             log_str = ''
-            for i, (issue, finish, name, contest, index, delta, status) in enumerate(chunk):
+            for issue, finish, name, contest, index, delta, status in chunk:
                 url = f'{cf.CONTEST_BASE_URL}{contest}/problem/{index}'
                 problem = cf_common.cache2.problem_cache.problem_by_name[name]
                 log_str += f'[{name}]({url})\N{EN SPACE}[{problem.rating}]'
