@@ -13,7 +13,7 @@ from tle.util.db.user_db_conn import Gitgud
 from tle.util import paginator
 
 _GITGUD_NO_SKIP_TIME = 3 * 60 * 60
-_GITGUD_SCORE_DISTRIB = [2, 3, 5, 8, 12, 17, 23]
+_GITGUD_SCORE_DISTRIB = (2, 3, 5, 8, 12, 17, 23)
 
 
 class Codeforces(commands.Cog):
@@ -257,29 +257,24 @@ class Codeforces(commands.Cog):
 
     @commands.command(brief='Print user gitgud history')
     async def gitlog(self, ctx, member: discord.Member = None):
-        def _make_pages(data):
-            now = datetime.datetime.now().timestamp()
-            problems = cf_common.cache2.problem_cache.problem_by_name
-            chunks = paginator.chunkify(data, 7)
-            pages = []
-
-            for chunk in chunks:
-                log_str = ''
-                for i, (issue, finish, name, contest, index, delta, status) in enumerate(chunk):
-                    url = f'{cf.CONTEST_BASE_URL}{contest}/problem/{index}'
-                    problem = cf_common.cache2.problem_cache.problem_by_name[name]
-                    log_str += f'[{name}]({url})\N{EN SPACE}[{problem.rating}]'
-                    if finish:
-                        time_str = cf_common.days_ago(finish)
-                        points = '%+d' % _GITGUD_SCORE_DISTRIB[delta // 100 + 3]
-                        log_str += f'\N{EN SPACE}{time_str}\N{EN SPACE}[{points}]'
-                    log_str += '\n'
-                embed = discord_common.cf_color_embed(description=log_str)
-                pages.append((f'{member.mention}\'s gitgud log', embed))
-            return pages
-
         member = member or ctx.author
-        pages = _make_pages(cf_common.user_db.gitlog(member.id))
+        data = cf_common.user_db.gitlog(member.id)
+        pages = []
+
+        for chunk in paginator.chunkify(data, 7):
+            log_str = ''
+            for i, (issue, finish, name, contest, index, delta, status) in enumerate(chunk):
+                url = f'{cf.CONTEST_BASE_URL}{contest}/problem/{index}'
+                problem = cf_common.cache2.problem_cache.problem_by_name[name]
+                log_str += f'[{name}]({url})\N{EN SPACE}[{problem.rating}]'
+                if finish:
+                    time_str = cf_common.days_ago(finish)
+                    points = f'{_GITGUD_SCORE_DISTRIB[delta // 100 + 3]:+}'
+                    log_str += f'\N{EN SPACE}{time_str}\N{EN SPACE}[{points}]'
+                log_str += '\n'
+            embed = discord_common.cf_color_embed(title=f'{member.name}\'s gitgud log', description=log_str)
+            pages.append(('', embed))
+
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
     @commands.command(brief='Report challenge completion')
