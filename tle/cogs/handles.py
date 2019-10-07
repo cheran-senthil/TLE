@@ -146,7 +146,7 @@ class Handles(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.font = ImageFont.truetype(constants.NOTO_SANS_CJK_FONT_PATH, size=26) # font for ;handle pretty
+        self.font = ImageFont.truetype(constants.NOTO_SANS_CJK_BOLD_FONT_PATH, size=26) # font for ;handle pretty
 
     @commands.group(brief='Commands that have to do with handles', invoke_without_command=True)
     async def handle(self, ctx):
