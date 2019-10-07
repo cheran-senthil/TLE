@@ -13,7 +13,7 @@ from tle.util.db.user_db_conn import Gitgud
 from tle.util import paginator
 
 _GITGUD_NO_SKIP_TIME = 3 * 60 * 60
-
+_GITGUD_SCORE_DISTRIB = [2, 3, 5, 8, 12, 17, 23]
 
 class Codeforces(commands.Cog):
     def __init__(self, bot):
@@ -266,15 +266,18 @@ class Codeforces(commands.Cog):
                 log_str = ''
                 for i, (issue, finish, name, contest, index, delta, status) in enumerate(chunk):
                     url = f'{cf.CONTEST_BASE_URL}{contest}/problem/{index}'
-                    time_str = cf_common.days_ago(finish) if finish else 'never'
                     problem = cf_common.cache2.problem_cache.problem_by_name[name]
-                    status = ['gotgud', 'gitgud', 'nogud', 'force'][status]
-                    log_str += f'[{name}]({url})\N{EN SPACE}[{problem.rating}]\N{EN SPACE}{time_str}\N{EN SPACE}[{status}]\n'
+                    log_str += f'[{name}]({url})\N{EN SPACE}[{problem.rating}]'
+                    if finish:
+                        time_str = cf_common.days_ago(finish)
+                        points = '%+d' % _GITGUD_SCORE_DISTRIB[delta // 100 + 3]
+                        log_str += f'\N{EN SPACE}{time_str}\N{EN SPACE}[{points}]'
+                    log_str += '\n'
                 embed = discord_common.cf_color_embed(description=log_str)
                 pages.append(('Gitgud log', embed))
             return pages
 
-        member = member or (ctx.author,)
+        member = member or ctx.author
         pages = _make_pages(cf_common.user_db.gitlog(member.id))
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
@@ -296,8 +299,7 @@ class Codeforces(commands.Cog):
             await ctx.send('You haven\'t completed your challenge.')
             return
 
-        score_distrib = [2, 3, 5, 8, 12, 17, 23]
-        delta = score_distrib[delta // 100 + 3]
+        delta = _GITGUD_SCORE_DISTRIB[delta // 100 + 3]
         finish_time = int(datetime.datetime.now().timestamp())
         rc = cf_common.user_db.complete_challenge(user_id, challenge_id, finish_time, delta)
         if rc == 1:
