@@ -293,8 +293,8 @@ class Codeforces(commands.Cog):
         challenge_id, issue_time, name, contestId, index, delta = active
         finish_time = int(datetime.datetime.now().timestamp())
         if finish_time - issue_time < _GITGUD_NO_SKIP_TIME:
-            skip_time = (int(issue_time) + _GITGUD_NO_SKIP_TIME - finish_time) // 60
-            await ctx.send(f'Think more. You can skip your challenge in {skip_time} minutes.')
+            skip_time = cf_common.pretty_time_format(issue_time + _GITGUD_NO_SKIP_TIME - finish_time)
+            await ctx.send(f'Think more. You can skip your challenge in {skip_time}.')
             return
         cf_common.user_db.skip_challenge(user_id, challenge_id, Gitgud.NOGUD)
         await ctx.send(f'Challenge skipped.')
