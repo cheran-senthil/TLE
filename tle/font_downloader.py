@@ -1,6 +1,5 @@
 import os
-import aiohttp
-import asyncio
+import urllib.request
 
 from zipfile import ZipFile
 from io import BytesIO
@@ -13,17 +12,13 @@ def unzip(font, archive):
     with ZipFile(archive, 'r') as zipfile:
         zipfile.extract(font, FONT_DIR)
 
-async def main():
+def main():
     if not os.path.exists(FONT_DIR):
         os.makedirs(FONT_DIR)
 
-    async with aiohttp.ClientSession() as session:
-        for font in FONTS:
-            async with session.get(f'{URL_BASE}{font}.zip') as resp:
-                if resp.status == 200:
-                    unzip(font, BytesIO(await resp.read()))
-                else:
-                    print('Download failed')
+    for font in FONTS:
+        with urllib.request.urlopen(f'{URL_BASE}{font}.zip') as resp:
+            unzip(font, BytesIO(resp.read()))
 
 if __name__ == '__main__':
-    asyncio.run(download())
+    main()
