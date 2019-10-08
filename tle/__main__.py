@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+import asyncio
 from os import environ
 from pathlib import Path
 
@@ -9,6 +10,7 @@ from discord.ext import commands
 from matplotlib import pyplot as plt
 
 from tle import constants
+from tle import font_downloader
 from tle.util import codeforces_common as cf_common
 from tle.util import discord_common
 
@@ -30,6 +32,9 @@ def setup():
 
     # Make dirs
     os.makedirs(constants.FILEDIR, exist_ok=True)
+    if not os.path.isfile(constants.NOTO_SANS_CJK_FONT_PATH):
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(font_downloader.main())
 
 
 def main():

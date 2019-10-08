@@ -150,12 +150,7 @@ class Handles(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        try:
-            self.font = ImageFont.truetype(constants.NOTO_SANS_CJK_FONT_PATH, size=26)
-        except OSError:
-            self.logger.warning(f'Font file {constants.NOTO_SANS_CJK_FONT_PATH} not found. '
-                                f'Pretty handles is disabled. Download from {constants.NOTO_SANS_CJK_FONT_URL}.')
-            self.handle.remove_command(self.pretty.name)
+        self.font = ImageFont.truetype(constants.NOTO_SANS_CJK_FONT_PATH, size=26)
 
     @commands.group(brief='Commands that have to do with handles', invoke_without_command=True)
     async def handle(self, ctx):
