@@ -42,7 +42,7 @@ poetry run python -m tle
 ### Notes
  - In order to run admin-only commands you need to have the `Admin` role, which needs to be created in your Discord server and assign it to yourself/other administrators.
  - In order to prevent the bot suggesting an author's problems to the author a python file needs to be run (since this can not be done through the Codeforces API) which will save the authors for specific contests to a file. To do this run `python extra/scrape_cf_contest_writers.py` which will generate a JSON file which should be placed in the `/files` folder. 
- - In order to display CJK (East Asian) characters for usernames, we need to have the font file. The file size is ~19MB, so we don't keep in the repo itself and it is gitignored. [Download the file from here](https://noto-website-2.storage.googleapis.com/pkgs/NotoSansCJK-Bold.ttc.zip) and place the file locally so the path should look like  `tle/assets/fonts/NotoSansCJK-Bold.ttc`.
+ - In order to display CJK (East Asian) characters for usernames, we need appropriate fonts. Their size is ~36MB, so we don't keep in the repo itself and it is gitignored. They will be downloaded automatically when the bot is run if not already present.
  - One of the bot's features is to assign roles to users based on their rating on Codeforces. In order for this functionality to work properly the following roles need to exist in your Discord server
      - Newbie
      - Pupil

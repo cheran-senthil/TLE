@@ -146,16 +146,7 @@ class Handles(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.font = None           # font for ;handle pretty
-
-    @commands.Cog.listener()
-    async def on_ready(self):
-        try:
-            self.font = ImageFont.truetype(constants.NOTO_SANS_CJK_FONT_PATH, size=26)
-        except OSError:
-            self.logger.warning(f'Font file {constants.NOTO_SANS_CJK_FONT_PATH} not found. '
-                                f'Pretty handles is disabled. Download from {constants.NOTO_SANS_CJK_FONT_URL}.')
-            self.handle.remove_command(self.pretty.name)
+        self.font = ImageFont.truetype(constants.NOTO_SANS_CJK_FONT_PATH, size=26) # font for ;handle pretty
 
     @commands.group(brief='Commands that have to do with handles', invoke_without_command=True)
     async def handle(self, ctx):

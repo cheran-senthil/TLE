@@ -9,6 +9,7 @@ from discord.ext import commands
 from matplotlib import pyplot as plt
 
 from tle import constants
+from tle.util import font_downloader
 from tle.util import codeforces_common as cf_common
 from tle.util import discord_common
 
@@ -30,6 +31,9 @@ def setup():
 
     # Make dirs
     os.makedirs(constants.FILEDIR, exist_ok=True)
+
+    # Download fonts if necessary
+    font_downloader.maybe_download()
 
 
 def main():
