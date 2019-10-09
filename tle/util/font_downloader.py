@@ -23,6 +23,3 @@ def main():
     for font in FONTS:
         if not os.path.isfile(os.path.join(FONT_DIR, font)):
             download(font)
-
-if __name__ == '__main__':
-    main()

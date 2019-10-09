@@ -1,7 +1,6 @@
 import argparse
 import logging
 import os
-import asyncio
 from os import environ
 from pathlib import Path
 
@@ -10,7 +9,7 @@ from discord.ext import commands
 from matplotlib import pyplot as plt
 
 from tle import constants
-from tle import font_downloader
+from tle.util import font_downloader
 from tle.util import codeforces_common as cf_common
 from tle.util import discord_common
 
