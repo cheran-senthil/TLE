@@ -8,13 +8,13 @@ FONT_DIR = 'tle/assets/fonts'
 URL_BASE = 'https://noto-website-2.storage.googleapis.com/pkgs/'
 FONTS = ['NotoSansCJK-Bold.ttc', 'NotoSansCJK-Regular.ttc']
 
-def unzip(font, archive):
+def _unzip(font, archive):
     with ZipFile(archive, 'r') as zipfile:
         zipfile.extract(font, FONT_DIR)
 
-def download(font):
+def _download(font):
     with urllib.request.urlopen(f'{URL_BASE}{font}.zip') as resp:
-        unzip(font, BytesIO(resp.read()))
+        _unzip(font, BytesIO(resp.read()))
 
 def maybe_download():
     if not os.path.exists(FONT_DIR):
@@ -22,4 +22,4 @@ def maybe_download():
 
     for font in FONTS:
         if not os.path.isfile(os.path.join(FONT_DIR, font)):
-            download(font)
+            _download(font)
