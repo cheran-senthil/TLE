@@ -258,7 +258,8 @@ class Codeforces(commands.Cog):
     @commands.command(brief='Print user gitgud history')
     async def gitlog(self, ctx, member: discord.Member = None):
         """Displays the list of gitgud problems issued to the specified member, excluding those noguded by admins.
-        If the challenge was completed, time of completion and amount of points gained will also be displayed."""
+        If the challenge was completed, time of completion and amount of points gained will also be displayed.
+        """
         def make_line(entry):
             issue, finish, name, contest, index, delta, status = entry
             problem = cf_common.cache2.problem_cache.problem_by_name[name]
@@ -270,9 +271,10 @@ class Codeforces(commands.Cog):
             return line
 
         def make_page(chunk):
-            title = f'{member.display_name}\'s gitgud log'
+            message = f'{member.display_name}\'s gitgud log'
             log_str = '\n'.join(make_line(entry) for entry in chunk)
-            return '', discord_common.cf_color_embed(title=title, description=log_str)
+            embed = discord_common.cf_color_embed(description=log_str)
+            return message, embed
 
         member = member or ctx.author
         data = cf_common.user_db.gitlog(member.id)
