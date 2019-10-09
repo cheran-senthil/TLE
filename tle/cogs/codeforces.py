@@ -10,8 +10,10 @@ from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
 from tle.util import discord_common
 from tle.util.db.user_db_conn import Gitgud
+from tle.util import paginator
 
 _GITGUD_NO_SKIP_TIME = 3 * 60 * 60
+_GITGUD_SCORE_DISTRIB = (2, 3, 5, 8, 12, 17, 23)
 
 
 class Codeforces(commands.Cog):
@@ -253,6 +255,32 @@ class Codeforces(commands.Cog):
         choice = max(random.randrange(len(problems)) for _ in range(2))
         await self._gitgud(ctx, handle, problems[choice], delta)
 
+    @commands.command(brief='Print user gitgud history')
+    async def gitlog(self, ctx, member: discord.Member = None):
+        """Displays the list of gitgud problems issued to the specified member, excluding those noguded by admins.
+        If the challenge was completed, time of completion and amount of points gained will also be displayed.
+        """
+        def make_line(entry):
+            issue, finish, name, contest, index, delta, status = entry
+            problem = cf_common.cache2.problem_cache.problem_by_name[name]
+            line = f'[{name}]({problem.url})\N{EN SPACE}[{problem.rating}]'
+            if finish:
+                time_str = cf_common.days_ago(finish)
+                points = f'{_GITGUD_SCORE_DISTRIB[delta // 100 + 3]:+}'
+                line += f'\N{EN SPACE}{time_str}\N{EN SPACE}[{points}]'
+            return line
+
+        def make_page(chunk):
+            message = f'gitgud log for {member.display_name}'
+            log_str = '\n'.join(make_line(entry) for entry in chunk)
+            embed = discord_common.cf_color_embed(description=log_str)
+            return message, embed
+
+        member = member or ctx.author
+        data = cf_common.user_db.gitlog(member.id)
+        pages = [make_page(chunk) for chunk in paginator.chunkify(data, 7)]
+        paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
+
     @commands.command(brief='Report challenge completion')
     @cf_common.user_guard(group='gitgud')
     async def gotgud(self, ctx):
@@ -271,8 +299,7 @@ class Codeforces(commands.Cog):
             await ctx.send('You haven\'t completed your challenge.')
             return
 
-        score_distrib = [2, 3, 5, 8, 12, 17, 23]
-        delta = score_distrib[delta // 100 + 3]
+        delta = _GITGUD_SCORE_DISTRIB[delta // 100 + 3]
         finish_time = int(datetime.datetime.now().timestamp())
         rc = cf_common.user_db.complete_challenge(user_id, challenge_id, finish_time, delta)
         if rc == 1:

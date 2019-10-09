@@ -167,6 +167,13 @@ class UserDbConn:
         '''
         return self.conn.execute(query, (user_id,)).fetchall()
 
+    def gitlog(self, user_id):
+        query = f'''
+            SELECT issue_time, finish_time, problem_name, contest_id, p_index, rating_delta, status
+            FROM challenge WHERE user_id = ? AND status != {Gitgud.FORCED_NOGUD} ORDER BY issue_time DESC
+        '''
+        return self.conn.execute(query, (user_id,)).fetchall()
+
     def complete_challenge(self, user_id, challenge_id, finish_time, delta):
         query1 = f'''
             UPDATE challenge SET finish_time = ?, status = {Gitgud.GOTGUD}
