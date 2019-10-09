@@ -33,7 +33,7 @@ def setup():
     os.makedirs(constants.FILEDIR, exist_ok=True)
 
     # Download fonts if necessary
-    font_downloader.main()
+    font_downloader.maybe_download()
 
 
 def main():

@@ -16,7 +16,7 @@ def download(font):
     with urllib.request.urlopen(f'{URL_BASE}{font}.zip') as resp:
         unzip(font, BytesIO(resp.read()))
 
-def main():
+def maybe_download():
     if not os.path.exists(FONT_DIR):
         os.makedirs(FONT_DIR)
 
