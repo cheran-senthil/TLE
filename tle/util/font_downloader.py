@@ -17,9 +17,7 @@ def _download(font):
         _unzip(font, BytesIO(resp.read()))
 
 def maybe_download():
-    if not os.path.exists(FONT_DIR):
-        os.makedirs(FONT_DIR)
-
+    os.makedirs(FONT_DIR, exist_ok=True)
     for font in FONTS:
         if not os.path.isfile(os.path.join(FONT_DIR, font)):
             _download(font)
