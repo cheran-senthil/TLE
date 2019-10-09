@@ -32,8 +32,9 @@ def setup():
 
     # Make dirs
     os.makedirs(constants.FILEDIR, exist_ok=True)
-    if not os.path.isfile(constants.NOTO_SANS_CJK_FONT_PATH):
-        font_downloader.main()
+
+    # Download fonts if necessary
+    font_downloader.main()
 
 
 def main():
