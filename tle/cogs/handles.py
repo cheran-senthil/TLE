@@ -165,8 +165,6 @@ class Handles(commands.Cog):
         handle = user.handle
         cf_common.user_db.cache_cfuser(user)
         cf_common.user_db.sethandle(member.id, handle)
-        embed = _make_profile_embed(member, user, mode='set')
-        await ctx.send(embed=embed)
 
         if user.rank == cf.UNRATED_RANK:
             role_to_assign = None
@@ -177,6 +175,8 @@ class Handles(commands.Cog):
             role_to_assign = roles[0]
         await self.update_member_rank_role(member, role_to_assign,
                                            reason='New handle set for user')
+        embed = _make_profile_embed(member, user, mode='set')
+        await ctx.send(embed=embed)
 
     @handle.command(brief='Identify yourself', usage='[handle]')
     @cf_common.user_guard(group='handle')
@@ -215,10 +215,10 @@ class Handles(commands.Cog):
         rc = cf_common.user_db.removehandle(member.id)
         if not rc:
             raise HandleCogError(f'Handle for {member.mention} not found in database')
-        embed = discord_common.embed_success(f'Removed handle for {member.mention}')
-        await ctx.send(embed=embed)
         await self.update_member_rank_role(member, role_to_assign=None,
                                            reason='Handle removed for user')
+        embed = discord_common.embed_success(f'Removed handle for {member.mention}')
+        await ctx.send(embed=embed)
 
     @commands.command(brief="Show gudgitters", aliases=["gitgudders"])
     async def gudgitters(self, ctx):
