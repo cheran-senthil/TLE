@@ -257,10 +257,6 @@ class Codeforces(commands.Cog):
 
     @commands.command(brief='Print user gitgud history')
     async def gitlog(self, ctx, member: discord.Member = None):
-        member = member or ctx.author
-        data = cf_common.user_db.gitlog(member.id)
-        pages = []
-
         def make_line(entry):
             issue, finish, name, contest, index, delta, status = entry
             problem = cf_common.cache2.problem_cache.problem_by_name[name]
@@ -271,11 +267,14 @@ class Codeforces(commands.Cog):
                 line += f'\N{EN SPACE}{time_str}\N{EN SPACE}[{points}]'
             return line
 
-        for chunk in paginator.chunkify(data, 7):
+        def make_page(chunk):
+            title = f'{member.display_name}\'s gitgud log'
             log_str = '\n'.join(make_line(entry) for entry in chunk)
-            embed = discord_common.cf_color_embed(title=f'{member.display_name}\'s gitgud log', description=log_str)
-            pages.append(('', embed))
+            return '', discord_common.cf_color_embed(title=title, description=log_str)
 
+        member = member or ctx.author
+        data = cf_common.user_db.gitlog(member.id)
+        pages = [make_page(chunk) for chunk in paginator.chunkify(data, 7)]
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
     @commands.command(brief='Report challenge completion')
