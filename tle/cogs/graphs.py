@@ -126,13 +126,14 @@ def _running_mean(x, bin_size):
 
 def _get_extremes(contest, problemset, submissions):
 
-    def sub_filter(sub):
+    def in_contest(sub):
         return (sub.author.participantType == 'CONTESTANT' or
                 (cf_common.is_rated_for_onsite_contest(contest) and
                  sub.author.participantType == 'OUT_OF_COMPETITION'))
 
     problemset = [prob for prob in problemset if prob.rating is not None]
-    submissions = [sub for sub in submissions if sub_filter(sub)]
+    submissions = [sub for sub in submissions
+                   if in_contest(sub) and sub.problem.rating is not None]
     solved = {sub.problem.index: sub.problem.rating for sub in submissions if
               sub.verdict == 'OK'}
     max_solved = max(solved.values(), default=None)
