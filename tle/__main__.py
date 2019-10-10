@@ -1,5 +1,6 @@
 import argparse
 import logging
+from logging.handlers import TimedRotatingFileHandler
 import os
 from os import environ
 from pathlib import Path
@@ -14,11 +15,14 @@ from tle.util import discord_common
 
 
 def setup():
-    # logging to file
-    logging.basicConfig(filename="log.txt",filemode="a",format='{asctime}:{levelname}:{name}:{message}', style='{',
+    # logging to console and File on Daily interval
+    logging.basicConfig(format='{asctime}:{levelname}:{name}:{message}', style='{',
                         datefmt='%d-%m-%Y %H:%M:%S', level=logging.INFO)
-    # logging to console
-    logging.getLogger().addHandler(logging.StreamHandler())
+                        datefmt='%d-%m-%Y %H:%M:%S', level=logging.INFO,
+                        handlers=[logging.StreamHandler(),
+                                  TimedRotatingFileHandler("TleBot.log",when="D",interval=1,backupCount=0,utc=True)
+                                  ]
+                        )
 
     # matplotlib and seaborn
     plt.rcParams['figure.figsize'] = 7.0, 3.5
