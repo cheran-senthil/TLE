@@ -17,7 +17,6 @@ from tle.util import discord_common
 def setup():
     # logging to console and File on Daily interval
     logging.basicConfig(format='{asctime}:{levelname}:{name}:{message}', style='{',
-                        datefmt='%d-%m-%Y %H:%M:%S', level=logging.INFO)
                         datefmt='%d-%m-%Y %H:%M:%S', level=logging.INFO,
                         handlers=[logging.StreamHandler(),
                                   TimedRotatingFileHandler("TleBot.log",when="D",interval=1,backupCount=0,utc=True)
