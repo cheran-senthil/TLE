@@ -358,7 +358,11 @@ class Codeforces(commands.Cog):
     @commands.has_role('Admin')
     async def rectify(self, ctx):
         cf_common.user_db.rectify()
-
+        query1 = 'select user_id from user_challenge'
+        res = cf_common.user_db.conn.execute(query1).fetchall()
+        for userid, in res:
+            query2 = f'select handle from user_handle where id = {userid}'
+            handle, = cf_common.user_db.conn.execute(query2).fetchone()
 
 def setup(bot):
     bot.add_cog(Codeforces(bot))
