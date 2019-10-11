@@ -1,7 +1,7 @@
 import argparse
 import logging
-from logging.handlers import TimedRotatingFileHandler
 import os
+from logging.handlers import TimedRotatingFileHandler
 from os import environ
 from pathlib import Path
 
@@ -15,11 +15,11 @@ from tle.util import discord_common
 
 
 def setup():
-    # logging to console and File on Daily interval
+    # logging to console and file on daily interval
     logging.basicConfig(format='{asctime}:{levelname}:{name}:{message}', style='{',
                         datefmt='%d-%m-%Y %H:%M:%S', level=logging.INFO,
                         handlers=[logging.StreamHandler(),
-                                  TimedRotatingFileHandler("TleBot.log",when="D",interval=1,backupCount=0,utc=True)
+                                  TimedRotatingFileHandler('TleBot.log',when='D',utc=True)
                                   ]
                         )
 
