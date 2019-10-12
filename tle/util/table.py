@@ -1,13 +1,25 @@
-from wcwidth import wcswidth
+import unicodedata
+
+full_width = 1.66667
+width_mapping = {'F': full_width, 'H': 1, 'W': full_width, 'Na': 1, 'N': 1, 'A': 1}
+
+def width(s):
+    result = 0
+    for c in s:
+        w = unicodedata.east_asian_width(c)
+        result += width_mapping[w]
+    return result
+
+
 
 class Content:
     def __init__(self, *args):
         self.data = args
     def sizes(self):
-        return [wcswidth(str(x)) for x in self.data]
+        return [width(str(x)) for x in self.data]
     def __len__(self):
         return len(self.data)
-    
+
 class Header(Content):
     def layout(self, style):
         return style.format_header(self.data)
@@ -37,7 +49,7 @@ class Style:
         for c in fmt:
             if lastc == ':':
                 dstr = str(next(datum))
-                sz = str(next(size) - (wcswidth(dstr) - len(dstr)))
+                sz = str(next(size) - (width(dstr) - len(dstr)))
                 if c in '<>^':
                     S.append(c + sz)
                 else:
