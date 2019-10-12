@@ -13,7 +13,7 @@ from tle.util import cache_system2
 from tle.util import codeforces_api as cf
 from tle.util import db
 from tle.util import discord_common
-from tle.util import event_system
+from tle.util import events
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ user_db = None
 cache2 = None
 
 # Event system
-event_sys = event_system.EventSystem()
+event_sys = events.EventSystem()
 
 _contest_id_to_writers_map = None
 

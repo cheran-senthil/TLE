@@ -6,6 +6,7 @@ from discord.ext import commands
 
 from tle.util import codeforces_common as cf_common
 from tle.util import codeforces_api as cf
+from tle.util import events
 from tle.util import tasks
 from tle.util.ranklist import Ranklist
 
@@ -146,7 +147,7 @@ class ContestCache:
         self.contest_by_id = contest_by_id
         self.contests_last_cache = time.time()
 
-        cf_common.event_sys.dispatch('EVENT_CONTEST_LIST_REFRESH', self.contests.copy())
+        cf_common.event_sys.dispatch(events.ContestListRefresh, self.contests.copy())
 
         return delay
 
@@ -385,7 +386,7 @@ class RatingChangesCache:
                 not self.has_rating_changes_saved(contest.id))
 
     @tasks.task_spec(name='RatingChangesCacheUpdate',
-                     waiter=tasks.Waiter.for_event('EVENT_CONTEST_LIST_REFRESH'))
+                     waiter=tasks.Waiter.for_event(events.ContestListRefresh))
     async def _update_task(self, _):
         # Some notes:
         # A hack phase is tagged as FINISHED with empty list of rating changes. After the hack
@@ -501,7 +502,7 @@ class RanklistCache:
             raise RanklistNotMonitored(contest)
 
     @tasks.task_spec(name='RanklistCacheUpdate',
-                     waiter=tasks.Waiter.for_event('EVENT_CONTEST_LIST_REFRESH'))
+                     waiter=tasks.Waiter.for_event(events.ContestListRefresh))
     async def _update_task(self, _):
         contests_by_phase = self.cache_master.contest_cache.contests_by_phase
         running_contests = contests_by_phase['_RUNNING']

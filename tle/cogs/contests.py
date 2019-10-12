@@ -14,6 +14,7 @@ from tle.util import codeforces_common as cf_common
 from tle.util import cache_system2
 from tle.util import db
 from tle.util import discord_common
+from tle.util import events
 from tle.util import paginator
 from tle.util import ranklist as rl
 from tle.util import table
@@ -107,7 +108,7 @@ class Contests(commands.Cog):
         self._update_task.start()
 
     @tasks.task_spec(name='ContestCogUpdate',
-                     waiter=tasks.Waiter.for_event('EVENT_CONTEST_LIST_REFRESH'))
+                     waiter=tasks.Waiter.for_event(events.ContestListRefresh))
     async def _update_task(self, _):
         contest_cache = cf_common.cache2.contest_cache
         self.future_contests = contest_cache.get_contests_in_phase('BEFORE')
