@@ -59,15 +59,14 @@ async def bot_error_handler(ctx, exception):
 
 async def presence(bot):
     await bot.change_presence(activity=discord.Activity(
-        type=discord.ActivityType(random.randint(0,3)),
-        name="and ready for input"))
+        type=discord.ActivityType.listening,
+        name='your commands'))
     await asyncio.sleep(60)
     while True:
         target = random.choice([
             member for member in bot.get_all_members()
             if 'Purgatory' not in {role.name for role in member.roles}
         ])
-        await bot.change_presence(activity=discord.Activity(
-            type=discord.ActivityType(random.randint(0,3)),
+        await bot.change_presence(activity=discord.Game(
             name=f'{target.display_name} orz'))
         await asyncio.sleep(10 * 60)
