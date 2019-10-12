@@ -85,7 +85,6 @@ class Party(namedtuple('Party',
 
 Member = namedtuple('Member', 'handle')
 
-
 class Problem(namedtuple('Problem', 'contestId index name type rating tags')):
     __slots__ = ()
 

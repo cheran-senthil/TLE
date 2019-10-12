@@ -74,6 +74,9 @@ class ContestCache:
     def get_contestlist(self):
         return self.cache_master.contest_cache.contests
 
+    def get_problems(self, contest_id):
+        return self.cache_master.conn.get_problemset_from_contest(contest_id)
+
     def get_contests_in_phase(self, phase):
         return self.contests_by_phase[phase]
 
@@ -123,6 +126,14 @@ class ContestCache:
             contest_by_id[contest.id] = contest
             if contest.phase in self._RUNNING_PHASES:
                 contests_by_phase['_RUNNING'].append(contest)
+
+            if contest.phase == 'FINISHED' and not self.cache_master.conn.has_problemset_saved(contest.id):
+                try:
+                    _, problems, _ = await cf.contest.standings(contest_id=contest.id)
+                    self.cache_master.conn.save_standings(problems)
+                except cf.CodeforcesApiError:
+                    self.logger.info('Contest without standings error, usual thing, skipping...')
+                    pass
 
         now = time.time()
         delay = self._NORMAL_CONTEST_RELOAD_DELAY

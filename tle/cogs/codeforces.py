@@ -298,6 +298,7 @@ class Codeforces(commands.Cog):
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         user_submissions = [await cf.user.status(handle=handle) for handle in handles]
         info = await cf.user.info(handles=handles)
+
         contests = cf_common.cache2.get_contestlist()
 
         if not markers:
