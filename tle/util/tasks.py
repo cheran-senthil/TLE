@@ -55,13 +55,13 @@ class Waiter:
         return Waiter(wait_func, run_first=run_first)
 
     @staticmethod
-    def for_event(event, run_first=True):
+    def for_event(event_cls, run_first=True):
         """Returns a waiter that waits for the given event and returns the result of that
         event.
         """
 
         async def wait_func():
-            return await cf_common.event_sys.wait_for(event)
+            return await cf_common.event_sys.wait_for(event_cls)
 
         return Waiter(wait_func, run_first=run_first)
 
