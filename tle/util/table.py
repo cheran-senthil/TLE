@@ -8,7 +8,7 @@ def width(s):
     for c in s:
         w = unicodedata.east_asian_width(c)
         result += width_mapping[w]
-    return result
+    return round(result)
 
 
 
