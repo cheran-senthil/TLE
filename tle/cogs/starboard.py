@@ -85,10 +85,9 @@ class Starboard(commands.Cog):
                 len(message.content) == 0 and len(message.attachments) == 0):
             raise StarboardCogError('Cannot starboard this message')
 
-        is_admin = 'Admin' in map(str, guild.get_member(payload.user_id).roles)
         reaction_count = sum(reaction.count for reaction in message.reactions
                              if str(reaction) == _STAR)
-        if not is_admin and reaction_count < _STAR_THRESHOLD:
+        if reaction_count < _STAR_THRESHOLD:
             return
 
         lock = self.locks.get(payload.guild_id)
