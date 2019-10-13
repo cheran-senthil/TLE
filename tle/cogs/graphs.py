@@ -500,7 +500,9 @@ class Graphs(commands.Cog):
     async def distrib(self, ctx):
         """Plots rating distribution of users in this server"""
         res = cf_common.user_db.getallhandleswithrating()
-        ratings = [rating for _, _, rating in res if rating]
+        ratings = [rating for userid, _, rating in res
+                   if ctx.guild.get_member(int(userid))
+                   and 'Purgatory' not in {role.name for role in ctx.guild.get_member(int(userid)).roles}]
         await self._rating_hist(ctx,
                                 ratings,
                                 'normal',
