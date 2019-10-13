@@ -404,6 +404,24 @@ class Graphs(commands.Cog):
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
 
+    @plot.command(brief='Show actual histogram of solved problems on CF.')
+    async def hist(self, ctx, handle: str):
+        """Shows the actual histogram of problems solved on Codeforces for the handles provided."""
+        handle, = await cf_common.resolve_handles(ctx, self.converter, (handle,))
+        subs = await cf.user.status(handle=handle)
+        contests = await cf.contest.list()
+        solved_subs = _filter_solved_submissions(subs, contests)
+        all_times = [sub.creationTimeSeconds for sub in solved_subs]
+
+        plt.clf()
+        plt.hist(all_times)
+        plt.gcf().autofmt_xdate()
+        discord_file = _get_current_figure_as_file()
+        embed = discord_common.cf_color_embed(title='Actual histogram of problems solved on Codeforces')
+        discord_common.attach_image(embed, discord_file)
+        discord_common.set_author_footer(embed, ctx.author)
+        await ctx.send(embed=embed, file=discord_file)
+
     @plot.command(brief='Show history of problems solved by rating.',
                   aliases=['chilli'])
     async def scatter(self, ctx, handle: str = None, bin_size: int = 10):
