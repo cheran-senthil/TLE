@@ -230,6 +230,7 @@ class Codeforces(commands.Cog):
         rating = round(user.rating, -2)
         submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions}
+        noguds = cf_common.user_db.get_noguds(ctx.message.author.id)
 
         delta = round(delta, -2)
         if delta < -300 or delta > 300:
@@ -237,7 +238,9 @@ class Codeforces(commands.Cog):
             return
 
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
-                    if prob.rating == rating + delta and prob.name not in solved]
+                    if prob.rating == rating + delta
+                    and prob.name not in solved
+                    and prob.name not in noguds]
 
         def check(problem):
             contest = cf_common.cache2.contest_cache.get_contest(problem.contestId)
