@@ -12,6 +12,20 @@ class Gitgud(IntEnum):
     NOGUD = 2
     FORCED_NOGUD = 3
 
+class Duel(IntEnum):
+    PENDING = 0
+    DECLINED = 1
+    WITHDRAWN = 2
+    EXPIRED = 3
+    ONGOING = 4
+    COMPLETE = 5
+    INVALID = 6
+
+class Winner(IntEnum):
+    DRAW = 0
+    CHALLENGER = 1
+    CHALLENGEE = 2
+
 class DatabaseDisabledError(commands.CommandError):
     pass
 
@@ -27,6 +41,33 @@ class UserDbConn:
         self.create_tables()
 
     def create_tables(self):
+        self.conn.execute('''
+            CREATE TABLE IF NOT EXISTS user_alt(
+                "user_id"	INTEGER NOT NULL,
+                "handle"	TEXT NOT NULL
+            )
+        ''')
+        self.conn.execute('''
+            CREATE TABLE IF NOT EXISTS duelist(
+                "user_id"	INTEGER PRIMARY KEY NOT NULL,
+                "rating"	INTEGER NOT NULL
+            )
+        ''')
+        self.conn.execute('''
+            CREATE TABLE IF NOT EXISTS duel(
+                "id"	INTEGER PRIMARY KEY AUTOINCREMENT,
+                "challenger"	INTEGER NOT NULL,
+                "challengee"	INTEGER NOT NULL,
+                "issue_time"	REAL NOT NULL,
+                "start_time"	REAL,
+                "finish_time"	REAL,
+                "problem_name"	TEXT,
+                "contest_id"	INTEGER,
+                "p_index"	INTEGER,
+                "status"	INTEGER,
+                "winner"	INTEGER
+            )
+        ''')
         # status => 0 inactive, 1 active
         self.conn.execute('''
             CREATE TABLE IF NOT EXISTS user_handle(
@@ -385,6 +426,178 @@ class UserDbConn:
         rc = self.conn.execute(query, (guild_id,)).rowcount
         self.conn.commit()
         return rc
+
+    def check_duel_challenge(self, userid):
+        query = f'''
+            SELECT id FROM duel
+            WHERE (challengee = ? OR challenger = ?) AND (status == {Duel.ONGOING} OR status == {Duel.PENDING})
+        '''
+        return self.conn.execute(query, (userid, userid)).fetchone()
+
+    def check_duel_accept(self, challengee):
+        query = f'''
+            SELECT id, challenger FROM duel
+            WHERE challengee = ? AND status == {Duel.PENDING}
+        '''
+        return self.conn.execute(query, (challengee,)).fetchone()
+
+    def check_duel_decline(self, challengee):
+        query = f'''
+            SELECT id, challenger FROM duel
+            WHERE challengee = ? AND status == {Duel.PENDING}
+        '''
+        return self.conn.execute(query, (challengee,)).fetchone()
+
+    def check_duel_withdraw(self, challenger):
+        query = f'''
+            SELECT id, challengee FROM duel
+            WHERE challenger = ? AND status == {Duel.PENDING}
+        '''
+        return self.conn.execute(query, (challenger,)).fetchone()
+
+    def check_duel_draw(self, userid):
+        query = f'''
+            SELECT id, challenger, challengee, start_time FROM duel
+            WHERE (challenger = ? OR challengee = ?) AND status == {Duel.ONGOING}
+        '''
+        return self.conn.execute(query, (userid, userid)).fetchone()
+
+    def check_duel_complete(self, userid):
+        query = f'''
+            SELECT id, challenger, challengee, start_time, problem_name, contest_id, p_index FROM duel
+            WHERE (challenger = ? OR challengee = ?) AND status == {Duel.ONGOING}
+        '''
+        return self.conn.execute(query, (userid, userid)).fetchone()
+
+    def create_duel(self, challenger, challengee, issue_time):
+        query = f'''
+            INSERT INTO duel (challenger, challengee, issue_time, status) VALUES (?, ?, ?, {Duel.PENDING})
+        '''
+        rc = self.conn.execute(query, (challenger, challengee, issue_time)).rowcount
+        self.conn.commit()
+        return rc
+
+    def cancel_duel(self, duelid, status):
+        query = f'''
+            UPDATE duel SET status = ? WHERE id = ? AND status = {Duel.PENDING}
+        '''
+        rc = self.conn.execute(query, (status, duelid)).rowcount
+        if rc != 1:
+            self.conn.rollback()
+            return 0
+        self.conn.commit()
+        return rc
+
+    def start_duel(self, duelid, start_time, prob):
+        query = f'''
+            UPDATE duel SET start_time = ?, problem_name = ?, contest_id = ?, p_index = ?, status = {Duel.ONGOING}
+            WHERE id = ? AND status = {Duel.PENDING}
+        '''
+        rc = self.conn.execute(query, (start_time, prob.name, prob.contestId, prob.index, duelid)).rowcount
+        if rc != 1:
+            self.conn.rollback()
+            return 0
+        self.conn.commit()
+        return rc
+
+    def complete_duel(self, duelid, winner, finish_time, winner_id = -1, loser_id = -1, delta = 0):
+        query = f'''
+            UPDATE duel SET status = {Duel.COMPLETE}, finish_time = ?, winner = ? WHERE id = ? AND status = {Duel.ONGOING}
+        '''
+        rc = self.conn.execute(query, (finish_time, winner, duelid)).rowcount
+        if rc != 1:
+            self.conn.rollback()
+            return 0
+
+        self.update_duel_rating(winner_id, +delta)
+        self.update_duel_rating(loser_id, -delta)
+        self.conn.commit()
+        return 1
+
+    def update_duel_rating(self, userid, delta):
+        query = '''
+            UPDATE duelist SET rating = rating + ? WHERE user_id = ?
+        '''
+        rc = self.conn.execute(query, (delta, userid)).rowcount
+        self.conn.commit()
+        return rc
+
+    def get_duel_wins(self, userid):
+        query = f'''
+            SELECT start_time, finish_time, problem_name, challenger, challengee FROM duel
+            WHERE ((challenger = ? AND winner == {Winner.CHALLENGER}) OR (challengee = ? AND winner == {Winner.CHALLENGEE})) AND status = {Duel.COMPLETE}
+        '''
+        return self.conn.execute(query, (userid, userid)).fetchall()
+
+    def get_duels(self, userid):
+        query = f'''
+            SELECT start_time, finish_time, problem_name, challenger, challengee, winner FROM duel WHERE (challengee = ? OR challenger = ?) AND status == {Duel.COMPLETE} ORDER BY start_time DESC
+        '''
+        return self.conn.execute(query, (userid, userid)).fetchall()
+
+    def get_num_duel_draws(self, userid):
+        query = f'''
+            SELECT COUNT(*) FROM duel WHERE (challengee = ? OR challenger = ?) AND winner == {Winner.DRAW}
+        '''
+        return self.conn.execute(query, (userid, userid)).fetchone()[0]
+
+    def get_num_duel_losses(self, userid):
+        query = f'''
+            SELECT COUNT(*) FROM duel
+            WHERE ((challengee = ? AND winner == {Winner.CHALLENGER}) OR (challenger = ? AND winner == {Winner.CHALLENGEE})) AND status = {Duel.COMPLETE}
+        '''
+        return self.conn.execute(query, (userid, userid)).fetchone()[0]
+
+    def get_num_duel_declined(self, userid):
+        query = f'''
+            SELECT COUNT(*) FROM duel WHERE challengee = ? AND status == {Duel.DECLINED}
+        '''
+        return self.conn.execute(query, (userid,)).fetchone()[0]
+
+    def get_num_duel_rdeclined(self, userid):
+        query = f'''
+            SELECT COUNT(*) FROM duel WHERE challenger = ? AND status == {Duel.DECLINED}
+        '''
+        return self.conn.execute(query, (userid,)).fetchone()[0]
+
+    def get_duel_rating(self, userid):
+        query = '''
+            SELECT rating FROM duelist WHERE user_id = ?
+        '''
+        return self.conn.execute(query, (userid,)).fetchone()[0]
+
+    def add_alt(self, userid, handle):
+        query = '''
+            INSERT INTO user_alt (user_id, handle) VALUES (?, ?)
+        '''
+        rc = self.conn.execute(query, (userid, handle)).rowcount
+        self.conn.commit()
+        return rc
+
+    def get_alts(self, userid):
+        query = '''
+            SELECT handle FROM user_alt WHERE user_id = ?
+        '''
+        return self.conn.execute(query, (userid,)).fetchall()
+
+    def is_duelist(self, userid):
+        query = '''
+            SELECT 1 FROM duelist WHERE user_id = ?
+        '''
+        return self.conn.execute(query, (userid,)).fetchone()
+
+    def register_duelist(self, userid):
+        query = '''
+            INSERT OR IGNORE INTO duelist (user_id, rating)
+            VALUES (?, 1500)
+        '''
+        return self.conn.execute(query, (userid,)).rowcount
+
+    def get_duelists(self):
+        query = '''
+            SELECT user_id, rating FROM duelist ORDER BY rating DESC
+        '''
+        return self.conn.execute(query).fetchall()
 
     def close(self):
         self.conn.close()
