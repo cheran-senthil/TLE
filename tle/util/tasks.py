@@ -161,6 +161,8 @@ class Task:
                 await self.func(self.instance, arg)
             else:
                 await self.func(arg)
+        except asyncio.CancelledError:
+            raise
         except Exception as ex:
             self.logger.warning(f'Exception in task `{self.name}`, ignoring.', exc_info=True)
             if self._exception_handler is not None:
