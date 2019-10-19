@@ -18,10 +18,8 @@ from tle.util import discord_common
 
 def setup():
     # Make required directories.
-    for attribute in dir(constants):
-        if attribute.endswith('DIR'):
-            path = getattr(constants, attribute)
-            os.makedirs(path, exist_ok=True)
+    for path in constants.ALL_DIRS:
+        os.makedirs(path, exist_ok=True)
 
     # logging to console and file on daily interval
     logging.basicConfig(format='{asctime}:{levelname}:{name}:{message}', style='{',

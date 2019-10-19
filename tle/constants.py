@@ -19,3 +19,7 @@ NOTO_SANS_CJK_REGULAR_FONT_PATH = os.path.join(FONTS_DIR, 'NotoSansCJK-Regular.t
 CONTEST_WRITERS_JSON_FILE_PATH = os.path.join(MISC_DIR, 'contest_writers.json')
 
 LOG_FILE_PATH = os.path.join(LOGS_DIR, 'tle.log')
+
+ALL_DIRS = None  # Declared here to avoid changing the size of the global dict during iteration.
+ALL_DIRS = (attrib_value for attrib_name, attrib_value in globals().items()
+            if attrib_name.endswith('DIR'))
