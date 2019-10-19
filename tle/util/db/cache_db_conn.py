@@ -10,6 +10,7 @@ class CacheDbConn:
         self.create_tables()
 
     def create_tables(self):
+        # Table for contests from the contest.list endpoint.
         self.conn.execute(
             'CREATE TABLE IF NOT EXISTS contest ('
             'id             INTEGER NOT NULL,'
@@ -22,17 +23,23 @@ class CacheDbConn:
             'PRIMARY KEY (id)'
             ')'
         )
+
+        # Table for problems from the problemset.problems endpoint.
         self.conn.execute(
             'CREATE TABLE IF NOT EXISTS problem ('
-            'contest_id     INTEGER,'
-            '[index]        TEXT,'
-            'name           TEXT NOT NULL,'
-            'type           TEXT,'
-            'rating         INTEGER,'
-            'tags           TEXT,'
+            'contest_id       INTEGER,'
+            'problemset_name  TEXT,'
+            '[index]          TEXT,'
+            'name             TEXT NOT NULL,'
+            'type             TEXT,'
+            'points           REAL,'
+            'rating           INTEGER,'
+            'tags             TEXT,'
             'PRIMARY KEY (name)'
             ')'
         )
+
+        # Table for rating changes fetched from contest.ratingChanges endpoint for every contest.
         self.conn.execute(
             'CREATE TABLE IF NOT EXISTS rating_change ('
             'contest_id           INTEGER NOT NULL,'
@@ -48,6 +55,25 @@ class CacheDbConn:
                           'ON rating_change (contest_id)')
         self.conn.execute('CREATE INDEX IF NOT EXISTS ix_rating_change_handle '
                           'ON rating_change (handle)')
+
+        # Table for problems fetched from contest.standings endpoint for every contest.
+        # This is separate from table problem as it contains the same problem twice if it
+        # appeared in both Div 1 and Div 2 of some round.
+        self.conn.execute(
+            'CREATE TABLE IF NOT EXISTS problem2 ('
+            'contest_id       INTEGER,'
+            'problemset_name  TEXT,'
+            '[index]          TEXT,'
+            'name             TEXT NOT NULL,'
+            'type             TEXT,'
+            'points           REAL,'
+            'rating           INTEGER,'
+            'tags             TEXT,'
+            'PRIMARY KEY (contest_id, [index])'
+            ')'
+        )
+        self.conn.execute('CREATE INDEX IF NOT EXISTS ix_problem2_contest_id '
+                          'ON problem2 (contest_id)')
 
     def cache_contests(self, contests):
         query = ('INSERT OR REPLACE INTO contest '
@@ -65,24 +91,24 @@ class CacheDbConn:
 
     @staticmethod
     def _squish_tags(problem):
-        return (problem.contestId, problem.index, problem.name, problem.type, problem.rating,
-                json.dumps(problem.tags))
+        return (problem.contestId, problem.problemsetName, problem.index, problem.name,
+                problem.type, problem.points, problem.rating, json.dumps(problem.tags))
 
     def cache_problems(self, problems):
         query = ('INSERT OR REPLACE INTO problem '
-                 '(contest_id, [index], name, type, rating, tags) '
-                 'VALUES (?, ?, ?, ?, ?, ?)')
+                 '(contest_id, problemset_name, [index], name, type, points, rating, tags) '
+                 'VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
         rc = self.conn.executemany(query, list(map(self._squish_tags, problems))).rowcount
         self.conn.commit()
         return rc
 
     @staticmethod
     def _unsquish_tags(problem):
-        args, tags = problem[:5], json.loads(problem[5])
+        args, tags = problem[:-1], json.loads(problem[-1])
         return cf.Problem(*args, tags)
 
     def fetch_problems(self):
-        query = ('SELECT contest_id, [index], name, type, rating, tags '
+        query = ('SELECT contest_id, problemset_name, [index], name, type, points, rating, tags '
                  'FROM problem')
         res = self.conn.execute(query).fetchall()
         return list(map(self._unsquish_tags, res))
@@ -149,6 +175,34 @@ class CacheDbConn:
                  'WHERE r.handle = ?')
         res = self.conn.execute(query, (handle,)).fetchall()
         return [cf.RatingChange._make(change) for change in res]
+
+    def cache_problemset(self, problemset):
+        query = ('INSERT OR REPLACE INTO problem2 '
+                 '(contest_id, problemset_name, [index], name, type, points, rating, tags) '
+                 'VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+        rc = self.conn.executemany(query, list(map(self._squish_tags, problemset))).rowcount
+        self.conn.commit()
+        return rc
+
+    def clear_problemset(self, contest_id=None):
+        if contest_id is None:
+            query = 'DELETE FROM problem2'
+            self.conn.execute(query)
+        else:
+            query = 'DELETE FROM problem2 WHERE contest_id = ?'
+            self.conn.execute(query, (contest_id,))
+
+    def fetch_problemset(self, contest_id):
+        query = ('SELECT contest_id, problemset_name, [index], name, type, points, rating, tags '
+                 'FROM problem2 '
+                 'WHERE contest_id = ?')
+        res = self.conn.execute(query, (contest_id,)).fetchall()
+        return list(map(self._unsquish_tags, res))
+
+    def problemset_empty(self):
+        query = 'SELECT 1 FROM problem2'
+        res = self.conn.execute(query).fetchone()
+        return res is None
 
     def close(self):
         self.conn.close()

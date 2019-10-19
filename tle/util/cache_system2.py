@@ -6,6 +6,8 @@ from discord.ext import commands
 
 from tle.util import codeforces_common as cf_common
 from tle.util import codeforces_api as cf
+from tle.util import events
+from tle.util import tasks
 from tle.util.ranklist import Ranklist
 
 logger = logging.getLogger(__name__)
@@ -44,12 +46,13 @@ class ContestCache:
 
         self.reload_lock = asyncio.Lock()
         self.reload_exception = None
+        self.next_delay = None
 
         self.logger = logging.getLogger(self.__class__.__name__)
 
     async def run(self):
         await self._try_disk()
-        asyncio.create_task(self._contest_updater_task())
+        self._update_task.start()
 
     async def reload_now(self):
         """Force a reload. If currently reloading it will wait until done."""
@@ -60,7 +63,7 @@ class ContestCache:
             async with self.reload_lock:
                 pass
         else:
-            await self._pre_reload()
+            await self._update_task.manual_trigger()
 
         if self.reload_exception:
             raise self.reload_exception
@@ -71,6 +74,9 @@ class ContestCache:
         except KeyError:
             raise ContestNotFound(contest_id)
 
+    def get_problemset(self, contest_id):
+        return self.cache_master.conn.get_problemset_from_contest(contest_id)
+
     def get_contests_in_phase(self, phase):
         return self.contests_by_phase[phase]
 
@@ -78,26 +84,24 @@ class ContestCache:
         async with self.reload_lock:
             contests = self.cache_master.conn.fetch_contests()
             if not contests:
-                # Load failed.
+                self.logger.info('Contest cache on disk is empty.')
                 return
             await self._update(contests, from_api=False)
 
-    async def _contest_updater_task(self):
-        self.logger.info('Running contest updater task')
-        while True:
-            delay = await self._pre_reload()
-            await asyncio.sleep(delay)
+    @tasks.task_spec(name='ContestCacheUpdate')
+    async def _update_task(self, _):
+        async with self.reload_lock:
+            self.next_delay = await self._reload_contests()
+        self.reload_exception = None
 
-    async def _pre_reload(self):
-        try:
-            async with self.reload_lock:
-                delay = await self._reload_contests()
-            self.reload_exception = None
-        except Exception as ex:
-            self.reload_exception = ex
-            self.logger.warning('Exception in contest updater task, ignoring.', exc_info=True)
-            delay = self._EXCEPTION_CONTEST_RELOAD_DELAY
-        return delay
+    @_update_task.waiter()
+    async def _update_task_waiter(self):
+        await asyncio.sleep(self.next_delay)
+
+    @_update_task.exception_handler()
+    async def _update_task_exception_handler(self, ex):
+        self.reload_exception = ex
+        self.next_delay = self._EXCEPTION_CONTEST_RELOAD_DELAY
 
     async def _reload_contests(self):
         contests = await cf.contest.list()
@@ -143,7 +147,7 @@ class ContestCache:
         self.contest_by_id = contest_by_id
         self.contests_last_cache = time.time()
 
-        cf_common.event_sys.dispatch('EVENT_CONTEST_LIST_REFRESH', self.contests.copy())
+        cf_common.event_sys.dispatch(events.ContestListRefresh, self.contests.copy())
 
         return delay
 
@@ -165,7 +169,7 @@ class ProblemCache:
 
     async def run(self):
         await self._try_disk()
-        asyncio.create_task(self._problem_updater_task())
+        self._update_task.start()
 
     async def reload_now(self):
         """Force a reload. If currently reloading it will wait until done."""
@@ -176,7 +180,7 @@ class ProblemCache:
             async with self.reload_lock:
                 pass
         else:
-            await self._pre_reload()
+            await self._update_task.manual_trigger()
 
         if self.reload_exception:
             raise self.reload_exception
@@ -185,26 +189,22 @@ class ProblemCache:
         async with self.reload_lock:
             problems = self.cache_master.conn.fetch_problems()
             if not problems:
-                # Load failed.
+                self.logger.info('Problem cache on disk is empty.')
                 return
             self.problems = problems
             self.problem_by_name = {problem.name: problem for problem in problems}
             self.logger.info(f'{len(self.problems)} problems fetched from disk')
 
-    async def _problem_updater_task(self):
-        self.logger.info('Running problem updater task')
-        while True:
-            await self._pre_reload()
-            await asyncio.sleep(self._RELOAD_INTERVAL)
+    @tasks.task_spec(name='ProblemCacheUpdate',
+                     waiter=tasks.Waiter.fixed_delay(_RELOAD_INTERVAL))
+    async def _update_task(self, _):
+        async with self.reload_lock:
+            await self._reload_problems()
+        self.reload_exception = None
 
-    async def _pre_reload(self):
-        try:
-            async with self.reload_lock:
-                await self._reload_problems()
-            self.reload_exception = None
-        except Exception as ex:
-            self.reload_exception = ex
-            self.logger.warning('Exception in problem updater task, ignoring.', exc_info=True)
+    @_update_task.exception_handler()
+    async def _update_task_exception_handler(self, ex):
+        self.reload_exception = ex
 
     async def _reload_problems(self):
         problems, _ = await cf.problemset.problems()
@@ -212,14 +212,12 @@ class ProblemCache:
 
     async def _update(self, problems):
         self.logger.info(f'{len(problems)} problems fetched from API')
-        banned_tags = ['*special']
         contest_map = {problem.contestId: self.cache_master.contest_cache.contest_by_id.get(problem.contestId)
                        for problem in problems}
 
         def keep(problem):
             return (contest_map[problem.contestId] and
-                    problem.has_metadata() and
-                    not problem.tag_matches(banned_tags))
+                    problem.has_metadata())
 
         filtered_problems = list(filter(keep, problems))
         problem_by_name = {
@@ -236,6 +234,108 @@ class ProblemCache:
         self.logger.info(f'{rc} problems stored in database')
 
 
+class ProblemsetCacheError(CacheError):
+    pass
+
+
+class ProblemsetNotCached(ProblemsetCacheError):
+    def __init__(self, contest_id):
+        super().__init__(f'Problemset for contest with id {contest_id} not cached.')
+
+
+class ProblemsetCache:
+    _MONITOR_PERIOD_SINCE_CONTEST_END = 14 * 24 * 60 * 60
+    _RELOAD_DELAY = 60 * 60
+
+    def __init__(self, cache_master):
+        self.cache_master = cache_master
+        self.update_lock = asyncio.Lock()
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+    async def run(self):
+        if self.cache_master.conn.problemset_empty():
+            self.logger.warning('Problemset cache on disk is empty. This must be populated '
+                                'manually before use.')
+        self._update_task.start()
+
+    async def update_for_contest(self, contest_id):
+        """Update problemset for a particular contest. Intended for manual trigger."""
+        async with self.update_lock:
+            contest = self.cache_master.contest_cache.get_contest(contest_id)
+            problemset, _ = await self._fetch_problemsets([contest], force_fetch=True)
+            self.cache_master.conn.clear_problemset(contest_id)
+            self._save_problems(problemset)
+            return len(problemset)
+
+    async def update_for_all(self):
+        """Update problemsets for all finished contests. Intended for manual trigger."""
+        async with self.update_lock:
+            contests = self.cache_master.contest_cache.contests_by_phase['FINISHED']
+            problemsets, _ = await self._fetch_problemsets(contests, force_fetch=True)
+            self.cache_master.conn.clear_problemset()
+            self._save_problems(problemsets)
+            return len(problemsets)
+
+    @tasks.task_spec(name='ProblemsetCacheUpdate',
+                     waiter=tasks.Waiter.fixed_delay(_RELOAD_DELAY))
+    async def _update_task(self, _):
+        async with self.update_lock:
+            contests = self.cache_master.contest_cache.contests_by_phase['FINISHED']
+            new_problems, updated_problems = await self._fetch_problemsets(contests)
+            self._save_problems(new_problems + updated_problems)
+            self.logger.info(f'{len(new_problems)} new problems saved and {len(updated_problems)} '
+                             'saved problems updated.')
+
+    async def _fetch_problemsets(self, contests, *, force_fetch=False):
+        # We assume it is possible for problems in the same contest to get assigned rating at
+        # different times.
+        new_contest_ids = []
+        contests_to_refetch = []  # List of (id, set of saved rated problem indices) pairs.
+        if force_fetch:
+            new_contest_ids = [contest.id for contest in contests]
+        else:
+            now = time.time()
+            for contest in contests:
+                if now > contest.end_time + self._MONITOR_PERIOD_SINCE_CONTEST_END:
+                    # Contest too old, we do not want to check it.
+                    continue
+                problemset = self.cache_master.conn.fetch_problemset(contest.id)
+                if not problemset:
+                    new_contest_ids.append(contest.id)
+                    continue
+                rated_problem_idx = {prob.index for prob in problemset if prob.rating is not None}
+                if len(rated_problem_idx) < len(problemset):
+                    contests_to_refetch.append((contest.id, rated_problem_idx))
+
+        new_problems, updated_problems = [], []
+        for contest_id in new_contest_ids:
+            new_problems += await self._fetch_for_contest(contest_id)
+        for contest_id, rated_problem_idx in contests_to_refetch:
+            updated_problems += [prob for prob in await self._fetch_for_contest(contest_id)
+                                 if prob.rating is not None and prob.index not in rated_problem_idx]
+
+        return new_problems, updated_problems
+
+    async def _fetch_for_contest(self, contest_id):
+        try:
+            _, problemset, _ = await cf.contest.standings(contest_id=contest_id, from_=1,
+                                                          count=1)
+        except cf.CodeforcesApiError as er:
+            self.logger.warning(f'Problemset fetch failed for contest {contest_id}. {er!r}')
+            problemset = []
+        return problemset
+
+    def _save_problems(self, problems):
+        rc = self.cache_master.conn.cache_problemset(problems)
+        self.logger.info(f'Saved {rc} problems to database.')
+
+    def get_problemset(self, contest_id):
+        problemset = self.cache_master.conn.fetch_problemset(contest_id)
+        if not problemset:
+            raise ProblemsetNotCached(contest_id)
+        return problemset
+
+
 class RatingChangesCache:
     DEFAULT_RATING = 1500
     _RATED_DELAY = 36 * 60 * 60
@@ -243,17 +343,16 @@ class RatingChangesCache:
 
     def __init__(self, cache_master):
         self.cache_master = cache_master
-
         self.monitored_contests = []
-
         self.handle_rating_cache = {}
-        self.update_task = None
-
         self.logger = logging.getLogger(self.__class__.__name__)
 
     async def run(self):
         self._refresh_handle_cache()
-        asyncio.create_task(self._rating_changes_updater_task())
+        if not self.handle_rating_cache:
+            self.logger.warning('Rating changes cache on disk is empty. This must be populated '
+                                'manually before use.')
+        self._update_task.start()
 
     async def fetch_contest(self, contest_id):
         """Fetch rating changes for a particular contest. Intended for manual trigger."""
@@ -280,22 +379,15 @@ class RatingChangesCache:
         self._save_changes(changes)
         return len(changes)
 
-    async def _rating_changes_updater_task(self):
-        self.logger.info('Running rating changes updater task')
-        while True:
-            try:
-                await cf_common.event_sys.wait_for('EVENT_CONTEST_LIST_REFRESH')
-                await self._process_contests()
-            except Exception:
-                self.logger.warning(f'Exception in rating changes updater task, ignoring.', exc_info=True)
-
     def is_newly_finished_without_rating_changes(self, contest):
         now = time.time()
         return (contest.phase == 'FINISHED' and
                 now - contest.end_time < self._RATED_DELAY and
                 not self.has_rating_changes_saved(contest.id))
 
-    async def _process_contests(self):
+    @tasks.task_spec(name='RatingChangesCacheUpdate',
+                     waiter=tasks.Waiter.for_event(events.ContestListRefresh))
+    async def _update_task(self, _):
         # Some notes:
         # A hack phase is tagged as FINISHED with empty list of rating changes. After the hack
         # phase, the phase changes to systest then again FINISHED. Since we cannot differentiate
@@ -308,30 +400,25 @@ class RatingChangesCache:
         cur_ids = {contest.id for contest in self.monitored_contests}
         new_ids = {contest.id for contest in to_monitor}
         if new_ids != cur_ids:
-            if self.update_task:
-                self.update_task.cancel()
+            await self._monitor_task.stop()
             if to_monitor:
-                self.update_task = asyncio.create_task(self._update_task(to_monitor))
+                self.monitored_contests = to_monitor
+                self._monitor_task.start()
             else:
                 self.monitored_contests = []
 
-    async def _update_task(self, contests):
-        self.monitored_contests = contests
-        while True:
-            self.monitored_contests = [contest for contest in self.monitored_contests
-                                       if self.is_newly_finished_without_rating_changes(contest)]
-            if not self.monitored_contests:
-                break
-            try:
-                all_changes = await self._fetch(contests)
-            except Exception:
-                self.logger.warning(f'Exception in rating change update task 2, ignoring.', exc_info=True)
-            else:
-                self._save_changes(all_changes)
-            await asyncio.sleep(self._RELOAD_DELAY)
-        self.monitored_contests = []
-        self.logger.info('Rated changes fetched for contests that were being monitored, '
-                         'halting update task.')
+    @tasks.task_spec(name='RatingChangesCacheUpdate.MonitorNewlyFinishedContests',
+                     waiter=tasks.Waiter.fixed_delay(_RELOAD_DELAY))
+    async def _monitor_task(self, _):
+        self.monitored_contests = [contest for contest in self.monitored_contests
+                                   if self.is_newly_finished_without_rating_changes(contest)]
+        if not self.monitored_contests:
+            self.logger.info('Rated changes fetched for contests that were being monitored.')
+            await self._monitor_task.stop()
+            return
+
+        all_changes = await self._fetch(self.monitored_contests)
+        self._save_changes(all_changes)
 
     async def _fetch(self, contests):
         all_changes = []
@@ -401,14 +488,12 @@ class RanklistCache:
 
     def __init__(self, cache_master):
         self.cache_master = cache_master
-
+        self.monitored_contests = []
         self.ranklist_by_contest = {}
-        self.update_task = None
-
         self.logger = logging.getLogger(self.__class__.__name__)
 
     async def run(self):
-        asyncio.create_task(self._ranklist_updater_task())
+        self._update_task.start()
 
     def get_ranklist(self, contest):
         try:
@@ -416,49 +501,39 @@ class RanklistCache:
         except KeyError:
             raise RanklistNotMonitored(contest)
 
-    async def _ranklist_updater_task(self):
-        self.logger.info('Running ranklist updater task')
-        while True:
-            try:
-                await cf_common.event_sys.wait_for('EVENT_CONTEST_LIST_REFRESH')
-                await self._process_contests()
-            except Exception:
-                self.logger.warning('Exception in ranklist updater task, ignoring.', exc_info=True)
-
-    async def _process_contests(self):
+    @tasks.task_spec(name='RanklistCacheUpdate',
+                     waiter=tasks.Waiter.for_event(events.ContestListRefresh))
+    async def _update_task(self, _):
         contests_by_phase = self.cache_master.contest_cache.contests_by_phase
         running_contests = contests_by_phase['_RUNNING']
         check = self.cache_master.rating_changes_cache.is_newly_finished_without_rating_changes
         to_monitor = running_contests + list(filter(check, contests_by_phase['FINISHED']))
+        cur_ids = {contest.id for contest in self.monitored_contests}
         new_ids = {contest.id for contest in to_monitor}
-        if new_ids != self.ranklist_by_contest.keys():
-            if self.update_task:
-                self.update_task.cancel()
+        if new_ids != cur_ids:
+            await self._monitor_task.stop()
             if to_monitor:
-                self.update_task = asyncio.create_task(self._update_task(to_monitor))
+                self.monitored_contests = to_monitor
+                self._monitor_task.start()
             else:
                 self.ranklist_by_contest = {}
 
-    async def _update_task(self, contests):
+    @tasks.task_spec(name='RanklistCacheUpdate.MonitorActiveContests',
+                     waiter=tasks.Waiter.fixed_delay(_RELOAD_DELAY))
+    async def _monitor_task(self, _):
         check = self.cache_master.rating_changes_cache.is_newly_finished_without_rating_changes
-        while True:
-            contests = [contest for contest in contests
-                        if contest.phase != 'FINISHED' or check(contest)]
-            if not contests:
-                break
-            try:
-                ranklist_by_contest = await self._fetch(contests)
-            except Exception:
-                self.logger.warning(f'Exception in ranklist update task 2, ignoring.', exc_info=True)
-            else:
-                for contest in contests:
-                    # Keep previous ranklist (if exists) in case fetch failed
-                    if contest.id in self.ranklist_by_contest and contest.id not in ranklist_by_contest:
-                        ranklist_by_contest[contest.id] = self.ranklist_by_contest[contest.id]
-                self.ranklist_by_contest = ranklist_by_contest
-            await asyncio.sleep(self._RELOAD_DELAY)
-        self.ranklist_by_contest = {}
-        self.logger.info('Halting ranklist monitor task')
+        self.monitored_contests = [contest for contest in self.monitored_contests
+                                   if contest.phase != 'FINISHED' or check(contest)]
+        if not self.monitored_contests:
+            self.ranklist_by_contest = {}
+            self.logger.info('No more active contests for which to monitor ranklists.')
+            await self._monitor_task.stop()
+            return
+
+        ranklist_by_contest = await self._fetch(self.monitored_contests)
+        # If any ranklist could not be fetched, the old ranklist is kept.
+        for contest_id, ranklist in ranklist_by_contest.items():
+            self.ranklist_by_contest[contest_id] = ranklist
 
     async def generate_ranklist(self, contest_id, *, fetch_changes=False, predict_changes=False):
         assert fetch_changes ^ predict_changes
@@ -529,9 +604,11 @@ class CacheSystem:
         self.problem_cache = ProblemCache(self)
         self.rating_changes_cache = RatingChangesCache(self)
         self.ranklist_cache = RanklistCache(self)
+        self.problemset_cache = ProblemsetCache(self)
 
     async def run(self):
         await self.rating_changes_cache.run()
         await self.ranklist_cache.run()
         await self.contest_cache.run()
         await self.problem_cache.run()
+        await self.problemset_cache.run()

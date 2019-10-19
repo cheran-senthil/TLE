@@ -1,5 +1,5 @@
 import bisect
-import datetime
+import datetime as dt
 import io
 import time
 import os
@@ -11,6 +11,7 @@ from discord.ext import commands
 from matplotlib import pyplot as plt
 from matplotlib import patches as patches
 from matplotlib import lines as mlines
+from matplotlib import font_manager as fm
 import numpy as np
 
 from tle import constants
@@ -58,7 +59,7 @@ def _plot_rating(resp, mark='o', labels: List[str] = None):
         ratings, times = [], []
         for rating_change in rating_changes:
             ratings.append(rating_change.newRating)
-            times.append(datetime.datetime.fromtimestamp(rating_change.ratingUpdateTimeSeconds))
+            times.append(dt.datetime.fromtimestamp(rating_change.ratingUpdateTimeSeconds))
 
         plt.plot(times,
                  ratings,
@@ -72,22 +73,24 @@ def _plot_rating(resp, mark='o', labels: List[str] = None):
     _plot_rating_bg()
 
 
-def _filter_solved_submissions(submissions, contests, tags = []):
+def _filter_solved_submissions(submissions, contests, tags=None):
     """Filters and keeps only solved submissions with problems that have a rating and belong to
-    some contest from given contests. The first argument of *args may contain a list of tags
-    to filter problems. If a problem is solved multiple times the first accepted
-    submission is kept. The unique id for a problem is (problem name, contest start time).
+    some contest from given contests. If a problem is solved multiple times the first accepted
+    submission is kept. The unique id for a problem is (problem name, contest start time). A list
+    of tags may be provided to filter out problems that do not have *all* of the given tags.
     """
     submissions.sort(key=lambda sub: sub.creationTimeSeconds)
     contest_id_map = {contest.id: contest for contest in contests}
     problems = set()
     solved_subs = []
-    
+
     for submission in submissions:
-        contest = contest_id_map.get(submission.problem.contestId)
-        if submission.verdict == 'OK' and submission.problem.rating and contest and (not tags or submission.problem.tag_matches(tags)):
+        problem = submission.problem
+        contest = contest_id_map.get(problem.contestId)
+        tag_match = tags is None or problem.tag_matches(tags)
+        if submission.verdict == 'OK' and problem.rating and contest and tag_match:
             # Assume (name, contest start time) is a unique identifier for problems
-            problem_key = (submission.problem.name, contest.startTimeSeconds)
+            problem_key = (problem.name, contest.startTimeSeconds)
             if problem_key not in problems:
                 solved_subs.append(submission)
                 problems.add(problem_key)
@@ -122,13 +125,99 @@ def _running_mean(x, bin_size):
     return res
 
 
+def _get_extremes(contest, problemset, submissions):
+
+    def in_contest(sub):
+        return (sub.author.participantType == 'CONTESTANT' or
+                (cf_common.is_rated_for_onsite_contest(contest) and
+                 sub.author.participantType == 'OUT_OF_COMPETITION'))
+
+    problemset = [prob for prob in problemset if prob.rating is not None]
+    submissions = [sub for sub in submissions
+                   if in_contest(sub) and sub.problem.rating is not None]
+    solved = {sub.problem.index: sub.problem.rating for sub in submissions if
+              sub.verdict == 'OK'}
+    max_solved = max(solved.values(), default=None)
+    min_unsolved = min((prob.rating for prob in problemset if prob.index not in solved),
+                       default=None)
+    return min_unsolved, max_solved
+
+
+def _plot_extreme(handle, rating, packed_contest_subs_problemset):
+    extremes = [
+        (dt.datetime.fromtimestamp(contest.end_time), _get_extremes(contest, problemset, subs))
+        for contest, problemset, subs in packed_contest_subs_problemset
+    ]
+    regular = []
+    fullsolves = []
+    nosolves = []
+    for t, (mn, mx) in extremes:
+        if mn and mx:
+            regular.append((t, mn, mx))
+        elif mx:
+            fullsolves.append((t, mx))
+        elif mn:
+            nosolves.append((t, mn))
+        else:
+            # No rated problems in the contest, which means rating is not yet available for
+            # problems in this contest. Skip this data point.
+            pass
+
+    solvedcolor = 'tab:orange'
+    unsolvedcolor = 'tab:blue'
+    linecolor = '#00000022'
+    outlinecolor = '#00000022'
+
+    def scatter_outline(*args, **kwargs):
+        plt.scatter(*args, **kwargs)
+        kwargs['zorder'] -= 1
+        kwargs['color'] = outlinecolor
+        if kwargs['marker'] == '*':
+            kwargs['s'] *= 3
+        elif kwargs['marker'] == 's':
+            kwargs['s'] *= 1.5
+        else:
+            kwargs['s'] *= 2
+        if 'alpha' in kwargs:
+            del kwargs['alpha']
+        if 'label' in kwargs:
+            del kwargs['label']
+        plt.scatter(*args, **kwargs)
+
+    plt.clf()
+    time_scatter, plot_min, plot_max = zip(*regular)
+    scatter_outline(time_scatter, plot_min, zorder=10,
+                    s=14, marker='o', color=unsolvedcolor,
+                    label='Easiest unsolved')
+    scatter_outline(time_scatter, plot_max, zorder=10,
+                    s=14, marker='o', color=solvedcolor,
+                    label='Hardest solved')
+
+    ax = plt.gca()
+    for t, mn, mx in regular:
+        ax.add_line(mlines.Line2D((t, t), (mn, mx), color=linecolor))
+
+    if fullsolves:
+        scatter_outline(*zip(*fullsolves), zorder=15,
+                        s=42, marker='*',
+                        color=solvedcolor)
+    if nosolves:
+        scatter_outline(*zip(*nosolves), zorder=15,
+                        s=32, marker='X',
+                        color=unsolvedcolor)
+
+    plt.legend(title=f'{handle}: {rating}', title_fontsize=plt.rcParams['legend.fontsize'],
+               loc='upper left').set_zorder(20)
+    _plot_rating_bg()
+
+
 def _plot_average(practice, bin_size, label: str = ''):
     if len(practice) > bin_size:
         sub_times, ratings = map(list, zip(*practice))
 
         sub_timestamps = [sub_time.timestamp() for sub_time in sub_times]
         mean_sub_timestamps = _running_mean(sub_timestamps, bin_size)
-        mean_sub_times = [datetime.datetime.fromtimestamp(timestamp) for timestamp in mean_sub_timestamps]
+        mean_sub_times = [dt.datetime.fromtimestamp(timestamp) for timestamp in mean_sub_timestamps]
         mean_ratings = _running_mean(ratings, bin_size)
 
         plt.plot(mean_sub_times,
@@ -144,6 +233,7 @@ class Graphs(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.converter = commands.MemberConverter()
+        self.fontprop = fm.FontProperties(fname=constants.NOTO_SANS_CJK_REGULAR_FONT_PATH)
 
     @commands.group(brief='Graphs for analyzing Codeforces activity',
                     invoke_without_command=True)
@@ -195,32 +285,70 @@ class Graphs(commands.Cog):
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
 
+    @plot.command(brief='Plot Codeforces extremes graph')
+    async def extreme(self, ctx, handle: str = None):
+        """Plots pairs of lowest rated unsolved problem and highest rated solved problem for every
+        contest that was rated for the given user.
+        """
+        handle = handle or '!' + str(ctx.author)
+        handle, = await cf_common.resolve_handles(ctx, self.converter, [handle])
+        ratingchanges = await cf.user.rating(handle=handle)
+        if not ratingchanges:
+            raise GraphCogError(f'User {handle} is not rated')
+
+        contest_ids = [change.contestId for change in ratingchanges]
+        subs_by_contest_id = {contest_id: [] for contest_id in contest_ids}
+        for sub in await cf.user.status(handle=handle):
+            if sub.contestId in subs_by_contest_id:
+                subs_by_contest_id[sub.contestId].append(sub)
+
+        packed_contest_subs_problemset = [
+            (cf_common.cache2.contest_cache.get_contest(contest_id),
+             cf_common.cache2.problemset_cache.get_problemset(contest_id),
+             subs_by_contest_id[contest_id])
+            for contest_id in contest_ids
+        ]
+
+        rating = max(ratingchanges, key=lambda change: change.ratingUpdateTimeSeconds).newRating
+        _plot_extreme(handle, rating, packed_contest_subs_problemset)
+
+        discord_file = _get_current_figure_as_file()
+        embed = discord_common.cf_color_embed(title='Codeforces extremes graph')
+        discord_common.attach_image(embed, discord_file)
+        discord_common.set_author_footer(embed, ctx.author)
+        await ctx.send(embed=embed, file=discord_file)
+
     @plot.command(brief='Show histogram of solved problems on CF.')
     async def solved(self, ctx, *args: str):
         """Shows a histogram of problems solved on Codeforces for the handles provided."""
-        handles = []
-        tags = []
-
+        handles, tags = [], []
         for arg in args:
             if arg[0] == '+':
+                if len(arg) == 1:
+                    raise GraphCogError('Problem tag cannot be empty.')
                 tags.append(arg[1:])
             else:
                 handles.append(arg)
-        
+
         handles = handles or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         resp = [await cf.user.status(handle=handle) for handle in handles]
         contests = await cf.contest.list()
 
-        all_solved_subs = [_filter_solved_submissions(submissions, contests, tags)
+        all_solved_subs = [_filter_solved_submissions(submissions, contests, tags or None)
                            for submissions in resp]
 
         if not any(all_solved_subs):
             handles_str = ', '.join(f'`{handle}`' for handle in handles)
+            tags_str = ''
+            if tags:
+                tags_str = (('with tag ' if len(tags) == 1 else 'with tags ')
+                            + ', '.join(f'`{tag}`' for tag in tags))
             if len(handles) == 1:
-                message = f'User {handles_str} has not solved any rated problem'
+                message = f'User {handles_str} has not solved any rated problem {tags_str}.'
             else:
-                message = f'None of the users {handles_str} have solved any rated problem'
+                message = (f'None of the users {handles_str} have solved any rated problem '
+                           f'{tags_str}.')
             raise GraphCogError(message)
 
         if len(handles) == 1:
@@ -284,7 +412,7 @@ class Graphs(commands.Cog):
         submissions = resp[0]
 
         def extract_time_and_rating(submissions):
-            return [(datetime.datetime.fromtimestamp(sub.creationTimeSeconds), sub.problem.rating)
+            return [(dt.datetime.fromtimestamp(sub.creationTimeSeconds), sub.problem.rating)
                     for sub in submissions]
 
         solved_subs = _filter_solved_submissions(submissions, contests)
@@ -508,6 +636,28 @@ class Graphs(commands.Cog):
         # Discord stuff
         discord_file = _get_current_figure_as_file()
         embed = discord_common.cf_color_embed(title=f'Rating/percentile relationship')
+        discord_common.attach_image(embed, discord_file)
+        discord_common.set_author_footer(embed, ctx.author)
+        await ctx.send(embed=embed, file=discord_file)
+
+    @plot.command(brief='Plot histogram of gudgiting')
+    async def howgud(self, ctx, *members: discord.Member):
+        members = members or (ctx.author,)
+        # shift the [-300, 300] gitgud range to center the test
+        hist_bins = list(range(-300 - 50, 300 + 50 + 1, 100))
+        deltas = [[x[0] for x in cf_common.user_db.howgud(member.id)] for member in members]
+        labels = [f'\0{member.display_name}: {len(delta)}'
+                  for member, delta in zip(members, deltas)]
+
+        plt.clf()
+        plt.margins(x=0)
+        plt.hist(deltas, bins=hist_bins, label=labels, rwidth=1)
+        plt.xlabel('Problem delta')
+        plt.ylabel('Number solved')
+        plt.legend(prop=self.fontprop)
+
+        discord_file = _get_current_figure_as_file()
+        embed = discord_common.cf_color_embed(title='Histogram of gudgitting')
         discord_common.attach_image(embed, discord_file)
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)

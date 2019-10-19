@@ -1,9 +1,9 @@
 import asyncio
-import datetime
 import functools
 import json
 import logging
 import time
+import datetime as dt
 
 from collections import defaultdict
 
@@ -14,9 +14,11 @@ from tle.util import codeforces_common as cf_common
 from tle.util import cache_system2
 from tle.util import db
 from tle.util import discord_common
+from tle.util import events
 from tle.util import paginator
 from tle.util import ranklist as rl
 from tle.util import table
+from tle.util import tasks
 
 _CONTESTS_PER_PAGE = 5
 _CONTEST_PAGINATE_WAIT_TIME = 5 * 60
@@ -29,20 +31,21 @@ class ContestCogError(commands.CommandError):
     pass
 
 
-def _get_formatted_contest_info(contest, tz):
-    start = datetime.datetime.fromtimestamp(contest.startTimeSeconds, tz)
-    start = f'{start.strftime("%d %b %y, %H:%M")} {tz}'
+def _contest_start_time_format(contest, tz):
+    start = dt.datetime.fromtimestamp(contest.startTimeSeconds, tz)
+    return f'{start.strftime("%d %b %y, %H:%M")} {tz}'
 
+
+def _contest_duration_format(contest):
     duration_days, duration_hrs, duration_mins, _ = cf_common.time_format(contest.durationSeconds)
     duration = f'{duration_hrs}h {duration_mins}m'
     if duration_days > 0:
         duration = f'{duration_days}d ' + duration
-
-    return contest.name, str(contest.id), start, duration, contest.register_url
+    return duration
 
 
 def _get_formatted_contest_desc(id_str, start, duration, url, max_duration_len):
-    em = '\N{EM QUAD}'
+    em = '\N{EN SPACE}'
     sq = '\N{WHITE SQUARE WITH UPPER RIGHT QUADRANT}'
     desc = (f'`{em}{id_str}{em}|'
             f'{em}{start}{em}|'
@@ -52,10 +55,9 @@ def _get_formatted_contest_desc(id_str, start, duration, url, max_duration_len):
 
 
 def _get_embed_fields_from_contests(contests):
-    infos = []
-    for contest in contests:
-        info = _get_formatted_contest_info(contest, datetime.timezone.utc)
-        infos.append(info)
+    infos = [(contest.name, str(contest.id), _contest_start_time_format(contest, dt.timezone.utc),
+              _contest_duration_format(contest), contest.register_url)
+             for contest in contests]
 
     max_duration_len = max(len(duration) for _, _, _, duration, _ in infos)
 
@@ -103,18 +105,11 @@ class Contests(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        asyncio.create_task(self._updater_task())
+        self._update_task.start()
 
-    async def _updater_task(self):
-        self.logger.info('Running Contests cog updater task')
-        while True:
-            try:
-                await cf_common.event_sys.wait_for('EVENT_CONTEST_LIST_REFRESH')
-                await self._reload()
-            except Exception:
-                self.logger.warning(f'Exception in Contests cog updater task, ignoring.', exc_info=True)
-
-    async def _reload(self):
+    @tasks.task_spec(name='ContestCogUpdate',
+                     waiter=tasks.Waiter.for_event(events.ContestListRefresh))
+    async def _update_task(self, _):
         contest_cache = cf_common.cache2.contest_cache
         self.future_contests = contest_cache.get_contests_in_phase('BEFORE')
         self.active_contests = (contest_cache.get_contests_in_phase('CODING') +
@@ -380,6 +375,30 @@ class Contests(commands.Cog):
 
         return pages
 
+    @staticmethod
+    def _make_contest_embed_for_ranklist(ranklist):
+        contest = ranklist.contest
+        assert contest.phase != 'BEFORE', f'Contest {contest.id} has not started.'
+        embed = discord_common.cf_color_embed(title=contest.name, url=contest.url)
+        phase = contest.phase.capitalize().replace('_', ' ')
+        embed.add_field(name='Phase', value=phase)
+        if ranklist.is_rated:
+            embed.add_field(name='Deltas', value=ranklist.deltas_status)
+        now = time.time()
+        en = '\N{EN SPACE}'
+        if contest.phase == 'CODING':
+            elapsed = cf_common.pretty_time_format(now - contest.startTimeSeconds, shorten=True)
+            remaining = cf_common.pretty_time_format(contest.end_time - now, shorten=True)
+            msg = f'{elapsed} elapsed{en}|{en}{remaining} remaining'
+            embed.add_field(name='Tick tock', value=msg, inline=False)
+        else:
+            start = _contest_start_time_format(contest, dt.timezone.utc)
+            duration = _contest_duration_format(contest)
+            since = cf_common.pretty_time_format(now - contest.end_time, only_most_significant=True)
+            msg = f'{start}{en}|{en}{duration}{en}|{en}Ended {since} ago'
+            embed.add_field(name='When', value=msg, inline=False)
+        return embed
+
     @commands.command(brief='Show ranklist for given handles and/or server members')
     async def ranklist(self, ctx, contest_id: int, *handles: str):
         """Shows ranklist for the contest with given contest id. If handles contains
@@ -390,14 +409,12 @@ class Contests(commands.Cog):
         wait_msg = None
         try:
             ranklist = cf_common.cache2.ranklist_cache.get_ranklist(contest)
-            deltas_status = 'Predicted'
         except cache_system2.RanklistNotMonitored:
             if contest.phase == 'BEFORE':
                 raise ContestCogError(f'Contest `{contest.id} | {contest.name}` has not started')
             wait_msg = await ctx.send('Please wait...')
             ranklist = await cf_common.cache2.ranklist_cache.generate_ranklist(contest.id,
                                                                                fetch_changes=True)
-            deltas_status = 'Final'
 
         handles = set(handles)
         if not handles:
@@ -428,19 +445,13 @@ class Contests(commands.Cog):
         problem_indices = [problem.index for problem in ranklist.problems]
         pages = self._make_standings_pages(contest, problem_indices, handle_standings, deltas)
 
-        embed = discord_common.cf_color_embed(title=contest.name, url=contest.url)
-        phase = contest.phase.capitalize().replace('_', ' ')
-        embed.add_field(name='Phase', value=phase)
-        if ranklist.is_rated:
-            embed.add_field(name='Deltas', value=deltas_status)
-
         if wait_msg:
             try:
                 await wait_msg.delete()
             except:
                 pass
 
-        await ctx.send(embed=embed)
+        await ctx.send(embed=self._make_contest_embed_for_ranklist(ranklist))
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=_STANDINGS_PAGINATE_WAIT_TIME)
 
     async def cog_command_error(self, ctx, error):

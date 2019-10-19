@@ -42,6 +42,7 @@ poetry run python -m tle
 ### Notes
  - In order to run admin-only commands you need to have the `Admin` role, which needs to be created in your Discord server and assign it to yourself/other administrators.
  - In order to prevent the bot suggesting an author's problems to the author a python file needs to be run (since this can not be done through the Codeforces API) which will save the authors for specific contests to a file. To do this run `python extra/scrape_cf_contest_writers.py` which will generate a JSON file which should be placed in the `/files` folder. 
+ - In order to display CJK (East Asian) characters for usernames, we need appropriate fonts. Their size is ~36MB, so we don't keep in the repo itself and it is gitignored. They will be downloaded automatically when the bot is run if not already present.
  - One of the bot's features is to assign roles to users based on their rating on Codeforces. In order for this functionality to work properly the following roles need to exist in your Discord server
      - Newbie
      - Pupil
@@ -61,6 +62,10 @@ In order to find available commands you can run `;help` which will bring a list 
 
 ## Contributing
 Pull requests are welcome. For major changes please open an issue first to discuss what you would like to change.
+
+Before submitting your PR, consider running some code formatter on the lines you touched or added. This will help reduce the time spent on fixing small styling issues in code review. Good options are [yapf](https://github.com/google/yapf) or [autopep8](https://github.com/hhatto/autopep8) which likely can be integrated in your favorite editor.
+
+Please refrain from formatting the whole file if you just change some small part of it. If you feel the need to tidy up some particularly egregious code, then do that in a separate PR.
 
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)

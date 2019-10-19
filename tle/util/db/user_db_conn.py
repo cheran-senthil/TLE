@@ -1,10 +1,16 @@
 import sqlite3
 import time
+from enum import IntEnum
 
 from discord.ext import commands
 
 from tle.util import codeforces_api as cf
 
+class Gitgud(IntEnum):
+    GOTGUD = 0
+    GITGUD = 1
+    NOGUD = 2
+    FORCED_NOGUD = 3
 
 class DatabaseDisabledError(commands.CommandError):
     pass
@@ -38,30 +44,6 @@ class UserDbConn:
                 titlePhoto TEXT,
                 solved TEXT,
                 lastCached REAL
-            )
-        ''')
-        self.conn.execute('''
-            CREATE TABLE IF NOT EXISTS "contest" (
-                "id"	INTEGER,
-                "name"	TEXT,
-                "start_time"	INTEGER,
-                "duration"	INTEGER,
-                "type"	TEXT,
-                "phase"	TEXT,
-                "prepared_by"	TEXT,
-                PRIMARY KEY("id")
-            );
-        ''')
-        self.conn.execute('''
-            CREATE TABLE IF NOT EXISTS "problem" (
-                "name"	TEXT,
-                "contest_id"	INTEGER,
-                "p_index"	TEXT,
-                "start_time"	INTEGER,
-                "rating"	INTEGER,
-                "type"	TEXT,
-                "tags"	TEXT,
-                PRIMARY KEY("name")
             )
         ''')
         self.conn.execute('''
@@ -109,21 +91,6 @@ class UserDbConn:
             'guild_id           TEXT'
             ')'
         )
-
-    def fetch_contests(self):
-        query = 'SELECT id, name, start_time, duration, type, phase, prepared_by FROM contest'
-        res = self.conn.execute(query).fetchall()
-        if res is None: return None
-        return [cf.Contest(*r) for r in res]
-
-    def fetch_problems(self):
-        query = '''
-            SELECT contest_id, p_index, name, type, rating, tags, start_time
-            FROM problem
-        '''
-        res = self.conn.execute(query).fetchall()
-        if res is None: return None
-        return [(cf.Problem(*r[:6]), r[6]) for r in res]
 
     def _insert_one(self, table: str, columns, values: tuple):
         n = len(values)
@@ -194,10 +161,23 @@ class UserDbConn:
         '''
         return self.conn.execute(query).fetchall()
 
+    def howgud(self, user_id):
+        query = '''
+            SELECT rating_delta FROM challenge WHERE user_id = ? AND finish_time IS NOT NULL
+        '''
+        return self.conn.execute(query, (user_id,)).fetchall()
+
+    def gitlog(self, user_id):
+        query = f'''
+            SELECT issue_time, finish_time, problem_name, contest_id, p_index, rating_delta, status
+            FROM challenge WHERE user_id = ? AND status != {Gitgud.FORCED_NOGUD} ORDER BY issue_time DESC
+        '''
+        return self.conn.execute(query, (user_id,)).fetchall()
+
     def complete_challenge(self, user_id, challenge_id, finish_time, delta):
-        query1 = '''
-            UPDATE challenge SET finish_time = ?, status = 0
-            WHERE id = ? AND status = 1
+        query1 = f'''
+            UPDATE challenge SET finish_time = ?, status = {Gitgud.GOTGUD}
+            WHERE id = ? AND status = {Gitgud.GITGUD}
         '''
         query2 = '''
             UPDATE user_challenge SET score = score + ?, num_completed = num_completed + 1,
@@ -215,41 +195,24 @@ class UserDbConn:
         self.conn.commit()
         return 1
 
-    def force_skip_challenge(self, user_id):
-        query = '''
-            UPDATE user_challenge SET active_challenge_id = NULL, issue_time = NULL
-            WHERE user_id = ?
-        '''
-        rc = self.conn.execute(query, (user_id,)).rowcount
-        if rc != 1:
-            self.conn.rollback()
-            return 0
-        self.conn.commit()
-        return 1
-
-    def skip_challenge(self, user_id, challenge_id):
-        query = '''
+    def skip_challenge(self, user_id, challenge_id, status):
+        query1 = '''
             UPDATE user_challenge SET active_challenge_id = NULL, issue_time = NULL
             WHERE user_id = ? AND active_challenge_id = ?
         '''
-        rc = self.conn.execute(query, (user_id, challenge_id)).rowcount
+        query2 = f'''
+            UPDATE challenge SET status = ? WHERE id = ? AND status = {Gitgud.GITGUD}
+        '''
+        rc = self.conn.execute(query1, (user_id, challenge_id)).rowcount
+        if rc != 1:
+            self.conn.rollback()
+            return 0
+        rc = self.conn.execute(query2, (status, challenge_id)).rowcount
         if rc != 1:
             self.conn.rollback()
             return 0
         self.conn.commit()
         return 1
-
-    def cache_contests(self, contests: list):
-        return self._insert_many('contest',
-            ['id', 'name', 'start_time', 'duration', 'type', 'phase', 'prepared_by'],
-            contests
-        )
-
-    def cache_problems(self, problems: list):
-        return self._insert_many('problem',
-            ['name', 'contest_id', 'p_index', 'start_time', 'rating', 'type', 'tags'],
-            problems
-        )
 
     def cache_cfuser(self, user):
         return self._insert_one('cf_cache',

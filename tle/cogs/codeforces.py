@@ -1,5 +1,7 @@
 import datetime
+import math
 import random
+import time
 
 import discord
 from discord.ext import commands
@@ -7,8 +9,11 @@ from discord.ext import commands
 from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
 from tle.util import discord_common
+from tle.util.db.user_db_conn import Gitgud
+from tle.util import paginator
 
 _GITGUD_NO_SKIP_TIME = 3 * 60 * 60
+_GITGUD_SCORE_DISTRIB = (2, 3, 5, 8, 12, 17, 23)
 
 
 class Codeforces(commands.Cog):
@@ -71,7 +76,7 @@ class Codeforces(commands.Cog):
 
         if choice > 0 and choice <= len(problems):
             problem = problems[choice - 1]
-            await self._gitgud(ctx, handle, problem, abs(rating - problem.rating))
+            await self._gitgud(ctx, handle, problem, problem.rating - rating)
         else:
             msg = '\n'.join(f'{i + 1}: [{prob.name}]({prob.url}) [{prob.rating}]'
                             for i, prob in enumerate(problems[:5]))
@@ -109,7 +114,7 @@ class Codeforces(commands.Cog):
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
                     if lower <= prob.rating and prob.name not in solved]
         problems = [prob for prob in problems if not cf_common.is_contest_writer(prob.contestId, handle)]
-        if tags: 
+        if tags:
             problems = [prob for prob in problems if prob.tag_matches(tags)]
         if not problems:
             await ctx.send('Problems not found within the search parameters')
@@ -131,22 +136,42 @@ class Codeforces(commands.Cog):
             embed.add_field(name='Matched tags', value=tagslist)
         await ctx.send(f'Recommended problem for `{handle}`', embed=embed)
 
-    @commands.command(brief='Print recently solved practice problems by user')
-    async def stalk(self, ctx, handle: str):
-        handle = handle or '!' + str(ctx.author)
-        handle, = await cf_common.resolve_handles(ctx, self.converter, (handle,))
-        user = cf_common.user_db.fetch_cfuser(handle)
-        submissions = await cf.user.status(handle=handle)
-        submissions = list({sub.problem.name : sub for sub in submissions
-                            if sub.author.participantType == 'PRACTICE'
-                            and sub.verdict == 'OK'}.values())
-        submissions.sort(key=lambda sub: sub.creationTimeSeconds, reverse=True)
-        problems = [sub.problem for sub in submissions]
+    @commands.command(brief='List solved problems', usage='[handles] [+hardest] [+contest]')
+    async def stalk(self, ctx, *args):
+        """Print problems solved in practice (default) or in contest sorted by time (default) or rating.
+        """
+        def ok(problem):
+            # acmsguru and gyms are fine for recent practice list
+            if not problem.contestId or problem.contestId >= cf.GYM_ID_THRESHOLD:
+                return True
+            return not cf_common.is_nonstandard_problem(problem)
 
-        msg = '\n'.join(f'[{prob.name}]({prob.url}) [{prob.rating if prob.rating else "?"}]'
-                        for prob in problems[:5])
-        embed = discord_common.cf_color_embed(title=f'Recently solved practice problems by `{handle}`',
-                                              description=msg)
+        hardest = '+hardest' in args
+        contest = '+contest' in args
+        type_ = 'CONTESTANT' if contest else 'PRACTICE'
+        handles = [arg for arg in args if arg[0] != '+']
+        handles = handles or ('!' + str(ctx.author),)
+        handles = await cf_common.resolve_handles(ctx, self.converter, handles)
+        submissions = [await cf.user.status(handle=handle) for handle in handles]
+        submissions = list({sub.problem.name : sub for subs in submissions for sub in subs
+                            if sub.verdict == 'OK' and sub.author.participantType == type_
+                            and ok(sub.problem) and len(sub.author.members) == 1}.values())
+
+        if hardest:
+            submissions.sort(key=lambda sub: sub.problem.rating or 0, reverse=True)
+        else:
+            submissions.sort(key=lambda sub: sub.creationTimeSeconds, reverse=True)
+
+        msg = '\n'.join(
+                f'[{sub.problem.name}]({sub.problem.url})\N{EN SPACE}'
+                f'[{sub.problem.rating if sub.problem.rating else "?"}]\N{EN SPACE}'
+                f'({cf_common.days_ago(sub.creationTimeSeconds)})'
+                for sub in submissions[:10]
+        )
+        title = '{} solved {} problems by `{}`'.format('Hardest' if hardest else 'Recently',
+                                                       'contest' if contest else 'practice',
+                                                       '`, `'.join(handles))
+        embed = discord_common.cf_color_embed(title=title, description=msg)
         await ctx.send(embed=embed)
 
     @commands.command(brief='Create a mashup', usage='[handles] [+tags]')
@@ -156,7 +181,7 @@ class Codeforces(commands.Cog):
         """
         handles = [arg for arg in args if arg[0] != '+']
         tags = [arg[1:] for arg in args if arg[0] == '+' and len(arg) > 1]
-        
+
         handles = handles or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         resp = [await cf.user.status(handle=handle) for handle in handles]
@@ -167,10 +192,10 @@ class Codeforces(commands.Cog):
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
                     if abs(prob.rating - rating) <= 100 and prob.name not in solved
                     and not any(cf_common.is_contest_writer(prob.contestId, handle) for handle in handles)
-                    and not cf_common.is_nonstandard_contest(cf_common.cache2.contest_cache.get_contest(prob.contestId))]
+                    and not cf_common.is_nonstandard_problem(prob)]
         if tags:
             problems = [prob for prob in problems if prob.tag_matches(tags)]
-            
+
         if len(problems) < 4:
             await ctx.send('Problems not found within the search parameters')
             return
@@ -230,6 +255,32 @@ class Codeforces(commands.Cog):
         choice = max(random.randrange(len(problems)) for _ in range(2))
         await self._gitgud(ctx, handle, problems[choice], delta)
 
+    @commands.command(brief='Print user gitgud history')
+    async def gitlog(self, ctx, member: discord.Member = None):
+        """Displays the list of gitgud problems issued to the specified member, excluding those noguded by admins.
+        If the challenge was completed, time of completion and amount of points gained will also be displayed.
+        """
+        def make_line(entry):
+            issue, finish, name, contest, index, delta, status = entry
+            problem = cf_common.cache2.problem_cache.problem_by_name[name]
+            line = f'[{name}]({problem.url})\N{EN SPACE}[{problem.rating}]'
+            if finish:
+                time_str = cf_common.days_ago(finish)
+                points = f'{_GITGUD_SCORE_DISTRIB[delta // 100 + 3]:+}'
+                line += f'\N{EN SPACE}{time_str}\N{EN SPACE}[{points}]'
+            return line
+
+        def make_page(chunk):
+            message = f'gitgud log for {member.display_name}'
+            log_str = '\n'.join(make_line(entry) for entry in chunk)
+            embed = discord_common.cf_color_embed(description=log_str)
+            return message, embed
+
+        member = member or ctx.author
+        data = cf_common.user_db.gitlog(member.id)
+        pages = [make_page(chunk) for chunk in paginator.chunkify(data, 7)]
+        paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
+
     @commands.command(brief='Report challenge completion')
     @cf_common.user_guard(group='gitgud')
     async def gotgud(self, ctx):
@@ -248,8 +299,7 @@ class Codeforces(commands.Cog):
             await ctx.send('You haven\'t completed your challenge.')
             return
 
-        score_distrib = [2, 3, 5, 8, 12, 17, 23]
-        delta = score_distrib[delta // 100 + 3]
+        delta = _GITGUD_SCORE_DISTRIB[delta // 100 + 3]
         finish_time = int(datetime.datetime.now().timestamp())
         rc = cf_common.user_db.complete_challenge(user_id, challenge_id, finish_time, delta)
         if rc == 1:
@@ -270,17 +320,18 @@ class Codeforces(commands.Cog):
         challenge_id, issue_time, name, contestId, index, delta = active
         finish_time = int(datetime.datetime.now().timestamp())
         if finish_time - issue_time < _GITGUD_NO_SKIP_TIME:
-            skip_time = (int(issue_time) + _GITGUD_NO_SKIP_TIME - finish_time) // 60
-            await ctx.send(f'Think more. You can skip your challenge in {skip_time} minutes.')
+            skip_time = cf_common.pretty_time_format(issue_time + _GITGUD_NO_SKIP_TIME - finish_time)
+            await ctx.send(f'Think more. You can skip your challenge in {skip_time}.')
             return
-        cf_common.user_db.skip_challenge(user_id, challenge_id)
+        cf_common.user_db.skip_challenge(user_id, challenge_id, Gitgud.NOGUD)
         await ctx.send(f'Challenge skipped.')
 
     @commands.command(brief='Force skip a challenge')
     @cf_common.user_guard(group='gitgud')
     @commands.has_role('Admin')
-    async def _nogud(self, ctx, user: str):
-        rc = cf_common.user_db.force_skip_challenge(user)
+    async def _nogud(self, ctx, member: discord.Member):
+        active = cf_common.user_db.check_challenge(member.id)
+        rc = cf_common.user_db.skip_challenge(member.id, active[0], Gitgud.FORCED_NOGUD)
         if rc == 1:
             await ctx.send(f'Challenge skip forced.')
         else:
@@ -308,7 +359,7 @@ class Codeforces(commands.Cog):
             divs = [strfilt(x) for x in markers]
 
         recommendations = {contest.id for contest in contests
-                           if any(tag in strfilt(contest.name) for tag in divs)
+                           if contest.phase == 'FINISHED' and any(tag in strfilt(contest.name) for tag in divs)
                            and not cf_common.is_nonstandard_contest(contest)}
 
         for subs in user_submissions:

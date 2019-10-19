@@ -1,5 +1,6 @@
 import io
 import asyncio
+import logging
 
 import discord
 import random
@@ -10,6 +11,7 @@ from tle.util import codeforces_common as cf_common
 from tle.util import discord_common
 from tle.util import paginator
 from tle.util import table
+from tle import constants
 
 from PIL import Image, ImageFont, ImageDraw
 
@@ -50,38 +52,51 @@ def rating_to_color(rating):
     return RED
 
 
-def get_prettyhandles_image(rankings):
+def get_prettyhandles_image(rankings, font):
     """return PIL image for rankings"""
     SMOKE_WHITE = (250, 250, 250)
     BLACK = (0, 0, 0)
-    img = Image.new("RGB", (900, 450), color=SMOKE_WHITE)
-
-    font = ImageFont.truetype("tle/assets/fonts/Cousine-Regular.ttf", size=30)
+    img = Image.new('RGB', (900, 450), color=SMOKE_WHITE)
     draw = ImageDraw.Draw(img)
-    x = 20
-    y = 20
-    y_inc, _ = font.getsize("hg")
 
-    header = f"{'#':<4}{'Username':<18}{'Handle':<18}{'Rating':>7}"
-    draw.text((x, y), header, fill=BLACK, font=font)
-    y += int(y_inc * 1.5)
+    START_X, START_Y = 20, 20
+    Y_INC = 32
+    WIDTH_RANK = 64
+    WIDTH_NAME = 340
+
+    def draw_row(pos, username, handle, rating, color, y):
+        x = START_X
+        draw.text((x, y), pos, fill=color, font=font)
+        x += WIDTH_RANK
+        draw.text((x, y), username, fill=color, font=font)
+        x += WIDTH_NAME
+        draw.text((x, y), handle, fill=color, font=font)
+        x += WIDTH_NAME
+        draw.text((x, y), rating, fill=color, font=font)
+
+    y = START_Y
+    # draw header
+    draw_row('#', 'Username', 'Handle', 'Rating', BLACK, y)
+    y += int(Y_INC * 1.5)
+
+    # trim name to fit in the column width
+    def _trim(name):
+        width = WIDTH_NAME - 10
+        while font.getsize(name)[0] > width:
+            name = name[:-4] + '...'  # "…" is printed as floating dots
+        return name
+
     for pos, name, handle, rating in rankings:
-        if len(name) > 17:
-            name = name[:14] + "..."
-        if len(handle) > 17:
-            handle = handle[:14] + "..."
-        s = f"{f'#{pos}':<4}{name:<18}{handle:<18}{rating:>6}"
-
+        name = _trim(name)
+        handle = _trim(handle)
         color = rating_to_color(rating)
-        if rating!='N/A' and rating >= 3000:  # nutella
-            draw.text((x, y), s[:22], fill=color, font=font)
-            z = x + font.getsize(s[:22])[0]
-            draw.text((z, y), s[22], fill=BLACK, font=font)
-            z += font.getsize((s[22]))[0]
-            draw.text((z, y), s[23:], fill=color, font=font)
-        else:
-            draw.text((x, y), s, fill=color, font=font)
-        y += y_inc
+        draw_row(str(pos), name, handle, str(rating), color, y)
+        if rating != 'N/A' and rating >= 3000:  # nutella
+            nutella_x = START_X + WIDTH_RANK
+            draw.text((nutella_x, y), name[0], fill=BLACK, font=font)
+            nutella_x += WIDTH_NAME
+            draw.text((nutella_x, y), handle[0], fill=BLACK, font=font)
+        y += Y_INC
 
     return img
 
@@ -130,21 +145,30 @@ def _make_pages(users):
 class Handles(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.font = ImageFont.truetype(constants.NOTO_SANS_CJK_BOLD_FONT_PATH, size=26) # font for ;handle pretty
 
     @commands.group(brief='Commands that have to do with handles', invoke_without_command=True)
     async def handle(self, ctx):
         """Change or collect information about specific handles on Codeforces"""
         await ctx.send_help(ctx.command)
 
-    async def update_member_rank_role(self, member, role_to_assign):
-        role_names_to_remove = {rank.title for rank in cf.RATED_RANKS} - {role_to_assign.name}
-        if role_to_assign.name not in ['Newbie', 'Pupil', 'Specialist', 'Expert']:
-            role_names_to_remove.add('Purgatory')
+    @staticmethod
+    async def update_member_rank_role(member, role_to_assign, *, reason):
+        """Sets the `member` to only have the rank role of `role_to_assign`. All other rank roles
+        on the member, if any, will be removed. If `role_to_assign` is None all existing rank roles
+        on the member will be removed.
+        """
+        role_names_to_remove = {rank.title for rank in cf.RATED_RANKS}
+        if role_to_assign is not None:
+            role_names_to_remove.discard(role_to_assign.name)
+            if role_to_assign.name not in ['Newbie', 'Pupil', 'Specialist', 'Expert']:
+                role_names_to_remove.add('Purgatory')
         to_remove = [role for role in member.roles if role.name in role_names_to_remove]
         if to_remove:
-            await member.remove_roles(*to_remove, reason='Codeforces rank update')
-        if role_to_assign not in member.roles:
-            await member.add_roles(role_to_assign, reason='Codeforces rank update')
+            await member.remove_roles(*to_remove, reason=reason)
+        if role_to_assign is not None and role_to_assign not in member.roles:
+            await member.add_roles(role_to_assign, reason=reason)
 
     @handle.command(brief='Set Codeforces handle of a user')
     @commands.has_role('Admin')
@@ -158,18 +182,22 @@ class Handles(commands.Cog):
         handle = user.handle
         cf_common.user_db.cache_cfuser(user)
         cf_common.user_db.sethandle(member.id, handle)
+
+        if user.rank == cf.UNRATED_RANK:
+            role_to_assign = None
+        else:
+            roles = [role for role in ctx.guild.roles if role.name == user.rank.title]
+            if not roles:
+                raise HandleCogError(f'Role for rank `{user.rank.title}` not present in the server')
+            role_to_assign = roles[0]
+        await self.update_member_rank_role(member, role_to_assign,
+                                           reason='New handle set for user')
         embed = _make_profile_embed(member, user, mode='set')
         await ctx.send(embed=embed)
 
-        if user.rank == cf.UNRATED_RANK:
-            return
-        roles = [role for role in ctx.guild.roles if role.name == user.rank.title]
-        if not roles:
-            raise HandleCogError(f'Role for rank `{user.rank.title}` not present in the server')
-        await self.update_member_rank_role(member, roles[0])
-
     @handle.command(brief='Identify yourself', usage='[handle]')
-    @cf_common.user_guard(group='handle')
+    @cf_common.user_guard(group='handle',
+                          get_exception=lambda: HandleCogError('Identification is already running for you'))
     async def identify(self, ctx, handle: str):
         """Link a codeforces account to discord account by submitting a compile error to a random problem"""
         users = await cf.user.info(handles=[handle])
@@ -180,7 +208,7 @@ class Handles(commands.Cog):
         problem = random.choice(problems)
         await ctx.send(f'`{invoker}`, submit a compile error to <{problem.url}> within 60 seconds')
         await asyncio.sleep(60)
-        
+
         subs = await cf.user.status(handle=handle, count=5)
         if any(sub.problem.name == problem.name and sub.verdict == 'COMPILATION_ERROR' for sub in subs):
             users = await cf.user.info(handles=[handle])
@@ -205,6 +233,8 @@ class Handles(commands.Cog):
         rc = cf_common.user_db.removehandle(member.id)
         if not rc:
             raise HandleCogError(f'Handle for {member.mention} not found in database')
+        await self.update_member_rank_role(member, role_to_assign=None,
+                                           reason='Handle removed for user')
         embed = discord_common.embed_success(f'Removed handle for {member.mention}')
         await ctx.send(embed=embed)
 
@@ -214,9 +244,9 @@ class Handles(commands.Cog):
         res = cf_common.user_db.get_gudgitters()
         res.sort(key=lambda r: r[1], reverse=True)
 
-        style = table.Style('{:>}  {:<}')
+        style = table.Style('{:>}  {:<}  {:<}  {:<}')
         t = table.Table(style)
-        t += table.Header('#', 'Name')
+        t += table.Header('#', 'Name', 'Handle', 'Rating')
         t += table.Line()
         index = 0
         for user_id, score in res:
@@ -224,8 +254,11 @@ class Handles(commands.Cog):
             if member is None:
                 continue
             if score > 0:
+                handle = cf_common.user_db.gethandle(user_id)
+                user = cf_common.user_db.fetch_cfuser(handle)
                 handle_display = f'{member.display_name} ({score})'
-                t += table.Data(index, handle_display)
+                rating = user.rating if user.rating is not None else 'Unrated'
+                t += table.Data(index, handle_display, handle, rating)
                 index += 1
             if index == 20:
                 break
@@ -276,7 +309,7 @@ class Handles(commands.Cog):
             # Show rankings around invoker
             rankings = rankings[max(0, author_pos - 4): author_pos + 6]
 
-        img = get_prettyhandles_image(rankings)
+        img = get_prettyhandles_image(rankings, self.font)
         buffer = io.BytesIO()
         img.save(buffer, 'png')
         buffer.seek(0)
@@ -305,8 +338,9 @@ class Handles(commands.Cog):
             raise HandleCogError(f'Role{plural} for rank{plural} {roles_str} not present in the server')
 
         for member, user in zip(members, users):
-            if user.rank != cf.UNRATED_RANK:
-                await self.update_member_rank_role(member, rank2role[user.rank.title])
+            role_to_assign = None if user.rank == cf.UNRATED_RANK else rank2role[user.rank.title]
+            await self.update_member_rank_role(member, role_to_assign,
+                                               reason='Codeforces rank update')
 
         await ctx.send(embed=discord_common.embed_success('Roles updated successfully'))
 

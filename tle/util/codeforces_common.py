@@ -1,7 +1,9 @@
 import functools
 import json
 import logging
+import math
 import os
+import time
 from collections import defaultdict
 
 from discord.ext import commands
@@ -11,7 +13,7 @@ from tle.util import cache_system2
 from tle.util import codeforces_api as cf
 from tle.util import db
 from tle.util import discord_common
-from tle.util import event_system
+from tle.util import events
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +24,7 @@ user_db = None
 cache2 = None
 
 # Event system
-event_sys = event_system.EventSystem()
+event_sys = events.EventSystem()
 
 _contest_id_to_writers_map = None
 
@@ -69,7 +71,7 @@ async def initialize(nodb):
 
 
 # algmyr's guard idea:
-def user_guard(*, group):
+def user_guard(*, group, get_exception=None):
     active = active_groups[group]
 
     def guard(fun):
@@ -78,6 +80,8 @@ def user_guard(*, group):
             user = ctx.message.author.id
             if user in active:
                 logger.info(f'{user} repeatedly calls {group} group')
+                if get_exception is not None:
+                    raise get_exception()
                 return
             active.add(user)
             try:
@@ -98,13 +102,28 @@ def is_contest_writer(contest_id, handle):
 
 
 _NONSTANDARD_CONTEST_INDICATORS = [
-    'wild', 'fools', 'unrated', 'surprise', 'unknown', 'friday', 'q#', 'testing', 
-    'marathon', 'kotlin', 'onsite', 'experimental']
-
+    'wild', 'fools', 'unrated', 'surprise', 'unknown', 'friday', 'q#', 'testing',
+    'marathon', 'kotlin', 'onsite', 'experimental', 'abbyy']
 
 
 def is_nonstandard_contest(contest):
     return any(string in contest.name.lower() for string in _NONSTANDARD_CONTEST_INDICATORS)
+
+def is_nonstandard_problem(problem):
+    return is_nonstandard_contest(cache2.contest_cache.get_contest(problem.contestId))
+
+# These are special rated-for-all contests which have a combined ranklist for onsite and online
+# participants. The onsite participants have their submissions marked as out of competition. Just
+# Codeforces things.
+_RATED_FOR_ONSITE_CONTEST_IDS = [
+    86,   # Yandex.Algorithm 2011 Round 2 https://codeforces.com/contest/86
+    173,  # Croc Champ 2012 - Round 1 https://codeforces.com/contest/173
+    335,  # MemSQL start[c]up Round 2 - online version https://codeforces.com/contest/335
+]
+
+
+def is_rated_for_onsite_contest(contest):
+    return contest.id in _RATED_FOR_ONSITE_CONTEST_IDS
 
 
 class ResolveHandleError(commands.CommandError):
@@ -132,29 +151,42 @@ class HandleIsVjudgeError(ResolveHandleError):
     def __init__(self, handle):
         super().__init__(f"`{handle}`? I'm not doing that!\n\n(╯°□°）╯︵ ┻━┻")
 
+
 def time_format(seconds):
     seconds = int(seconds)
     days, seconds = divmod(seconds, 86400)
     hours, seconds = divmod(seconds, 3600)
     minutes, seconds = divmod(seconds, 60)
-
     return days, hours, minutes, seconds
 
-def pretty_time_format(seconds):
+
+def pretty_time_format(seconds, *, shorten=False, only_most_significant=False):
     days, hours, minutes, seconds = time_format(seconds)
-    
     timespec = [
         (days, 'day', 'days'),
         (hours, 'hour', 'hours'),
         (minutes, 'minute', 'minutes'),
     ]
-                        
-    timeprint = [(count,singular,plural) for count,singular,plural in timespec if count]
+    timeprint = [(cnt, singular, plural) for cnt, singular, plural in timespec if cnt]
     if not timeprint:
         timeprint.append((seconds, 'second', 'seconds'))
+    if only_most_significant:
+        timeprint = [timeprint[0]]
 
-    return ' '.join(f'{count} {singular if count == 1 else plural}'
-            for count, singular, plural in timeprint)
+    def format_(triple):
+        cnt, singular, plural = triple
+        return f'{cnt}{singular[0]}' if shorten else f'{cnt} {singular if cnt == 1 else plural}'
+
+    return ' '.join(map(format_, timeprint))
+
+
+def days_ago(t):
+    days = (time.time() - t)/(60*60*24)
+    if days <= 1:
+        return 'today'
+    if days <= 2:
+        return 'yesterday'
+    return f'{math.ceil(days)} days ago'
 
 async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
     """Convert an iterable of strings to CF handles. A string beginning with ! indicates Discord username,

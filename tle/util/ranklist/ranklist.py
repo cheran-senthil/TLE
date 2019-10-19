@@ -41,11 +41,13 @@ class Ranklist:
             self.standing_by_id[id_] = row
 
         self.delta_by_handle = None
+        self.deltas_status = None
 
     def set_deltas(self, delta_by_handle):
         if not self.is_rated:
             raise ContestNotRatedError(self.contest)
         self.delta_by_handle = delta_by_handle.copy()
+        self.deltas_status = 'Final'
 
     def predict(self, current_rating):
         if not self.is_rated:
@@ -54,6 +56,7 @@ class Ranklist:
                      for id_, row in self.standing_by_id.items() if id_ in current_rating]
         if standings:
             self.delta_by_handle = CodeforcesRatingCalculator(standings).calculate_rating_changes()
+        self.deltas_status = 'Predicted'
 
     def get_delta(self, handle):
         if not self.is_rated:

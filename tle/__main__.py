@@ -1,7 +1,9 @@
+import asyncio
 import argparse
 import logging
 from logging.handlers import TimedRotatingFileHandler
 import os
+from logging.handlers import TimedRotatingFileHandler
 from os import environ
 from pathlib import Path
 
@@ -10,11 +12,13 @@ from discord.ext import commands
 from matplotlib import pyplot as plt
 
 from tle import constants
+from tle.util import font_downloader
 from tle.util import codeforces_common as cf_common
 from tle.util import discord_common
 
 
 def setup():
+<<<<<<< HEAD
     # logging to console and File on Daily interval
     logging.basicConfig(format='{asctime}:{levelname}:{name}:{message}', style='{',
                         datefmt='%d-%m-%Y %H:%M:%S', level=logging.INFO,
@@ -22,6 +26,13 @@ def setup():
                                   TimedRotatingFileHandler("TleBot.log",when="D",interval=1,backupCount=0,utc=True)
                                   ]
                         )
+=======
+    # logging to console and file on daily interval
+    logging.basicConfig(format='{asctime}:{levelname}:{name}:{message}', style='{',
+                        datefmt='%d-%m-%Y %H:%M:%S', level=logging.INFO,
+                        handlers=[logging.StreamHandler(),
+                                  TimedRotatingFileHandler('TleBot.log', when='D', utc=True)])
+>>>>>>> upstream/master
 
     # matplotlib and seaborn
     plt.rcParams['figure.figsize'] = 7.0, 3.5
@@ -35,6 +46,9 @@ def setup():
 
     # Make dirs
     os.makedirs(constants.FILEDIR, exist_ok=True)
+
+    # Download fonts if necessary
+    font_downloader.maybe_download()
 
 
 def main():
@@ -70,6 +84,7 @@ def main():
     @bot.event
     async def on_ready():
         await cf_common.initialize(args.nodb)
+        asyncio.create_task(discord_common.presence(bot))
 
     bot.add_listener(discord_common.bot_error_handler, name='on_command_error')
 
