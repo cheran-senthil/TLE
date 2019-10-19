@@ -17,11 +17,18 @@ from tle.util import discord_common
 
 
 def setup():
+    # Make required directories.
+    for attribute in dir(constants):
+        if attribute.endswith('DIR'):
+            path = getattr(constants, attribute)
+            os.makedirs(path, exist_ok=True)
+
     # logging to console and file on daily interval
     logging.basicConfig(format='{asctime}:{levelname}:{name}:{message}', style='{',
                         datefmt='%d-%m-%Y %H:%M:%S', level=logging.INFO,
                         handlers=[logging.StreamHandler(),
-                                  TimedRotatingFileHandler('TleBot.log', when='D', utc=True)])
+                                  TimedRotatingFileHandler(constants.LOG_FILE_PATH, when='D',
+                                                           backupCount=3, utc=True)])
 
     # matplotlib and seaborn
     plt.rcParams['figure.figsize'] = 7.0, 3.5
@@ -32,9 +39,6 @@ def setup():
         'axes.spines.right': False,
     }
     sns.set_style('darkgrid', options)
-
-    # Make dirs
-    os.makedirs(constants.FILEDIR, exist_ok=True)
 
     # Download fonts if necessary
     font_downloader.maybe_download()
