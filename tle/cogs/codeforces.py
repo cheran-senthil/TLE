@@ -378,6 +378,47 @@ class Codeforces(commands.Cog):
             embed = discord.Embed(title=contest.name, url=contest.url)
             await ctx.send(f'Recommended contest for `{str_handles}`', embed=embed)
 
+    @commands.command(brief="Display unsolved rounds closest to completion")
+    async def fullsolve(self,ctx):
+        handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
+        """Change this to contain all contests in case we include vc's and practice problems"""
+        contests = await cf.contest.list()
+        contests = [contest for contest in contests if contest.phase=='FINISHED']
+        """subs_by_contest_id contains contest_id mapped to [questions attempted, total questions of contest]"""
+        subs_by_contest_id = {contest.id: [] for contest in contests}
+
+        for sub in await cf.user.status(handle=handle):
+            if sub.contestId in subs_by_contest_id:
+                subs_by_contest_id[sub.contestId].append(sub)
+
+        packed_contest_subs_problemset = [
+            (cf_common.cache2.contest_cache.get_contest(contest.id),
+             cf_common.cache2.problemset_cache.get_problemset(contest.id),
+             subs_by_contest_id[contest.id])
+             for contest in contests
+        ]
+        
+        full_solve = sorted(packed_contest_subs_problemset, key=lambda contest: len(contest[1])-len(contest[2]))
+        full_solve = [(contest[0], len(contest[2]), len(contest[1])) for contest in full_solve if (len(contest[1])-len(contest[2])) > 0]
+                            
+        def make_line(entry):
+            contest, solved, total = entry
+            line = f'[{name}]({problem.url})\N{EN SPACE}[{problem.rating}]'
+            line = f'[{contest.name}]({contest.url})\N{EN SPACE}[{solved}]\N{EN SPACE}[{total}]'
+            return line
+
+        def make_page(chunk):
+            message = f'fullsolve list for {member.display_name}'
+            log_str = '\n'.join(make_line(entry) for entry in chunk)
+            embed = discord_common.cf_color_embed(description=log_str)
+            return message, embed
+        
+        member = ctx.author
+        pages = [make_page(chunk) for chunk in paginator.chunkify(full_solve, 5)]
+        paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
+
+        
+        
     async def cog_command_error(self, ctx, error):
         await cf_common.resolve_handle_error_handler(ctx, error)
 
