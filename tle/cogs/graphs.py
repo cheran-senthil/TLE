@@ -499,8 +499,13 @@ class Graphs(commands.Cog):
     @plot.command(brief='Show server rating distribution')
     async def distrib(self, ctx):
         """Plots rating distribution of users in this server"""
+        def in_purgatory(userid):
+            member = ctx.guild.get_member(int(userid))
+            return not member or 'Purgatory' in {role.name for role in member.roles}
+
         res = cf_common.user_db.getallhandleswithrating()
-        ratings = [rating for _, _, rating in res if rating]
+        ratings = [rating for userid, _, rating in res
+                   if rating and not in_purgatory(userid)]
         await self._rating_hist(ctx,
                                 ratings,
                                 'normal',
