@@ -404,7 +404,7 @@ class Codeforces(commands.Cog):
                 """In case of recent contents or cetain bugged contests"""
                 pass
 
-        contest_unsolved_pairs.sort(key = lambda p: (p[2] - p[1], -p[0].startTimeSeconds))
+        contest_unsolved_pairs.sort(key=lambda p: (p[2] - p[1], -p[0].startTimeSeconds))
 
         if not contest_unsolved_pairs:
             await ctx.send('User has no contests to fullsolve')
@@ -417,7 +417,7 @@ class Codeforces(commands.Cog):
         def make_page(chunk):
             message = f'Fullsolve list for `{handle}`'
             full_solve_list = '\n'.join(make_line(entry) for entry in chunk)
-            embed = discord_common.cf_color_embed(description = full_solve_list)
+            embed = discord_common.cf_color_embed(description=full_solve_list)
             return message, embed
 
         pages = [make_page(chunk) for chunk in paginator.chunkify(contest_unsolved_pairs, 10)]
