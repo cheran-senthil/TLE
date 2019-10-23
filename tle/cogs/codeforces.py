@@ -382,7 +382,7 @@ class Codeforces(commands.Cog):
             await ctx.send(f'Recommended contest for `{str_handles}`', embed=embed)
             
     @commands.command(brief="Display unsolved rounds closest to completion")
-    async def fullsolve(self,ctx):
+    async def fullsolve(self, ctx):
         """Displays a list of contests, sorted by number of unsolved problems"""
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         contests = cf_common.cache2.contest_cache.get_contests_in_phase('FINISHED')
@@ -400,7 +400,7 @@ class Codeforces(commands.Cog):
                 num_problems = len(cf_common.cache2.problemset_cache.get_problemset(contest.id))
                 if 0 < num_solved < num_problems:
                     contest_unsolved_pairs.append((contest, num_solved, num_problems))
-            except cache_system2.ProblemsetNotCached :
+            except cache_system2.ProblemsetNotCached:
                 """In case of recent contents or cetain bugged contests"""
                 pass
 
@@ -411,7 +411,7 @@ class Codeforces(commands.Cog):
             return
 
         def make_line(entry):
-            contest , solved, total = entry
+            contest, solved, total = entry
             return f'[{contest.name}]({contest.url})\N{EN SPACE}[{solved}/{total}]'
 
         def make_page(chunk):
