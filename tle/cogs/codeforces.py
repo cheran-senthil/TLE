@@ -383,8 +383,7 @@ class Codeforces(commands.Cog):
             
     @commands.command(brief="Display unsolved rounds closest to completion")
     async def fullsolve(self,ctx):
-        """Fullsolve will give you a list of contests in ascending order of problems remaining
-            for fully upsolving attempted contests"""
+        """Displays a list of contests, sorted by number of unsolved problems"""
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         contests = cf_common.cache2.contest_cache.get_contests_in_phase('FINISHED')
 
@@ -421,7 +420,7 @@ class Codeforces(commands.Cog):
             embed = discord_common.cf_color_embed(description = full_solve_list)
             return message, embed
 
-        pages = [make_page(chunk) for chunk in paginator.chunkify(contest_unsolved_pairs, 5)]
+        pages = [make_page(chunk) for chunk in paginator.chunkify(contest_unsolved_pairs, 10)]
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
         
     async def cog_command_error(self, ctx, error):
