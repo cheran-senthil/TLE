@@ -407,7 +407,7 @@ class Codeforces(commands.Cog):
         contest_unsolved_pairs.sort(key=lambda p: (p[2] - p[1], -p[0].startTimeSeconds))
 
         if not contest_unsolved_pairs:
-            await ctx.send('User has no contests to fullsolve')
+            await ctx.send(f'`{handle}` has no contests to fullsolve :confetti_ball:')
             return
 
         def make_line(entry):
