@@ -388,7 +388,7 @@ class Codeforces(commands.Cog):
         subs_by_contest_id = {contest.id: [] for contest in contests}
 
         for sub in await cf.user.status(handle=handle):
-            if sub.verdict == "OK" and sub.contestId in subs_by_contest_id:
+            if sub.verdict == 'OK' and sub.contestId in subs_by_contest_id:
                 if sub.problem.index not in subs_by_contest_id[sub.contestId]:
                     subs_by_contest_id[sub.contestId].append(sub.problem.index)
 
@@ -406,20 +406,23 @@ class Codeforces(commands.Cog):
         full_solve = sorted(packed_contest_subs_problemset, key=lambda contest: (contest[2] - contest[1]))
         full_solve = [(contest_id, solved, total) for contest_id, solved, total in full_solve if (total - solved) > 0]
 
-        def make_line(entry):
-            contest, solved, total = entry
-            line = f'[{contest.name}]({contest.url})\N{EN SPACE}[{solved}/{total}]'
-            return line
+        if not full_solve:
+            await ctx.send('User has no contests to fullsolve')
+        else:
+            def make_line(entry):
+                contest, solved, total = entry
+                line = f'[{contest.name}]({contest.url})\N{EN SPACE}[{solved}/{total}]'
+                return line
 
-        def make_page(chunk):
-            message = f'fullsolve list for `{member.display_name}`'
-            log_str = '\n'.join(make_line(entry) for entry in chunk)
-            embed = discord_common.cf_color_embed(description=log_str)
-            return message, embed
-            
-        member = ctx.author
-        pages = [make_page(chunk) for chunk in paginator.chunkify(full_solve, 5)]
-        paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
+            def make_page(chunk):
+                message = f'fullsolve list for `{member.display_name}`'
+                log_str = '\n'.join(make_line(entry) for entry in chunk)
+                embed = discord_common.cf_color_embed(description=log_str)
+                return message, embed
+
+            member = ctx.author
+            pages = [make_page(chunk) for chunk in paginator.chunkify(full_solve, 5)]
+            paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
         
     async def cog_command_error(self, ctx, error):
         await cf_common.resolve_handle_error_handler(ctx, error)
