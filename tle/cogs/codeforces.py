@@ -11,7 +11,9 @@ from tle.util import codeforces_common as cf_common
 from tle.util import discord_common
 from tle.util.db.user_db_conn import Gitgud
 from tle.util import paginator
-from tle.util.cache_system2 import ProblemsetNotCached
+from tle.util import cache_system2
+
+from collections import defaultdict
 
 _GITGUD_NO_SKIP_TIME = 3 * 60 * 60
 _GITGUD_SCORE_DISTRIB = (2, 3, 5, 8, 12, 17, 23)
@@ -381,47 +383,46 @@ class Codeforces(commands.Cog):
             
     @commands.command(brief="Display unsolved rounds closest to completion")
     async def fullsolve(self,ctx):
+        """Fullsolve will give you a list of contests in ascending order of problems remaining
+            for fully upsolving attempted contests"""
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
-        contests = await cf.contest.list()
-        contests = [contest for contest in contests if contest.phase == 'FINISHED']
+        contests = cf_common.cache2.contest_cache.get_contests_in_phase('FINISHED')
+
         """subs_by_contest_id contains contest_id mapped to [list of problem.index]"""
-        subs_by_contest_id = {contest.id: [] for contest in contests}
-
+        subs_by_contest_id = defaultdict(set)
         for sub in await cf.user.status(handle=handle):
-            if sub.verdict == 'OK' and sub.contestId in subs_by_contest_id:
-                if sub.problem.index not in subs_by_contest_id[sub.contestId]:
-                    subs_by_contest_id[sub.contestId].append(sub.problem.index)
+            if sub.verdict == 'OK':
+                subs_by_contest_id[sub.contestId].add(sub.problem.index)
 
-        packed_contest_subs_problemset = []
+        contest_unsolved_pairs = []
         for contest in contests:
+            num_solved = len(subs_by_contest_id[contest.id])
             try:
-                if len(subs_by_contest_id[contest.id]) > 0:
-                    packed_contest_subs_problemset.append((
-                        cf_common.cache2.contest_cache.get_contest(contest.id),
-                        len(subs_by_contest_id[contest.id]),
-                        len(cf_common.cache2.problemset_cache.get_problemset(contest.id))))
-            except ProblemsetNotCached :
+                num_problems = len(cf_common.cache2.problemset_cache.get_problemset(contest.id))
+                if num_solved>0 and num_solved < num_problems:
+                    contest_unsolved_pairs.append((contest, num_problems - num_solved))
+            except cache_system2.ProblemsetNotCached :
+                """In case of recent contents or cetain bugged contests"""
                 pass
 
-        full_solve = sorted(packed_contest_subs_problemset, key=lambda contest: (contest[2] - contest[1]))
-        full_solve = [(contest_id, solved, total) for contest_id, solved, total in full_solve if (total - solved) > 0]
+        contest_unsolved_pairs.sort(key = lambda p: (p[1], -p[0].startTimeSeconds))
 
-        if not full_solve:
+        if not contest_unsolved_pairs:
             await ctx.send('User has no contests to fullsolve')
         else:
             def make_line(entry):
-                contest, solved, total = entry
-                line = f'[{contest.name}]({contest.url})\N{EN SPACE}[{solved}/{total}]'
-                return line
+                contest = entry[0]
+                solved = len(subs_by_contest_id[contest.id])
+                total = len(cf_common.cache2.problemset_cache.get_problemset(contest.id))
+                return f'[{contest.name}]({contest.url})\N{EN SPACE}[{solved}/{total}]'
 
             def make_page(chunk):
-                message = f'fullsolve list for `{member.display_name}`'
-                log_str = '\n'.join(make_line(entry) for entry in chunk)
-                embed = discord_common.cf_color_embed(description=log_str)
+                message = f'Fullsolve list for `{handle}`'
+                full_solve_list = '\n'.join(make_line(entry) for entry in chunk)
+                embed = discord_common.cf_color_embed(description = full_solve_list)
                 return message, embed
 
-            member = ctx.author
-            pages = [make_page(chunk) for chunk in paginator.chunkify(full_solve, 5)]
+            pages = [make_page(chunk) for chunk in paginator.chunkify(contest_unsolved_pairs, 5)]
             paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
         
     async def cog_command_error(self, ctx, error):
