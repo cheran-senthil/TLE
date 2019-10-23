@@ -399,31 +399,30 @@ class Codeforces(commands.Cog):
             num_solved = len(subs_by_contest_id[contest.id])
             try:
                 num_problems = len(cf_common.cache2.problemset_cache.get_problemset(contest.id))
-                if num_solved>0 and num_solved < num_problems:
-                    contest_unsolved_pairs.append((contest, num_problems - num_solved))
+                if 0 < num_solved < num_problems:
+                    contest_unsolved_pairs.append((contest, num_solved, num_problems))
             except cache_system2.ProblemsetNotCached :
                 """In case of recent contents or cetain bugged contests"""
                 pass
 
-        contest_unsolved_pairs.sort(key = lambda p: (p[1], -p[0].startTimeSeconds))
+        contest_unsolved_pairs.sort(key = lambda p: (p[2] - p[1], -p[0].startTimeSeconds))
 
         if not contest_unsolved_pairs:
             await ctx.send('User has no contests to fullsolve')
-        else:
-            def make_line(entry):
-                contest = entry[0]
-                solved = len(subs_by_contest_id[contest.id])
-                total = len(cf_common.cache2.problemset_cache.get_problemset(contest.id))
-                return f'[{contest.name}]({contest.url})\N{EN SPACE}[{solved}/{total}]'
+            return
 
-            def make_page(chunk):
-                message = f'Fullsolve list for `{handle}`'
-                full_solve_list = '\n'.join(make_line(entry) for entry in chunk)
-                embed = discord_common.cf_color_embed(description = full_solve_list)
-                return message, embed
+        def make_line(entry):
+            contest , solved, total = entry
+            return f'[{contest.name}]({contest.url})\N{EN SPACE}[{solved}/{total}]'
 
-            pages = [make_page(chunk) for chunk in paginator.chunkify(contest_unsolved_pairs, 5)]
-            paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
+        def make_page(chunk):
+            message = f'Fullsolve list for `{handle}`'
+            full_solve_list = '\n'.join(make_line(entry) for entry in chunk)
+            embed = discord_common.cf_color_embed(description = full_solve_list)
+            return message, embed
+
+        pages = [make_page(chunk) for chunk in paginator.chunkify(contest_unsolved_pairs, 5)]
+        paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
         
     async def cog_command_error(self, ctx, error):
         await cf_common.resolve_handle_error_handler(ctx, error)
