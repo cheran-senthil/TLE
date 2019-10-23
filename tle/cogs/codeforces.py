@@ -387,7 +387,7 @@ class Codeforces(commands.Cog):
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         contests = cf_common.cache2.contest_cache.get_contests_in_phase('FINISHED')
 
-        """subs_by_contest_id contains contest_id mapped to [list of problem.index]"""
+        #subs_by_contest_id contains contest_id mapped to [list of problem.index]
         subs_by_contest_id = defaultdict(set)
         for sub in await cf.user.status(handle=handle):
             if sub.verdict == 'OK':
@@ -401,7 +401,7 @@ class Codeforces(commands.Cog):
                 if 0 < num_solved < num_problems:
                     contest_unsolved_pairs.append((contest, num_solved, num_problems))
             except cache_system2.ProblemsetNotCached:
-                """In case of recent contents or cetain bugged contests"""
+                #In case of recent contents or cetain bugged contests
                 pass
 
         contest_unsolved_pairs.sort(key=lambda p: (p[2] - p[1], -p[0].startTimeSeconds))
