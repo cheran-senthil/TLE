@@ -388,7 +388,7 @@ class Codeforces(commands.Cog):
         subs_by_contest_id = {contest.id: [] for contest in contests}
 
         for sub in await cf.user.status(handle=handle):
-            if sub.contestId in subs_by_contest_id:
+            if sub.verdict == "OK" and sub.contestId in subs_by_contest_id:
                 if sub.problem.index not in subs_by_contest_id[sub.contestId]:
                     subs_by_contest_id[sub.contestId].append(sub.problem.index)
 
