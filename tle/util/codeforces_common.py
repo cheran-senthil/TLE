@@ -50,17 +50,14 @@ async def initialize(nodb):
     if nodb:
         user_db = db.DummyUserDbConn()
     else:
-        user_db_file = os.path.join(constants.FILEDIR, constants.USER_DB_FILENAME)
-        user_db = db.UserDbConn(user_db_file)
+        user_db = db.UserDbConn(constants.USER_DB_FILE_PATH)
 
-    cache_db_file = os.path.join(constants.FILEDIR, constants.CACHE_DB_FILENAME)
-    cache_db = db.CacheDbConn(cache_db_file)
+    cache_db = db.CacheDbConn(constants.CACHE_DB_FILE_PATH)
     cache2 = cache_system2.CacheSystem(cache_db)
     await cache2.run()
 
-    jsonfile = os.path.join(constants.FILEDIR, constants.CONTEST_WRITERS_JSON_FILE)
     try:
-        with open(jsonfile) as f:
+        with open(constants.CONTEST_WRITERS_JSON_FILE_PATH) as f:
             data = json.load(f)
         _contest_id_to_writers_map = {contest['id']: contest['writers'] for contest in data}
         logger.info('Contest writers loaded from JSON file')

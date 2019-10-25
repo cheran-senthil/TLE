@@ -113,5 +113,8 @@ pip-wheel-metadata/
 # run
 run.sh
 
-# font files
-*.ttc
+# data
+/data
+
+# logs
+/logs
