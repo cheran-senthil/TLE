@@ -37,7 +37,11 @@ class Ranklist:
 
         self.standing_by_id = {}
         for row in self.standings:
-            id_ = row.party.teamId or row.party.members[0].handle
+            if row.party.ghost:
+                # Apparently ghosts don't have team ID.
+                id_ = row.party.teamName
+            else:
+                id_ = row.party.teamId or row.party.members[0].handle
             self.standing_by_id[id_] = row
 
         self.delta_by_handle = None
