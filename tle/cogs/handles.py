@@ -442,20 +442,21 @@ class Handles(commands.Cog):
     @commands.group(brief='Commands for rank update publishing',
                     invoke_without_command=True)
     async def rankup(self, ctx):
+        """Group for commands involving rank update publishing."""
         await ctx.send_help(ctx.command)
 
     @rankup.command(brief='Set rank update channel to current channel')
     @commands.has_role('Admin')
     async def here(self, ctx):
-        """Set the current channel as channel to publish rank updates to."""
+        """Sets the current channel as the channel to publish rank updates to."""
         cf_common.user_db.set_rankup_channel(ctx.guild.id, ctx.channel.id)
         await ctx.send(embed=discord_common.embed_success('Rank update channel set.'))
 
     @rankup.command(brief='Disable rank update publishing')
     @commands.has_role('Admin')
     async def clear(self, ctx):
-        """Stop publishing rank updates and remove the currently set rank update channel
-        from settings."""
+        """Removes the currently set rank update channel from settings and stops publishing rank
+        updates."""
         rc = cf_common.user_db.clear_rankup_channel(ctx.guild.id)
         if not rc:
             raise HandleCogError('Rank update channel not set.')
@@ -465,6 +466,7 @@ class Handles(commands.Cog):
     @rankup.command(brief='Publish a rank update for the given contest')
     @commands.has_role('Admin')
     async def publish(self, ctx, contest_id: int):
+        """Publishes the rank updates for the contest with given id."""
         channel_id = cf_common.user_db.get_rankup_channel(ctx.guild.id)
         if channel_id is None:
             raise HandleCogError('Rank update channel not set.')
