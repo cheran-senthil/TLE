@@ -418,7 +418,11 @@ class RatingChangesCache:
             return
 
         all_changes = await self._fetch(self.monitored_contests)
+        all_changes.sort(key=lambda pair: pair[1][0].ratingUpdateTimeSeconds)
         self._save_changes(all_changes)
+        for contest, changes in all_changes:
+            cf_common.event_sys.dispatch(events.RatingChangesUpdate, contest=contest,
+                                         rating_changes=changes)
 
     async def _fetch(self, contests):
         all_changes = []
@@ -426,16 +430,17 @@ class RatingChangesCache:
             try:
                 changes = await cf.contest.ratingChanges(contest_id=contest.id)
                 self.logger.info(f'{len(changes)} rating changes fetched for contest {contest.id}')
-                all_changes += changes
+                all_changes.append((contest, changes))
             except cf.CodeforcesApiError as er:
                 self.logger.warning(f'Fetch rating changes failed for contest {contest.id}, ignoring. {er!r}')
                 pass
         return all_changes
 
-    def _save_changes(self, changes):
-        if not changes:
+    def _save_changes(self, all_changes):
+        flattened = [change for _, changes in all_changes for change in changes]
+        if not flattened:
             return
-        rc = self.cache_master.conn.save_rating_changes(changes)
+        rc = self.cache_master.conn.save_rating_changes(flattened)
         self.logger.info(f'Saved {rc} changes to database.')
         self._refresh_handle_cache()
 

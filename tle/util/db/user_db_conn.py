@@ -91,6 +91,12 @@ class UserDbConn:
             'guild_id           TEXT'
             ')'
         )
+        self.conn.execute(
+            'CREATE TABLE IF NOT EXISTS rankup ('
+            'guild_id     TEXT PRIMARY KEY,'
+            'channel_id   TEXT'
+            ')'
+        )
 
     def _insert_one(self, table: str, columns, values: tuple):
         n = len(values)
@@ -385,6 +391,26 @@ class UserDbConn:
         rc = self.conn.execute(query, (guild_id,)).rowcount
         self.conn.commit()
         return rc
+
+    def get_rankup_channel(self, guild_id):
+        query = ('SELECT channel_id '
+                 'FROM rankup '
+                 'WHERE guild_id = ?')
+        channel_id = self.conn.execute(query, (guild_id,)).fetchone()
+        return int(channel_id[0]) if channel_id else None
+
+    def set_rankup_channel(self, guild_id, channel_id):
+        query = ('INSERT OR REPLACE INTO rankup '
+                 '(guild_id, channel_id) '
+                 'VALUES (?, ?)')
+        with self.conn:
+            self.conn.execute(query, (guild_id, channel_id))
+
+    def clear_rankup_channel(self, guild_id):
+        query = ('DELETE FROM rankup '
+                 'WHERE guild_id = ?')
+        with self.conn:
+            return self.conn.execute(query, (guild_id,)).rowcount
 
     def close(self):
         self.conn.close()
