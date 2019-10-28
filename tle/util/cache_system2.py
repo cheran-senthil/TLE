@@ -430,7 +430,8 @@ class RatingChangesCache:
             try:
                 changes = await cf.contest.ratingChanges(contest_id=contest.id)
                 self.logger.info(f'{len(changes)} rating changes fetched for contest {contest.id}')
-                all_changes.append((contest, changes))
+                if changes:
+                    all_changes.append((contest, changes))
             except cf.CodeforcesApiError as er:
                 self.logger.warning(f'Fetch rating changes failed for contest {contest.id}, ignoring. {er!r}')
                 pass
