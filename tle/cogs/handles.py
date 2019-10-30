@@ -226,6 +226,17 @@ class Handles(commands.Cog):
         embed = _make_profile_embed(member, user, mode='get')
         await ctx.send(embed=embed)
 
+    @handle.command(brief='Get Discord username by cf handle')
+    async def rget(self, ctx, handle: str):
+        """Show Discord username of a cf handle."""
+        user_id = cf_common.user_db.rgethandle(handle)
+        if not user_id:
+            raise HandleCogError(f'Discord username for `{handle}` not found in database')
+        user = cf_common.user_db.fetch_cfuser(handle)
+        member = ctx.guild.get_member(int(user_id))
+        embed = _make_profile_embed(member, user, mode='get')
+        await ctx.send(embed=embed)
+
     @handle.command(brief='Remove handle for a user')
     @commands.has_role('Admin')
     async def remove(self, ctx, member: discord.Member):

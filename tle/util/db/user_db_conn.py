@@ -266,6 +266,12 @@ class UserDbConn:
         res = self.conn.execute(query, (id,)).fetchone()
         return res[0] if res else None
 
+    def rgethandle(self, handle):
+        """ returns string or None """
+        query = 'SELECT id FROM user_handle WHERE handle = ?'
+        res = self.conn.execute(query, (handle,)).fetchone()
+        return res[0] if res else None
+
     def getallhandles(self):
         """ returns list of (id, handle) """
         query = 'SELECT id, handle FROM user_handle WHERE status = 1'
