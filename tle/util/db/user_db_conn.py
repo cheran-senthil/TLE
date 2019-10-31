@@ -42,12 +42,6 @@ class UserDbConn:
 
     def create_tables(self):
         self.conn.execute('''
-            CREATE TABLE IF NOT EXISTS user_alt(
-                "user_id"	INTEGER NOT NULL,
-                "handle"	TEXT NOT NULL
-            )
-        ''')
-        self.conn.execute('''
             CREATE TABLE IF NOT EXISTS duelist(
                 "user_id"	INTEGER PRIMARY KEY NOT NULL,
                 "rating"	INTEGER NOT NULL
@@ -565,20 +559,6 @@ class UserDbConn:
             SELECT rating FROM duelist WHERE user_id = ?
         '''
         return self.conn.execute(query, (userid,)).fetchone()[0]
-
-    def add_alt(self, userid, handle):
-        query = '''
-            INSERT INTO user_alt (user_id, handle) VALUES (?, ?)
-        '''
-        rc = self.conn.execute(query, (userid, handle)).rowcount
-        self.conn.commit()
-        return rc
-
-    def get_alts(self, userid):
-        query = '''
-            SELECT handle FROM user_alt WHERE user_id = ?
-        '''
-        return self.conn.execute(query, (userid,)).fetchall()
 
     def is_duelist(self, userid):
         query = '''

@@ -121,12 +121,10 @@ class Dueling(commands.Cog):
         await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author), '!' + str(challenger)))
         userids = [ctx.author.id, challenger_id]
         handles = [cf_common.user_db.gethandle(userid) for userid in userids]
-        alts = [alt for userid in userids for alt, in cf_common.user_db.get_alts(userid)]
         users = [cf_common.user_db.fetch_cfuser(handle) for handle in handles]
         lowest_rating = min(user.rating for user in users)
         rating = max(round(lowest_rating, -2) + _DUEL_RATING_DELTA, 500)
 
-        handles = handles + alts
         submissions = [await cf.user.status(handle=handle) for handle in handles]
         solved = {sub.problem.name for subs in submissions for sub in subs if sub.verdict == 'OK'}
         def get_problems(rating):

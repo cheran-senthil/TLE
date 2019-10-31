@@ -102,13 +102,11 @@ def get_prettyhandles_image(rankings, font):
 
 
 def _make_profile_embed(member, user, *, mode):
-    assert mode in ('set', 'get', 'alt')
+    assert mode in ('set', 'get')
     if mode == 'set':
         desc = f'Handle for {member.mention} successfully set to **[{user.handle}]({user.url})**'
-    elif mode == 'get':
-        desc = f'Handle for {member.mention} is currently set to **[{user.handle}]({user.url})**'
     else:
-        desc = f'**[{user.handle}]({user.url})** successfully set added to {member.mention} alt list'
+        desc = f'Handle for {member.mention} is currently set to **[{user.handle}]({user.url})**'
     if user.rating is None:
         embed = discord.Embed(description=desc)
         embed.add_field(name='Rating', value='Unrated', inline=True)
@@ -179,18 +177,6 @@ class Handles(commands.Cog):
         # CF API returns correct handle ignoring case, update to it
         users = await cf.user.info(handles=[handle])
         await self._set(ctx, member, users[0])
-
-    @handle.command(brief='Set Codeforces handle of user\'s alt')
-    @commands.has_role('Admin')
-    async def alt(self, ctx, member: discord.Member, handle: str):
-        """Set Codeforces handle of user's alt."""
-        # CF API returns correct handle ignoring case
-        users = await cf.user.info(handles=[handle])
-        user = users[0]
-        cf_common.user_db.cache_cfuser(user)
-        cf_common.user_db.add_alt(member.id, user.handle)
-        embed = _make_profile_embed(member, user, mode='alt')
-        await ctx.send(embed=embed)
 
     async def _set(self, ctx, member, user):
         handle = user.handle
