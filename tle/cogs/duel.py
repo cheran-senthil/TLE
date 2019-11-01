@@ -12,6 +12,7 @@ from tle.util import paginator
 from tle.util import discord_common
 from tle.util import table
 
+_DUEL_EXPIRY_TIME = 5 * 60
 _DUEL_RATING_DELTA = -400
 _DUEL_NO_DRAW_TIME = 30 * 60
 _ELO_CONSTANT = 60
@@ -82,8 +83,11 @@ class Dueling(commands.Cog):
             raise DuelCogError(f'{opponent.display_name} is currently in a duel!')
 
         issue_time = datetime.datetime.now().timestamp()
-        cf_common.user_db.create_duel(challenger_id, challengee_id, issue_time)
+        duelid = cf_common.user_db.create_duel(challenger_id, challengee_id, issue_time)
         await ctx.send(f'{ctx.author.mention} is challenging {opponent.mention} to a duel!')
+        await asyncio.sleep(_DUEL_EXPIRY_TIME)
+        if cf_common.user_db.cancel_duel(duelid, Duel.EXPIRED):
+            await ctx.send(f'{ctx.author.mention}, your request to duel {opponent.display_name} has expired!')
 
     @duel.command(brief='Decline a duel')
     async def decline(self, ctx):
