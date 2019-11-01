@@ -157,7 +157,7 @@ def time_format(seconds):
     return days, hours, minutes, seconds
 
 
-def pretty_time_format(seconds, *, shorten=False, only_most_significant=False):
+def pretty_time_format(seconds, *, shorten=False, only_most_significant=False, always_seconds=False):
     days, hours, minutes, seconds = time_format(seconds)
     timespec = [
         (days, 'day', 'days'),
@@ -165,7 +165,7 @@ def pretty_time_format(seconds, *, shorten=False, only_most_significant=False):
         (minutes, 'minute', 'minutes'),
     ]
     timeprint = [(cnt, singular, plural) for cnt, singular, plural in timespec if cnt]
-    if not timeprint:
+    if not timeprint or always_seconds:
         timeprint.append((seconds, 'second', 'seconds'))
     if only_most_significant:
         timeprint = [timeprint[0]]
