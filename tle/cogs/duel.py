@@ -317,23 +317,24 @@ class Dueling(commands.Cog):
     async def ranklist(self, ctx):
         """Show the list of duelists with their duel rating."""
         res = cf_common.user_db.get_duelists()
-
         style = table.Style('{:>}  {:<}  {:<}  {:<}')
         t = table.Table(style)
         t += table.Header('#', 'Name', 'Handle', 'Rating')
         t += table.Line()
-        for index, (user_id, rating) in enumerate(res[:20]):
+        index = 0
+        for user_id, rating in res:
             member = ctx.guild.get_member(user_id)
             if member is None:
                 continue
 
             handle = cf_common.user_db.gethandle(user_id)
             t += table.Data(index, f'{member.display_name}', handle, rating)
-        if index > 0:
-            msg = '```\n' + str(t) + '\n```'
+            index += 1
+
+        if index == 0:
+            await ctx.send('```There are no active duelists.```')
         else:
-            msg = '```There are no duelists.```'
-        await ctx.send(msg)
+            await ctx.send('```\n' + str(t) + '\n```')
 
     async def cog_command_error(self, ctx, error):
         if isinstance(error, DuelCogError):
