@@ -173,15 +173,14 @@ class Dueling(commands.Cog):
         TESTING = -1
         async def get_solve_time(userid):
             handle = cf_common.user_db.gethandle(userid)
-            subs = [(sub.creationTimeSeconds, sub.verdict)
-                    for sub in await cf.user.status(handle=handle)
+            subs = [sub for sub in await cf.user.status(handle=handle)
                     if (sub.verdict == 'OK' or sub.verdict == 'TESTING')
                     and sub.problem.contestId == contest_id
                     and sub.problem.index == index]
 
             if not subs:
                 return UNSOLVED
-            if 'TESTING' in [sub[1] for sub in subs]:
+            if 'TESTING' in [sub.verdict for sub in subs]:
                 return TESTING
             return min(subs, key=lambda sub: sub.creationTimeSeconds).creationTimeSeconds
 
@@ -208,10 +207,10 @@ class Dueling(commands.Cog):
                 await ctx.send(f"{challenger.mention} and {challengee.mention} solved the problem in the exact same amount of time! It's a draw!", embed=embed)
 
         elif challenger_time:
-            embed = complete_duel(duelid, Winner.CHALLENGER, challenger, challengee, challenger_time)
+            embed = complete_duel(duelid, Winner.CHALLENGER, challenger, challengee, challenger_time, 1)
             await ctx.send(f'{challenger.mention} beat {challengee.mention} in a duel!', embed=embed)
         elif challengee_time:
-            embed = complete_duel(duelid, Winner.CHALLENGEE, challengee, challenger, challengee_time)
+            embed = complete_duel(duelid, Winner.CHALLENGEE, challengee, challenger, challengee_time, 1)
             await ctx.send(f'{challengee.mention} beat {challenger.mention} in a duel!', embed=embed)
         else:
             await ctx.send('Nobody solved the problem yet.')
@@ -241,7 +240,7 @@ class Dueling(commands.Cog):
             return
 
         offerer = ctx.guild.get_member(self.draw_offers[duelid])
-        embed = complete_duel(duelid, Winner.DRAW, offerer, ctx.author, challenger_time, 0.5)
+        embed = complete_duel(duelid, Winner.DRAW, offerer, ctx.author, now, 0.5)
         await ctx.send(f'{ctx.author.mention} accepted draw offer by {offerer.mention}.', embed=embed)
 
     @duel.command(brief='Show duelist profile')
