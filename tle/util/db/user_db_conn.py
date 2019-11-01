@@ -464,15 +464,12 @@ class UserDbConn:
         return self.conn.execute(query, (userid, userid)).fetchone()
 
     def create_duel(self, challenger, challengee, issue_time):
-        query1 = f'''
+        query = f'''
             INSERT INTO duel (challenger, challengee, issue_time, status) VALUES (?, ?, ?, {Duel.PENDING})
         '''
-        rc = self.conn.execute(query1, (challenger, challengee, issue_time)).rowcount
+        duelid = self.conn.execute(query, (challenger, challengee, issue_time)).lastrowid
         self.conn.commit()
-        query2 = f'''
-            SELECT id FROM duel WHERE challengee = ? AND status == {Duel.PENDING}
-        '''
-        return self.conn.execute(query2, (challengee,)).fetchone()[0]
+        return duelid
 
     def cancel_duel(self, duelid, status):
         query = f'''
