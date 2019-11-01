@@ -200,6 +200,10 @@ class Handles(commands.Cog):
                           get_exception=lambda: HandleCogError('Identification is already running for you'))
     async def identify(self, ctx, handle: str):
         """Link a codeforces account to discord account by submitting a compile error to a random problem"""
+        if cf_common.user_db.gethandle(ctx.author.id):
+            raise HandleCogError(f'`{ctx.author.mention}`, you cannot identify when your handle is '
+                                 'already set. Ask an Admin if you wish to change it')
+
         users = await cf.user.info(handles=[handle])
         invoker = str(ctx.author)
         handle = users[0].handle
