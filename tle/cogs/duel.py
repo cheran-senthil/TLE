@@ -388,7 +388,10 @@ class Dueling(commands.Cog):
         duelid, challenger_id, challengee_id, _, _, _, _ = active
         challenger = ctx.guild.get_member(challenger_id)
         challengee = ctx.guild.get_member(challengee_id)
-        cf_common.user_db.invalidate_duel(duelid)
+        rc = cf_common.user_db.invalidate_duel(duelid)
+        if rc == 0:
+            raise DuelCogError(f'Unable to invalidate duel {duelid}.')
+
         await ctx.send(f'{ctx.author.mention} invalidated the duel between {challenger.mention} and {challengee.mention}')
 
     async def cog_command_error(self, ctx, error):

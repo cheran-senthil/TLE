@@ -501,7 +501,7 @@ class UserDbConn:
 
     def invalidate_duel(self, duelid):
         query = f'''
-            UPDATE duel SET status = {Duel.INVALID} WHERE id = ?
+            UPDATE duel SET status = {Duel.INVALID} WHERE id = ? AND status = {Duel.ONGOING}
         '''
         rc = self.conn.execute(query, (duelid,)).rowcount
         if rc != 1:
