@@ -316,6 +316,31 @@ class Dueling(commands.Cog):
         pages = [make_page(chunk) for chunk in paginator.chunkify(data, 7)]
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
+    @duel.command(brief='Print list of ongoing duels')
+    async def ongoing(self, ctx, member: discord.Member = None):
+        def make_line(entry):
+            start_time, name, challenger, challengee = entry
+            problem = cf_common.cache2.problem_cache.problem_by_name[name]
+            now = datetime.datetime.now().timestamp()
+            when = cf_common.pretty_time_format(now - start_time, shorten=True, always_seconds=True)
+            challenger = get_cf_user(challenger)
+            challengee = get_cf_user(challengee)
+            return f'[{challenger.handle}]({challenger.url}) vs [{challengee.handle}]({challengee.url}): [{name}]({problem.url}) [{problem.rating}] {when}'
+
+        def make_page(chunk):
+            message = f'List of ongoing duels:'
+            log_str = '\n'.join(make_line(entry) for entry in chunk)
+            embed = discord_common.cf_color_embed(description=log_str)
+            return message, embed
+
+        member = member or ctx.author
+        data = cf_common.user_db.get_ongoing_duels()
+        if not data:
+            raise DuelCogError(f'There are no ongoing duels.')
+
+        pages = [make_page(chunk) for chunk in paginator.chunkify(data, 7)]
+        paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
+
     @duel.command(brief="Show duelists")
     async def ranklist(self, ctx):
         """Show the list of duelists with their duel rating."""

@@ -535,6 +535,13 @@ class UserDbConn:
         '''
         return self.conn.execute(query, (userid, userid)).fetchall()
 
+    def get_ongoing_duels(self):
+        query = f'''
+            SELECT start_time, problem_name, challenger, challengee FROM duel
+            WHERE status == {Duel.ONGOING} ORDER BY start_time DESC
+        '''
+        return self.conn.execute(query).fetchall()
+
     def get_num_duel_draws(self, userid):
         query = f'''
             SELECT COUNT(*) FROM duel WHERE (challengee = ? OR challenger = ?) AND winner == {Winner.DRAW}
