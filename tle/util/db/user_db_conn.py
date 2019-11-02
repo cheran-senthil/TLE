@@ -126,6 +126,17 @@ class UserDbConn:
             'guild_id           TEXT'
             ')'
         )
+        self.conn.execute(
+            'CREATE TABLE IF NOT EXISTS rankup ('
+            'guild_id     TEXT PRIMARY KEY,'
+            'channel_id   TEXT'
+            ')'
+        )
+        self.conn.execute(
+            'CREATE TABLE IF NOT EXISTS auto_role_update ('
+            'guild_id     TEXT PRIMARY KEY'
+            ')'
+        )
 
     def _insert_one(self, table: str, columns, values: tuple):
         n = len(values)
@@ -597,6 +608,45 @@ class UserDbConn:
             SELECT user_id, rating FROM duelist ORDER BY rating DESC
         '''
         return self.conn.execute(query).fetchall()
+
+    def get_rankup_channel(self, guild_id):
+        query = ('SELECT channel_id '
+                 'FROM rankup '
+                 'WHERE guild_id = ?')
+        channel_id = self.conn.execute(query, (guild_id,)).fetchone()
+        return int(channel_id[0]) if channel_id else None
+
+    def set_rankup_channel(self, guild_id, channel_id):
+        query = ('INSERT OR REPLACE INTO rankup '
+                 '(guild_id, channel_id) '
+                 'VALUES (?, ?)')
+        with self.conn:
+            self.conn.execute(query, (guild_id, channel_id))
+
+    def clear_rankup_channel(self, guild_id):
+        query = ('DELETE FROM rankup '
+                 'WHERE guild_id = ?')
+        with self.conn:
+            return self.conn.execute(query, (guild_id,)).rowcount
+
+    def enable_auto_role_update(self, guild_id):
+        query = ('INSERT OR REPLACE INTO auto_role_update '
+                 '(guild_id) '
+                 'VALUES (?)')
+        with self.conn:
+            return self.conn.execute(query, (guild_id,)).rowcount
+
+    def disable_auto_role_update(self, guild_id):
+        query = ('DELETE FROM auto_role_update '
+                 'WHERE guild_id = ?')
+        with self.conn:
+            return self.conn.execute(query, (guild_id,)).rowcount
+
+    def has_auto_role_update_enabled(self, guild_id):
+        query = ('SELECT 1 '
+                 'FROM auto_role_update '
+                 'WHERE guild_id = ?')
+        return self.conn.execute(query, (guild_id,)).fetchone() is not None
 
     def close(self):
         self.conn.close()
