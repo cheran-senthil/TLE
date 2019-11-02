@@ -230,6 +230,10 @@ class Handles(commands.Cog):
                           get_exception=lambda: HandleCogError('Identification is already running for you'))
     async def identify(self, ctx, handle: str):
         """Link a codeforces account to discord account by submitting a compile error to a random problem"""
+        if cf_common.user_db.gethandle(ctx.author.id):
+            raise HandleCogError(f'{ctx.author.mention}, you cannot identify when your handle is '
+                                 'already set. Ask an Admin if you wish to change it')
+
         users = await cf.user.info(handles=[handle])
         invoker = str(ctx.author)
         handle = users[0].handle
@@ -253,6 +257,17 @@ class Handles(commands.Cog):
         if not handle:
             raise HandleCogError(f'Handle for {member.mention} not found in database')
         user = cf_common.user_db.fetch_cfuser(handle)
+        embed = _make_profile_embed(member, user, mode='get')
+        await ctx.send(embed=embed)
+
+    @handle.command(brief='Get Discord username by cf handle')
+    async def rget(self, ctx, handle: str):
+        """Show Discord username of a cf handle."""
+        user_id = cf_common.user_db.rgethandle(handle)
+        if not user_id:
+            raise HandleCogError(f'Discord username for `{handle}` not found in database')
+        user = cf_common.user_db.fetch_cfuser(handle)
+        member = ctx.guild.get_member(int(user_id))
         embed = _make_profile_embed(member, user, mode='get')
         await ctx.send(embed=embed)
 
