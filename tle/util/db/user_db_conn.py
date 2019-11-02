@@ -499,6 +499,17 @@ class UserDbConn:
         self.conn.commit()
         return rc
 
+    def invalidate_duel(self, duelid):
+        query = f'''
+            UPDATE duel SET status = {Duel.INVALID} WHERE id = ?
+        '''
+        rc = self.conn.execute(query, (status, duelid)).rowcount
+        if rc != 1:
+            self.conn.rollback()
+            return 0
+        self.conn.commit()
+        return rc
+
     def start_duel(self, duelid, start_time, prob):
         query = f'''
             UPDATE duel SET start_time = ?, problem_name = ?, contest_id = ?, p_index = ?, status = {Duel.ONGOING}

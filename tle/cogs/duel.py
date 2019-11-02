@@ -378,6 +378,17 @@ class Dueling(commands.Cog):
             raise DuelCogError('There are no active duelists.')
         await ctx.send('```\n' + str(t) + '\n```')
 
+    @duel.command(brief='Invalidate a duel')
+    @commands.has_role('Admin')
+    async def invalidate(self, ctx, member: discord.Member):
+        active = cf_common.user_db.check_duel_complete(member.id)
+        if not active:
+            raise DuelCogError(f'{member.display_name} is not in a duel.')
+
+        duelid, challenger_id, challengee_id, _, _, _, _ = active
+        cf_common.user_db.invalidate_duel(duelid)
+        await ctx.send(f'{ctx.author.mention} invalidated duel between {challenger.display_name} and {challengee.display_name}')
+
     async def cog_command_error(self, ctx, error):
         if isinstance(error, DuelCogError):
             await ctx.send(embed=discord_common.embed_alert(error))
