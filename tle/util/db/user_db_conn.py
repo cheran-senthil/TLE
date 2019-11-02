@@ -503,7 +503,7 @@ class UserDbConn:
         query = f'''
             UPDATE duel SET status = {Duel.INVALID} WHERE id = ?
         '''
-        rc = self.conn.execute(query, (status, duelid)).rowcount
+        rc = self.conn.execute(query, (duelid,)).rowcount
         if rc != 1:
             self.conn.rollback()
             return 0
