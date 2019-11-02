@@ -336,7 +336,7 @@ class Dueling(commands.Cog):
         member = member or ctx.author
         data = cf_common.user_db.get_ongoing_duels()
         if not data:
-            raise DuelCogError(f'There are no ongoing duels.')
+            raise DuelCogError('There are no ongoing duels.')
 
         pages = [make_page(chunk) for chunk in paginator.chunkify(data, 7)]
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
@@ -355,14 +355,17 @@ class Dueling(commands.Cog):
             if member is None:
                 continue
 
+            nduels = cf_common.user_db.get_num_duel_completed(user_id)
+            if nduels == 0:
+                continue;
+
             handle = cf_common.user_db.gethandle(user_id)
             t += table.Data(index, f'{member.display_name}', handle, rating)
             index += 1
 
         if index == 0:
-            await ctx.send('```There are no active duelists.```')
-        else:
-            await ctx.send('```\n' + str(t) + '\n```')
+            raise DuelCogError('There are no active duelists.')
+        await ctx.send('```\n' + str(t) + '\n```')
 
     async def cog_command_error(self, ctx, error):
         if isinstance(error, DuelCogError):
