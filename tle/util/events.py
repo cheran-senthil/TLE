@@ -107,9 +107,8 @@ class Listener:
             self.logger.exception(f'Exception in listener `{self.name}`.')
 
     def __eq__(self, other):
-        if other is None or not isinstance(other, Listener):
-            return False
-        return (self.event_cls, self.func) == (other.event_cls, other.func)
+        return (isinstance(other, Listener)
+                and (self.event_cls, self.func) == (other.event_cls, other.func))
 
     def __hash__(self):
         return hash((self.event_cls, self.func))
