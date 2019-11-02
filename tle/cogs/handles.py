@@ -1,5 +1,6 @@
 import io
 import asyncio
+import contextlib
 import logging
 
 import discord
@@ -20,7 +21,7 @@ from PIL import Image, ImageFont, ImageDraw
 _HANDLES_PER_PAGE = 15
 _NAME_MAX_LEN = 20
 _PAGINATE_WAIT_TIME = 5 * 60  # 5 minutes
-_TOP_DELTAS_SHOW_COUNT = 5
+_TOP_DELTAS_COUNT = 5
 
 
 class HandleCogError(commands.CommandError):
@@ -162,21 +163,20 @@ class Handles(commands.Cog):
         contest, changes = event.contest, event.rating_changes
         change_by_handle = {change.handle: change for change in changes}
 
-        async def rank_update_for_guild(guild):
+        async def update_for_guild(guild):
+            if cf_common.user_db.has_auto_role_update_enabled(guild.id):
+                with contextlib.suppress(HandleCogError):
+                    await self._update_ranks(guild)
             channel_id = cf_common.user_db.get_rankup_channel(guild.id)
             channel = guild.get_channel(channel_id)
-            if channel is None:
-                return
-            try:
-                await self._update_ranks(guild)
-                embed = self._make_rankup_embed(guild, contest, change_by_handle)
-                await channel.send(embed=embed.set_footer(text='Roles updated!'))
-            except HandleCogError:
-                pass
+            if channel is not None:
+                with contextlib.suppress(HandleCogError):
+                    embed = self._make_rankup_embed(guild, contest, change_by_handle)
+                    await channel.send(embed=embed)
 
-        await asyncio.gather(*(rank_update_for_guild(guild) for guild in self.bot.guilds),
+        await asyncio.gather(*(update_for_guild(guild) for guild in self.bot.guilds),
                              return_exceptions=True)
-        self.logger.info(f'Roles updated for all guilds for contest {contest.id}.')
+        self.logger.info(f'All guilds updated for contest {contest.id}.')
 
     @commands.group(brief='Commands that have to do with handles', invoke_without_command=True)
     async def handle(self, ctx):
@@ -384,7 +384,7 @@ class Handles(commands.Cog):
                                for member, handle in member_handle_pairs
                                if member is not None and handle in change_by_handle]
         if not member_change_pairs:
-            raise HandleCogError(f'Contest `{contest.id} | {contest.name}` was not rated for any'
+            raise HandleCogError(f'Contest `{contest.id} | {contest.name}` was not rated for any '
                                  'member of this server.')
 
         member_change_pairs.sort(key=lambda pair: pair[1].newRating, reverse=True)
@@ -397,14 +397,12 @@ class Handles(commands.Cog):
 
         rank_changes_str = []
         for member, change in member_change_pairs:
-            old_role = None
-            if change.oldRating == 1500:
-                # Check if this is the user's first rated contest.
-                rating_changes = cf_common.cache2.rating_changes_cache.get_rating_changes_for_handle(change.handle)
-                first = min(rating_changes, key=lambda change: change.ratingUpdateTimeSeconds)
-                if first.contestId == change.contestId:
-                    old_role = 'Unrated'
-            if old_role is None:
+            cache = cf_common.cache2.rating_changes_cache
+            if (change.oldRating == 1500
+                    and len(cache.get_rating_changes_for_handle(change.handle)) == 1):
+                # If this is the user's first rated contest.
+                old_role = 'Unrated'
+            else:
                 old_role = rating_to_displayable_rank(change.oldRating)
             new_role = rating_to_displayable_rank(change.newRating)
             if new_role != old_role:
@@ -415,7 +413,7 @@ class Handles(commands.Cog):
         member_change_pairs.sort(key=lambda pair: pair[1].newRating - pair[1].oldRating,
                                  reverse=True)
         top_increases_str = []
-        for member, change in member_change_pairs[:_TOP_DELTAS_SHOW_COUNT]:
+        for member, change in member_change_pairs[:_TOP_DELTAS_COUNT]:
             delta = change.newRating - change.oldRating
             if delta <= 0:
                 break
@@ -432,48 +430,67 @@ class Handles(commands.Cog):
                         inline=False)
         return embed
 
-    @commands.command(brief='Update Codeforces rank roles')
+    @commands.group(brief='Commands for role updates',
+                    invoke_without_command=True)
+    async def roleupdate(self, ctx):
+        """Group for commands involving role updates."""
+        await ctx.send_help(ctx.command)
+
+    @roleupdate.command(brief='Update Codeforces rank roles')
     @commands.has_role('Admin')
-    async def updateroles(self, ctx):
-        """Update Codeforces rank roles for every member in this server."""
+    async def now(self, ctx):
+        """Updates Codeforces rank roles for every member in this server."""
         await self._update_ranks(ctx.guild)
         await ctx.send(embed=discord_common.embed_success('Roles updated successfully.'))
 
-    @commands.group(brief='Commands for rank update publishing',
-                    invoke_without_command=True)
-    async def rankup(self, ctx):
-        """Group for commands involving rank update publishing."""
-        await ctx.send_help(ctx.command)
-
-    @rankup.command(brief='Set rank update channel to current channel')
+    @roleupdate.command(brief='Enable or disable auto role updates',
+                        usage='on|off')
     @commands.has_role('Admin')
-    async def here(self, ctx):
-        """Sets the current channel as the channel to publish rank updates to."""
-        cf_common.user_db.set_rankup_channel(ctx.guild.id, ctx.channel.id)
-        await ctx.send(embed=discord_common.embed_success('Rank update channel set.'))
+    async def auto(self, ctx, arg):
+        """Auto role update refers to automatic updating of rank roles when rating
+        changes are released on Codeforces. 'on'/'off' disables or enables auto role
+        updates.
+        """
+        if arg == 'on':
+            rc = cf_common.user_db.enable_auto_role_update(ctx.guild.id)
+            if not rc:
+                raise HandleCogError('Auto role update is already enabled.')
+            await ctx.send(embed=discord_common.embed_success('Auto role updates enabled.'))
+        elif arg == 'off':
+            rc = cf_common.user_db.disable_auto_role_update(ctx.guild.id)
+            if not rc:
+                raise HandleCogError('Auto role update is already disabled.')
+            await ctx.send(embed=discord_common.embed_success('Auto role updates disabled.'))
+        else:
+            raise ValueError(f"arg must be 'on' or 'off', got '{arg}' instead.")
 
-    @rankup.command(brief='Disable rank update publishing')
+    @roleupdate.command(brief='Publish a rank update for the given contest',
+                        usage='here|off|contest_id')
     @commands.has_role('Admin')
-    async def clear(self, ctx):
-        """Removes the currently set rank update channel from settings and stops publishing rank
-        updates."""
-        rc = cf_common.user_db.clear_rankup_channel(ctx.guild.id)
-        if not rc:
-            raise HandleCogError('Rank update channel not set.')
-        await ctx.send(embed=discord_common.embed_success('Rank update channel cleared from '
-                                                          'settings.'))
+    async def publish(self, ctx, arg):
+        """This is a feature to publish a summary of rank changes and top rating
+        increases in a particular contest for members of this server. 'here' will
+        automatically publish the summary to this channel whenever rating changes on
+        Codeforces are released. 'off' will disable auto publishing. Specifying a
+        contest id will publish the summary immediately.
+        """
+        if arg == 'here':
+            cf_common.user_db.set_rankup_channel(ctx.guild.id, ctx.channel.id)
+            await ctx.send(
+                embed=discord_common.embed_success('Auto rank update publishing enabled.'))
+        elif arg == 'off':
+            rc = cf_common.user_db.clear_rankup_channel(ctx.guild.id)
+            if not rc:
+                raise HandleCogError('Rank update publishing is already disabled.')
+            await ctx.send(embed=discord_common.embed_success('Rank update publishing disabled.'))
+        else:
+            try:
+                contest_id = int(arg)
+            except ValueError:
+                raise ValueError(f"arg must be 'here', 'off' or a contest ID, got '{arg}' instead.")
+            await self._publish_now(ctx, contest_id)
 
-    @rankup.command(brief='Publish a rank update for the given contest')
-    @commands.has_role('Admin')
-    async def publish(self, ctx, contest_id: int):
-        """Publishes the rank updates for the contest with given id."""
-        channel_id = cf_common.user_db.get_rankup_channel(ctx.guild.id)
-        if channel_id is None:
-            raise HandleCogError('Rank update channel not set.')
-        channel = ctx.guild.get_channel(channel_id)
-        if channel is None:
-            raise HandleCogError('Channel set for rank update is no longer available.')
-
+    async def _publish_now(self, ctx, contest_id):
         try:
             contest = cf_common.cache2.contest_cache.get_contest(contest_id)
         except cache_system2.ContestNotFound as e:
@@ -489,9 +506,7 @@ class Handles(commands.Cog):
                                  f'{contest.name}`.')
 
         change_by_handle = {change.handle: change for change in changes}
-        await channel.send(embed=self._make_rankup_embed(ctx.guild, contest, change_by_handle))
-        await ctx.send(embed=discord_common.embed_success(f'Rank updates published to '
-                                                          f'{channel.mention}.'))
+        await ctx.channel.send(embed=self._make_rankup_embed(ctx.guild, contest, change_by_handle))
 
     async def cog_command_error(self, ctx, error):
         if isinstance(error, HandleCogError):

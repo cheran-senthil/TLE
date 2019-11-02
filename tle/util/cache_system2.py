@@ -417,10 +417,12 @@ class RatingChangesCache:
             await self._monitor_task.stop()
             return
 
-        all_changes = await self._fetch(self.monitored_contests)
-        all_changes.sort(key=lambda pair: pair[1][0].ratingUpdateTimeSeconds)
-        self._save_changes(all_changes)
-        for contest, changes in all_changes:
+        contest_changes_pairs = await self._fetch(self.monitored_contests)
+        # Sort by the rating update time of the first change in the list of changes, assuming
+        # every change in the list has the same time.
+        contest_changes_pairs.sort(key=lambda pair: pair[1][0].ratingUpdateTimeSeconds)
+        self._save_changes(contest_changes_pairs)
+        for contest, changes in contest_changes_pairs:
             cf_common.event_sys.dispatch(events.RatingChangesUpdate, contest=contest,
                                          rating_changes=changes)
 
@@ -437,8 +439,8 @@ class RatingChangesCache:
                 pass
         return all_changes
 
-    def _save_changes(self, all_changes):
-        flattened = [change for _, changes in all_changes for change in changes]
+    def _save_changes(self, contest_changes_pairs):
+        flattened = [change for _, changes in contest_changes_pairs for change in changes]
         if not flattened:
             return
         rc = self.cache_master.conn.save_rating_changes(flattened)
