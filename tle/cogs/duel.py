@@ -62,7 +62,9 @@ class Dueling(commands.Cog):
     @commands.has_role('Admin')
     async def register(self, ctx, member: discord.Member):
         """Register a duelist"""
-        cf_common.user_db.register_duelist(member.id)
+        rc = cf_common.user_db.register_duelist(member.id)
+        if rc == 0:
+            raise DuelCogError(f'{member.display_name} is already a registered duelist')
         await ctx.send(f'{member.mention} successfully registered as a duelist.')
 
     @duel.command(brief='Challenge to a duel')
