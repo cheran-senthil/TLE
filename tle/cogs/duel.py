@@ -286,34 +286,43 @@ class Dueling(commands.Cog):
         embed.set_thumbnail(url=f'https:{user.titlePhoto}')
         await ctx.send(embed=embed)
 
-    @duel.command(brief='Print user dueling history')
-    async def history(self, ctx, member: discord.Member = None):
+    def _paginate_duels(self, data, message, show_id):
         def make_line(entry):
-            start_time, finish_time, name, challenger, challengee, winner = entry
+            duelid, start_time, finish_time, name, challenger, challengee, winner = entry
             duel_time = cf_common.pretty_time_format(finish_time - start_time, shorten=True, always_seconds=True)
             problem = cf_common.cache2.problem_cache.problem_by_name[name]
             when = cf_common.days_ago(start_time)
+            idstr = f'{duelid}: '
             if winner != Winner.DRAW:
                 loser = get_cf_user(challenger if winner == Winner.CHALLENGEE else challengee)
                 winner = get_cf_user(challenger if winner == Winner.CHALLENGER else challengee)
-                return f'[{name}]({problem.url}) [{problem.rating}] won by [{winner.handle}]({winner.url}) vs [{loser.handle}]({loser.url}) {when} in {duel_time}'
+                return f'{idstr if show_id else str()}[{name}]({problem.url}) [{problem.rating}] won by [{winner.handle}]({winner.url}) vs [{loser.handle}]({loser.url}) {when} in {duel_time}'
             else:
                 challenger = get_cf_user(challenger)
                 challengee = get_cf_user(challengee)
-                return f'[{name}]({problem.url}) [{problem.rating}] drawn by [{challenger.handle}]({challenger.url}) and [{challengee.handle}]({challengee.url}) {when} after {duel_time}'
+                return f'{idstr if show_id else str()}[{name}]({problem.url}) [{problem.rating}] drawn by [{challenger.handle}]({challenger.url}) and [{challengee.handle}]({challengee.url}) {when} after {duel_time}'
 
         def make_page(chunk):
-            message = f'dueling history of {member.display_name}'
             log_str = '\n'.join(make_line(entry) for entry in chunk)
             embed = discord_common.cf_color_embed(description=log_str)
             return message, embed
 
+        if not data:
+            raise DuelCogError(f'There are no duels to show.')
+
+        return [make_page(chunk) for chunk in paginator.chunkify(data, 7)]
+
+    @duel.command(brief='Print user dueling history')
+    async def history(self, ctx, member: discord.Member = None):
         member = member or ctx.author
         data = cf_common.user_db.get_duels(member.id)
-        if not data:
-            raise DuelCogError(f'{member.display_name} has no dueling history.')
+        pages = self._paginate_duels(data, f'dueling history of {member.display_name}', False)
+        paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
-        pages = [make_page(chunk) for chunk in paginator.chunkify(data, 7)]
+    @duel.command(brief='Print recent duels')
+    async def recent(self, ctx):
+        data = cf_common.user_db.get_recent_duels()
+        pages = self._paginate_duels(data, 'list of recent duels', True)
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
     @duel.command(brief='Print list of ongoing duels')
