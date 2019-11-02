@@ -386,6 +386,8 @@ class Dueling(commands.Cog):
             raise DuelCogError(f'{member.display_name} is not in a duel.')
 
         duelid, challenger_id, challengee_id, _, _, _, _ = active
+        challenger = ctx.guild.get_member(challenger_id)
+        challengee = ctx.guild.get_member(challengee_id)
         cf_common.user_db.invalidate_duel(duelid)
         await ctx.send(f'{ctx.author.mention} invalidated duel between {challenger.display_name} and {challengee.display_name}')
 
