@@ -324,12 +324,12 @@ class Dueling(commands.Cog):
         data = cf_common.user_db.get_pair_duels(member1.id, member2.id)
         w, l, d = 0, 0, 0
         for _, _, _, _, challenger, challengee, winner in data:
-            if challenger != member1.id:
-                challenger, challengee = challengee, challenger
-            if winner == Winner.CHALLENGER:
-                w += 1
-            elif winner == Winner.CHALLENGEE:
-                l += 1
+            if winner != Winner.DRAW:
+                winnerid = challenger if winner == Winner.CHALLENGER else challengee
+                if winnerid == member1:
+                    w += 1
+                else:
+                    l += 1
             else:
                 d += 1
         pages = self._paginate_duels(data, f'{member1.display_name} ({w}/{d}/{l}) {member2.display_name}', False)
