@@ -359,13 +359,14 @@ class Dueling(commands.Cog):
         users = [(member, cf_common.user_db.gethandle(member.id), rating) for member, rating in users
                  if member is not None and cf_common.user_db.get_num_duel_completed(member.id) > 0]
 
-        def make_page(chunk):
+        _PER_PAGE = 10
+        def make_page(chunk, page_num):
             style = table.Style('{:>}  {:<}  {:<}  {:<}')
             t = table.Table(style)
             t += table.Header('#', 'Name', 'Handle', 'Rating')
             t += table.Line()
             for index, (member, handle, rating) in enumerate(chunk):
-                t += table.Data(index, f'{member.display_name}', handle, rating)
+                t += table.Data(_PER_PAGE * page_num + index, f'{member.display_name}', handle, rating)
 
             table_str = f'```\n{t}\n```'
             embed = discord_common.cf_color_embed(description=table_str)
@@ -374,7 +375,7 @@ class Dueling(commands.Cog):
         if not users:
             raise DuelCogError('There are no active duelists.')
 
-        pages = [make_page(chunk) for chunk in paginator.chunkify(users, 10)]
+        pages = [make_page(chunk, k) for k, chunk in enumerate(paginator.chunkify(users, _PER_PAGE))]
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
     @duel.command(brief='Invalidate a duel')
