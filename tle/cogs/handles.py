@@ -530,6 +530,37 @@ class Handles(commands.Cog):
         change_by_handle = {change.handle: change for change in changes}
         await ctx.channel.send(embed=self._make_rankup_embed(ctx.guild, contest, change_by_handle))
 
+    async def _generic_remind(self, ctx, arg, role_name, what):
+        roles = [role for role in ctx.guild.roles if role.name == role_name]
+        if not roles:
+            raise HandleCogError(f'Role `{role_name}` not present in the server')
+        role = roles[0]
+        if arg == 'give':
+            if role in ctx.author.roles:
+                await ctx.send(embed=discord_common.embed_neutral(f'You are already subscribed to {what} reminders'))
+                return
+            await ctx.author.add_roles(role, reason=f'User subscribed to {what} reminders')
+            await ctx.send(embed=discord_common.embed_success(f'Successfully subscribed to {what} reminders'))
+        elif arg == 'remove':
+            if role not in ctx.author.roles:
+                await ctx.send(embed=discord_common.embed_neutral(f'You are not subscribed to {what} reminders'))
+                return
+            await ctx.author.remove_roles(role, reason=f'User unsubscribed from {what} reminders')
+            await ctx.send(embed=discord_common.embed_success(f'Successfully unsubscribed from {what} reminders'))
+        else:
+            raise HandleCogError(f'Invalid argument {arg}')
+
+    @commands.command(brief='Subscribe to or unsubscribe from duel/vc reminders',
+                      usage='[give/remove] [vc/duel]')
+    async def role(self, ctx, which: str, arg: str):
+        """e.g. ;gimmerole duel not"""
+        if which == 'vc':
+            await self._generic_remind(ctx, arg, 'Virtual Contestant', 'vc')
+        elif which == 'duel':
+            await self._generic_remind(ctx, arg, 'Duelist', 'duel')
+        else:
+            raise HandleCogError(f'Invalid argument {which}')
+
     @discord_common.send_error_if(HandleCogError)
     async def cog_command_error(self, ctx, error):
         pass
