@@ -314,6 +314,27 @@ class Dueling(commands.Cog):
 
         return [make_page(chunk) for chunk in paginator.chunkify(data, 7)]
 
+    @duel.command(brief='Print head to head dueling history',
+                  aliases=['versushistory'])
+    async def vshistory(self, ctx, member1: discord.Member = None, member2: discord.Member = None):
+        if not member1:
+            raise DuelCogError(f'You need to specify one or two discord members.')
+
+        member2 = member2 or ctx.author
+        data = cf_common.user_db.get_pair_duels(member1.id, member2.id)
+        w, l, d = 0, 0, 0
+        for _, _, _, _, challenger, challengee, winner in data:
+            if challenger != member1.id:
+                challenger, challengee = challengee, challenger
+            if winner == Winner.CHALLENGER:
+                w += 1
+            elif winner == Winner.CHALLENGEE:
+                l += 1
+            else:
+                d += 1
+        pages = self._paginate_duels(data, f'{member1.display_name} ({w}/{d}/{l}) {member2.display_name}', False)
+        paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
+
     @duel.command(brief='Print user dueling history')
     async def history(self, ctx, member: discord.Member = None):
         member = member or ctx.author
