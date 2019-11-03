@@ -355,28 +355,27 @@ class Dueling(commands.Cog):
     @duel.command(brief="Show duelists")
     async def ranklist(self, ctx):
         """Show the list of duelists with their duel rating."""
-        res = cf_common.user_db.get_duelists()
-        style = table.Style('{:>}  {:<}  {:<}  {:<}')
-        t = table.Table(style)
-        t += table.Header('#', 'Name', 'Handle', 'Rating')
-        t += table.Line()
-        index = 0
-        for user_id, rating in res:
-            member = ctx.guild.get_member(user_id)
-            if member is None:
-                continue
+        users = [(ctx.guild.get_member(user_id), rating) for user_id, rating in cf_common.user_db.get_duelists()]
+        users = [(member, cf_common.user_db.gethandle(member.id), rating) for member, rating in users
+                 if member is not None and cf_common.user_db.get_num_duel_completed(member.id) > 0]
 
-            nduels = cf_common.user_db.get_num_duel_completed(user_id)
-            if nduels == 0:
-                continue;
+        def make_page(chunk):
+            style = table.Style('{:>}  {:<}  {:<}  {:<}')
+            t = table.Table(style)
+            t += table.Header('#', 'Name', 'Handle', 'Rating')
+            t += table.Line()
+            for index, (member, handle, rating) in enumerate(chunk):
+                t += table.Data(index, f'{member.display_name}', handle, rating)
 
-            handle = cf_common.user_db.gethandle(user_id)
-            t += table.Data(index, f'{member.display_name}', handle, rating)
-            index += 1
+            table_str = f'```\n{t}\n```'
+            embed = discord_common.cf_color_embed(description=table_str)
+            return 'List of duelists', embed
 
-        if index == 0:
+        if not users:
             raise DuelCogError('There are no active duelists.')
-        await ctx.send('```\n' + str(t) + '\n```')
+
+        pages = [make_page(chunk) for chunk in paginator.chunkify(users, 10)]
+        paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
     @duel.command(brief='Invalidate a duel')
     @commands.has_role('Admin')
