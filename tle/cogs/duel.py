@@ -315,7 +315,7 @@ class Dueling(commands.Cog):
         return [make_page(chunk) for chunk in paginator.chunkify(data, 7)]
 
     @duel.command(brief='Print head to head dueling history')
-    async def pairhistory(self, ctx, member1: discord.Member = None, member2: discord.Member = None):
+    async def vshistory(self, ctx, member1: discord.Member = None, member2: discord.Member = None):
         if not member1:
             raise DuelCogError(f'You need to specify one or two discord members.')
 
