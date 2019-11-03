@@ -546,6 +546,12 @@ class UserDbConn:
         '''
         return self.conn.execute(query, (userid, userid)).fetchall()
 
+    def get_pair_duels(self, userid1, userid2):
+        query = f'''
+            SELECT id, start_time, finish_time, problem_name, challenger, challengee, winner FROM duel WHERE (challenger = ? OR challenger = ?) AND status == {Duel.COMPLETE} ORDER BY start_time DESC
+        '''
+        return self.conn.execute(query, (userid1, userid2)).fetchall()
+
     def get_recent_duels(self):
         query = f'''
             SELECT id, start_time, finish_time, problem_name, challenger, challengee, winner FROM duel WHERE status == {Duel.COMPLETE} ORDER BY start_time DESC LIMIT 7

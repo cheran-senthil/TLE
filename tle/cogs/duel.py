@@ -315,6 +315,16 @@ class Dueling(commands.Cog):
         return [make_page(chunk) for chunk in paginator.chunkify(data, 7)]
 
     @duel.command(brief='Print user dueling history')
+    async def pairhistory(self, ctx, member1: discord.Member = None, member2: discord.Member = None):
+        if not member1:
+            raise DuelCogError(f'There are no duels to show.')
+
+        member2 = member2 or ctx.author
+        data = cf_common.user_db.get_pair_duels(member1.id, member2.id)
+        pages = self._paginate_duels(data, f'dueling history of {member1.display_name} vs {member2.display_name}', False)
+        paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
+
+    @duel.command(brief='Print user dueling history')
     async def history(self, ctx, member: discord.Member = None):
         member = member or ctx.author
         data = cf_common.user_db.get_duels(member.id)
