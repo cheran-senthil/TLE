@@ -322,7 +322,17 @@ class Dueling(commands.Cog):
 
         member2 = member2 or ctx.author
         data = cf_common.user_db.get_pair_duels(member1.id, member2.id)
-        pages = self._paginate_duels(data, f'dueling history of {member1.display_name} vs {member2.display_name}', False)
+        w, l, d = 0, 0, 0
+        for _, _, _, _, challenger, challengee, winner in data:
+            if challenger != member1.id:
+                challenger, challengee = challengee, challenger
+            if winner == Winner.CHALLENGER:
+                w += 1
+            elif winner == Winner.CHALLENGEE:
+                l += 1
+            else:
+                d += 1
+        pages = self._paginate_duels(data, f'{member1.display_name} ({w}/{d}/{l}) {member2.display_name}', False)
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
     @duel.command(brief='Print user dueling history')
