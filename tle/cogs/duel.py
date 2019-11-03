@@ -326,7 +326,7 @@ class Dueling(commands.Cog):
         for _, _, _, _, challenger, challengee, winner in data:
             if winner != Winner.DRAW:
                 winnerid = challenger if winner == Winner.CHALLENGER else challengee
-                if winnerid == member1:
+                if winnerid == member1.id:
                     w += 1
                 else:
                     l += 1
