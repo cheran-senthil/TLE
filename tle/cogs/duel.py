@@ -367,7 +367,7 @@ class Dueling(commands.Cog):
             for index, (member, handle, rating) in enumerate(chunk):
                 t += table.Data(index, f'{member.display_name}', handle, rating)
 
-            table_str = '```\n' + str(t) + '\n```'
+            table_str = f'```\n{t}\n```'
             embed = discord_common.cf_color_embed(description=table_str)
             return 'List of duelists', embed
 
