@@ -314,10 +314,10 @@ class Dueling(commands.Cog):
 
         return [make_page(chunk) for chunk in paginator.chunkify(data, 7)]
 
-    @duel.command(brief='Print user dueling history')
+    @duel.command(brief='Print head to head dueling history')
     async def pairhistory(self, ctx, member1: discord.Member = None, member2: discord.Member = None):
         if not member1:
-            raise DuelCogError(f'There are no duels to show.')
+            raise DuelCogError(f'You need to specify one or two discord members.')
 
         member2 = member2 or ctx.author
         data = cf_common.user_db.get_pair_duels(member1.id, member2.id)
