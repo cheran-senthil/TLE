@@ -132,7 +132,7 @@ class Dueling(commands.Cog):
         rating = max(round(lowest_rating, -2) + _DUEL_RATING_DELTA, 500)
 
         submissions = [await cf.user.status(handle=handle) for handle in handles]
-        solved = {sub.problem.name for subs in submissions for sub in subs if sub.verdict == 'OK'}
+        solved = {sub.problem.name for subs in submissions for sub in subs if sub.verdict != 'COMPILATION_ERROR'}
         def get_problems(rating):
             return [prob for prob in cf_common.cache2.problem_cache.problems
                     if prob.rating == rating and prob.name not in solved
