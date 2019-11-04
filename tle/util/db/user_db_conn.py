@@ -631,7 +631,8 @@ class UserDbConn:
             INSERT OR IGNORE INTO duelist (user_id, rating)
             VALUES (?, 1500)
         '''
-        return self.conn.execute(query, (userid,)).rowcount
+        with self.conn:
+            return self.conn.execute(query, (userid,)).rowcount
 
     def get_duelists(self):
         query = '''
