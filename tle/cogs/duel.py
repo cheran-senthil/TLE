@@ -409,8 +409,9 @@ class Dueling(commands.Cog):
         challengee = ctx.guild.get_member(challengee_id)
         await ctx.send(f'Duel between {challenger.mention} and {challengee.mention} has been invalidated.')
 
-    @duel.command(brief='Invalidate a duel')
+    @duel.command(brief='Invalidate the duel')
     async def invalidate(self, ctx):
+        """Declare your duel invalid. Use this if you've solved the problem prior to the duel."""
         active = cf_common.user_db.check_duel_complete(ctx.author.id)
         if not active:
             raise DuelCogError(f'{ctx.author.mention}, you are not in a duel.')
