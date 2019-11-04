@@ -238,9 +238,9 @@ class Codeforces(commands.Cog):
             return
 
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
-                    if prob.rating == rating + delta
-                    and prob.name not in solved
-                    and prob.name not in noguds]
+                    if (prob.rating == rating + delta and
+                        prob.name not in solved and
+                        prob.name not in noguds)]
 
         def check(problem):
             contest = cf_common.cache2.contest_cache.get_contest(problem.contestId)
