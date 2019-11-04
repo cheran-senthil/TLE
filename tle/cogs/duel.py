@@ -12,6 +12,7 @@ from tle.util import paginator
 from tle.util import discord_common
 from tle.util import table
 
+_DUEL_INVALIDATE_TIME = 30
 _DUEL_EXPIRY_TIME = 5 * 60
 _DUEL_RATING_DELTA = -400
 _DUEL_NO_DRAW_TIME = 30 * 60
@@ -399,21 +400,35 @@ class Dueling(commands.Cog):
         pages = [make_page(chunk, k) for k, chunk in enumerate(paginator.chunkify(users, _PER_PAGE))]
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
-    @duel.command(brief='Invalidate a duel')
-    @commands.has_role('Admin')
-    async def invalidate(self, ctx, member: discord.Member):
-        active = cf_common.user_db.check_duel_complete(member.id)
-        if not active:
-            raise DuelCogError(f'{member.display_name} is not in a duel.')
-
-        duelid, challenger_id, challengee_id, _, _, _, _ = active
+    async def invalidate_duel(self, ctx, duelid, challenger_id, challengee_id):
         rc = cf_common.user_db.invalidate_duel(duelid)
         if rc == 0:
             raise DuelCogError(f'Unable to invalidate duel {duelid}.')
 
         challenger = ctx.guild.get_member(challenger_id)
         challengee = ctx.guild.get_member(challengee_id)
-        await ctx.send(f'{ctx.author.mention} invalidated the duel between {challenger.mention} and {challengee.mention}')
+        await ctx.send(f'Duel between {challenger.mention} and {challengee.mention} has been invalidated.')
+
+    @duel.command(brief='Invalidate a duel')
+    async def invalidate(self, ctx):
+        active = cf_common.user_db.check_duel_complete(ctx.author.id)
+        if not active:
+            raise DuelCogError(f'{ctx.author.mention}, you are not in a duel.')
+
+        duelid, challenger_id, challengee_id, start_time, _, _, _ = active
+        if datetime.datetime.now().timestamp() - start_time > _DUEL_INVALIDATE_TIME:
+            raise DuelCogError(f'{ctx.author.mention}, you can no longer invalidate your duel.')
+        await self.invalidate_duel(ctx, duelid, challenger_id, challengee_id)
+
+    @duel.command(brief='Invalidate a duel')
+    @commands.has_role('Admin')
+    async def _invalidate(self, ctx, member: discord.Member):
+        active = cf_common.user_db.check_duel_complete(member.id)
+        if not active:
+            raise DuelCogError(f'{member.display_name} is not in a duel.')
+
+        duelid, challenger_id, challengee_id, _, _, _, _ = active
+        await self.invalidate_duel(ctx, duelid, challenger_id, challengee_id)
 
     async def cog_command_error(self, ctx, error):
         if isinstance(error, DuelCogError):
