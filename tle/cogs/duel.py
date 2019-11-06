@@ -70,7 +70,7 @@ class Dueling(commands.Cog):
 
     @duel.command(brief='Challenge to a duel')
     async def challenge(self, ctx, opponent: discord.Member):
-        """Challenge another server member to a duel. Problem difficulty will be the lesser of duelist ratings minus 400."""
+        """Challenge another server member to a duel. Problem difficulty will be the lesser of duelist ratings minus 400. The challenge expires if ignored for 5 minutes."""
         challenger_id = ctx.author.id
         challengee_id = opponent.id
 
@@ -411,7 +411,8 @@ class Dueling(commands.Cog):
 
     @duel.command(brief='Invalidate the duel')
     async def invalidate(self, ctx):
-        """Declare your duel invalid. Use this if you've solved the problem prior to the duel."""
+        """Declare your duel invalid. Use this if you've solved the problem prior to the duel.
+        You can only use this functionality during the first 30 seconds of the duel."""
         active = cf_common.user_db.check_duel_complete(ctx.author.id)
         if not active:
             raise DuelCogError(f'{ctx.author.mention}, you are not in a duel.')
@@ -421,9 +422,10 @@ class Dueling(commands.Cog):
             raise DuelCogError(f'{ctx.author.mention}, you can no longer invalidate your duel.')
         await self.invalidate_duel(ctx, duelid, challenger_id, challengee_id)
 
-    @duel.command(brief='Invalidate a duel')
+    @duel.command(brief='Invalidate a duel', usage='[duelist]')
     @commands.has_role('Admin')
     async def _invalidate(self, ctx, member: discord.Member):
+        """Declare an ongoing duel invalid."""
         active = cf_common.user_db.check_duel_complete(member.id)
         if not active:
             raise DuelCogError(f'{member.display_name} is not in a duel.')
