@@ -57,12 +57,8 @@ def main():
     bot = commands.Bot(command_prefix=commands.when_mentioned_or(';'))
     cogs = [file.stem for file in Path('tle', 'cogs').glob('*.py')]
     for extension in cogs:
-        try:
-            bot.load_extension(f'tle.cogs.{extension}')
-        except Exception as e:
-            logging.error(f'Failed to load extension {extension}: {e})')
-
-    logging.info(f'Cogs loaded...')
+        bot.load_extension(f'tle.cogs.{extension}')
+    logging.info(f'Cogs loaded: {", ".join(bot.cogs)}')
 
     def no_dm_check(ctx):
         if ctx.guild is None:
