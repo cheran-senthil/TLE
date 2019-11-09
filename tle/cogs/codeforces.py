@@ -1,7 +1,6 @@
 import datetime
-import math
 import random
-import time
+from collections import defaultdict
 
 import discord
 from discord.ext import commands
@@ -13,10 +12,13 @@ from tle.util.db.user_db_conn import Gitgud
 from tle.util import paginator
 from tle.util import cache_system2
 
-from collections import defaultdict
 
 _GITGUD_NO_SKIP_TIME = 3 * 60 * 60
 _GITGUD_SCORE_DISTRIB = (2, 3, 5, 8, 12, 17, 23)
+
+
+class CodeforcesCogError(commands.CommandError):
+    pass
 
 
 class Codeforces(commands.Cog):
@@ -61,7 +63,7 @@ class Codeforces(commands.Cog):
         """
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         user = cf_common.user_db.fetch_cfuser(handle)
-        rating = round(user.rating, -2)
+        rating = round(user.effective_rating, -2)
         resp = await cf.user.rating(handle=handle)
         contests = {change.contestId for change in resp}
         submissions = await cf.user.status(handle=handle)
@@ -100,19 +102,13 @@ class Codeforces(commands.Cog):
                 tags.append(arg)
 
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
-        user = cf_common.user_db.fetch_cfuser(handle)
-        rating = user.rating
         submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions if sub.verdict == 'OK'}
 
         lower = bounds[0] if len(bounds) > 0 else None
         if lower is None:
-            lower = rating  # round later. rounding a null value causes exception
-            if lower is None:
-                await ctx.send('Personal cf data not found. Assume rating of 1500.')
-                lower = 1500
-            else:
-                lower = round(lower, -2)
+            user = cf_common.user_db.fetch_cfuser(handle)
+            lower = round(user.effective_rating, -2)
         upper = bounds[1] if len(bounds) > 1 else lower + 200
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
                     if lower <= prob.rating and prob.name not in solved]
@@ -191,7 +187,7 @@ class Codeforces(commands.Cog):
         submissions = [sub for user in resp for sub in user]
         solved = {sub.problem.name for sub in submissions}
         info = await cf.user.info(handles=handles)
-        rating = int(round(sum(user.rating or 1500 for user in info) / len(handles), -2))
+        rating = int(round(sum(user.effective_rating for user in info) / len(handles), -2))
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
                     if abs(prob.rating - rating) <= 100 and prob.name not in solved
                     and not any(cf_common.is_contest_writer(prob.contestId, handle) for handle in handles)
@@ -230,7 +226,7 @@ class Codeforces(commands.Cog):
         """
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         user = cf_common.user_db.fetch_cfuser(handle)
-        rating = round(user.rating, -2)
+        rating = round(user.effective_rating, -2)
         submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions}
 
@@ -355,7 +351,7 @@ class Codeforces(commands.Cog):
         contests = await cf.contest.list()
 
         if not markers:
-            divr = sum(user.rating or 1500 for user in info) / len(handles)
+            divr = sum(user.effective_rating for user in info) / len(handles)
             div1_indicators = ['div1', 'global', 'avito', 'goodbye', 'hello']
             divs = ['div3'] if divr < 1600 else ['div2'] if divr < 2100 else div1_indicators
         else:
@@ -380,7 +376,7 @@ class Codeforces(commands.Cog):
             contest, _, _ = await cf.contest.standings(contest_id=contest_id, from_=1, count=1)
             embed = discord.Embed(title=contest.name, url=contest.url)
             await ctx.send(f'Recommended contest for `{str_handles}`', embed=embed)
-            
+
     @commands.command(brief="Display unsolved rounds closest to completion")
     async def fullsolve(self, ctx):
         """Displays a list of contests, sorted by number of unsolved problems"""
@@ -422,8 +418,11 @@ class Codeforces(commands.Cog):
 
         pages = [make_page(chunk) for chunk in paginator.chunkify(contest_unsolved_pairs, 10)]
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
-        
+
     async def cog_command_error(self, ctx, error):
+        if isinstance(error, CodeforcesCogError):
+            await ctx.send(embed=discord_common.embed_alert(error))
+            error.handled = True
         await cf_common.resolve_handle_error_handler(ctx, error)
 
 

@@ -337,7 +337,6 @@ class ProblemsetCache:
 
 
 class RatingChangesCache:
-    DEFAULT_RATING = 1500
     _RATED_DELAY = 36 * 60 * 60
     _RELOAD_DELAY = 10 * 60
 
@@ -447,7 +446,7 @@ class RatingChangesCache:
             try:
                 handle_rating_cache[change.handle] += delta
             except KeyError:
-                handle_rating_cache[change.handle] = self.DEFAULT_RATING + delta
+                handle_rating_cache[change.handle] = cf.DEFAULT_RATING + delta
         self.handle_rating_cache = handle_rating_cache
         self.logger.info(f'Ratings for {len(handle_rating_cache)} handles cached')
 
@@ -463,11 +462,9 @@ class RatingChangesCache:
     def get_rating_changes_for_handle(self, handle):
         return self.cache_master.conn.get_rating_changes_for_handle(handle)
 
-    def get_current_rating(self, handle):
-        return self.handle_rating_cache.get(handle)
-
-    def get_current_rating_or_default(self, handle):
-        return self.handle_rating_cache.get(handle, self.DEFAULT_RATING)
+    def get_current_rating(self, handle, default_if_absent=False):
+        return self.handle_rating_cache.get(handle,
+                                            cf.DEFAULT_RATING if default_if_absent else None)
 
     def get_all_ratings(self):
         return list(self.handle_rating_cache.values())
@@ -571,8 +568,9 @@ class RanklistCache:
                 # The contest is not rated
                 ranklist = Ranklist(contest, problems, standings, now, is_rated=False)
             else:
-                get_rating = self.cache_master.rating_changes_cache.get_current_rating_or_default
-                current_rating = {row.party.members[0].handle: get_rating(row.party.members[0].handle)
+                get = self.cache_master.rating_changes_cache.get_current_rating
+                current_rating = {row.party.members[0].handle: get(row.party.members[0].handle,
+                                                                   default_if_absent=True)
                                   for row in standings_official}
                 if 'Educational' in contest.name:
                     # For some reason educational contests return all contestants in ranklist even
