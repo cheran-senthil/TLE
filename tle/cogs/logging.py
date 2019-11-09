@@ -47,7 +47,8 @@ class Logging(commands.Cog, logging.Handler):
         self.queue.put_nowait(record)
 
     def close(self):
-        self.task.cancel()
+        if self.task:
+            self.task.cancel()
 
 
 def setup(bot):
