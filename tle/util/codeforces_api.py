@@ -15,6 +15,7 @@ GYM_BASE_URL = 'https://codeforces.com/gym/'
 PROFILE_BASE_URL = 'https://codeforces.com/profile/'
 ACMSGURU_BASE_URL = 'https://codeforces.com/problemsets/acmsguru/'
 GYM_ID_THRESHOLD = 100000
+DEFAULT_RATING = 1500
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,10 @@ def rating2rank(rating):
 
 class User(namedtuple('User', 'handle rating titlePhoto')):
     __slots__ = ()
+
+    @property
+    def effective_rating(self):
+        return self.rating if self.rating is not None else DEFAULT_RATING
 
     @property
     def rank(self):
