@@ -454,12 +454,10 @@ class Contests(commands.Cog):
         await ctx.send(embed=self._make_contest_embed_for_ranklist(ranklist))
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=_STANDINGS_PAGINATE_WAIT_TIME)
 
+    @discord_common.send_error_if(ContestCogError, rl.RanklistError,
+                                  cache_system2.CacheError,  cf_common.ResolveHandleError)
     async def cog_command_error(self, ctx, error):
-        if isinstance(error, (ContestCogError, rl.RanklistError, cache_system2.CacheError)):
-            await ctx.send(embed=discord_common.embed_alert(error))
-            error.handled = True
-            return
-        await cf_common.resolve_handle_error_handler(ctx, error)
+        pass
 
 
 def setup(bot):

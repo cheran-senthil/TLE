@@ -667,12 +667,9 @@ class Graphs(commands.Cog):
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
 
+    @discord_common.send_error_if(GraphCogError,  cf_common.ResolveHandleError)
     async def cog_command_error(self, ctx, error):
-        if isinstance(error, GraphCogError):
-            await ctx.send(embed=discord_common.embed_alert(error))
-            error.handled = True
-            return
-        await cf_common.resolve_handle_error_handler(ctx, error)
+        pass
 
 
 def setup(bot):

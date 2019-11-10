@@ -523,10 +523,9 @@ class Handles(commands.Cog):
         change_by_handle = {change.handle: change for change in changes}
         await ctx.channel.send(embed=self._make_rankup_embed(ctx.guild, contest, change_by_handle))
 
+    @discord_common.send_error_if(HandleCogError)
     async def cog_command_error(self, ctx, error):
-        if isinstance(error, HandleCogError):
-            await ctx.send(embed=discord_common.embed_alert(error))
-            error.handled = True
+        pass
 
 
 def setup(bot):
