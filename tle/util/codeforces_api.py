@@ -46,7 +46,9 @@ def rating2rank(rating):
 
 # Data classes
 
-class User(namedtuple('User', 'handle rating titlePhoto')):
+class User(namedtuple('User', 'handle firstName lastName country city organization contribution '
+                              'rating lastOnlineTimeSeconds registrationTimeSeconds friendOfCount '
+                              'titlePhoto')):
     __slots__ = ()
 
     @property

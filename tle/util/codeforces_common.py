@@ -198,7 +198,7 @@ async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
                 member = await converter.convert(ctx, member_identifier)
             except commands.errors.CommandError:
                 raise FindMemberFailedError(member_identifier)
-            handle = user_db.gethandle(member.id)
+            handle = user_db.get_handle(member.id, ctx.guild.id)
             if handle is None:
                 raise HandleNotRegisteredError(member)
         if handle in HandleIsVjudgeError.HANDLES:

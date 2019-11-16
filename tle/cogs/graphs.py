@@ -503,9 +503,9 @@ class Graphs(commands.Cog):
             member = ctx.guild.get_member(int(userid))
             return not member or 'Purgatory' in {role.name for role in member.roles}
 
-        res = cf_common.user_db.getallhandleswithrating()
-        ratings = [rating for userid, _, rating in res
-                   if rating and not in_purgatory(userid)]
+        res = cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)
+        ratings = [cf_user.rating for user_id, cf_user in res
+                   if cf_user.rating is not None and not in_purgatory(user_id)]
         await self._rating_hist(ctx,
                                 ratings,
                                 'normal',

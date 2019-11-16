@@ -3,14 +3,19 @@ import datetime
 import discord
 import asyncio
 import itertools
+from os import environ
 
 from discord.ext import commands
+
 from tle.util.db.user_db_conn import Duel, Winner
 from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
 from tle.util import paginator
 from tle.util import discord_common
 from tle.util import table
+
+# TODO: This is a temporary workaround. Make Duel operate with guild boundaries.
+_DUEL_GUILD_ID = int(environ.get('DUEL_GUILD_ID'))
 
 _DUEL_INVALIDATE_TIME = 60
 _DUEL_EXPIRY_TIME = 5 * 60
@@ -29,7 +34,7 @@ def elo_delta(player, opponent, win):
 
 def get_cf_user(userid):
     handle = cf_common.user_db.gethandle(userid)
-    return cf_common.user_db.fetch_cfuser(handle)
+    return cf_common.user_db.fetch_cf_user(handle, _DUEL_GUILD_ID)
 
 def complete_duel(duelid, win_status, winner, loser, finish_time, score):
     winner_r = cf_common.user_db.get_duel_rating(winner.id)
@@ -127,8 +132,8 @@ class Dueling(commands.Cog):
 
         await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author), '!' + str(challenger)))
         userids = [ctx.author.id, challenger_id]
-        handles = [cf_common.user_db.gethandle(userid) for userid in userids]
-        users = [cf_common.user_db.fetch_cfuser(handle) for handle in handles]
+        handles = [cf_common.user_db.get_handle(userid, ctx.guild.id) for userid in userids]
+        users = [cf_common.user_db.fetch_cf_user(handle) for handle in handles]
         lowest_rating = min(user.rating for user in users)
         rating = max(round(lowest_rating, -2) + _DUEL_RATING_DELTA, 500)
 
@@ -175,7 +180,7 @@ class Dueling(commands.Cog):
         UNSOLVED = 0
         TESTING = -1
         async def get_solve_time(userid):
-            handle = cf_common.user_db.gethandle(userid)
+            handle = cf_common.user_db.get_handle(userid, ctx.guild.id)
             subs = [sub for sub in await cf.user.status(handle=handle)
                     if (sub.verdict == 'OK' or sub.verdict == 'TESTING')
                     and sub.problem.contestId == contest_id
@@ -378,7 +383,8 @@ class Dueling(commands.Cog):
     async def ranklist(self, ctx):
         """Show the list of duelists with their duel rating."""
         users = [(ctx.guild.get_member(user_id), rating) for user_id, rating in cf_common.user_db.get_duelists()]
-        users = [(member, cf_common.user_db.gethandle(member.id), rating) for member, rating in users
+        users = [(member, cf_common.user_db.get_handle(member.id, ctx.guild.id), rating)
+                 for member, rating in users
                  if member is not None and cf_common.user_db.get_num_duel_completed(member.id) > 0]
 
         _PER_PAGE = 10

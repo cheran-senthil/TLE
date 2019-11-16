@@ -62,7 +62,7 @@ class Codeforces(commands.Cog):
         points |   2  |   3  |   5  |  8  |  12  |  17  |  23
         """
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
-        user = cf_common.user_db.fetch_cfuser(handle)
+        user = cf_common.user_db.fetch_cf_user(handle)
         rating = round(user.effective_rating, -2)
         resp = await cf.user.rating(handle=handle)
         contests = {change.contestId for change in resp}
@@ -107,7 +107,7 @@ class Codeforces(commands.Cog):
 
         lower = bounds[0] if len(bounds) > 0 else None
         if lower is None:
-            user = cf_common.user_db.fetch_cfuser(handle)
+            user = cf_common.user_db.fetch_cf_user(handle)
             lower = round(user.effective_rating, -2)
         upper = bounds[1] if len(bounds) > 1 else lower + 200
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
@@ -239,7 +239,7 @@ class Codeforces(commands.Cog):
         points |   2  |   3  |   5  |  8  |  12  |  17  |  23
         """
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
-        user = cf_common.user_db.fetch_cfuser(handle)
+        user = cf_common.user_db.fetch_cf_user(handle)
         rating = round(user.effective_rating, -2)
         submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions}
