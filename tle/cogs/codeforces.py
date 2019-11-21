@@ -135,20 +135,23 @@ class Codeforces(commands.Cog):
             embed.add_field(name='Matched tags', value=tagslist)
         await ctx.send(f'Recommended problem for `{handle}`', embed=embed)
 
-    @commands.command(brief='List solved problems', usage='[handles] [+hardest] [+contest] [+virtual] [+team] [+practice] [+all]')
+    @commands.command(brief='List solved problems', usage='[handles] [+hardest] [+practice] [+contest] [+virtual] [+outof] [+team]')
     async def stalk(self, ctx, *args):
-        """Print problems solved in practice (default) or in contest sorted by time (default) or rating.
+        """Print problems solved by user sorted by time (default) or rating.
+        All submission types are included by default (practice, contest, etc.)
         """
         types = []
         team = '+team' in args
         hardest = '+hardest' in args
-        all_probs = '+all' in args
         if '+contest' in args:
             types.append('CONTESTANT')
         if '+virtual' in args:
             types.append('VIRTUAL')
-        if '+practice' in args or not types:
+        if '+outof' in args:
+            types.append('OUT_OF_COMPETITION')
+        if '+practice' in args:
             types.append('PRACTICE')
+        all_probs = not types
 
         def ok(problem):
             # acmsguru and gyms are fine for recent practice list
