@@ -135,26 +135,44 @@ class Codeforces(commands.Cog):
             embed.add_field(name='Matched tags', value=tagslist)
         await ctx.send(f'Recommended problem for `{handle}`', embed=embed)
 
-    @commands.command(brief='List solved problems', usage='[handles] [+hardest] [+contest]')
+    @commands.command(brief='List solved problems', usage='[handles] [+hardest] [+contest] [+virtual] [+team] [+practice] [+all]')
     async def stalk(self, ctx, *args):
         """Print problems solved in practice (default) or in contest sorted by time (default) or rating.
         """
+        types = []
+        team = '+team' in args
+        hardest = '+hardest' in args
+        all_probs = '+all' in args
+        if '+contest' in args:
+            types.append('CONTESTANT')
+        if '+practice' in args:
+            types.append('PRACTICE')
+        if '+virtual' in args:
+            types.append('VIRTUAL')
+
         def ok(problem):
             # acmsguru and gyms are fine for recent practice list
             if not problem.contestId or problem.contestId >= cf.GYM_ID_THRESHOLD:
                 return True
             return not cf_common.is_nonstandard_problem(problem)
 
-        hardest = '+hardest' in args
-        contest = '+contest' in args
-        type_ = 'CONTESTANT' if contest else 'PRACTICE'
+        def include(sub):
+            if sub.verdict != 'OK':
+                return False
+            if not ok(sub.problem):
+                return False
+            if not (all_probs or sub.author.participantType in types):
+                return False
+            if not (team or len(sub.author.members) == 1):
+                return False
+            return True
+
         handles = [arg for arg in args if arg[0] != '+']
         handles = handles or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         submissions = [await cf.user.status(handle=handle) for handle in handles]
         submissions = list({sub.problem.name : sub for subs in submissions for sub in subs
-                            if sub.verdict == 'OK' and sub.author.participantType == type_
-                            and ok(sub.problem) and len(sub.author.members) == 1}.values())
+                            if include(sub)}.values())
 
         if hardest:
             submissions.sort(key=lambda sub: sub.problem.rating or 0, reverse=True)
