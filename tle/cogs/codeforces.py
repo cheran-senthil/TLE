@@ -145,10 +145,10 @@ class Codeforces(commands.Cog):
         all_probs = '+all' in args
         if '+contest' in args:
             types.append('CONTESTANT')
-        if '+practice' in args:
-            types.append('PRACTICE')
         if '+virtual' in args:
             types.append('VIRTUAL')
+        if '+practice' in args or not types:
+            types.append('PRACTICE')
 
         def ok(problem):
             # acmsguru and gyms are fine for recent practice list
@@ -185,9 +185,8 @@ class Codeforces(commands.Cog):
                 f'({cf_common.days_ago(sub.creationTimeSeconds)})'
                 for sub in submissions[:10]
         )
-        title = '{} solved {} problems by `{}`'.format('Hardest' if hardest else 'Recently',
-                                                       'contest' if contest else 'practice',
-                                                       '`, `'.join(handles))
+        title = '{} solved problems by `{}`'.format('Hardest' if hardest else 'Recently',
+                                                    '`, `'.join(handles))
         embed = discord_common.cf_color_embed(title=title, description=msg)
         await ctx.send(embed=embed)
 
