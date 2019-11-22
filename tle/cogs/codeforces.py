@@ -157,9 +157,9 @@ class Codeforces(commands.Cog):
             accepted = sub.verdict == 'OK'
             type_ok = all_types or sub.author.participantType in types
             team_ok = team or len(sub.author.members) == 1
-            problem_ok = (not problem.contestId or                         # acmsguru allowed
-                          problem.contestId >= cf.GYM_ID_THRESHOLD or      # gym allowed
-                          not cf_common.is_nonstandard_problem(problem))
+            problem_ok = (not sub.problem.contestId or                         # acmsguru allowed
+                          sub.problem.contestId >= cf.GYM_ID_THRESHOLD or      # gym allowed
+                          not cf_common.is_nonstandard_problem(sub.problem))
             return accepted and type_ok and team_ok and problem_ok
 
         handles = [arg for arg in args if arg[0] != '+']
