@@ -433,10 +433,9 @@ class Dueling(commands.Cog):
         duelid, challenger_id, challengee_id, _, _, _, _ = active
         await self.invalidate_duel(ctx, duelid, challenger_id, challengee_id)
 
+    @discord_common.send_error_if(DuelCogError)
     async def cog_command_error(self, ctx, error):
-        if isinstance(error, DuelCogError):
-            await ctx.send(embed=discord_common.embed_alert(error))
-            error.handled = True
+        pass
 
 
 def setup(bot):

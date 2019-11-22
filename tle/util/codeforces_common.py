@@ -2,7 +2,6 @@ import functools
 import json
 import logging
 import math
-import os
 import time
 from collections import defaultdict
 
@@ -12,7 +11,6 @@ from tle import constants
 from tle.util import cache_system2
 from tle.util import codeforces_api as cf
 from tle.util import db
-from tle.util import discord_common
 from tle.util import events
 
 logger = logging.getLogger(__name__)
@@ -189,8 +187,6 @@ def days_ago(t):
 async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
     """Convert an iterable of strings to CF handles. A string beginning with ! indicates Discord username,
      otherwise it is a raw CF handle to be left unchanged."""
-    # If this is called from a Discord command, it is recommended to call the
-    # cf_handle_error_handler function below from the command's error handler.
     if len(handles) < mincnt or maxcnt < len(handles):
         raise HandleCountOutOfBoundsError(mincnt, maxcnt)
     resolved_handles = []
@@ -209,9 +205,3 @@ async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
             raise HandleIsVjudgeError(handle)
         resolved_handles.append(handle)
     return resolved_handles
-
-
-async def resolve_handle_error_handler(ctx, error):
-    if isinstance(error, ResolveHandleError):
-        await ctx.send(embed=discord_common.embed_alert(error))
-        error.handled = True

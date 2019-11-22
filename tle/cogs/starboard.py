@@ -138,10 +138,9 @@ class Starboard(commands.Cog):
         else:
             await ctx.send(embed=discord_common.embed_alert('Not found in database'))
 
+    @discord_common.send_error_if(StarboardCogError)
     async def cog_command_error(self, ctx, error):
-        if isinstance(error, StarboardCogError):
-            await ctx.send(embed=discord_common.embed_alert(error))
-            error.handled = True
+        pass
 
 
 def setup(bot):

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import functools
 import random
 
 import discord
@@ -37,6 +38,22 @@ def attach_image(embed, img_file):
 
 def set_author_footer(embed, user):
     embed.set_footer(text=f'Requested by {user}', icon_url=user.avatar_url)
+
+
+def send_error_if(*error_cls):
+    """Decorator for `cog_command_error` methods. Decorated methods send the error in an alert embed
+    when the error is an instance of one of the specified errors.
+    """
+    def decorator(func):
+        @functools.wraps(func)
+        async def wrapper(cog, ctx, error):
+            if isinstance(error, error_cls):
+                await ctx.send(embed=embed_alert(error))
+                error.handled = True
+            else:
+                func(cog, ctx, error)
+        return wrapper
+    return decorator
 
 
 async def bot_error_handler(ctx, exception):
