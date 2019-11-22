@@ -151,31 +151,23 @@ class Codeforces(commands.Cog):
             types.append('OUT_OF_COMPETITION')
         if '+practice' in args:
             types.append('PRACTICE')
-        all_probs = not types
+        all_types = not types
 
-        def ok(problem):
-            # acmsguru and gyms are fine for recent practice list
-            if not problem.contestId or problem.contestId >= cf.GYM_ID_THRESHOLD:
-                return True
-            return not cf_common.is_nonstandard_problem(problem)
-
-        def include(sub):
-            if sub.verdict != 'OK':
-                return False
-            if not ok(sub.problem):
-                return False
-            if not (all_probs or sub.author.participantType in types):
-                return False
-            if not (team or len(sub.author.members) == 1):
-                return False
-            return True
+        def ok(sub):
+            accepted = sub.verdict == 'OK'
+            type_ok = all_types or sub.author.participantType in types
+            team_ok = team or len(sub.author.members) == 1
+            problem_ok = (not problem.contestId or                         # acmsguru allowed
+                          problem.contestId >= cf.GYM_ID_THRESHOLD or      # gym allowed
+                          not cf_common.is_nonstandard_problem(problem))
+            return accepted and type_ok and team_ok and problem_ok
 
         handles = [arg for arg in args if arg[0] != '+']
         handles = handles or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         submissions = [await cf.user.status(handle=handle) for handle in handles]
         submissions = list({sub.problem.name : sub for subs in submissions for sub in subs
-                            if include(sub)}.values())
+                            if ok(sub)}.values())
 
         if hardest:
             submissions.sort(key=lambda sub: sub.problem.rating or 0, reverse=True)
