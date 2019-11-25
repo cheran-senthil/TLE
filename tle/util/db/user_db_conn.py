@@ -77,6 +77,7 @@ class UserDbConn:
             'title_photo         TEXT'
             ')'
         )
+        # TODO: Make duel tables guild-aware.
         self.conn.execute('''
             CREATE TABLE IF NOT EXISTS duelist(
                 "user_id"	INTEGER PRIMARY KEY NOT NULL,
