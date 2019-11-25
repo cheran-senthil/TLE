@@ -33,8 +33,8 @@ def elo_delta(player, opponent, win):
     return _ELO_CONSTANT * (win - elo_prob(player, opponent))
 
 def get_cf_user(userid):
-    handle = cf_common.user_db.gethandle(userid)
-    return cf_common.user_db.fetch_cf_user(handle, _DUEL_GUILD_ID)
+    handle = cf_common.user_db.get_handle(userid, _DUEL_GUILD_ID)
+    return cf_common.user_db.fetch_cf_user(handle)
 
 def complete_duel(duelid, win_status, winner, loser, finish_time, score):
     winner_r = cf_common.user_db.get_duel_rating(winner.id)
