@@ -14,6 +14,7 @@ from tle.util import discord_common
 from tle.util import events
 from tle.util import paginator
 from tle.util import table
+from tle.util import db
 from tle import constants
 
 from PIL import Image, ImageFont, ImageDraw
@@ -210,8 +211,11 @@ class Handles(commands.Cog):
 
     async def _set(self, ctx, member, user):
         handle = user.handle
-        cf_common.user_db.cache_cfuser(user)
-        cf_common.user_db.sethandle(member.id, handle)
+        try:
+            cf_common.user_db.set_handle(member.id, ctx.guild.id, handle)
+        except db.UniqueConstraintFailed:
+            raise HandleCogError(f'The handle `{handle}` is already associated with another user.')
+        cf_common.user_db.cache_cf_user(user)
 
         if user.rank == cf.UNRATED_RANK:
             role_to_assign = None
@@ -230,7 +234,7 @@ class Handles(commands.Cog):
                           get_exception=lambda: HandleCogError('Identification is already running for you'))
     async def identify(self, ctx, handle: str):
         """Link a codeforces account to discord account by submitting a compile error to a random problem"""
-        if cf_common.user_db.gethandle(ctx.author.id):
+        if cf_common.user_db.get_handle(ctx.author.id, ctx.guild.id):
             raise HandleCogError(f'{ctx.author.mention}, you cannot identify when your handle is '
                                  'already set. Ask an Admin if you wish to change it')
 
@@ -253,20 +257,20 @@ class Handles(commands.Cog):
     @handle.command(brief='Get handle by Discord username')
     async def get(self, ctx, member: discord.Member):
         """Show Codeforces handle of a user."""
-        handle = cf_common.user_db.gethandle(member.id)
+        handle = cf_common.user_db.get_handle(member.id, ctx.guild.id)
         if not handle:
             raise HandleCogError(f'Handle for {member.mention} not found in database')
-        user = cf_common.user_db.fetch_cfuser(handle)
+        user = cf_common.user_db.fetch_cf_user(handle)
         embed = _make_profile_embed(member, user, mode='get')
         await ctx.send(embed=embed)
 
     @handle.command(brief='Get Discord username by cf handle')
     async def rget(self, ctx, handle: str):
         """Show Discord username of a cf handle."""
-        user_id = cf_common.user_db.rgethandle(handle)
+        user_id = cf_common.user_db.get_user_id(handle, ctx.guild.id)
         if not user_id:
             raise HandleCogError(f'Discord username for `{handle}` not found in database')
-        user = cf_common.user_db.fetch_cfuser(handle)
+        user = cf_common.user_db.fetch_cf_user(handle)
         member = ctx.guild.get_member(int(user_id))
         embed = _make_profile_embed(member, user, mode='get')
         await ctx.send(embed=embed)
@@ -275,7 +279,7 @@ class Handles(commands.Cog):
     @commands.has_role('Admin')
     async def remove(self, ctx, member: discord.Member):
         """Remove Codeforces handle of a user."""
-        rc = cf_common.user_db.removehandle(member.id)
+        rc = cf_common.user_db.remove_handle(member.id, ctx.guild.id)
         if not rc:
             raise HandleCogError(f'Handle for {member.mention} not found in database')
         await self.update_member_rank_role(member, role_to_assign=None,
@@ -299,8 +303,8 @@ class Handles(commands.Cog):
             if member is None:
                 continue
             if score > 0:
-                handle = cf_common.user_db.gethandle(user_id)
-                user = cf_common.user_db.fetch_cfuser(handle)
+                handle = cf_common.user_db.get_handle(user_id, ctx.guild.id)
+                user = cf_common.user_db.fetch_cf_user(handle)
                 handle_display = f'{member.display_name} ({score})'
                 rating = user.rating if user.rating is not None else 'Unrated'
                 t += table.Data(index, handle_display, handle, rating)
@@ -318,8 +322,9 @@ class Handles(commands.Cog):
         """Shows all members of the server who have registered their handles and
         their Codeforces ratings.
         """
-        res = cf_common.user_db.getallhandleswithrating()
-        users = [(ctx.guild.get_member(int(user_id)), handle, rating) for user_id, handle, rating in res]
+        res = cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)
+        users = [(ctx.guild.get_member(int(user_id)), cf_user.handle, cf_user.rating)
+                 for user_id, cf_user in res]
         users = [(member, handle, rating) for member, handle, rating in users if member is not None]
         users.sort(key=lambda x: (1 if x[2] is None else -x[2], x[1]))  # Sorting by (-rating, handle)
         pages = _make_pages(users)
@@ -327,20 +332,22 @@ class Handles(commands.Cog):
 
     @handle.command(brief="Show colour handles")
     async def pretty(self, ctx: discord.ext.commands.Context, page_no: int = None):
-        res = cf_common.user_db.getallhandleswithrating()
-        res.sort(key=lambda r: r[2] if r[2] is not None else -1, reverse=True)
+        res = cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)
+        res.sort(key=lambda pair: pair[1].rating if pair[1].rating is not None else -1,
+                 reverse=True)
         rankings = []
         pos = 0
         author_pos = 0
-        for user_id, handle, rating in res:
+        for user_id, cf_user in res:
             member = ctx.guild.get_member(int(user_id))
             if member is None:
                 continue
             if member == ctx.author:
                 author_pos = pos
+            rating = cf_user.rating
             if rating is None:
                 rating = 'N/A'
-            rankings.append((pos, member.display_name, handle, rating))
+            rankings.append((pos, member.display_name, cf_user.handle, rating))
             pos += 1
 
         if page_no is not None:
@@ -372,7 +379,7 @@ class Handles(commands.Cog):
         members, handles = zip(*member_handles)
         users = await cf.user.info(handles=handles)
         for user in users:
-            cf_common.user_db.cache_cfuser(user)
+            cf_common.user_db.cache_cf_user(user)
 
         required_roles = {user.rank.title for user in users if user.rank != cf.UNRATED_RANK}
         rank2role = {role.name: role for role in guild.roles if role.name in required_roles}

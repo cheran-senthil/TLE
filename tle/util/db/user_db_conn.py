@@ -26,7 +26,12 @@ class Winner(IntEnum):
     CHALLENGER = 1
     CHALLENGEE = 2
 
-class DatabaseDisabledError(commands.CommandError):
+
+class UserDbError(commands.CommandError):
+    pass
+
+
+class DatabaseDisabledError(UserDbError):
     pass
 
 
@@ -35,12 +40,44 @@ class DummyUserDbConn:
         raise DatabaseDisabledError
 
 
+class UniqueConstraintFailed(UserDbError):
+    pass
+
+
 class UserDbConn:
     def __init__(self, dbfile):
         self.conn = sqlite3.connect(dbfile)
         self.create_tables()
 
     def create_tables(self):
+        self.conn.execute(
+            'CREATE TABLE IF NOT EXISTS user_handle ('
+            'user_id     TEXT,'
+            'guild_id    TEXT,'
+            'handle      TEXT,'
+            'active      INTEGER,'
+            'PRIMARY KEY (user_id, guild_id)'
+            ')'
+        )
+        self.conn.execute('CREATE UNIQUE INDEX IF NOT EXISTS ix_user_handle_guild_handle '
+                          'ON user_handle (guild_id, handle)')
+        self.conn.execute(
+            'CREATE TABLE IF NOT EXISTS cf_user_cache ('
+            'handle              TEXT PRIMARY KEY,'
+            'first_name          TEXT,'
+            'last_name           TEXT,'
+            'country             TEXT,'
+            'city                TEXT,'
+            'organization        TEXT,'
+            'contribution        INTEGER,'
+            'rating              INTEGER,'
+            'last_online_time    INTEGER,'
+            'registration_time   INTEGER,'
+            'friend_of_count     INTEGER,'
+            'title_photo         TEXT'
+            ')'
+        )
+        # TODO: Make duel tables guild-aware.
         self.conn.execute('''
             CREATE TABLE IF NOT EXISTS duelist(
                 "user_id"	INTEGER PRIMARY KEY NOT NULL,
@@ -60,25 +97,6 @@ class UserDbConn:
                 "p_index"	INTEGER,
                 "status"	INTEGER,
                 "winner"	INTEGER
-            )
-        ''')
-        # status => 0 inactive, 1 active
-        self.conn.execute('''
-            CREATE TABLE IF NOT EXISTS user_handle(
-                id TEXT PRIMARY KEY,
-                handle TEXT,
-                status INT
-            )
-        ''')
-        # solved => problem identifier of all solved problems in json dump
-        # lastCached => last time the user was cached
-        self.conn.execute('''
-            CREATE TABLE IF NOT EXISTS cf_cache(
-                handle TEXT PRIMARY KEY,
-                rating INTEGER,
-                titlePhoto TEXT,
-                solved TEXT,
-                lastCached REAL
             )
         ''')
         self.conn.execute('''
@@ -266,93 +284,76 @@ class UserDbConn:
         self.conn.commit()
         return 1
 
-    def cache_cfuser(self, user):
-        return self._insert_one('cf_cache',
-            ('handle', 'rating', 'titlePhoto', 'lastCached'),
-            user + (time.time(),)
-        )
+    def cache_cf_user(self, user):
+        query = ('INSERT OR REPLACE INTO cf_user_cache '
+                 '(handle, first_name, last_name, country, city, organization, contribution, '
+                 '    rating, last_online_time, registration_time, friend_of_count, title_photo) '
+                 'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        with self.conn:
+            return self.conn.execute(query, user).rowcount
 
-    def cache_cfuser_full(self, columns: tuple):
-        return self._insert_one('cf_cache',
-            ('handle', 'rating', 'titlePhoto', 'solved', 'lastCached'),
-            columns
-        )
-
-    def fetch_cfuser(self, handle):
-        query = '''
-            SELECT handle, rating, titlePhoto FROM cf_cache
-            WHERE handle = ?
-        '''
+    def fetch_cf_user(self, handle):
+        query = ('SELECT handle, first_name, last_name, country, city, organization, contribution, '
+                 '    rating, last_online_time, registration_time, friend_of_count, title_photo '
+                 'FROM cf_user_cache '
+                 'WHERE handle = ?')
         user = self.conn.execute(query, (handle,)).fetchone()
-        if user:
-            user = cf.User._make(user)
-        return user
+        return cf.User._make(user) if user else None
 
-    def fetch_rating_solved(self, handle):
-        query = 'SELECT lastCached, rating, solved FROM cf_cache WHERE handle = ?'
-        return self.conn.execute(query, (handle,)).fetchone()
+    def set_handle(self, user_id, guild_id, handle):
+        query = ('SELECT user_id '
+                 'FROM user_handle '
+                 'WHERE guild_id = ? AND handle = ?')
+        existing = self.conn.execute(query, (guild_id, handle)).fetchone()
+        if existing and int(existing[0]) != user_id:
+            raise UniqueConstraintFailed
 
-    def getallcache(self):
-        query = 'SELECT handle, rating, titlePhoto FROM cf_cache'
-        users = self.conn.execute(query).fetchall()
-        return [cf.User._make(user) for user in users]
+        query = ('INSERT OR REPLACE INTO user_handle '
+                 '(user_id, guild_id, handle, active) '
+                 'VALUES (?, ?, ?, 1)')
+        with self.conn:
+            return self.conn.execute(query, (user_id, guild_id, handle)).rowcount
 
-    def clear_cache(self):
-        query = 'DELETE FROM cf_cache'
-        self.conn.execute(query)
-        self.conn.commit()
-
-    def sethandle(self, id, handle):
-        """ returns 1 if set, 0 if not """
-        query = '''
-            INSERT OR REPLACE INTO user_handle (id, handle, status) values
-            (?, ?, 1)
-        '''
-        rc = self.conn.execute(query, (id, handle)).rowcount
-        self.conn.commit()
-        return rc
-
-    def gethandle(self, id):
-        """ returns string or None """
-        query = 'SELECT handle FROM user_handle WHERE id = ?'
-        res = self.conn.execute(query, (id,)).fetchone()
+    def get_handle(self, user_id, guild_id):
+        query = ('SELECT handle '
+                 'FROM user_handle '
+                 'WHERE user_id = ? AND guild_id = ?')
+        res = self.conn.execute(query, (user_id, guild_id)).fetchone()
         return res[0] if res else None
 
-    def rgethandle(self, handle):
-        """ returns string or None """
-        query = 'SELECT id FROM user_handle WHERE handle = ?'
-        res = self.conn.execute(query, (handle,)).fetchone()
-        return res[0] if res else None
+    def get_user_id(self, handle, guild_id):
+        query = ('SELECT user_id '
+                 'FROM user_handle '
+                 'WHERE handle = ? AND guild_id = ? AND active = 1')
+        res = self.conn.execute(query, (handle, guild_id)).fetchone()
+        return int(res[0]) if res else None
 
-    def getallhandles(self):
-        """ returns list of (id, handle) """
-        query = 'SELECT id, handle FROM user_handle WHERE status = 1'
-        return self.conn.execute(query).fetchall()
-
-    def getallhandleswithrating(self):
-        """ returns list of (id, handle, rating) """
-        query = '''
-            SELECT user_handle.id, user_handle.handle, cf_cache.rating
-            FROM user_handle
-            LEFT JOIN cf_cache
-            ON user_handle.handle = cf_cache.handle
-            WHERE user_handle.status = 1
-        '''
-        return self.conn.execute(query).fetchall()
+    def remove_handle(self, user_id, guild_id):
+        query = ('DELETE FROM user_handle '
+                 'WHERE user_id = ? AND guild_id = ?')
+        with self.conn:
+            return self.conn.execute(query, (user_id, guild_id)).rowcount
 
     def get_handles_for_guild(self, guild_id):
-        # TODO: Modify the database to store users on a guild basis.
-        # Currently returns all users.
-        return self.getallhandles()
+        query = ('SELECT user_id, handle '
+                 'FROM user_handle '
+                 'WHERE guild_id = ? AND active = 1')
+        res = self.conn.execute(query, (guild_id,)).fetchall()
+        return [(int(user_id), handle) for user_id, handle in res]
 
-    def removehandle(self, id):
-        """ returns 1 if removed, 0 if not """
-        query = 'DELETE FROM user_handle WHERE id = ?'
-        rc = self.conn.execute(query, (id,)).rowcount
-        self.conn.commit()
-        return rc
+    def get_cf_users_for_guild(self, guild_id):
+        query = ('SELECT u.user_id, c.handle, c.first_name, c.last_name, c.country, c.city, '
+                 '    c.organization, c.contribution, c.rating, c.last_online_time, '
+                 '    c.registration_time, c.friend_of_count, c.title_photo '
+                 'FROM user_handle AS u '
+                 'LEFT JOIN cf_user_cache AS c '
+                 'ON u.handle = c.handle '
+                 'WHERE u.guild_id = ? AND u.active = 1')
+        res = self.conn.execute(query, (guild_id,)).fetchall()
+        return [(int(t[0]), cf.User._make(t[1:])) for t in res]
 
     def update_status(self, active_ids: list):
+        # TODO: Deal with the whole status thing.
         if not active_ids: return 0
         placeholders = ', '.join(['?'] * len(active_ids))
         inactive_query = '''
