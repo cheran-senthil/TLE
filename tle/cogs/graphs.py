@@ -405,7 +405,7 @@ class Graphs(commands.Cog):
         await ctx.send(embed=embed, file=discord_file)
 
     @plot.command(brief='Show actual histogram of solved problems on CF.')
-    async def hist(self, ctx, handle: str = None, lb = 0):
+    async def hist(self, ctx, handle: str = None):
         """Shows the actual histogram of problems solved on Codeforces for the handles provided."""
         handle = handle or '!' + str(ctx.author)
         handle, = await cf_common.resolve_handles(ctx, self.converter, (handle,))
