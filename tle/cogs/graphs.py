@@ -324,7 +324,7 @@ class Graphs(commands.Cog):
         """Shows a histogram of problems solved on Codeforces for the handles provided.
         e.g. ;plot solved meooow +contest +virtual +outof +dp"""
         args = list(args)
-        team, types = cf_common.filter_sub_type_args(args)
+        team, types_to_show = cf_common.filter_sub_type_args(args)
         handles, tags = [], []
         for arg in args:
             if arg[0] == '+':
@@ -358,8 +358,6 @@ class Graphs(commands.Cog):
         if len(handles) == 1:
             # Display solved problem separately by type for a single user.
             handle, solved_by_type = handles[0], _classify_submissions(all_solved_subs[0])
-
-            types_to_show = types or ['CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL', 'PRACTICE']
             all_ratings = [[sub.problem.rating for sub in solved_by_type[sub_type]]
                            for sub_type in types_to_show]
 

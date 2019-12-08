@@ -144,11 +144,10 @@ class Codeforces(commands.Cog):
         args = list(args)
         team, types = cf_common.filter_sub_type_args(args)
         hardest = '+hardest' in args
-        all_types = not types
 
         def ok(sub):
             accepted = sub.verdict == 'OK'
-            type_ok = all_types or sub.author.participantType in types
+            type_ok = sub.author.participantType in types
             team_ok = team or len(sub.author.members) == 1
             problem_ok = (not sub.problem.contestId or                         # acmsguru allowed
                           sub.problem.contestId >= cf.GYM_ID_THRESHOLD or      # gym allowed

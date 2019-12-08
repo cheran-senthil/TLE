@@ -224,4 +224,5 @@ def filter_sub_type_args(args):
     if '+practice' in args:
         types.append('PRACTICE')
         args.remove('+practice')
+    types = types or ['CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL', 'PRACTICE']
     return team, types
