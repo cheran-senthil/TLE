@@ -405,16 +405,27 @@ class Graphs(commands.Cog):
         await ctx.send(embed=embed, file=discord_file)
 
     @plot.command(brief='Show actual histogram of solved problems on CF.')
-    async def hist(self, ctx, handle: str):
+    async def hist(self, ctx, handle: str = None, lb = 0):
         """Shows the actual histogram of problems solved on Codeforces for the handles provided."""
+        handle = handle or '!' + str(ctx.author)
         handle, = await cf_common.resolve_handles(ctx, self.converter, (handle,))
         subs = await cf.user.status(handle=handle)
         contests = await cf.contest.list()
         solved_subs = _filter_solved_submissions(subs, contests)
-        all_times = [sub.creationTimeSeconds for sub in solved_subs]
+        solved_by_type = _classify_submissions(solved_subs)
+
+        types_to_show = ['CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL', 'PRACTICE']
+        all_times = [[dt.datetime.fromtimestamp(sub.creationTimeSeconds) for sub in solved_by_type[sub_type]]
+                       for sub_type in types_to_show]
+        nice_names = ['Contest: {}', 'Unofficial: {}', 'Virtual: {}', 'Practice: {}']
+        labels = [name.format(len(times)) for name, times in zip(nice_names, all_times)]
+        total = sum(map(len, all_times))
 
         plt.clf()
-        plt.hist(all_times)
+        plt.hist(all_times, stacked=True, label=labels, bins=34)
+        plt.xlabel('Time')
+        plt.ylabel('Number solved')
+        plt.legend(title=f'{handle}: {total}', title_fontsize=plt.rcParams['legend.fontsize'])
         plt.gcf().autofmt_xdate()
         discord_file = _get_current_figure_as_file()
         embed = discord_common.cf_color_embed(title='Actual histogram of problems solved on Codeforces')
