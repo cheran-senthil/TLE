@@ -396,7 +396,8 @@ class Codeforces(commands.Cog):
 
     @commands.command(brief="Display unsolved rounds closest to completion")
     async def fullsolve(self, ctx, *args: str):
-        """Displays a list of contests, sorted by number of unsolved problems"""
+        """Displays a list of contests, sorted by number of unsolved problems
+        e.g ;fullsolve +edu"""
         def strfilt(s):
             return ''.join(x for x in s.lower() if x.isalnum())
 
