@@ -301,16 +301,18 @@ class UserDbConn:
         return cf.User._make(user) if user else None
 
     def set_handle(self, user_id, guild_id, handle):
-        query = ('INSERT INTO user_handle '
+        query = ('SELECT user_id '
+                 'FROM user_handle '
+                 'WHERE guild_id = ? AND handle = ?')
+        existing = self.conn.execute(query, (guild_id, handle)).fetchone()
+        if existing and int(existing[0]) != user_id:
+            raise UniqueConstraintFailed
+
+        query = ('INSERT OR REPLACE INTO user_handle '
                  '(user_id, guild_id, handle, active) '
-                 'VALUES (?, ?, ?, 1) '
-                 'ON CONFLICT(user_id, guild_id) DO '
-                 'UPDATE SET handle=excluded.handle')
-        try:
-            with self.conn:
-                return self.conn.execute(query, (user_id, guild_id, handle)).rowcount
-        except sqlite3.IntegrityError as e:
-            raise UniqueConstraintFailed from e
+                 'VALUES (?, ?, ?, 1)')
+        with self.conn:
+            return self.conn.execute(query, (user_id, guild_id, handle)).rowcount
 
     def get_handle(self, user_id, guild_id):
         query = ('SELECT handle '
