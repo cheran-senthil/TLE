@@ -3,7 +3,6 @@ import datetime
 import discord
 import asyncio
 import itertools
-from os import environ
 
 from discord.ext import commands
 
