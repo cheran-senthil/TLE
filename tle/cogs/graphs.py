@@ -89,7 +89,7 @@ def _filter_solved_submissions(submissions, contests, tags=None, team=False):
         contest = contest_id_map.get(problem.contestId)
         tag_match = tags is None or problem.tag_matches(tags)
         team_ok = team or len(submission.author.members) == 1
-        if submission.verdict == 'OK' and problem.rating and contest and tag_match:
+        if submission.verdict == 'OK' and problem.rating and contest and tag_match and team_ok:
             # Assume (name, contest start time) is a unique identifier for problems
             problem_key = (problem.name, contest.startTimeSeconds)
             if problem_key not in problems:
