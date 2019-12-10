@@ -552,14 +552,14 @@ class Handles(commands.Cog):
 
     @commands.command(brief='Grants or removes the specified pingable role',
                       usage='[give/remove] [vc/duel]')
-    async def role(self, ctx, arg: str, action: str):
+    async def role(self, ctx, action: str, which: str):
         """e.g. ;role remove duel"""
-        if arg == 'vc':
+        if which == 'vc':
             await self._generic_remind(ctx, action, 'Virtual Contestant', 'vc')
-        elif arg == 'duel':
+        elif which == 'duel':
             await self._generic_remind(ctx, action, 'Duelist', 'duel')
         else:
-            raise HandleCogError(f'Invalid argument {arg}')
+            raise HandleCogError(f'Invalid role {which}')
 
     @discord_common.send_error_if(HandleCogError)
     async def cog_command_error(self, ctx, error):
