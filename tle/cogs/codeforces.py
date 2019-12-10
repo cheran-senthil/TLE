@@ -394,11 +394,18 @@ class Codeforces(commands.Cog):
             embed = discord.Embed(title=contest.name, url=contest.url)
             await ctx.send(f'Recommended contest for `{str_handles}`', embed=embed)
 
-    @commands.command(brief="Display unsolved rounds closest to completion")
-    async def fullsolve(self, ctx):
-        """Displays a list of contests, sorted by number of unsolved problems"""
+    @commands.command(brief="Display unsolved rounds closest to completion", usage='[keywords]')
+    async def fullsolve(self, ctx, *args: str):
+        """Displays a list of contests, sorted by number of unsolved problems.
+        Contest names matching any of the provided tags will be considered. e.g ;fullsolve +edu"""
+        def strfilt(s):
+            return ''.join(x for x in s.lower() if x.isalnum())
+
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
-        contests = cf_common.cache2.contest_cache.get_contests_in_phase('FINISHED')
+        tags = [strfilt(x) for x in args if x[0] == '+']
+        contests = [contest for contest in cf_common.cache2.contest_cache.get_contests_in_phase('FINISHED')
+                    if (not tags or any(tag in strfilt(contest.name) for tag in tags))
+                    and not cf_common.is_nonstandard_contest(contest)]
 
         # subs_by_contest_id contains contest_id mapped to [list of problem.index]
         subs_by_contest_id = defaultdict(set)
