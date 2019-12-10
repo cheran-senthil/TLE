@@ -141,8 +141,7 @@ class Codeforces(commands.Cog):
         """Print problems solved by user sorted by time (default) or rating.
         All submission types are included by default (practice, contest, etc.)
         """
-        args = list(args)
-        team, types = cf_common.filter_sub_type_args(args)
+        team, types, args = cf_common.filter_sub_type_args(args)
         hardest = '+hardest' in args
 
         def ok(sub):

@@ -319,12 +319,12 @@ class Graphs(commands.Cog):
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
 
-    @plot.command(brief='Show histogram of solved problems on CF.')
+    @plot.command(brief='Show histogram of solved problems on CF.',
+                  usage='[handles] [+practice] [+contest] [+virtual] [+outof] [+team] [tags...]')
     async def solved(self, ctx, *args: str):
         """Shows a histogram of problems solved on Codeforces for the handles provided.
         e.g. ;plot solved meooow +contest +virtual +outof +dp"""
-        args = list(args)
-        team, types_to_show = cf_common.filter_sub_type_args(args)
+        team, types_to_show, args = cf_common.filter_sub_type_args(args)
         handles, tags = [], []
         for arg in args:
             if arg[0] == '+':

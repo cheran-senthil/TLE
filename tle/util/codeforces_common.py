@@ -207,6 +207,7 @@ async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
     return resolved_handles
 
 def filter_sub_type_args(args):
+    args = list(args)
     team = False
     if '+team' in args:
         args.remove('+team')
@@ -225,4 +226,4 @@ def filter_sub_type_args(args):
         types.append('PRACTICE')
         args.remove('+practice')
     types = types or ['CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL', 'PRACTICE']
-    return team, types
+    return team, types, args
