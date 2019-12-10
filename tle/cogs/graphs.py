@@ -73,7 +73,7 @@ def _plot_rating(resp, mark='o', labels: List[str] = None):
     _plot_rating_bg()
 
 
-def _filter_solved_submissions(submissions, contests, tags=None):
+def _filter_solved_submissions(submissions, contests, tags=None, team=False):
     """Filters and keeps only solved submissions with problems that have a rating and belong to
     some contest from given contests. If a problem is solved multiple times the first accepted
     submission is kept. The unique id for a problem is (problem name, contest start time). A list
@@ -88,7 +88,8 @@ def _filter_solved_submissions(submissions, contests, tags=None):
         problem = submission.problem
         contest = contest_id_map.get(problem.contestId)
         tag_match = tags is None or problem.tag_matches(tags)
-        if submission.verdict == 'OK' and problem.rating and contest and tag_match:
+        team_ok = team or len(submission.author.members) == 1
+        if submission.verdict == 'OK' and problem.rating and contest and tag_match and team_ok:
             # Assume (name, contest start time) is a unique identifier for problems
             problem_key = (problem.name, contest.startTimeSeconds)
             if problem_key not in problems:
@@ -318,9 +319,12 @@ class Graphs(commands.Cog):
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
 
-    @plot.command(brief='Show histogram of solved problems on CF.')
+    @plot.command(brief='Show histogram of solved problems on CF.',
+                  usage='[handles] [+practice] [+contest] [+virtual] [+outof] [+team] [tags...]')
     async def solved(self, ctx, *args: str):
-        """Shows a histogram of problems solved on Codeforces for the handles provided."""
+        """Shows a histogram of problems solved on Codeforces for the handles provided.
+        e.g. ;plot solved meooow +contest +virtual +outof +dp"""
+        team, types_to_show, args = cf_common.filter_sub_type_args(args)
         handles, tags = [], []
         for arg in args:
             if arg[0] == '+':
@@ -335,7 +339,7 @@ class Graphs(commands.Cog):
         resp = [await cf.user.status(handle=handle) for handle in handles]
         contests = await cf.contest.list()
 
-        all_solved_subs = [_filter_solved_submissions(submissions, contests, tags or None)
+        all_solved_subs = [_filter_solved_submissions(submissions, contests, tags or None, team)
                            for submissions in resp]
 
         if not any(all_solved_subs):
@@ -354,11 +358,14 @@ class Graphs(commands.Cog):
         if len(handles) == 1:
             # Display solved problem separately by type for a single user.
             handle, solved_by_type = handles[0], _classify_submissions(all_solved_subs[0])
-
-            types_to_show = ['CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL', 'PRACTICE']
             all_ratings = [[sub.problem.rating for sub in solved_by_type[sub_type]]
                            for sub_type in types_to_show]
-            nice_names = ['Contest: {}', 'Unofficial: {}', 'Virtual: {}', 'Practice: {}']
+
+            nice_map = {'CONTESTANT':'Contest: {}',
+                        'OUT_OF_COMPETITION':'Unofficial: {}',
+                        'VIRTUAL':'Virtual: {}',
+                        'PRACTICE':'Practice: {}'}
+            nice_names = [nice_map[t] for t in types_to_show]
             labels = [name.format(len(ratings)) for name, ratings in zip(nice_names, all_ratings)]
             total = sum(map(len, all_ratings))
 

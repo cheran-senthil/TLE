@@ -205,3 +205,25 @@ async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
             raise HandleIsVjudgeError(handle)
         resolved_handles.append(handle)
     return resolved_handles
+
+def filter_sub_type_args(args):
+    args = list(set(args))
+    team = False
+    if '+team' in args:
+        args.remove('+team')
+        team = True
+    types = []
+    if '+contest' in args:
+        types.append('CONTESTANT')
+        args.remove('+contest')
+    if '+outof' in args:
+        types.append('OUT_OF_COMPETITION')
+        args.remove('+outof')
+    if '+virtual' in args:
+        types.append('VIRTUAL')
+        args.remove('+virtual')
+    if '+practice' in args:
+        types.append('PRACTICE')
+        args.remove('+practice')
+    types = types or ['CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL', 'PRACTICE']
+    return team, types, args

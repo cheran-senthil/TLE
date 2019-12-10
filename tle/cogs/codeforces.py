@@ -141,23 +141,12 @@ class Codeforces(commands.Cog):
         """Print problems solved by user sorted by time (default) or rating.
         All submission types are included by default (practice, contest, etc.)
         """
-
+        team, types, args = cf_common.filter_sub_type_args(args)
         hardest = '+hardest' in args
-        team = '+team' in args
-        types = []
-        if '+contest' in args:
-            types.append('CONTESTANT')
-        if '+virtual' in args:
-            types.append('VIRTUAL')
-        if '+outof' in args:
-            types.append('OUT_OF_COMPETITION')
-        if '+practice' in args:
-            types.append('PRACTICE')
-        all_types = not types
 
         def ok(sub):
             accepted = sub.verdict == 'OK'
-            type_ok = all_types or sub.author.participantType in types
+            type_ok = sub.author.participantType in types
             team_ok = team or len(sub.author.members) == 1
             problem_ok = (not sub.problem.contestId or                         # acmsguru allowed
                           sub.problem.contestId >= cf.GYM_ID_THRESHOLD or      # gym allowed
