@@ -394,10 +394,10 @@ class Codeforces(commands.Cog):
             embed = discord.Embed(title=contest.name, url=contest.url)
             await ctx.send(f'Recommended contest for `{str_handles}`', embed=embed)
 
-    @commands.command(brief="Display unsolved rounds closest to completion")
+    @commands.command(brief="Display unsolved rounds closest to completion", usage='[keywords]')
     async def fullsolve(self, ctx, *args: str):
-        """Displays a list of contests, sorted by number of unsolved problems
-        e.g ;fullsolve +edu"""
+        """Displays a list of contests, sorted by number of unsolved problems.
+        Contest names matching any of the provided tags will be considered. e.g ;fullsolve +edu"""
         def strfilt(s):
             return ''.join(x for x in s.lower() if x.isalnum())
 
