@@ -553,7 +553,7 @@ class Handles(commands.Cog):
     @commands.command(brief='Subscribe to or unsubscribe from duel/vc reminders',
                       usage='[give/remove] [vc/duel]')
     async def role(self, ctx, which: str, arg: str):
-        """e.g. ;gimmerole duel not"""
+        """e.g. ;role remove duel"""
         if which == 'vc':
             await self._generic_remind(ctx, arg, 'Virtual Contestant', 'vc')
         elif which == 'duel':
