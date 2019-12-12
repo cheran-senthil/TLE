@@ -235,7 +235,7 @@ class UserDbConn:
         query = ('SELECT problem_name '
                  'FROM challenge '
                  f'WHERE user_id = ? AND status = {Gitgud.NOGUD}')
-        return {name for name in self.conn.execute(query, (user_id,)).fetchall()}
+        return {name for name, in self.conn.execute(query, (user_id,)).fetchall()}
 
     def gitlog(self, user_id):
         query = f'''
