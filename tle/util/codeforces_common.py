@@ -182,7 +182,7 @@ def days_ago(t):
         return 'today'
     if days == 1:
         return 'yesterday'
-    return f'{math.ceil(days)} days ago'
+    return f'{days} days ago'
 
 async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
     """Convert an iterable of strings to CF handles. A string beginning with ! indicates Discord username,
