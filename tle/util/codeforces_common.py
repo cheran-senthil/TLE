@@ -177,10 +177,10 @@ def pretty_time_format(seconds, *, shorten=False, only_most_significant=False, a
 
 
 def days_ago(t):
-    days = (time.time() - t)/(60*60*24)
-    if days <= 1:
+    days = (time.time() - t)//(60*60*24)
+    if days == 0:
         return 'today'
-    if days <= 2:
+    if days == 1:
         return 'yesterday'
     return f'{math.ceil(days)} days ago'
 
