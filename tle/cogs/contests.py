@@ -211,7 +211,7 @@ class Contests(commands.Cog):
     @commands.group(brief='Commands for contest reminders',
                     invoke_without_command=True)
     async def remind(self, ctx):
-        await ctx.send_help('remind')
+        await ctx.send_help(ctx.command)
 
     @remind.command(brief='Set reminder settings')
     @commands.has_role('Admin')
@@ -255,29 +255,40 @@ class Contests(commands.Cog):
         embed.add_field(name='Before', value=f'At {before_str} mins before contest')
         await ctx.send(embed=embed)
 
-    @remind.command(brief='Subscribe to or unsubscribe from contest reminders',
-                    usage='[not]')
-    async def me(self, ctx, arg: str = None):
-        settings = cf_common.user_db.get_reminder_settings(ctx.guild.id)
+    @staticmethod
+    def _get_remind_role(guild):
+        settings = cf_common.user_db.get_reminder_settings(guild.id)
         if settings is None:
-            raise ContestCogError('To use this command, reminder settings must be set by an admin')
+            raise ContestCogError('Reminders are not enabled.')
         _, role_id, _ = settings
-        role = ctx.guild.get_role(int(role_id))
+        role = guild.get_role(int(role_id))
         if role is None:
-            raise ContestCogError('The role set for reminders is no longer available')
+            raise ContestCogError('The role set for reminders is no longer available.')
+        return role
 
-        if arg is None:
-            if role in ctx.author.roles:
-                await ctx.send(embed=discord_common.embed_neutral('You are already subscribed to contest reminders'))
-                return
+    @remind.command(brief='Subscribe to contest reminders')
+    async def on(self, ctx):
+        """Subscribes you to contest reminders. Use ';remind settings' to see the current
+        settings.
+        """
+        role = self._get_remind_role(ctx.guild)
+        if role in ctx.author.roles:
+            embed = discord_common.embed_neutral('You are already subscribed to contest reminders')
+        else:
             await ctx.author.add_roles(role, reason='User subscribed to contest reminders')
-            await ctx.send(embed=discord_common.embed_success('Successfully subscribed to contest reminders'))
-        elif arg == 'not':
-            if role not in ctx.author.roles:
-                await ctx.send(embed=discord_common.embed_neutral('You are not subscribed to contest reminders'))
-                return
+            embed = discord_common.embed_success('Successfully subscribed to contest reminders')
+        await ctx.send(embed=embed)
+
+    @remind.command(brief='Unsubscribe from contest reminders')
+    async def off(self, ctx):
+        """Unsubscribes you from contest reminders."""
+        role = self._get_remind_role(ctx.guild)
+        if role not in ctx.author.roles:
+            embed = discord_common.embed_neutral('You are not subscribed to contest reminders')
+        else:
             await ctx.author.remove_roles(role, reason='User unsubscribed from contest reminders')
-            await ctx.send(embed=discord_common.embed_success('Successfully unsubscribed from contest reminders'))
+            embed = discord_common.embed_success('Successfully unsubscribed from contest reminders')
+        await ctx.send(embed=embed)
 
     @staticmethod
     def _get_cf_or_ioi_standings_table(problem_indices, handle_standings, deltas=None, *, mode):
