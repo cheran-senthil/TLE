@@ -1,4 +1,5 @@
 import bisect
+import collections
 import datetime as dt
 import io
 import time
@@ -6,20 +7,21 @@ import os
 from typing import List
 
 import discord
-import pandas.plotting
+import numpy as np
+import pandas as pd
+import seaborn as sns
 from discord.ext import commands
 from matplotlib import pyplot as plt
 from matplotlib import patches as patches
 from matplotlib import lines as mlines
 from matplotlib import font_manager as fm
-import numpy as np
 
 from tle import constants
 from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
 from tle.util import discord_common
 
-pandas.plotting.register_matplotlib_converters()
+pd.plotting.register_matplotlib_converters()
 
 # A user is considered active if the duration since his last contest is not more than this
 CONTEST_ACTIVE_TIME_CUTOFF = 90 * 24 * 60 * 60 # 90 days
@@ -670,6 +672,74 @@ class Graphs(commands.Cog):
 
         discord_file = _get_current_figure_as_file()
         embed = discord_common.cf_color_embed(title='Histogram of gudgitting')
+        discord_common.attach_image(embed, discord_file)
+        discord_common.set_author_footer(embed, ctx.author)
+        await ctx.send(embed=embed, file=discord_file)
+
+    @plot.command(brief='Plot distribution of server members by country')
+    async def country(self, ctx, *countries):
+        """Plots distribution of server members by countries. When no countries are specified, plots
+         a bar graph of all members by country. When one or more countries are specified, plots a
+         swarmplot of members by country and rating. Only members with registered handles and
+         countries set on Codeforces are considered.
+         """
+        max_countries = 8
+        if len(countries) > max_countries:
+            raise GraphCogError(f'At most {max_countries} countries may be specified.')
+
+        users = cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)
+        counter = collections.Counter(user.country for _, user in users if user.country)
+        tick_config = {'xtick.bottom': True, 'xtick.color': '#3d3d4c'}
+
+        if not countries:
+            # list because seaborn complains for tuple.
+            countries, counts = map(list, zip(*counter.most_common()))
+            plt.clf()
+            fig = plt.figure(figsize=(15, 5))
+            with sns.axes_style(rc=tick_config):
+                sns.barplot(x=countries, y=counts)
+
+            # Show counts on top of bars.
+            ax = plt.gca()
+            for p in ax.patches:
+                x = p.get_x() + p.get_width() / 2
+                y = p.get_y() + p.get_height() + 0.5
+                ax.text(x, y, int(p.get_height()), ha='center', color='#3d3d4c', fontsize='small')
+
+            plt.xticks(rotation=40, ha='right')
+            plt.xlabel('Country')
+            plt.ylabel('Number of members')
+            discord_file = _get_current_figure_as_file()
+            plt.close(fig)
+            embed = discord_common.cf_color_embed(title='Distribution of server members by country')
+        else:
+            countries = [country.title() for country in countries]
+            data = [[user.country, user.rating]
+                    for _, user in users if user.country and user.country in countries]
+            if not data:
+                raise GraphCogError('No members from the specified countries are present.')
+
+            color_map = {rating: f'#{cf.rating2rank(rating).color_embed:06x}' for _, rating in data}
+            df = pd.DataFrame(data, columns=['Country', 'Rating'])
+            column_order = sorted((country for country in countries if counter[country]),
+                                  key=counter.get, reverse=True)
+            plt.clf()
+            if len(column_order) <= 5:
+                sns.swarmplot(x='Country', y='Rating', hue='Rating', data=df, order=column_order,
+                              palette=color_map)
+            else:
+                # Add ticks and rotate tick labels to avoid overlap.
+                with sns.axes_style(rc=tick_config):
+                    sns.swarmplot(x='Country', y='Rating', hue='Rating', data=df,
+                                  order=column_order, palette=color_map)
+                plt.xticks(rotation=30, ha='right')
+            plt.legend().remove()
+            plt.xlabel('Country')
+            plt.ylabel('Rating')
+            discord_file = _get_current_figure_as_file()
+            embed = discord_common.cf_color_embed(title='Rating distribution of server members by '
+                                                        'country')
+
         discord_common.attach_image(embed, discord_file)
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
