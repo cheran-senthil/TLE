@@ -35,7 +35,7 @@ def nice_sub_type(types):
                 'OUT_OF_COMPETITION':'Unofficial: {}',
                 'VIRTUAL':'Virtual: {}',
                 'PRACTICE':'Practice: {}'}
-    return [nice_map[t] for t in types_to_show]
+    return [nice_map[t] for t in types]
 
 def _get_current_figure_as_file():
     filename = os.path.join(constants.TEMP_DIR, f'tempplot_{time.time()}.png')
