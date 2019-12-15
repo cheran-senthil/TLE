@@ -3,6 +3,7 @@ import json
 import logging
 import math
 import time
+import datetime
 from collections import defaultdict
 
 from discord.ext import commands
@@ -214,7 +215,7 @@ async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
     return resolved_handles
 
 def parse_date(string):
-    return time.mktime(datetime.strptime(arg[2:], "%d%m%Y").timetuple())
+    return time.mktime(datetime.datetime.strptime(arg[2:], "%d%m%Y").timetuple())
 
 def filter_sub_args(args):
     args = list(set(args))
@@ -253,4 +254,4 @@ def filter_sub_args(args):
             rest.append(arg)
 
     types = types or ['CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL', 'PRACTICE']
-    return team, types, tags, dlo, dhi, rlo, dri, args
+    return team, types, tags, dlo, dhi, rlo, dhi, args
