@@ -81,7 +81,7 @@ def _plot_rating(resp, mark='o', labels: List[str] = None):
     _plot_rating_bg()
 
 
-def _filter_solved_submissions(submissions, contests, tags = None, team = False, dlo = 0, dhi = 2147483647, rlo = 500, rhi = 3800):
+def _filter_solved_submissions(submissions, contests, tags=None, team=False, dlo=0, dhi=2147483647, rlo=500, rhi=3800):
     """Filters and keeps only solved submissions with problems that have a rating and belong to
     some contest from given contests. If a problem is solved multiple times the first accepted
     submission is kept. The unique id for a problem is (problem name, contest start time). A list
