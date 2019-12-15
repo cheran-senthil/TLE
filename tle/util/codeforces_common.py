@@ -177,12 +177,12 @@ def pretty_time_format(seconds, *, shorten=False, only_most_significant=False, a
 
 
 def days_ago(t):
-    days = (time.time() - t)//(60*60*24)
-    if days == 0:
+    days = (time.time() - t)/(60*60*24)
+    if days < 1:
         return 'today'
-    if days == 1:
+    if days < 2:
         return 'yesterday'
-    return f'{days} days ago'
+    return f'{math.floor(days)} days ago'
 
 async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
     """Convert an iterable of strings to CF handles. A string beginning with ! indicates Discord username,
