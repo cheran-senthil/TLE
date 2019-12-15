@@ -316,11 +316,10 @@ class UserDbConn:
 
     def set_inactive(self, guild_id_user_id_pairs):
         query = ('UPDATE user_handle '
-                 'SET active = ? '
+                 'SET active = 0 '
                  'WHERE guild_id = ? AND user_id = ?')
-        values = [(0, guild_id, user_id) for guild_id, user_id in guild_id_user_id_pairs]
         with self.conn:
-            return self.conn.executemany(query, values).rowcount
+            return self.conn.executemany(query, guild_id_user_id_pairs).rowcount
 
     def get_handle(self, user_id, guild_id):
         query = ('SELECT handle '
