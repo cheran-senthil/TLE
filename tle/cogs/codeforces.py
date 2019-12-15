@@ -150,10 +150,11 @@ class Codeforces(commands.Cog):
             team_ok = team or len(sub.author.members) == 1
             date_ok = sub.creationTimeSeconds >= dlo and sub.creationTimeSeconds <= dhi
             rating_ok = not sub.problem.rating or (sub.problem.rating >= rlo and sub.problem.rating <= rhi)
+            tag_ok = not tags or sub.problem.tag_matches(tags)
             problem_ok = (not sub.problem.contestId or                         # acmsguru allowed
                           sub.problem.contestId >= cf.GYM_ID_THRESHOLD or      # gym allowed
                           not cf_common.is_nonstandard_problem(sub.problem))
-            return accepted and type_ok and team_ok and problem_ok and rating_ok and date_ok
+            return accepted and type_ok and team_ok and problem_ok and rating_ok and date_ok and tag_ok
 
         handles = [arg for arg in args if arg[0] != '+']
         handles = handles or ('!' + str(ctx.author),)
