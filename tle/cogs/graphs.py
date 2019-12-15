@@ -95,9 +95,9 @@ def _filter_solved_submissions(submissions, contests, tags=None, team=False, dlo
     for submission in submissions:
         problem = submission.problem
         contest = contest_id_map.get(problem.contestId)
-        date_ok = submission.creationTimeSeconds >= dlo and creationTimeSeconds <= dhi
-        rating_ok = problem.rating and problem.rating >= rlo and problem.raing <= rhi
-        tag_match = tags is None or problem.tag_matches(tags)
+        date_ok = submission.creationTimeSeconds >= dlo and submission.creationTimeSeconds <= dhi
+        rating_ok = problem.rating and problem.rating >= rlo and problem.rating <= rhi
+        tag_match = not tags or problem.tag_matches(tags)
         team_ok = team or len(submission.author.members) == 1
         if submission.verdict == 'OK' and rating_ok and contest and tag_match and team_ok and date_ok:
             # Assume (name, contest start time) is a unique identifier for problems
@@ -334,7 +334,7 @@ class Graphs(commands.Cog):
     async def solved(self, ctx, *args: str):
         """Shows a histogram of problems solved on Codeforces for the handles provided.
         e.g. ;plot solved meooow +contest +virtual +outof +dp"""
-        team, types, tags, dlo, dhi, rlo, rhi, args = cf_common.filter_sub_args(args)
+        team, types_to_show, tags, dlo, dhi, rlo, rhi, args = cf_common.filter_sub_args(args)
         handles = args or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         resp = [await cf.user.status(handle=handle) for handle in handles]
@@ -403,7 +403,7 @@ class Graphs(commands.Cog):
                   usage='[handles] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [r>rating] [r<rating] [>ddmmyyyy] [<ddmmyyyy]')
     async def hist(self, ctx, *args: str):
         """Shows the actual histogram of problems solved on Codeforces for the handles provided."""
-        team, types, tags, dlo, dhi, rlo, rhi, args = cf_common.filter_sub_args(args)
+        team, types_to_show, tags, dlo, dhi, rlo, rhi, args = cf_common.filter_sub_args(args)
         handle = args[0] if handles else '!' + str(ctx.author)
         handle, = await cf_common.resolve_handles(ctx, self.converter, (handle,))
         subs = await cf.user.status(handle=handle)
