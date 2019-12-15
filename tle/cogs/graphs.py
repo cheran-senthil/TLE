@@ -689,14 +689,13 @@ class Graphs(commands.Cog):
 
         users = cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)
         counter = collections.Counter(user.country for _, user in users if user.country)
-        tick_config = {'xtick.bottom': True, 'xtick.color': '#3d3d4c'}
 
         if not countries:
             # list because seaborn complains for tuple.
             countries, counts = map(list, zip(*counter.most_common()))
             plt.clf()
             fig = plt.figure(figsize=(15, 5))
-            with sns.axes_style(rc=tick_config):
+            with sns.axes_style(rc={'xtick.bottom': True}):
                 sns.barplot(x=countries, y=counts)
 
             # Show counts on top of bars.
@@ -704,9 +703,11 @@ class Graphs(commands.Cog):
             for p in ax.patches:
                 x = p.get_x() + p.get_width() / 2
                 y = p.get_y() + p.get_height() + 0.5
-                ax.text(x, y, int(p.get_height()), ha='center', color='#3d3d4c', fontsize='small')
+                ax.text(x, y, int(p.get_height()), horizontalalignment='center', color='#30304f',
+                        fontsize='x-small')
 
-            plt.xticks(rotation=40, ha='right')
+            plt.xticks(rotation=40, horizontalalignment='right')
+            ax.tick_params(axis='x', length=4, color=ax.spines['bottom'].get_edgecolor())
             plt.xlabel('Country')
             plt.ylabel('Number of members')
             discord_file = _get_current_figure_as_file()
@@ -729,10 +730,12 @@ class Graphs(commands.Cog):
                               palette=color_map)
             else:
                 # Add ticks and rotate tick labels to avoid overlap.
-                with sns.axes_style(rc=tick_config):
+                with sns.axes_style(rc={'xtick.bottom': True}):
                     sns.swarmplot(x='Country', y='Rating', hue='Rating', data=df,
                                   order=column_order, palette=color_map)
-                plt.xticks(rotation=30, ha='right')
+                plt.xticks(rotation=30, horizontalalignment='right')
+                ax = plt.gca()
+                ax.tick_params(axis='x', color=ax.spines['bottom'].get_edgecolor())
             plt.legend().remove()
             plt.xlabel('Country')
             plt.ylabel('Rating')
