@@ -136,22 +136,24 @@ class Codeforces(commands.Cog):
         await ctx.send(f'Recommended problem for `{handle}`', embed=embed)
 
     @commands.command(brief='List solved problems',
-                      usage='[handles] [+hardest] [+practice] [+contest] [+virtual] [+outof] [+team]')
+                      usage='[handles] [+hardest] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [r>rating] [r<rating] [>ddmmyyyy] [<ddmmyyyy]')
     async def stalk(self, ctx, *args):
         """Print problems solved by user sorted by time (default) or rating.
         All submission types are included by default (practice, contest, etc.)
         """
-        team, types, args = cf_common.filter_sub_type_args(args)
+        team, types, tags, dlo, dhi, rlo, dri, args = cf_common.filter_sub_args(args)
         hardest = '+hardest' in args
 
         def ok(sub):
             accepted = sub.verdict == 'OK'
             type_ok = sub.author.participantType in types
             team_ok = team or len(sub.author.members) == 1
+            date_ok = sub.creationTimeSeconds >= dlo and sub.creationTimeSeconds <= dhi
+            rating_ok = not sub.problem.rating or (sub.problem.rating >= rlo and sub.problem.rating <= rhi)
             problem_ok = (not sub.problem.contestId or                         # acmsguru allowed
                           sub.problem.contestId >= cf.GYM_ID_THRESHOLD or      # gym allowed
                           not cf_common.is_nonstandard_problem(sub.problem))
-            return accepted and type_ok and team_ok and problem_ok
+            return accepted and type_ok and team_ok and problem_ok and rating_ok and date_ok
 
         handles = [arg for arg in args if arg[0] != '+']
         handles = handles or ('!' + str(ctx.author),)

@@ -147,6 +147,13 @@ class HandleIsVjudgeError(ResolveHandleError):
     def __init__(self, handle):
         super().__init__(f"`{handle}`? I'm not doing that!\n\n(╯°□°）╯︵ ┻━┻")
 
+class ParseDateError(commands.CommandError):
+    def __init__(self, arg):
+        super().__init__(f'{arg} is an invalid date argument')
+
+class EmptyTagError(commands.CommandError):
+    def __init__(self):
+        super().__init__('Problem tag cannot be empty.')
 
 def time_format(seconds):
     seconds = int(seconds)
@@ -206,24 +213,44 @@ async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
         resolved_handles.append(handle)
     return resolved_handles
 
-def filter_sub_type_args(args):
+def parse_date(string):
+    return time.mktime(datetime.strptime(arg[2:], "%d%m%Y").timetuple())
+
+def filter_sub_args(args):
     args = list(set(args))
     team = False
-    if '+team' in args:
-        args.remove('+team')
-        team = True
-    types = []
-    if '+contest' in args:
-        types.append('CONTESTANT')
-        args.remove('+contest')
-    if '+outof' in args:
-        types.append('OUT_OF_COMPETITION')
-        args.remove('+outof')
-    if '+virtual' in args:
-        types.append('VIRTUAL')
-        args.remove('+virtual')
-    if '+practice' in args:
-        types.append('PRACTICE')
-        args.remove('+practice')
+    dlo, dhi = 0, datetime.datetime.now().timestamp()
+    rlo, rhi = 500, 3800
+    types, tags, rest = [], [], []
+
+    for arg in args:
+        if arg == '+team':
+            team = True
+        elif arg == '+contest':
+            types.append('CONTESTANT')
+        elif arg =='+outof':
+            types.append('OUT_OF_COMPETITION')
+        elif arg == '+virtual':
+            types.append('VIRTUAL')
+        elif arg == '+practice':
+            types.append('PRACTICE')
+        elif arg[0] == '+':
+            if len(arg) == 1:
+                raise EmptyTagError()
+            tags.append(arg[1:])
+        elif arg[0] == 'r':
+            if arg[1] == '>':
+                dlo = parse_date(arg[2:])
+            elif arg[1] == '<':
+                dhi = parse_date(arg[2:])
+            else:
+                raise ParseDateError(arg)
+        if arg[0] == '>':
+            rlo = int(arg[1:])
+        elif arg[0] == '<':
+            rhi = int(arg[1:])
+        else:
+            rest.append(arg)
+
     types = types or ['CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL', 'PRACTICE']
-    return team, types, args
+    return team, types, tags, dlo, dhi, rlo, dri, args

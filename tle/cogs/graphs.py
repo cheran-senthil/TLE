@@ -30,6 +30,12 @@ CONTEST_ACTIVE_TIME_CUTOFF = 90 * 24 * 60 * 60 # 90 days
 class GraphCogError(commands.CommandError):
     pass
 
+def nice_sub_type(types):
+    nice_map = {'CONTESTANT':'Contest: {}',
+                'OUT_OF_COMPETITION':'Unofficial: {}',
+                'VIRTUAL':'Virtual: {}',
+                'PRACTICE':'Practice: {}'}
+    return [nice_map[t] for t in types_to_show]
 
 def _get_current_figure_as_file():
     filename = os.path.join(constants.TEMP_DIR, f'tempplot_{time.time()}.png')
@@ -75,7 +81,7 @@ def _plot_rating(resp, mark='o', labels: List[str] = None):
     _plot_rating_bg()
 
 
-def _filter_solved_submissions(submissions, contests, tags=None, team=False):
+def _filter_solved_submissions(submissions, contests, tags = None, team = False, dlo = 0, dhi = 2147483647, rlo = 500, rhi = 3800):
     """Filters and keeps only solved submissions with problems that have a rating and belong to
     some contest from given contests. If a problem is solved multiple times the first accepted
     submission is kept. The unique id for a problem is (problem name, contest start time). A list
@@ -89,9 +95,11 @@ def _filter_solved_submissions(submissions, contests, tags=None, team=False):
     for submission in submissions:
         problem = submission.problem
         contest = contest_id_map.get(problem.contestId)
+        date_ok = submission.creationTimeSeconds >= dlo and creationTimeSeconds <= dhi
+        rating_ok = problem.rating and problem.rating >= rlo and problem.raing <= rhi
         tag_match = tags is None or problem.tag_matches(tags)
         team_ok = team or len(submission.author.members) == 1
-        if submission.verdict == 'OK' and problem.rating and contest and tag_match and team_ok:
+        if submission.verdict == 'OK' and rating_ok and contest and tag_match and team_ok and date_ok:
             # Assume (name, contest start time) is a unique identifier for problems
             problem_key = (problem.name, contest.startTimeSeconds)
             if problem_key not in problems:
@@ -322,26 +330,17 @@ class Graphs(commands.Cog):
         await ctx.send(embed=embed, file=discord_file)
 
     @plot.command(brief='Show histogram of solved problems on CF.',
-                  usage='[handles] [+practice] [+contest] [+virtual] [+outof] [+team] [tags...]')
+                  usage='[handles] [+hardest] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [r>rating] [r<rating] [>ddmmyyyy] [<ddmmyyyy]')
     async def solved(self, ctx, *args: str):
         """Shows a histogram of problems solved on Codeforces for the handles provided.
         e.g. ;plot solved meooow +contest +virtual +outof +dp"""
-        team, types_to_show, args = cf_common.filter_sub_type_args(args)
-        handles, tags = [], []
-        for arg in args:
-            if arg[0] == '+':
-                if len(arg) == 1:
-                    raise GraphCogError('Problem tag cannot be empty.')
-                tags.append(arg[1:])
-            else:
-                handles.append(arg)
-
-        handles = handles or ('!' + str(ctx.author),)
+        team, types, tags, dlo, dhi, rlo, dri, args = cf_common.filter_sub_args(args)
+        handles = args or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         resp = [await cf.user.status(handle=handle) for handle in handles]
         contests = await cf.contest.list()
 
-        all_solved_subs = [_filter_solved_submissions(submissions, contests, tags or None, team)
+        all_solved_subs = [_filter_solved_submissions(submissions, contests, tags, team, dlo, dhi, rlo, rhi)
                            for submissions in resp]
 
         if not any(all_solved_subs):
@@ -363,16 +362,12 @@ class Graphs(commands.Cog):
             all_ratings = [[sub.problem.rating for sub in solved_by_type[sub_type]]
                            for sub_type in types_to_show]
 
-            nice_map = {'CONTESTANT':'Contest: {}',
-                        'OUT_OF_COMPETITION':'Unofficial: {}',
-                        'VIRTUAL':'Virtual: {}',
-                        'PRACTICE':'Practice: {}'}
-            nice_names = [nice_map[t] for t in types_to_show]
+            nice_names = nice_sub_type(types_to_show)
             labels = [name.format(len(ratings)) for name, ratings in zip(nice_names, all_ratings)]
             total = sum(map(len, all_ratings))
 
             step = 100
-            hist_bins = list(range(500, 3800 + step, step))
+            hist_bins = list(range(rlo, rhi + step, step))
             plt.clf()
             plt.hist(all_ratings, stacked=True, bins=hist_bins, label=labels)
             plt.xlabel('Problem rating')
@@ -391,7 +386,7 @@ class Graphs(commands.Cog):
                       for handle, ratings in zip(handles, all_ratings)]
 
             step = 200
-            hist_bins = list(range(500, 3800 + step, step))
+            hist_bins = list(range(rlo, rhi + step, step))
             plt.clf()
             plt.hist(all_ratings, bins=hist_bins, label=labels)
             plt.xlabel('Problem rating')
@@ -404,20 +399,22 @@ class Graphs(commands.Cog):
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
 
-    @plot.command(brief='Show actual histogram of solved problems on CF.')
-    async def hist(self, ctx, handle: str = None):
+    @plot.command(brief='Show actual histogram of solved problems on CF.',
+                  usage='[handles] [+hardest] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [r>rating] [r<rating] [>ddmmyyyy] [<ddmmyyyy]')
+    async def hist(self, ctx, *args: str):
         """Shows the actual histogram of problems solved on Codeforces for the handles provided."""
-        handle = handle or '!' + str(ctx.author)
+        team, types, tags, dlo, dhi, rlo, dri, args = cf_common.filter_sub_args(args)
+        handle = args[0] if handles else '!' + str(ctx.author)
         handle, = await cf_common.resolve_handles(ctx, self.converter, (handle,))
         subs = await cf.user.status(handle=handle)
         contests = await cf.contest.list()
-        solved_subs = _filter_solved_submissions(subs, contests)
+
+        solved_subs = _filter_solved_submissions(subs, contests, tags, team, dlo, dhi, rlo, rhi)
         solved_by_type = _classify_submissions(solved_subs)
 
-        types_to_show = ['CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL', 'PRACTICE']
         all_times = [[dt.datetime.fromtimestamp(sub.creationTimeSeconds) for sub in solved_by_type[sub_type]]
                        for sub_type in types_to_show]
-        nice_names = ['Contest: {}', 'Unofficial: {}', 'Virtual: {}', 'Practice: {}']
+        nice_names = nice_sub_type(types_to_show)
         labels = [name.format(len(times)) for name, times in zip(nice_names, all_times)]
         total = sum(map(len, all_times))
 
