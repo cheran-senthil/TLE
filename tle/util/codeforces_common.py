@@ -246,7 +246,7 @@ def filter_sub_args(args):
                 dhi = parse_date(arg[2:])
             else:
                 raise ParseDateError(arg)
-        if arg[0] == '>':
+        elif arg[0] == '>':
             rlo = int(arg[1:])
         elif arg[0] == '<':
             rhi = int(arg[1:])
@@ -254,4 +254,4 @@ def filter_sub_args(args):
             rest.append(arg)
 
     types = types or ['CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL', 'PRACTICE']
-    return team, types, tags, dlo, dhi, rlo, dhi, args
+    return team, types, tags, dlo, dhi, rlo, rhi, rest
