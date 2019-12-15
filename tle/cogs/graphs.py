@@ -367,7 +367,8 @@ class Graphs(commands.Cog):
             total = sum(map(len, all_ratings))
 
             step = 100
-            hist_bins = list(range(rlo, rhi + step, step))
+            # shift the range to center the text
+            hist_bins = list(range(rlo - step // 2, rhi + step // 2 + 1, step))
             plt.clf()
             plt.hist(all_ratings, stacked=True, bins=hist_bins, label=labels)
             plt.xlabel('Problem rating')
@@ -683,7 +684,7 @@ class Graphs(commands.Cog):
     @plot.command(brief='Plot histogram of gudgiting')
     async def howgud(self, ctx, *members: discord.Member):
         members = members or (ctx.author,)
-        # shift the [-300, 300] gitgud range to center the test
+        # shift the [-300, 300] gitgud range to center the text
         hist_bins = list(range(-300 - 50, 300 + 50 + 1, 100))
         deltas = [[x[0] for x in cf_common.user_db.howgud(member.id)] for member in members]
         labels = [f'\0{member.display_name}: {len(delta)}'
