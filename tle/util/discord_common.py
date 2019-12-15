@@ -42,7 +42,8 @@ def set_author_footer(embed, user):
 
 def send_error_if(*error_cls):
     """Decorator for `cog_command_error` methods. Decorated methods send the error in an alert embed
-    when the error is an instance of one of the specified errors.
+    when the error is an instance of one of the specified errors, otherwise the wrapped function is
+    invoked.
     """
     def decorator(func):
         @functools.wraps(func)
@@ -51,7 +52,7 @@ def send_error_if(*error_cls):
                 await ctx.send(embed=embed_alert(error))
                 error.handled = True
             else:
-                func(cog, ctx, error)
+                await func(cog, ctx, error)
         return wrapper
     return decorator
 
