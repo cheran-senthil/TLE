@@ -148,13 +148,9 @@ class HandleIsVjudgeError(ResolveHandleError):
     def __init__(self, handle):
         super().__init__(f"`{handle}`? I'm not doing that!\n\n(╯°□°）╯︵ ┻━┻")
 
-class ParseDateError(commands.CommandError):
-    def __init__(self, arg):
-        super().__init__(f'{arg} is an invalid date argument')
-
-class EmptyTagError(commands.CommandError):
-    def __init__(self):
-        super().__init__('Problem tag cannot be empty.')
+class ParamParseError(commands.CommandError):
+    def __init__(self, msg):
+        super().__init__(msg)
 
 def time_format(seconds):
     seconds = int(seconds)
@@ -214,8 +210,8 @@ async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
         resolved_handles.append(handle)
     return resolved_handles
 
-def parse_date(string):
-    return time.mktime(datetime.datetime.strptime(arg[2:], "%d%m%Y").timetuple())
+def parse_date(arg):
+    return time.mktime(datetime.datetime.strptime(arg, "%d%m%Y").timetuple())
 
 def filter_sub_args(args):
     args = list(set(args))
@@ -237,19 +233,22 @@ def filter_sub_args(args):
             types.append('PRACTICE')
         elif arg[0] == '+':
             if len(arg) == 1:
-                raise EmptyTagError()
+                raise ParamParseError('Problem tag cannot be empty.')
             tags.append(arg[1:])
-        elif arg[0] == 'r':
-            if arg[1] == '>':
+        elif arg[0] == 'd' and arg[1] in '<>':
+            if len(arg) != 10:
+                raise ParamParseError(f'{arg} is an invalid date argument')
+            elif arg[1] == '>':
                 dlo = parse_date(arg[2:])
-            elif arg[1] == '<':
-                dhi = parse_date(arg[2:])
             else:
-                raise ParseDateError(arg)
-        elif arg[0] == '>':
-            rlo = int(arg[1:])
-        elif arg[0] == '<':
-            rhi = int(arg[1:])
+                dhi = parse_date(arg[2:])
+        elif arg[0] == 'r' and arg[1] in '<>':
+            if len(arg) < 3:
+                raise ParamParseError(f'{arg} is an invalid rating argument')
+            elif arg[1] == '>':
+                rlo = int(arg[2:])
+            else:
+                rhi = int(arg[2:])
         else:
             rest.append(arg)
 

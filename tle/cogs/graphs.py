@@ -404,7 +404,7 @@ class Graphs(commands.Cog):
     async def hist(self, ctx, *args: str):
         """Shows the actual histogram of problems solved on Codeforces for the handles provided."""
         team, types_to_show, tags, dlo, dhi, rlo, rhi, args = cf_common.filter_sub_args(args)
-        handle = args[0] if handles else '!' + str(ctx.author)
+        handle = args[0] if args else '!' + str(ctx.author)
         handle, = await cf_common.resolve_handles(ctx, self.converter, (handle,))
         subs = await cf.user.status(handle=handle)
         contests = await cf.contest.list()
