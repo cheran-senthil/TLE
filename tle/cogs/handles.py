@@ -318,13 +318,13 @@ class Handles(commands.Cog):
         await ctx.send(msg)
 
     @handle.command(brief="Show all handles")
-    async def list(self, ctx):
+    async def list(self, ctx, *countries):
         """Shows all members of the server who have registered their handles and
         their Codeforces ratings.
         """
         res = cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)
         users = [(ctx.guild.get_member(int(user_id)), cf_user.handle, cf_user.rating)
-                 for user_id, cf_user in res]
+                 for user_id, cf_user in res if not countries or cf_user.country in countries]
         users = [(member, handle, rating) for member, handle, rating in users if member is not None]
         users.sort(key=lambda x: (1 if x[2] is None else -x[2], x[1]))  # Sorting by (-rating, handle)
         pages = _make_pages(users)
