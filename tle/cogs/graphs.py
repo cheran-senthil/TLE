@@ -99,7 +99,8 @@ def _filter_solved_submissions(submissions, contests, tags=None, team=False, dlo
         rating_ok = problem.rating and problem.rating >= rlo and problem.rating <= rhi
         tag_match = not tags or problem.tag_matches(tags)
         team_ok = team or len(submission.author.members) == 1
-        if submission.verdict == 'OK' and rating_ok and contest and tag_match and team_ok and date_ok:
+        problem_ok = problem.contestId and problem.contestId < cf.GYM_ID_THRESHOLD and not cf_common.is_nonstandard_problem(problem)
+        if submission.verdict == 'OK' and rating_ok and contest and tag_match and team_ok and date_ok and problem_ok:
             # Assume (name, contest start time) is a unique identifier for problems
             problem_key = (problem.name, contest.startTimeSeconds)
             if problem_key not in problems:
