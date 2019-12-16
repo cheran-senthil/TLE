@@ -136,7 +136,7 @@ class Codeforces(commands.Cog):
         await ctx.send(f'Recommended problem for `{handle}`', embed=embed)
 
     @commands.command(brief='List solved problems',
-                      usage='[handles] [+hardest] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [r>rating] [r<rating] [>ddmmyyyy] [<ddmmyyyy]')
+                      usage='[handles] [+hardest] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [r>rating] [r<rating] [d>ddmmyyyy] [d<ddmmyyyy]')
     async def stalk(self, ctx, *args):
         """Print problems solved by user sorted by time (default) or rating.
         All submission types are included by default (practice, contest, etc.)
