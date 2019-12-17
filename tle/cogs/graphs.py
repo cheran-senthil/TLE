@@ -80,35 +80,6 @@ def _plot_rating(resp, mark='o', labels: List[str] = None):
 
     _plot_rating_bg()
 
-
-def _filter_solved_submissions(submissions, contests, tags=None, team=False, dlo=0, dhi=2147483647, rlo=500, rhi=3800):
-    """Filters and keeps only solved submissions with problems that have a rating and belong to
-    some contest from given contests. If a problem is solved multiple times the first accepted
-    submission is kept. The unique id for a problem is (problem name, contest start time). A list
-    of tags may be provided to filter out problems that do not have *all* of the given tags.
-    """
-    submissions.sort(key=lambda sub: sub.creationTimeSeconds)
-    contest_id_map = {contest.id: contest for contest in contests}
-    problems = set()
-    solved_subs = []
-
-    for submission in submissions:
-        problem = submission.problem
-        contest = contest_id_map.get(problem.contestId)
-        date_ok = submission.creationTimeSeconds >= dlo and submission.creationTimeSeconds <= dhi
-        rating_ok = problem.rating and problem.rating >= rlo and problem.rating <= rhi
-        tag_match = not tags or problem.tag_matches(tags)
-        team_ok = team or len(submission.author.members) == 1
-        problem_ok = problem.contestId and problem.contestId < cf.GYM_ID_THRESHOLD and not cf_common.is_nonstandard_problem(problem)
-        if submission.verdict == 'OK' and rating_ok and contest and tag_match and team_ok and date_ok and problem_ok:
-            # Assume (name, contest start time) is a unique identifier for problems
-            problem_key = (problem.name, contest.startTimeSeconds)
-            if problem_key not in problems:
-                solved_subs.append(submission)
-                problems.add(problem_key)
-    return solved_subs
-
-
 def _classify_submissions(submissions):
     solved_by_type = {sub_type: [] for sub_type in cf.Party.PARTICIPANT_TYPES}
     for submission in submissions:
@@ -335,13 +306,13 @@ class Graphs(commands.Cog):
     async def solved(self, ctx, *args: str):
         """Shows a histogram of problems solved on Codeforces for the handles provided.
         e.g. ;plot solved meooow +contest +virtual +outof +dp"""
-        team, types_to_show, tags, dlo, dhi, rlo, rhi, args = cf_common.filter_sub_args(args)
+        team, types, tags, dlo, dhi, rlo, rhi, args = cf_common.filter_sub_args(args)
         handles = args or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         resp = [await cf.user.status(handle=handle) for handle in handles]
         contests = await cf.contest.list()
 
-        all_solved_subs = [_filter_solved_submissions(submissions, contests, tags, team, dlo, dhi, rlo, rhi)
+        all_solved_subs = [cf_common.filter_solved_submissions(submissions, contests, tags, types, team, dlo, dhi, True, rlo, rhi)
                            for submissions in resp]
 
         if not any(all_solved_subs):
@@ -361,9 +332,9 @@ class Graphs(commands.Cog):
             # Display solved problem separately by type for a single user.
             handle, solved_by_type = handles[0], _classify_submissions(all_solved_subs[0])
             all_ratings = [[sub.problem.rating for sub in solved_by_type[sub_type]]
-                           for sub_type in types_to_show]
+                           for sub_type in types]
 
-            nice_names = nice_sub_type(types_to_show)
+            nice_names = nice_sub_type(types)
             labels = [name.format(len(ratings)) for name, ratings in zip(nice_names, all_ratings)]
             total = sum(map(len, all_ratings))
 
@@ -405,18 +376,18 @@ class Graphs(commands.Cog):
                   usage='[handles] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [r>rating] [r<rating] [d>ddmmyyyy] [d<ddmmyyyy]')
     async def hist(self, ctx, *args: str):
         """Shows the actual histogram of problems solved on Codeforces for the handles provided."""
-        team, types_to_show, tags, dlo, dhi, rlo, rhi, args = cf_common.filter_sub_args(args)
+        team, types, tags, dlo, dhi, rlo, rhi, args = cf_common.filter_sub_args(args)
         handle = args[0] if args else '!' + str(ctx.author)
         handle, = await cf_common.resolve_handles(ctx, self.converter, (handle,))
         subs = await cf.user.status(handle=handle)
         contests = await cf.contest.list()
 
-        solved_subs = _filter_solved_submissions(subs, contests, tags, team, dlo, dhi, rlo, rhi)
+        solved_subs = cf_common.filter_solved_submissions(subs, contests, tags, types, team, dlo, dhi, True, rlo, rhi)
         solved_by_type = _classify_submissions(solved_subs)
 
         all_times = [[dt.datetime.fromtimestamp(sub.creationTimeSeconds) for sub in solved_by_type[sub_type]]
-                       for sub_type in types_to_show]
-        nice_names = nice_sub_type(types_to_show)
+                       for sub_type in types]
+        nice_names = nice_sub_type(types)
         labels = [name.format(len(times)) for name, times in zip(nice_names, all_times)]
         total = sum(map(len, all_times))
 
@@ -452,7 +423,7 @@ class Graphs(commands.Cog):
             return [(dt.datetime.fromtimestamp(sub.creationTimeSeconds), sub.problem.rating)
                     for sub in submissions]
 
-        solved_subs = _filter_solved_submissions(submissions, contests)
+        solved_subs = cf_common.filter_solved_submissions(submissions, contests)
 
         if not any(rating_resp) and not any(solved_subs):
             raise GraphCogError(f'User `{handle}` is not rated and has not solved any rated problem')

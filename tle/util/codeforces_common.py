@@ -254,3 +254,39 @@ def filter_sub_args(args):
 
     types = types or ['CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL', 'PRACTICE']
     return team, types, tags, dlo, dhi, rlo, rhi, rest
+
+def filter_solved_submissions(submissions, contests, tags=None, types=None, team=False, dlo=0, dhi=2147483647, rated=False, rlo=500, rhi=3800):
+    """Filters and keeps only solved submissions with problems that have a rating and belong to
+    some contest from given contests. If a problem is solved multiple times the first accepted
+    submission is kept. The unique id for a problem is (problem name, contest start time). A list
+    of tags may be provided to filter out problems that do not have *all* of the given tags.
+    """
+    submissions.sort(key=lambda sub: sub.creationTimeSeconds)
+    contest_id_map = {contest.id: contest for contest in contests}
+    problems = set()
+    solved_subs = []
+
+    for submission in submissions:
+        problem = submission.problem
+        contest = contest_id_map.get(problem.contestId)
+        sub_ok = submission.verdict == 'OK'
+        type_ok = not types or submission.author.participantType in types
+        date_ok = submission.creationTimeSeconds >= dlo and submission.creationTimeSeconds <= dhi
+        tag_ok = not tags or problem.tag_matches(tags)
+        team_ok = team or len(submission.author.members) == 1
+        if rated:
+            problem_ok = contest.id < cf.GYM_ID_THRESHOLD and not cf_common.is_nonstandard_problem(problem)
+            rating_ok = problem.rating and problem.rating >= rlo and problem.rating <= rhi
+        else:
+            # acmsguru and gym allowed
+            problem_ok = (not contest or contest.id >= cf.GYM_ID_THRESHOLD
+                          or not cf_common.is_nonstandard_problem(problem))
+            rating_ok = True
+
+        if sub_ok and type_ok and date_ok and rating_ok and contest and tag_ok and team_ok and problem_ok:
+            # Assume (name, contest start time) is a unique identifier for problems
+            problem_key = (problem.name, contest.startTimeSeconds)
+            if problem_key not in problems:
+                solved_subs.append(submission)
+                problems.add(problem_key)
+    return solved_subs
