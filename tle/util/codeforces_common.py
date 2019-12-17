@@ -216,6 +216,7 @@ def parse_date(arg):
 def filter_sub_args(args):
     args = list(set(args))
     team = False
+    rated = False
     dlo, dhi = 0, datetime.datetime.now().timestamp()
     rlo, rhi = 500, 3800
     types, tags, rest = [], [], []
@@ -249,11 +250,12 @@ def filter_sub_args(args):
                 rlo = int(arg[2:])
             else:
                 rhi = int(arg[2:])
+            rated = True
         else:
             rest.append(arg)
 
     types = types or ['CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL', 'PRACTICE']
-    return team, types, tags, dlo, dhi, rlo, rhi, rest
+    return team, rated, types, tags, dlo, dhi, rlo, rhi, rest
 
 def filter_solved_submissions(submissions, contests, tags=None, types=None, team=False, dlo=0, dhi=2147483647, rated=False, rlo=500, rhi=3800):
     """Filters and keeps only solved submissions with problems that have a rating and belong to
@@ -275,12 +277,12 @@ def filter_solved_submissions(submissions, contests, tags=None, types=None, team
         tag_ok = not tags or problem.tag_matches(tags)
         team_ok = team or len(submission.author.members) == 1
         if rated:
-            problem_ok = contest.id < cf.GYM_ID_THRESHOLD and not cf_common.is_nonstandard_problem(problem)
+            problem_ok = contest and contest.id < cf.GYM_ID_THRESHOLD and not is_nonstandard_problem(problem)
             rating_ok = problem.rating and problem.rating >= rlo and problem.rating <= rhi
         else:
             # acmsguru and gym allowed
             problem_ok = (not contest or contest.id >= cf.GYM_ID_THRESHOLD
-                          or not cf_common.is_nonstandard_problem(problem))
+                          or not is_nonstandard_problem(problem))
             rating_ok = True
 
         if sub_ok and type_ok and date_ok and rating_ok and contest and tag_ok and team_ok and problem_ok:

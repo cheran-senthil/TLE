@@ -306,7 +306,7 @@ class Graphs(commands.Cog):
     async def solved(self, ctx, *args: str):
         """Shows a histogram of problems solved on Codeforces for the handles provided.
         e.g. ;plot solved meooow +contest +virtual +outof +dp"""
-        team, types, tags, dlo, dhi, rlo, rhi, args = cf_common.filter_sub_args(args)
+        team, _, types, tags, dlo, dhi, rlo, rhi, args = cf_common.filter_sub_args(args)
         handles = args or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         resp = [await cf.user.status(handle=handle) for handle in handles]
@@ -376,7 +376,7 @@ class Graphs(commands.Cog):
                   usage='[handles] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [r>rating] [r<rating] [d>ddmmyyyy] [d<ddmmyyyy]')
     async def hist(self, ctx, *args: str):
         """Shows the actual histogram of problems solved on Codeforces for the handles provided."""
-        team, types, tags, dlo, dhi, rlo, rhi, args = cf_common.filter_sub_args(args)
+        team, _, types, tags, dlo, dhi, rlo, rhi, args = cf_common.filter_sub_args(args)
         handle = args[0] if args else '!' + str(ctx.author)
         handle, = await cf_common.resolve_handles(ctx, self.converter, (handle,))
         subs = await cf.user.status(handle=handle)
