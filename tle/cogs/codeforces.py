@@ -364,8 +364,8 @@ class Codeforces(commands.Cog):
             divs = [strfilt(x) for x in markers]
 
         contest_id_map = {contest.id: contest for contest in contests}
-        bad_times = {contest_id_map.get(sub.problem.contestId).startTimeSeconds for problem in user_submissions
-                     if sub.problem.contestId and sub.problem.contestId < cf.GYM_ID_THRESHOLD}
+        bad_times = {contest_id_map.get(sub.problem.contestId).startTimeSeconds for subs in user_submissions
+                     for sub in subs if sub.problem.contestId and sub.problem.contestId < cf.GYM_ID_THRESHOLD}
 
         recommendations = {contest.id for contest in contests
                            if contest.phase == 'FINISHED' and any(tag in strfilt(contest.name) for tag in divs)
