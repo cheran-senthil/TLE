@@ -408,9 +408,6 @@ class Graphs(commands.Cog):
     async def scatter(self, ctx, *args):
         """Plot Codeforces rating overlaid on a scatter plot of problems solved.
         Also plots a running average of ratings of problems solved in practice."""
-        if bin_size < 1:
-            raise GraphCogError('Moving average window size must be at least 1')
-
         team, _, types, tags, dlo, dhi, rlo, rhi, args = cf_common.filter_sub_args(args)
         handle, bin_size = None, 10
         for arg in args:
@@ -418,6 +415,9 @@ class Graphs(commands.Cog):
                 bin_size = int(arg)
             else:
                 handle = arg
+
+        if bin_size < 1:
+            raise GraphCogError('Moving average window size must be at least 1')
 
         handle = handle or '!' + str(ctx.author)
         handle, = await cf_common.resolve_handles(ctx, self.converter, (handle,))
