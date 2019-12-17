@@ -405,19 +405,26 @@ class Graphs(commands.Cog):
 
     @plot.command(brief='Show history of problems solved by rating.',
                   aliases=['chilli'])
-    async def scatter(self, ctx, handle: str = None, bin_size: int = 10):
+    async def scatter(self, ctx, *args):
         """Plot Codeforces rating overlaid on a scatter plot of problems solved.
         Also plots a running average of ratings of problems solved in practice."""
         if bin_size < 1:
             raise GraphCogError('Moving average window size must be at least 1')
 
+        team, _, types, tags, dlo, dhi, rlo, rhi, args = cf_common.filter_sub_args(args)
+        handle, bin_size = None, 10
+        for arg in args:
+            if arg.isdigit():
+                bin_size = int(arg)
+            else:
+                handle = arg
+
         handle = handle or '!' + str(ctx.author)
-        handles = await cf_common.resolve_handles(ctx, self.converter, (handle,))
-        resp = [await cf.user.status(handle=handle) for handle in handles]
-        rating_resp = [await cf.user.rating(handle=handle) for handle in handles]
+        handle, = await cf_common.resolve_handles(ctx, self.converter, (handle,))
+        rating_resp = [await cf.user.rating(handle=handle)]
         contests = await cf.contest.list()
-        handle = handles[0]
-        submissions = resp[0]
+        submissions = await cf.user.status(handle=handle)
+        submissions = cf_common.filter_solved_submissions(submissions, contests, tags, types, team, dlo, dhi, True, rlo, rhi)
 
         def extract_time_and_rating(submissions):
             return [(dt.datetime.fromtimestamp(sub.creationTimeSeconds), sub.problem.rating)
