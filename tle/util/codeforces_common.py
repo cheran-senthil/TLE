@@ -211,7 +211,15 @@ async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
     return resolved_handles
 
 def parse_date(arg):
-    return time.mktime(datetime.datetime.strptime(arg, "%d%m%Y").timetuple())
+    if len(arg) == 8:
+        fmt = '%d%m%Y'
+    elif len(arg) == 6:
+        fmt = '%m%Y'
+    elif len(arg) == 4:
+        fmt = '%Y'
+    else:
+        raise ParamParseError(f'{arg} is an invalid date argument')
+    return time.mktime(datetime.datetime.strptime(arg, fmt).timetuple())
 
 def filter_sub_args(args):
     args = list(set(args))
@@ -237,9 +245,7 @@ def filter_sub_args(args):
                 raise ParamParseError('Problem tag cannot be empty.')
             tags.append(arg[1:])
         elif arg[0:2] in ['d<', 'd>']:
-            if len(arg) != 10:
-                raise ParamParseError(f'{arg} is an invalid date argument')
-            elif arg[1] == '>':
+            if arg[1] == '>':
                 dlo = parse_date(arg[2:])
             else:
                 dhi = parse_date(arg[2:])
