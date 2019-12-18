@@ -426,6 +426,11 @@ class Graphs(commands.Cog):
         submissions = await cf.user.status(handle=handle)
         submissions = cf_common.filter_solved_submissions(submissions, contests, tags, types, team, dlo, dhi, True, rlo, rhi)
 
+        rating_resp = [[change for change in changes
+                        if change.ratingUpdateTimeSeconds >= dlo
+                        and change.ratingUpdateTimeSeconds <= dhi]
+                       for changes in rating_resp]
+
         def extract_time_and_rating(submissions):
             return [(dt.datetime.fromtimestamp(sub.creationTimeSeconds), sub.problem.rating)
                     for sub in submissions]
