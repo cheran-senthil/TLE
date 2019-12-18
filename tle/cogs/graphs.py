@@ -430,12 +430,10 @@ class Graphs(commands.Cog):
             return [(dt.datetime.fromtimestamp(sub.creationTimeSeconds), sub.problem.rating)
                     for sub in submissions]
 
-        solved_subs = cf_common.filter_solved_submissions(submissions, contests)
-
-        if not any(rating_resp) and not any(solved_subs):
+        if not any(rating_resp) and not any(submissions):
             raise GraphCogError(f'User `{handle}` is not rated and has not solved any rated problem')
 
-        solved_by_type = _classify_submissions(solved_subs)
+        solved_by_type = _classify_submissions(submissions)
         regular = extract_time_and_rating(solved_by_type['CONTESTANT'] +
                                           solved_by_type['OUT_OF_COMPETITION'])
         practice = extract_time_and_rating(solved_by_type['PRACTICE'])
