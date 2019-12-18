@@ -384,9 +384,12 @@ class Graphs(commands.Cog):
 
         solved_subs = cf_common.filter_solved_submissions(subs, contests, tags, types, team, dlo, dhi, True, rlo, rhi)
         solved_by_type = _classify_submissions(solved_subs)
-
         all_times = [[dt.datetime.fromtimestamp(sub.creationTimeSeconds) for sub in solved_by_type[sub_type]]
                        for sub_type in types]
+
+        if not any(all_times):
+            raise GraphCogError(f'There are no problems within the specified parameters.')
+
         nice_names = nice_sub_type(types)
         labels = [name.format(len(times)) for name, times in zip(nice_names, all_times)]
         total = sum(map(len, all_times))
@@ -398,7 +401,7 @@ class Graphs(commands.Cog):
         plt.legend(title=f'{handle}: {total}', title_fontsize=plt.rcParams['legend.fontsize'])
         plt.gcf().autofmt_xdate()
         discord_file = _get_current_figure_as_file()
-        embed = discord_common.cf_color_embed(title='Actual histogram of problems solved on Codeforces')
+        embed = discord_common.cf_color_embed(title='Histogram of number of solved problems over time')
         discord_common.attach_image(embed, discord_file)
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
