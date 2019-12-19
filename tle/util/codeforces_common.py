@@ -244,18 +244,17 @@ def filter_sub_args(args):
             if len(arg) == 1:
                 raise ParamParseError('Problem tag cannot be empty.')
             tags.append(arg[1:])
-        elif arg[0:2] in ['d<', 'd>']:
-            if arg[1] == '>':
-                dlo = parse_date(arg[2:])
-            else:
-                dhi = parse_date(arg[2:])
-        elif arg[0:2] in ['r<', 'r>']:
-            if len(arg) < 3:
+        elif arg[0:2] == 'd<':
+            dhi = parse_date(arg[2:])
+        elif arg[0:3] == 'd>=':
+            dlo = parse_date(arg[3:])
+        elif arg[0:3] in ['r<=', 'r>=']:
+            if len(arg) < 4:
                 raise ParamParseError(f'{arg} is an invalid rating argument')
             elif arg[1] == '>':
-                rlo = int(arg[2:])
+                rlo = int(arg[3:])
             else:
-                rhi = int(arg[2:])
+                rhi = int(arg[3:])
             rated = True
         else:
             rest.append(arg)

@@ -302,7 +302,7 @@ class Graphs(commands.Cog):
         await ctx.send(embed=embed, file=discord_file)
 
     @plot.command(brief='Show histogram of solved problems on CF.',
-                  usage='[handles] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [r>rating] [r<rating] [d>[[dd]mm]yyyy] [d<[[dd]mm]yyyy]')
+                  usage='[handles] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [r>=rating] [r<=rating] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy]')
     async def solved(self, ctx, *args: str):
         """Shows a histogram of problems solved on Codeforces for the handles provided.
         e.g. ;plot solved meooow +contest +virtual +outof +dp"""
@@ -373,7 +373,7 @@ class Graphs(commands.Cog):
         await ctx.send(embed=embed, file=discord_file)
 
     @plot.command(brief='Show histogram of solved problems on CF.',
-                  usage='[handles] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [r>rating] [r<rating] [d>[[dd]mm]yyyy] [d<[[dd]mm]yyyy]')
+                  usage='[handles] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [r>=rating] [r<=rating] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy]')
     async def hist(self, ctx, *args: str):
         """Shows the actual histogram of problems solved on Codeforces for the handles provided."""
         team, _, types, tags, dlo, dhi, rlo, rhi, args = cf_common.filter_sub_args(args)
@@ -407,7 +407,7 @@ class Graphs(commands.Cog):
         await ctx.send(embed=embed, file=discord_file)
 
     @plot.command(brief='Show history of problems solved by rating.',
-                  aliases=['chilli'])
+                  aliases=['chilli'], usage='[handle] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [r>=rating] [r<=rating] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy] [bin_size=10]')
     async def scatter(self, ctx, *args):
         """Plot Codeforces rating overlaid on a scatter plot of problems solved.
         Also plots a running average of ratings of problems solved in practice."""
