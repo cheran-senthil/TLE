@@ -188,6 +188,7 @@ def days_ago(t):
         return 'yesterday'
     return f'{math.floor(days)} days ago'
 
+
 async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
     """Convert an iterable of strings to CF handles. A string beginning with ! indicates Discord username,
      otherwise it is a raw CF handle to be left unchanged."""
@@ -209,91 +210,3 @@ async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
             raise HandleIsVjudgeError(handle)
         resolved_handles.append(handle)
     return resolved_handles
-
-def parse_date(arg):
-    if len(arg) == 8:
-        fmt = '%d%m%Y'
-    elif len(arg) == 6:
-        fmt = '%m%Y'
-    elif len(arg) == 4:
-        fmt = '%Y'
-    else:
-        raise ParamParseError(f'{arg} is an invalid date argument')
-    return time.mktime(datetime.datetime.strptime(arg, fmt).timetuple())
-
-def filter_sub_args(args):
-    args = list(set(args))
-    team = False
-    rated = False
-    dlo, dhi = 0, datetime.datetime.now().timestamp()
-    rlo, rhi = 500, 3800
-    types, tags, rest = [], [], []
-
-    for arg in args:
-        if arg == '+team':
-            team = True
-        elif arg == '+contest':
-            types.append('CONTESTANT')
-        elif arg =='+outof':
-            types.append('OUT_OF_COMPETITION')
-        elif arg == '+virtual':
-            types.append('VIRTUAL')
-        elif arg == '+practice':
-            types.append('PRACTICE')
-        elif arg[0] == '+':
-            if len(arg) == 1:
-                raise ParamParseError('Problem tag cannot be empty.')
-            tags.append(arg[1:])
-        elif arg[0:2] == 'd<':
-            dhi = parse_date(arg[2:])
-        elif arg[0:3] == 'd>=':
-            dlo = parse_date(arg[3:])
-        elif arg[0:3] in ['r<=', 'r>=']:
-            if len(arg) < 4:
-                raise ParamParseError(f'{arg} is an invalid rating argument')
-            elif arg[1] == '>':
-                rlo = int(arg[3:])
-            else:
-                rhi = int(arg[3:])
-            rated = True
-        else:
-            rest.append(arg)
-
-    types = types or ['CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL', 'PRACTICE']
-    return team, rated, types, tags, dlo, dhi, rlo, rhi, rest
-
-def filter_solved_submissions(submissions, contests, tags=None, types=None, team=False, dlo=0, dhi=2147483647, rated=False, rlo=500, rhi=3800):
-    """Filters and keeps only solved submissions with problems that have a rating and belong to
-    some contest from given contests. If a problem is solved multiple times the first accepted
-    submission is kept. The unique id for a problem is (problem name, contest start time). A list
-    of tags may be provided to filter out problems that do not have *all* of the given tags.
-    """
-    submissions.sort(key=lambda sub: sub.creationTimeSeconds)
-    contest_id_map = {contest.id: contest for contest in contests}
-    problems = set()
-    solved_subs = []
-
-    for submission in submissions:
-        problem = submission.problem
-        contest = contest_id_map.get(problem.contestId)
-        sub_ok = submission.verdict == 'OK'
-        type_ok = not types or submission.author.participantType in types
-        date_ok = submission.creationTimeSeconds >= dlo and submission.creationTimeSeconds <= dhi
-        tag_ok = not tags or problem.tag_matches(tags)
-        team_ok = team or len(submission.author.members) == 1
-        if rated:
-            problem_ok = contest and contest.id < cf.GYM_ID_THRESHOLD and not is_nonstandard_problem(problem)
-            rating_ok = problem.rating and problem.rating >= rlo and problem.rating <= rhi
-        else:
-            # acmsguru and gym allowed
-            problem_ok = (not contest or contest.id >= cf.GYM_ID_THRESHOLD
-                          or not is_nonstandard_problem(problem))
-            rating_ok = True
-
-        if sub_ok and type_ok and date_ok and rating_ok and contest and tag_ok and team_ok and problem_ok:
-            # Assume (name, contest start time) is a unique identifier for problems
-            problem_key = (problem.name, contest.startTimeSeconds)
-            if problem_key not in problems:
-                solved_subs.append(submission)
-                problems.add(problem_key)
-    return solved_subs

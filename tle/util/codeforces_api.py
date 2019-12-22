@@ -125,7 +125,7 @@ class Problem(namedtuple('Problem', 'contestId problemsetName index name type po
 
 ProblemStatistics = namedtuple('ProblemStatistics', 'contestId index solvedCount')
 
-Submission = namedtuple('Submissions',
+Submission = namedtuple('Submission',
                         'id contestId problem author programmingLanguage verdict creationTimeSeconds')
 
 RanklistRow = namedtuple('RanklistRow', 'party rank points penalty problemResults')

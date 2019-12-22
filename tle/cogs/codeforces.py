@@ -11,6 +11,7 @@ from tle.util import discord_common
 from tle.util.db.user_db_conn import Gitgud
 from tle.util import paginator
 from tle.util import cache_system2
+from tle.util import filters
 
 
 _GITGUD_NO_SKIP_TIME = 3 * 60 * 60
@@ -146,16 +147,22 @@ class Codeforces(commands.Cog):
         if '+hardest' in args:
             hardest = True
             args.remove('+hardest')
-        team, rated, types, tags, dlo, dhi, rlo, rhi, args = cf_common.filter_sub_args(args)
-
+        predicates, args = filters.parse_all_from(
+            args, filters.TeamFilter, filters.TypeFilter, filters.RatingFilter, filters.TimeFilter,
+            filters.TagFilter)
         handles = [arg for arg in args if arg[0] != '+']
         handles = handles or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
-        contests = await cf.contest.list()
-        submissions = [await cf.user.status(handle=handle) for handle in handles]
-        def filter_subs(subs):
-            return cf_common.filter_solved_submissions(subs, contests, tags, types, team, dlo, dhi, rated, rlo, rhi)
-        submissions = [sub for subs in submissions for sub in filter_subs(subs)]
+        submissions = [sub for handle in handles for sub in await cf.user.status(handle=handle)]
+
+        # strict=False preserves acmsguru problems, which have missing contest ID, and gym problems,
+        # whose contests are not present in contest.list.
+        submissions = filters.filter_solved_submissions(submissions, await cf.contest.list(),
+                                                        strict=False)
+        submissions = filters.filter(submissions, *predicates)
+
+        if not submissions:
+            raise CodeforcesCogError('No submissions satisfying the given constraints found.')
 
         if hardest:
             submissions.sort(key=lambda sub: sub.problem.rating or 0, reverse=True)
@@ -429,7 +436,8 @@ class Codeforces(commands.Cog):
         pages = [make_page(chunk) for chunk in paginator.chunkify(contest_unsolved_pairs, 10)]
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
-    @discord_common.send_error_if(CodeforcesCogError, cf_common.ResolveHandleError)
+    @discord_common.send_error_if(CodeforcesCogError, cf_common.ResolveHandleError,
+                                  filters.FilterError)
     async def cog_command_error(self, ctx, error):
         pass
 
