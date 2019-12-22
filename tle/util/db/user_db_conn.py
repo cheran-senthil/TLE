@@ -314,6 +314,13 @@ class UserDbConn:
         with self.conn:
             return self.conn.execute(query, (user_id, guild_id, handle)).rowcount
 
+    def set_inactive(self, guild_id_user_id_pairs):
+        query = ('UPDATE user_handle '
+                 'SET active = 0 '
+                 'WHERE guild_id = ? AND user_id = ?')
+        with self.conn:
+            return self.conn.executemany(query, guild_id_user_id_pairs).rowcount
+
     def get_handle(self, user_id, guild_id):
         query = ('SELECT handle '
                  'FROM user_handle '
@@ -351,25 +358,6 @@ class UserDbConn:
                  'WHERE u.guild_id = ? AND u.active = 1')
         res = self.conn.execute(query, (guild_id,)).fetchall()
         return [(int(t[0]), cf.User._make(t[1:])) for t in res]
-
-    def update_status(self, active_ids: list):
-        # TODO: Deal with the whole status thing.
-        if not active_ids: return 0
-        placeholders = ', '.join(['?'] * len(active_ids))
-        inactive_query = '''
-            UPDATE user_handle
-            SET status = 0
-            WHERE id NOT IN ({})
-        '''.format(placeholders)
-        active_query = '''
-            UPDATE user_handle
-            SET status = 1
-            WHERE id IN ({})
-        '''.format(placeholders)
-        self.conn.execute(inactive_query, active_ids)
-        rc = self.conn.execute(active_query, active_ids).rowcount
-        self.conn.commit()
-        return rc
 
     def get_reminder_settings(self, guild_id):
         query = '''

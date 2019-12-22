@@ -14,6 +14,7 @@ from tle.util import discord_common
 from tle.util import events
 from tle.util import paginator
 from tle.util import table
+from tle.util import tasks
 from tle.util import db
 from tle import constants
 
@@ -23,6 +24,7 @@ _HANDLES_PER_PAGE = 15
 _NAME_MAX_LEN = 20
 _PAGINATE_WAIT_TIME = 5 * 60  # 5 minutes
 _TOP_DELTAS_COUNT = 5
+_UPDATE_HANDLE_STATUS_INTERVAL = 6 * 60 * 60  # 6 hours
 
 
 class HandleCogError(commands.CommandError):
@@ -156,6 +158,22 @@ class Handles(commands.Cog):
     @commands.Cog.listener()
     async def on_ready(self):
         cf_common.event_sys.add_listener(self._on_rating_changes)
+        self._set_ex_users_inactive_task.start()
+
+    @commands.Cog.listener()
+    async def on_member_remove(self, member):
+        cf_common.user_db.set_inactive([(member.guild.id, member.id)])
+
+    @tasks.task_spec(name='SetExUsersInactive',
+                     waiter=tasks.Waiter.fixed_delay(_UPDATE_HANDLE_STATUS_INTERVAL))
+    async def _set_ex_users_inactive_task(self, _):
+        # To set users inactive in case the bot was dead when they left.
+        to_set_inactive = []
+        for guild in self.bot.guilds:
+            user_id_handle_pairs = cf_common.user_db.get_handles_for_guild(guild.id)
+            to_set_inactive += [(guild.id, user_id) for user_id, _ in user_id_handle_pairs
+                                if guild.get_member(user_id) is None]
+        cf_common.user_db.set_inactive(to_set_inactive)
 
     @events.listener_spec(name='RatingChangesListener',
                           event_cls=events.RatingChangesUpdate,
