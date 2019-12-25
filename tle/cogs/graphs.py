@@ -360,7 +360,7 @@ class Graphs(commands.Cog):
     @plot.command(brief='Show histogram of solved problems on CF.',
                   usage='[handles] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [r>=rating] [r<=rating] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy]')
     async def hist(self, ctx, *args: str):
-        """Shows the actual histogram of problems solved on Codeforces for the handles provided."""
+        """Shows the histogram of problems solved over time on Codeforces for the handles provided."""
         filt = cf_common.SubFilter()
         args = filt.parse(args)
         handles = args or ('!' + str(ctx.author),)
@@ -421,7 +421,7 @@ class Graphs(commands.Cog):
             else:
                 handle = arg
 
-        if bin_size < 1 or point_size < 1:
+        if bin_size < 1 or point_size < 1 or point_size > 100:
             raise GraphCogError('Invalid parameters')
 
         handle = handle or '!' + str(ctx.author)
