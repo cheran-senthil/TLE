@@ -3,6 +3,7 @@ import json
 import logging
 import math
 import time
+import datetime
 from collections import defaultdict
 
 from discord.ext import commands
@@ -148,6 +149,12 @@ class HandleIsVjudgeError(ResolveHandleError):
         super().__init__(f"`{handle}`? I'm not doing that!\n\n(╯°□°）╯︵ ┻━┻")
 
 
+class FilterError(commands.CommandError):
+    pass
+
+class ParamParseError(FilterError):
+    pass
+
 def time_format(seconds):
     seconds = int(seconds)
     days, seconds = divmod(seconds, 86400)
@@ -206,24 +213,104 @@ async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
         resolved_handles.append(handle)
     return resolved_handles
 
-def filter_sub_type_args(args):
-    args = list(set(args))
-    team = False
-    if '+team' in args:
-        args.remove('+team')
-        team = True
-    types = []
-    if '+contest' in args:
-        types.append('CONTESTANT')
-        args.remove('+contest')
-    if '+outof' in args:
-        types.append('OUT_OF_COMPETITION')
-        args.remove('+outof')
-    if '+virtual' in args:
-        types.append('VIRTUAL')
-        args.remove('+virtual')
-    if '+practice' in args:
-        types.append('PRACTICE')
-        args.remove('+practice')
-    types = types or ['CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL', 'PRACTICE']
-    return team, types, args
+def parse_date(arg):
+    try:
+        if len(arg) == 8:
+            fmt = '%d%m%Y'
+        elif len(arg) == 6:
+            fmt = '%m%Y'
+        elif len(arg) == 4:
+            fmt = '%Y'
+        else:
+            raise ValueError
+        return time.mktime(datetime.datetime.strptime(arg, fmt).timetuple())
+    except ValueError:
+        raise ParamParseError(f'{arg} is an invalid date argument')
+
+class SubFilter:
+    def __init__(self, rated=True):
+        self.team = False
+        self.rated = rated
+        self.dlo, self.dhi = 0, 10**10
+        self.rlo, self.rhi = 500, 3800
+        self.types = []
+        self.tags = []
+
+    def parse(self, args):
+        args = list(set(args))
+        rest = []
+
+        for arg in args:
+            if arg == '+team':
+                self.team = True
+            elif arg == '+contest':
+                self.types.append('CONTESTANT')
+            elif arg =='+outof':
+                self.types.append('OUT_OF_COMPETITION')
+            elif arg == '+virtual':
+                self.types.append('VIRTUAL')
+            elif arg == '+practice':
+                self.types.append('PRACTICE')
+            elif arg[0] == '+':
+                if len(arg) == 1:
+                    raise ParamParseError('Problem tag cannot be empty.')
+                self.tags.append(arg[1:])
+            elif arg[0:2] == 'd<':
+                self.dhi = parse_date(arg[2:])
+            elif arg[0:3] == 'd>=':
+                self.dlo = parse_date(arg[3:])
+            elif arg[0:3] in ['r<=', 'r>=']:
+                if len(arg) < 4:
+                    raise ParamParseError(f'{arg} is an invalid rating argument')
+                elif arg[1] == '>':
+                    self.rlo = int(arg[3:])
+                else:
+                    self.rhi = int(arg[3:])
+                self.rated = True
+            else:
+                rest.append(arg)
+
+        self.types = self.types or ['CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL', 'PRACTICE']
+        return rest
+
+    @staticmethod
+    def filter_solved(submissions):
+        """Filters and keeps only solved submissions. If a problem is solved multiple times the first
+        accepted submission is kept. The unique id for a problem is (problem name, contest start time).
+        """
+        submissions.sort(key=lambda sub: sub.creationTimeSeconds)
+        problems = set()
+        solved_subs = []
+
+        for submission in submissions:
+            problem = submission.problem
+            contest = cache2.contest_cache.contest_by_id.get(problem.contestId, None)
+            if submission.verdict == 'OK':
+                # Assume (name, contest start time) is a unique identifier for problems
+                problem_key = (problem.name, contest.startTimeSeconds if contest else 0)
+                if problem_key not in problems:
+                    solved_subs.append(submission)
+                    problems.add(problem_key)
+        return solved_subs
+
+    def filter(self, submissions):
+        submissions = SubFilter.filter_solved(submissions)
+        filtered_subs = []
+        for submission in submissions:
+            problem = submission.problem
+            contest = cache2.contest_cache.contest_by_id.get(problem.contestId, None)
+            type_ok = submission.author.participantType in self.types
+            date_ok = self.dlo <= submission.creationTimeSeconds < self.dhi
+            tag_ok = not self.tags or problem.tag_matches(self.tags)
+            team_ok = self.team or len(submission.author.members) == 1
+            if self.rated:
+                problem_ok = contest and contest.id < cf.GYM_ID_THRESHOLD and not is_nonstandard_problem(problem)
+                rating_ok = problem.rating and self.rlo <= problem.rating <= self.rhi
+            else:
+                # acmsguru and gym allowed
+                problem_ok = (not contest or contest.id >= cf.GYM_ID_THRESHOLD
+                              or not is_nonstandard_problem(problem))
+                rating_ok = True
+            if type_ok and date_ok and rating_ok and tag_ok and team_ok and problem_ok:
+                filtered_subs.append(submission)
+        return filtered_subs

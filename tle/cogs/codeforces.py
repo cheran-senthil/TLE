@@ -136,29 +136,24 @@ class Codeforces(commands.Cog):
         await ctx.send(f'Recommended problem for `{handle}`', embed=embed)
 
     @commands.command(brief='List solved problems',
-                      usage='[handles] [+hardest] [+practice] [+contest] [+virtual] [+outof] [+team]')
+                      usage='[handles] [+hardest] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [r>=rating] [r<=rating] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy]')
     async def stalk(self, ctx, *args):
         """Print problems solved by user sorted by time (default) or rating.
         All submission types are included by default (practice, contest, etc.)
         """
-        team, types, args = cf_common.filter_sub_type_args(args)
-        hardest = '+hardest' in args
+        args = list(args)
+        hardest = False
+        if '+hardest' in args:
+            hardest = True
+            args.remove('+hardest')
 
-        def ok(sub):
-            accepted = sub.verdict == 'OK'
-            type_ok = sub.author.participantType in types
-            team_ok = team or len(sub.author.members) == 1
-            problem_ok = (not sub.problem.contestId or                         # acmsguru allowed
-                          sub.problem.contestId >= cf.GYM_ID_THRESHOLD or      # gym allowed
-                          not cf_common.is_nonstandard_problem(sub.problem))
-            return accepted and type_ok and team_ok and problem_ok
-
-        handles = [arg for arg in args if arg[0] != '+']
-        handles = handles or ('!' + str(ctx.author),)
+        filt = cf_common.SubFilter(False)
+        args = filt.parse(args)
+        handles = args or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         submissions = [await cf.user.status(handle=handle) for handle in handles]
-        submissions = list({sub.problem.name : sub for subs in submissions for sub in subs
-                            if ok(sub)}.values())
+        submissions = [sub for subs in submissions for sub in subs]
+        submissions = filt.filter(submissions)
 
         if hardest:
             submissions.sort(key=lambda sub: sub.problem.rating or 0, reverse=True)
@@ -432,7 +427,8 @@ class Codeforces(commands.Cog):
         pages = [make_page(chunk) for chunk in paginator.chunkify(contest_unsolved_pairs, 10)]
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
-    @discord_common.send_error_if(CodeforcesCogError, cf_common.ResolveHandleError)
+    @discord_common.send_error_if(CodeforcesCogError, cf_common.ResolveHandleError,
+                                  cf_common.FilterError)
     async def cog_command_error(self, ctx, error):
         pass
 
