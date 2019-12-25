@@ -396,7 +396,7 @@ class Graphs(commands.Cog):
                       for handle, times in zip(handles, all_times)]
 
             plt.hist(all_times, label=labels)
-            plt.legend(loc='upper right')
+            plt.legend()
 
         plt.gcf().autofmt_xdate()
         discord_file = _get_current_figure_as_file()
