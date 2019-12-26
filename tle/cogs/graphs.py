@@ -126,7 +126,7 @@ def _get_extremes(contest, problemset, submissions):
     return min_unsolved, max_solved
 
 
-def _plot_extreme(handle, rating, packed_contest_subs_problemset):
+def _plot_extreme(handle, rating, packed_contest_subs_problemset, solved, unsolved):
     extremes = [
         (dt.datetime.fromtimestamp(contest.end_time), _get_extremes(contest, problemset, subs))
         for contest, problemset, subs in packed_contest_subs_problemset
@@ -169,16 +169,19 @@ def _plot_extreme(handle, rating, packed_contest_subs_problemset):
 
     plt.clf()
     time_scatter, plot_min, plot_max = zip(*regular)
-    scatter_outline(time_scatter, plot_min, zorder=10,
-                    s=14, marker='o', color=unsolvedcolor,
-                    label='Easiest unsolved')
-    scatter_outline(time_scatter, plot_max, zorder=10,
-                    s=14, marker='o', color=solvedcolor,
-                    label='Hardest solved')
+    if unsolved:
+        scatter_outline(time_scatter, plot_min, zorder=10,
+                        s=14, marker='o', color=unsolvedcolor,
+                        label='Easiest unsolved')
+    if solved:
+        scatter_outline(time_scatter, plot_max, zorder=10,
+                        s=14, marker='o', color=solvedcolor,
+                        label='Hardest solved')
 
     ax = plt.gca()
-    for t, mn, mx in regular:
-        ax.add_line(mlines.Line2D((t, t), (mn, mx), color=linecolor))
+    if solved and unsolved:
+        for t, mn, mx in regular:
+            ax.add_line(mlines.Line2D((t, t), (mn, mx), color=linecolor))
 
     if fullsolves:
         scatter_outline(*zip(*fullsolves), zorder=15,
@@ -228,13 +231,7 @@ class Graphs(commands.Cog):
     @plot.command(brief='Plot Codeforces rating graph', usage='[+zoom] [handles...]')
     async def rating(self, ctx, *args: str):
         """Plots Codeforces rating graph for the handles provided."""
-        args = list(args)
-        if '+zoom' in args:
-            zoom = True
-            args.remove('+zoom')
-        else:
-            zoom = False
-
+        (zoom,), args = cf_common.filter_flags(args, ['+zoom'])
         handles = args or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         resp = [await cf.user.rating(handle=handle) for handle in handles]
@@ -268,13 +265,18 @@ class Graphs(commands.Cog):
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
 
-    @plot.command(brief='Plot Codeforces extremes graph')
-    async def extreme(self, ctx, handle: str = None):
+    @plot.command(brief='Plot Codeforces extremes graph',
+                  usage='[handles] [+solved] [+unsolved]')
+    async def extreme(self, ctx, *args: str):
         """Plots pairs of lowest rated unsolved problem and highest rated solved problem for every
         contest that was rated for the given user.
         """
-        handle = handle or '!' + str(ctx.author)
-        handle, = await cf_common.resolve_handles(ctx, self.converter, [handle])
+        (solved, unsolved), args = cf_common.filter_flags(args, ['+solved', '+unsolved'])
+        if not solved and not unsolved:
+            solved = unsolved = True
+
+        handles = args or ('!' + str(ctx.author),)
+        handle, = await cf_common.resolve_handles(ctx, self.converter, handles)
         ratingchanges = await cf.user.rating(handle=handle)
         if not ratingchanges:
             raise GraphCogError(f'User {handle} is not rated')
@@ -293,7 +295,7 @@ class Graphs(commands.Cog):
         ]
 
         rating = max(ratingchanges, key=lambda change: change.ratingUpdateTimeSeconds).newRating
-        _plot_extreme(handle, rating, packed_contest_subs_problemset)
+        _plot_extreme(handle, rating, packed_contest_subs_problemset, solved, unsolved)
 
         discord_file = _get_current_figure_as_file()
         embed = discord_common.cf_color_embed(title='Codeforces extremes graph')
@@ -567,15 +569,7 @@ class Graphs(commands.Cog):
     @plot.command(brief='Show percentile distribution on codeforces', usage='[+zoom] [handles...]')
     async def centile(self, ctx, *args: str):
         """Show percentile distribution of codeforces and mark given handles in the plot. If +zoom and handles are given, it zooms to the neighborhood of the handles."""
-
-        # Handle args
-        args = list(args)
-        if '+zoom' in args:
-            zoom = True
-            args.remove('+zoom')
-        else:
-            zoom = False
-
+        (zoom,), args = cf_common.filter_flags(args, ['+zoom'])
         # Prepare data
         intervals = [(rank.low, rank.high) for rank in cf.RATED_RANKS]
         colors = [rank.color_graph for rank in cf.RATED_RANKS]

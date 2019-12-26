@@ -213,6 +213,17 @@ async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
         resolved_handles.append(handle)
     return resolved_handles
 
+def filter_flags(args, params):
+    args = list(args)
+    flags = [False] * len(params)
+    rest = []
+    for arg in args:
+        try:
+            flags[params.index(arg)] = True
+        except ValueError:
+            rest.append(arg)
+    return flags, rest
+
 def parse_date(arg):
     try:
         if len(arg) == 8:

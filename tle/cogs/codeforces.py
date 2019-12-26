@@ -141,12 +141,7 @@ class Codeforces(commands.Cog):
         """Print problems solved by user sorted by time (default) or rating.
         All submission types are included by default (practice, contest, etc.)
         """
-        args = list(args)
-        hardest = False
-        if '+hardest' in args:
-            hardest = True
-            args.remove('+hardest')
-
+        (hardest,), args = cf_common.filter_flags(args, ['+hardest'])
         filt = cf_common.SubFilter(False)
         args = filt.parse(args)
         handles = args or ('!' + str(ctx.author),)
