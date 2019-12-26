@@ -125,7 +125,7 @@ def _make_profile_embed(member, user, *, mode):
     return embed
 
 
-def _make_pages(users):
+def _make_pages(users, title):
     chunks = paginator.chunkify(users, _HANDLES_PER_PAGE)
     pages = []
     done = 0
@@ -144,7 +144,7 @@ def _make_pages(users):
             t += table.Data(i + done, name, handle, f'{rating_str} ({rank.title_abbr})')
         table_str = '```\n'+str(t)+'\n```'
         embed = discord_common.cf_color_embed(description=table_str)
-        pages.append(('Handles of server members', embed))
+        pages.append((title, embed))
         done += len(chunk)
     return pages
 
@@ -336,16 +336,25 @@ class Handles(commands.Cog):
         await ctx.send(msg)
 
     @handle.command(brief="Show all handles")
-    async def list(self, ctx):
-        """Shows all members of the server who have registered their handles and
-        their Codeforces ratings.
+    async def list(self, ctx, *countries):
+        """Shows members of the server who have registered their handles and
+        their Codeforces ratings. You can additionally specify a list of countries
+        if you wish to display only members from those countries. Country data is
+        sourced from codeforces profiles. e.g. ;handle list Croatia Slovenia
         """
+        countries = [country.title() for country in countries]
         res = cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)
         users = [(ctx.guild.get_member(int(user_id)), cf_user.handle, cf_user.rating)
-                 for user_id, cf_user in res]
+                 for user_id, cf_user in res if not countries or cf_user.country in countries]
         users = [(member, handle, rating) for member, handle, rating in users if member is not None]
+        if not users:
+            raise HandleCogError('No members matching the search criteria')
+
         users.sort(key=lambda x: (1 if x[2] is None else -x[2], x[1]))  # Sorting by (-rating, handle)
-        pages = _make_pages(users)
+        title = 'Handles of server members'
+        if countries:
+            title += ' from ' + ', '.join(f'`{country}`' for country in countries)
+        pages = _make_pages(users, title)
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=_PAGINATE_WAIT_TIME, set_pagenum_footers=True)
 
     @handle.command(brief="Show colour handles")
