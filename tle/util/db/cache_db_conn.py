@@ -184,6 +184,12 @@ class CacheDbConn:
         self.conn.commit()
         return rc
 
+    def fetch_problems2(self):
+        query = ('SELECT contest_id, problemset_name, [index], name, type, points, rating, tags '
+                 'FROM problem2 ')
+        res = self.conn.execute(query).fetchall()
+        return list(map(self._unsquish_tags, res))
+
     def clear_problemset(self, contest_id=None):
         if contest_id is None:
             query = 'DELETE FROM problem2'

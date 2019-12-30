@@ -248,6 +248,7 @@ class ProblemsetCache:
     _RELOAD_DELAY = 60 * 60
 
     def __init__(self, cache_master):
+        self.problems = []
         self.cache_master = cache_master
         self.update_lock = asyncio.Lock()
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -256,6 +257,7 @@ class ProblemsetCache:
         if self.cache_master.conn.problemset_empty():
             self.logger.warning('Problemset cache on disk is empty. This must be populated '
                                 'manually before use.')
+        self.problems = self.cache_master.conn.fetch_problems2()
         self._update_task.start()
 
     async def update_for_contest(self, contest_id):
@@ -283,6 +285,7 @@ class ProblemsetCache:
             contests = self.cache_master.contest_cache.contests_by_phase['FINISHED']
             new_problems, updated_problems = await self._fetch_problemsets(contests)
             self._save_problems(new_problems + updated_problems)
+            self.problems = self.cache_master.conn.fetch_problems2()
             self.logger.info(f'{len(new_problems)} new problems saved and {len(updated_problems)} '
                              'saved problems updated.')
 
