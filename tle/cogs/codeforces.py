@@ -344,8 +344,8 @@ class Codeforces(commands.Cog):
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         user_submissions = [await cf.user.status(handle=handle) for handle in handles]
         info = await cf.user.info(handles=handles)
-        contests = cf_common.cache2.contest_cache.contests
-        problems = cf_common.cache2.problemset_cache.problems
+        contests = cf_common.cache2.contest_cache.get_contests_in_phase('FINISHED')
+        problem_to_contests = cf_common.cache2.problemset_cache.problem_to_contests
 
         if not markers:
             divr = sum(user.effective_rating for user in info) / len(handles)
@@ -354,19 +354,9 @@ class Codeforces(commands.Cog):
         else:
             divs = [strfilt(x) for x in markers]
 
-        recommendations = {contest.id for contest in contests
-                           if contest.phase == 'FINISHED' and any(tag in strfilt(contest.name) for tag in divs)
+        recommendations = {contest.id for contest in contests if
+                           any(tag in strfilt(contest.name) for tag in divs)
                            and not cf_common.is_nonstandard_contest(contest)}
-
-        # problem -> list of contests in which it appears
-        contest_map = defaultdict(list)
-        for problem in problems:
-            try:
-                contest = cf_common.cache2.contest_cache.get_contest(problem.contestId)
-                problem_id = (problem.name, contest.startTimeSeconds)
-                contest_map[problem_id].append(contest.id)
-            except:
-                pass
 
         # discard contests in which user has non-CE submissions
         for subs in user_submissions:
@@ -377,9 +367,9 @@ class Codeforces(commands.Cog):
                 try:
                     contest = cf_common.cache2.contest_cache.get_contest(sub.problem.contestId)
                     problem_id = (sub.problem.name, contest.startTimeSeconds)
-                    for cid in contest_map.get(problem_id, []):
+                    for cid in problem_to_contests[problem_id]:
                         recommendations.discard(cid)
-                except:
+                except cache_system2.ContestNotFound:
                     pass
 
         if not recommendations:
@@ -403,15 +393,23 @@ class Codeforces(commands.Cog):
 
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         tags = [strfilt(x) for x in args if x[0] == '+']
+
+        problem_to_contests = cf_common.cache2.problemset_cache.problem_to_contests
         contests = [contest for contest in cf_common.cache2.contest_cache.get_contests_in_phase('FINISHED')
                     if (not tags or any(tag in strfilt(contest.name) for tag in tags))
                     and not cf_common.is_nonstandard_contest(contest)]
 
-        # subs_by_contest_id contains contest_id mapped to [list of problem.index]
+        # subs_by_contest_id contains contest_id mapped to [list of problem.name]
         subs_by_contest_id = defaultdict(set)
         for sub in await cf.user.status(handle=handle):
             if sub.verdict == 'OK':
-                subs_by_contest_id[sub.contestId].add(sub.problem.index)
+                try:
+                    contest = cf_common.cache2.contest_cache.get_contest(sub.problem.contestId)
+                    problem_id = (sub.problem.name, contest.startTimeSeconds)
+                    for contestId in problem_to_contests[problem_id]:
+                        subs_by_contest_id[contestId].add(sub.problem.name)
+                except cache_system2.ContestNotFound:
+                    pass
 
         contest_unsolved_pairs = []
         for contest in contests:

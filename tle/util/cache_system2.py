@@ -2,6 +2,7 @@ import asyncio
 import logging
 import time
 
+from collections import defaultdict
 from discord.ext import commands
 
 from tle.util import codeforces_common as cf_common
@@ -249,6 +250,8 @@ class ProblemsetCache:
 
     def __init__(self, cache_master):
         self.problems = []
+        # problem -> list of contests in which it appears
+        self.problem_to_contests = defaultdict(list)
         self.cache_master = cache_master
         self.update_lock = asyncio.Lock()
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -257,7 +260,6 @@ class ProblemsetCache:
         if self.cache_master.conn.problemset_empty():
             self.logger.warning('Problemset cache on disk is empty. This must be populated '
                                 'manually before use.')
-        self.problems = self.cache_master.conn.fetch_problems2()
         self._update_task.start()
 
     async def update_for_contest(self, contest_id):
@@ -285,7 +287,7 @@ class ProblemsetCache:
             contests = self.cache_master.contest_cache.contests_by_phase['FINISHED']
             new_problems, updated_problems = await self._fetch_problemsets(contests)
             self._save_problems(new_problems + updated_problems)
-            self.problems = self.cache_master.conn.fetch_problems2()
+            self._update_from_disk()
             self.logger.info(f'{len(new_problems)} new problems saved and {len(updated_problems)} '
                              'saved problems updated.')
 
@@ -337,6 +339,17 @@ class ProblemsetCache:
         if not problemset:
             raise ProblemsetNotCached(contest_id)
         return problemset
+
+    def _update_from_disk(self):
+        self.problems = self.cache_master.conn.fetch_problems2()
+        self.problem_to_contests = defaultdict(list)
+        for problem in self.problems:
+            try:
+                contest = cf_common.cache2.contest_cache.get_contest(problem.contestId)
+                problem_id = (problem.name, contest.startTimeSeconds)
+                self.problem_to_contests[problem_id].append(contest.id)
+            except ContestNotFound:
+                pass
 
 
 class RatingChangesCache:
