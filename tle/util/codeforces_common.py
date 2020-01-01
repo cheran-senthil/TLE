@@ -194,7 +194,7 @@ def days_ago(t):
 async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
     """Convert an iterable of strings to CF handles. A string beginning with ! indicates Discord username,
      otherwise it is a raw CF handle to be left unchanged."""
-    if len(handles) < mincnt or maxcnt < len(handles):
+    if len(handles) < mincnt or (maxcnt and maxcnt < len(handles)):
         raise HandleCountOutOfBoundsError(mincnt, maxcnt)
     resolved_handles = []
     for handle in handles:
