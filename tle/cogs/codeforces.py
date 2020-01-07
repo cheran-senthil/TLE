@@ -15,6 +15,7 @@ from tle.util import cache_system2
 
 _GITGUD_NO_SKIP_TIME = 3 * 60 * 60
 _GITGUD_SCORE_DISTRIB = (2, 3, 5, 8, 12, 17, 23)
+_GITGUD_MAX_ABS_DELTA_VALUE = 300
 
 
 class CodeforcesCogError(commands.CommandError):
@@ -33,14 +34,23 @@ class Codeforces(commands.Cog):
         rc = cf_common.user_db.update_status(active_ids)
         await ctx.send(f'{rc} members active with handle')
 
-    async def _gitgud(self, ctx, handle, problem, delta):
+    async def _validate_gitgud_status(self, ctx, delta):
+        if delta is not None and delta % 100 != 0:
+            raise CodeforcesCogError('Delta must be a multiple of 100.')
+
+        if delta is not None and abs(delta) > _GITGUD_MAX_ABS_DELTA_VALUE:
+            raise CodeforcesCogError(f'Delta must range from -{_GITGUD_MAX_ABS_DELTA_VALUE} to {_GITGUD_MAX_ABS_DELTA_VALUE}.')
+
         user_id = ctx.message.author.id
         active = cf_common.user_db.check_challenge(user_id)
         if active is not None:
-            challenge_id, issue_time, name, contest_id, index, c_delta = active
+            _, _, name, contest_id, index, _ = active
             url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
-            await ctx.send(f'You have an active challenge {name} at {url}')
-            return
+            raise CodeforcesCogError(f'You have an active challenge {name} at {url}')
+
+    async def _gitgud(self, ctx, handle, problem, delta):
+        # The caller of this function is responsible for calling `_validate_gitgud_status` first.
+        user_id = ctx.author.id
 
         issue_time = datetime.datetime.now().timestamp()
         rc = cf_common.user_db.new_challenge(user_id, issue_time, problem, delta)
@@ -61,6 +71,7 @@ class Codeforces(commands.Cog):
         delta  | -300 | -200 | -100 |  0  | +100 | +200 | +300
         points |   2  |   3  |   5  |  8  |  12  |  17  |  23
         """
+        await self._validate_gitgud_status(ctx,delta=None)
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         user = cf_common.user_db.fetch_cf_user(handle)
         rating = round(user.effective_rating, -2)
@@ -156,10 +167,10 @@ class Codeforces(commands.Cog):
             submissions.sort(key=lambda sub: sub.creationTimeSeconds, reverse=True)
 
         msg = '\n'.join(
-                f'[{sub.problem.name}]({sub.problem.url})\N{EN SPACE}'
-                f'[{sub.problem.rating if sub.problem.rating else "?"}]\N{EN SPACE}'
-                f'({cf_common.days_ago(sub.creationTimeSeconds)})'
-                for sub in submissions[:10]
+            f'[{sub.problem.name}]({sub.problem.url})\N{EN SPACE}'
+            f'[{sub.problem.rating if sub.problem.rating else "?"}]\N{EN SPACE}'
+            f'({cf_common.days_ago(sub.creationTimeSeconds)})'
+            for sub in submissions[:10]
         )
         title = '{} solved problems by `{}`'.format('Hardest' if hardest else 'Recently',
                                                     '`, `'.join(handles))
@@ -217,17 +228,13 @@ class Codeforces(commands.Cog):
         delta  | -300 | -200 | -100 |  0  | +100 | +200 | +300
         points |   2  |   3  |   5  |  8  |  12  |  17  |  23
         """
+        await self._validate_gitgud_status(ctx, delta)
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         user = cf_common.user_db.fetch_cf_user(handle)
         rating = round(user.effective_rating, -2)
         submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions}
         noguds = cf_common.user_db.get_noguds(ctx.message.author.id)
-
-        delta = round(delta, -2)
-        if delta < -300 or delta > 300:
-            await ctx.send('Delta can range from -300 to 300.')
-            return
 
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
                     if (prob.rating == rating + delta and
