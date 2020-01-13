@@ -62,7 +62,7 @@ class Dueling(commands.Cog):
         await ctx.send_help(ctx.command)
 
     @duel.command(brief='Register a duelist')
-    @commands.has_role('Admin')
+    @commands.has_role('Moderator')
     async def register(self, ctx, member: discord.Member):
         """Register a duelist"""
         rc = cf_common.user_db.register_duelist(member.id)
@@ -426,7 +426,7 @@ class Dueling(commands.Cog):
         await self.invalidate_duel(ctx, duelid, challenger_id, challengee_id)
 
     @duel.command(brief='Invalidate a duel', usage='[duelist]')
-    @commands.has_role('Admin')
+    @commands.has_role('Moderator')
     async def _invalidate(self, ctx, member: discord.Member):
         """Declare an ongoing duel invalid."""
         active = cf_common.user_db.check_duel_complete(member.id)

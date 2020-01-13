@@ -330,7 +330,7 @@ class Codeforces(commands.Cog):
 
     @commands.command(brief='Force skip a challenge')
     @cf_common.user_guard(group='gitgud')
-    @commands.has_role('Admin')
+    @commands.has_role('Moderator')
     async def _nogud(self, ctx, member: discord.Member):
         active = cf_common.user_db.check_challenge(member.id)
         rc = cf_common.user_db.skip_challenge(member.id, active[0], Gitgud.FORCED_NOGUD)
