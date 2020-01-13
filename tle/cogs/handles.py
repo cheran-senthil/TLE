@@ -256,6 +256,9 @@ class Handles(commands.Cog):
             raise HandleCogError(f'{ctx.author.mention}, you cannot identify when your handle is '
                                  'already set. Ask an Admin if you wish to change it')
 
+        if cf_common.user_db.get_user_id(handle, ctx.guild.id):
+            raise HandleCogError(f'The handle `{handle}` is already associated with another user. Ask an Admin in case of an inconsistency.')
+
         users = await cf.user.info(handles=[handle])
         invoker = str(ctx.author)
         handle = users[0].handle
