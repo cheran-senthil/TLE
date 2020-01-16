@@ -363,7 +363,9 @@ class Codeforces(commands.Cog):
 
         recommendations = {contest.id for contest in contests if
                            any(tag in strfilt(contest.name) for tag in divs)
-                           and not cf_common.is_nonstandard_contest(contest)}
+                           and not cf_common.is_nonstandard_contest(contest)
+                           and not any(cf_common.is_contest_writer(contest.id, handle)
+                                       for handle in handles)}
 
         # discard contests in which user has non-CE submissions
         for subs in user_submissions:
@@ -380,16 +382,16 @@ class Codeforces(commands.Cog):
                     pass
 
         if not recommendations:
-            await ctx.send('Unable to recommend a contest')
-        else:
-            num_contests = len(recommendations)
-            choice = max(random.randrange(num_contests), random.randrange(num_contests))
-            contest_id = sorted(list(recommendations))[choice]
-            # from and count are for ranklist, set to minimum (1) because we only need name
-            str_handles = '`, `'.join(handles)
-            contest, _, _ = await cf.contest.standings(contest_id=contest_id, from_=1, count=1)
-            embed = discord.Embed(title=contest.name, url=contest.url)
-            await ctx.send(f'Recommended contest for `{str_handles}`', embed=embed)
+            raise CodeforcesCogError('Unable to recommend a contest')
+
+        num_contests = len(recommendations)
+        choice = max(random.randrange(num_contests), random.randrange(num_contests))
+        contest_id = sorted(list(recommendations))[choice]
+        # from and count are for ranklist, set to minimum (1) because we only need name
+        str_handles = '`, `'.join(handles)
+        contest, _, _ = await cf.contest.standings(contest_id=contest_id, from_=1, count=1)
+        embed = discord.Embed(title=contest.name, url=contest.url)
+        await ctx.send(f'Recommended contest for `{str_handles}`', embed=embed)
 
     @commands.command(brief="Display unsolved rounds closest to completion", usage='[keywords]')
     async def fullsolve(self, ctx, *args: str):
