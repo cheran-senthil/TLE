@@ -592,10 +592,11 @@ class RanklistCache:
                 # The contest is not rated
                 ranklist = Ranklist(contest, problems, standings, now, is_rated=False)
             else:
-                get = self.cache_master.rating_changes_cache.get_current_rating
-                current_rating = {row.party.members[0].handle: get(row.party.members[0].handle,
-                                                                   default_if_absent=True)
-                                  for row in standings_official}
+                handles = [row.party.members[0].handle
+                           for row in standings_official]
+                users_info = cf.user.info(handles=handles)
+                current_rating = {user.handle: user.effective_rating
+                                  for user in users_info}
                 if 'Educational' in contest.name:
                     # For some reason educational contests return all contestants in ranklist even
                     # when unofficial contestants are not requested.
