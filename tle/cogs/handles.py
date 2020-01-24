@@ -220,7 +220,7 @@ class Handles(commands.Cog):
             await member.add_roles(role_to_assign, reason=reason)
 
     @handle.command(brief='Set Codeforces handle of a user')
-    @commands.has_role('Admin')
+    @commands.has_role('Moderator')
     async def set(self, ctx, member: discord.Member, handle: str):
         """Set Codeforces handle of a user."""
         # CF API returns correct handle ignoring case, update to it
@@ -255,6 +255,9 @@ class Handles(commands.Cog):
         if cf_common.user_db.get_handle(ctx.author.id, ctx.guild.id):
             raise HandleCogError(f'{ctx.author.mention}, you cannot identify when your handle is '
                                  'already set. Ask an Admin if you wish to change it')
+
+        if cf_common.user_db.get_user_id(handle, ctx.guild.id):
+            raise HandleCogError(f'The handle `{handle}` is already associated with another user. Ask an Admin in case of an inconsistency.')
 
         users = await cf.user.info(handles=[handle])
         invoker = str(ctx.author)
@@ -294,7 +297,7 @@ class Handles(commands.Cog):
         await ctx.send(embed=embed)
 
     @handle.command(brief='Remove handle for a user')
-    @commands.has_role('Admin')
+    @commands.has_role('Moderator')
     async def remove(self, ctx, member: discord.Member):
         """Remove Codeforces handle of a user."""
         rc = cf_common.user_db.remove_handle(member.id, ctx.guild.id)
