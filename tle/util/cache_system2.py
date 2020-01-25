@@ -558,7 +558,7 @@ class RanklistCache:
 
     async def generate_ranklist(self, contest_id, *, fetch_changes=False, predict_changes=False):
         assert fetch_changes ^ predict_changes
-
+        
         contest, problems, standings = await cf.contest.standings(contest_id=contest_id,
                                                                   show_unofficial=True)
         now = time.time()
@@ -594,7 +594,7 @@ class RanklistCache:
             else:
                 handles = [row.party.members[0].handle
                            for row in standings_official]
-                users_info = cf.user.info(handles=handles)
+                users_info = await cf.user.info(handles=handles)
                 current_rating = {user.handle: user.effective_rating
                                   for user in users_info}
                 if 'Educational' in contest.name:
