@@ -161,6 +161,9 @@ class Codeforces(commands.Cog):
         submissions = [sub for subs in submissions for sub in subs]
         submissions = filt.filter(submissions)
 
+        if not submissions:
+            raise CodeforcesCogError('Submissions not found within the search parameters')
+
         if hardest:
             submissions.sort(key=lambda sub: sub.problem.rating or 0, reverse=True)
         else:
