@@ -2,6 +2,7 @@ import io
 import asyncio
 import contextlib
 import logging
+import math
 
 import discord
 import random
@@ -23,6 +24,7 @@ from PIL import Image, ImageFont, ImageDraw
 _HANDLES_PER_PAGE = 15
 _NAME_MAX_LEN = 20
 _PAGINATE_WAIT_TIME = 5 * 60  # 5 minutes
+_PRETTY_HANDLES_PER_PAGE = 10
 _TOP_DELTAS_COUNT = 5
 _UPDATE_HANDLE_STATUS_INTERVAL = 6 * 60 * 60  # 6 hours
 
@@ -42,7 +44,7 @@ def rating_to_color(rating):
     PURPLE = (160, 0, 120)
     CYAN = (0, 165, 170)
     GREY = (70, 70, 70)
-    if rating is None or rating == 'N/A':
+    if rating is None:
         return BLACK
     if rating < 1200:
         return GREY
@@ -59,7 +61,7 @@ def rating_to_color(rating):
     return RED
 
 
-def get_prettyhandles_image(rankings, font):
+def get_prettyhandles_image(rows, font):
     """return PIL image for rankings"""
     SMOKE_WHITE = (250, 250, 250)
     BLACK = (0, 0, 0)
@@ -93,12 +95,12 @@ def get_prettyhandles_image(rankings, font):
             name = name[:-4] + '...'  # "…" is printed as floating dots
         return name
 
-    for pos, name, handle, rating in rankings:
+    for pos, name, handle, rating in rows:
         name = _trim(name)
         handle = _trim(handle)
         color = rating_to_color(rating)
-        draw_row(str(pos), name, handle, str(rating), color, y)
-        if rating != 'N/A' and rating >= 3000:  # nutella
+        draw_row(str(pos), name, handle, str(rating) if rating else 'N/A', color, y)
+        if rating and rating >= 3000:  # nutella
             nutella_x = START_X + WIDTH_RANK
             draw.text((nutella_x, y), name[0], fill=BLACK, font=font)
             nutella_x += WIDTH_NAME
@@ -220,7 +222,7 @@ class Handles(commands.Cog):
             await member.add_roles(role_to_assign, reason=reason)
 
     @handle.command(brief='Set Codeforces handle of a user')
-    @commands.has_role('Moderator')
+    @commands.has_any_role('Admin', 'Moderator')
     async def set(self, ctx, member: discord.Member, handle: str):
         """Set Codeforces handle of a user."""
         # CF API returns correct handle ignoring case, update to it
@@ -297,7 +299,7 @@ class Handles(commands.Cog):
         await ctx.send(embed=embed)
 
     @handle.command(brief='Remove handle for a user')
-    @commands.has_role('Moderator')
+    @commands.has_any_role('Admin', 'Moderator')
     async def remove(self, ctx, member: discord.Member):
         """Remove Codeforces handle of a user."""
         rc = cf_common.user_db.remove_handle(member.id, ctx.guild.id)
@@ -347,55 +349,66 @@ class Handles(commands.Cog):
         """
         countries = [country.title() for country in countries]
         res = cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)
-        users = [(ctx.guild.get_member(int(user_id)), cf_user.handle, cf_user.rating)
+        users = [(ctx.guild.get_member(user_id), cf_user.handle, cf_user.rating)
                  for user_id, cf_user in res if not countries or cf_user.country in countries]
         users = [(member, handle, rating) for member, handle, rating in users if member is not None]
         if not users:
-            raise HandleCogError('No members matching the search criteria')
+            raise HandleCogError('No members with registered handles.')
 
         users.sort(key=lambda x: (1 if x[2] is None else -x[2], x[1]))  # Sorting by (-rating, handle)
         title = 'Handles of server members'
         if countries:
             title += ' from ' + ', '.join(f'`{country}`' for country in countries)
         pages = _make_pages(users, title)
-        paginator.paginate(self.bot, ctx.channel, pages, wait_time=_PAGINATE_WAIT_TIME, set_pagenum_footers=True)
+        paginator.paginate(self.bot, ctx.channel, pages, wait_time=_PAGINATE_WAIT_TIME,
+                           set_pagenum_footers=True)
 
-    @handle.command(brief="Show colour handles")
-    async def pretty(self, ctx: discord.ext.commands.Context, page_no: int = None):
-        res = cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)
-        res.sort(key=lambda pair: pair[1].rating if pair[1].rating is not None else -1,
-                 reverse=True)
-        rankings = []
-        pos = 0
-        author_pos = 0
-        for user_id, cf_user in res:
-            member = ctx.guild.get_member(int(user_id))
+    @handle.command(brief="Show handles, but prettier")
+    async def pretty(self, ctx, page_no: int = None):
+        """Show members of the server who have registered their handles and their Codeforces
+        ratings, in color.
+        """
+        user_id_cf_user_pairs = cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)
+        user_id_cf_user_pairs.sort(key=lambda p: p[1].rating if p[1].rating is not None else -1,
+                                   reverse=True)
+        rows = []
+        author_idx = None
+        for user_id, cf_user in user_id_cf_user_pairs:
+            member = ctx.guild.get_member(user_id)
             if member is None:
                 continue
+            idx = len(rows)
             if member == ctx.author:
-                author_pos = pos
-            rating = cf_user.rating
-            if rating is None:
-                rating = 'N/A'
-            rankings.append((pos, member.display_name, cf_user.handle, rating))
-            pos += 1
+                author_idx = idx
+            rows.append((idx, member.display_name, cf_user.handle, cf_user.rating))
 
+        if not rows:
+            raise HandleCogError('No members with registered handles.')
+        max_page = math.ceil(len(rows) / _PRETTY_HANDLES_PER_PAGE) - 1
+        if author_idx is None and page_no is None:
+            raise HandleCogError(f'Please specify a page number between 0 and {max_page}.')
+
+        msg = None
         if page_no is not None:
-            page_no = max(page_no + 1, 1)
-            upto = page_no * 10
-            if upto > len(rankings):
-                await ctx.send(f"Page number should be at most {len(rankings) // 10} !\n"
-                               f"Showing last 10 handles.")
-            rankings = rankings[-10:] if len(rankings) < upto else rankings[upto - 10: upto]
+            if page_no < 0 or max_page < page_no:
+                msg_fmt = 'Page number must be between 0 and {}. Showing page {}.'
+                if page_no < 0:
+                    msg = msg_fmt.format(max_page, 0)
+                    page_no = 0
+                else:
+                    msg = msg_fmt.format(max_page, max_page)
+                    page_no = max_page
+            start_idx = page_no * _PRETTY_HANDLES_PER_PAGE
         else:
-            # Show rankings around invoker
-            rankings = rankings[max(0, author_pos - 4): author_pos + 6]
-
-        img = get_prettyhandles_image(rankings, self.font)
+            msg = f'Showing neighbourhood of user `{ctx.author.display_name}`.'
+            num_before = (_PRETTY_HANDLES_PER_PAGE - 1) // 2
+            start_idx = max(0, author_idx - num_before)
+        rows_to_display = rows[start_idx : start_idx + _PRETTY_HANDLES_PER_PAGE]
+        img = get_prettyhandles_image(rows_to_display, self.font)
         buffer = io.BytesIO()
         img.save(buffer, 'png')
         buffer.seek(0)
-        await ctx.send(file=discord.File(buffer, "handles.png"))
+        await ctx.send(msg, file=discord.File(buffer, 'handles.png'))
 
     async def _update_ranks(self, guild):
         """For each member in the guild, fetches their current ratings and updates their role if
@@ -458,7 +471,7 @@ class Handles(commands.Cog):
                 old_role = rating_to_displayable_rank(change.oldRating)
             new_role = rating_to_displayable_rank(change.newRating)
             if new_role != old_role:
-                rank_change_str = (f'{member.mention} (`{change.handle}`): {old_role} '
+                rank_change_str = (f'{member.mention} [{change.handle}]({cf.PROFILE_BASE_URL}{change.handle}): {old_role} '
                                    f'\N{LONG RIGHTWARDS ARROW} {new_role}')
                 rank_changes_str.append(rank_change_str)
 
@@ -469,7 +482,7 @@ class Handles(commands.Cog):
             delta = change.newRating - change.oldRating
             if delta <= 0:
                 break
-            increase_str = (f'{member.mention} (`{change.handle}`): {change.oldRating} '
+            increase_str = (f'{member.mention} [{change.handle}]({cf.PROFILE_BASE_URL}{change.handle}): {change.oldRating} '
                             f'\N{HORIZONTAL BAR} **{delta:+}** \N{LONG RIGHTWARDS ARROW} '
                             f'{change.newRating}')
             top_increases_str.append(increase_str)
@@ -489,7 +502,7 @@ class Handles(commands.Cog):
         await ctx.send_help(ctx.command)
 
     @roleupdate.command(brief='Update Codeforces rank roles')
-    @commands.has_role('Admin')
+    @commands.has_any_role('Admin', 'Moderator')
     async def now(self, ctx):
         """Updates Codeforces rank roles for every member in this server."""
         await self._update_ranks(ctx.guild)
@@ -497,7 +510,7 @@ class Handles(commands.Cog):
 
     @roleupdate.command(brief='Enable or disable auto role updates',
                         usage='on|off')
-    @commands.has_role('Admin')
+    @commands.has_any_role('Admin', 'Moderator')
     async def auto(self, ctx, arg):
         """Auto role update refers to automatic updating of rank roles when rating
         changes are released on Codeforces. 'on'/'off' disables or enables auto role
@@ -518,7 +531,7 @@ class Handles(commands.Cog):
 
     @roleupdate.command(brief='Publish a rank update for the given contest',
                         usage='here|off|contest_id')
-    @commands.has_role('Admin')
+    @commands.has_any_role('Admin', 'Moderator')
     async def publish(self, ctx, arg):
         """This is a feature to publish a summary of rank changes and top rating
         increases in a particular contest for members of this server. 'here' will
