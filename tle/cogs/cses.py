@@ -30,9 +30,6 @@ class CSES(commands.Cog):
 
     async def _reload(self):
         self.reloading = True
-        self.short_placings = {}
-        self.fast_placings = {}
-
         short_placings = defaultdict(list)
         fast_placings = defaultdict(list)
         try:
@@ -42,12 +39,10 @@ class CSES(commands.Cog):
                     fast_placings[fast[i]].append(i + 1)
                 for i in range(len(short)):
                     short_placings[short[i]].append(i + 1)
-        except cses.CSESError:
-            pass  # TODO log here?
-        finally:
-            self.reloading = False
             self.short_placings = short_placings
             self.fast_placings = fast_placings
+        finally:
+            self.reloading = False
 
     def format_leaderboard(self, top, placings):
         if not top:
