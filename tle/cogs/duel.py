@@ -71,7 +71,7 @@ class Dueling(commands.Cog):
         await ctx.send(f'{member.mention} successfully registered as a duelist.')
 
     @duel.command(brief='Challenge to a duel')
-    async def challenge(self, ctx, opponent: discord.Member):
+    async def challenge(self, ctx, opponent: discord.Member, rating:int=None):
         """Challenge another server member to a duel. Problem difficulty will be the lesser of duelist ratings minus 400. The challenge expires if ignored for 5 minutes."""
         challenger_id = ctx.author.id
         challengee_id = opponent.id
@@ -87,9 +87,42 @@ class Dueling(commands.Cog):
         if cf_common.user_db.check_duel_challenge(challengee_id):
             raise DuelCogError(f'{opponent.display_name} is currently in a duel!')
 
+        await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author), '!' + str(opponent)))
+        userids = [challenger_id, challengee_id]
+        handles = [cf_common.user_db.get_handle(userid, ctx.guild.id) for userid in userids]
+        users = [cf_common.user_db.fetch_cf_user(handle) for handle in handles]
+        lowest_rating = min(user.rating for user in users)
+        suggested_rating = max(round(lowest_rating, -2) + _DUEL_RATING_DELTA, 500)
+        rating = round(rating, -2) if rating else suggested_rating
+
+        if rating > suggested_rating:
+            raise DuelCogError(f'{ctx.author.display_name}, you cannot challenge {opponent .display_name} to a duel rated more than {suggested_rating}!')
+
+        submissions = [await cf.user.status(handle=handle) for handle in handles]
+        solved = {sub.problem.name for subs in submissions for sub in subs if sub.verdict != 'COMPILATION_ERROR'}
+        def get_problems(rating):
+            return [prob for prob in cf_common.cache2.problem_cache.problems
+                    if prob.rating == rating and prob.name not in solved
+                    and not any(cf_common.is_contest_writer(prob.contestId, handle) for handle in handles)
+                    and not cf_common.is_nonstandard_problem(prob)]
+
+        for problems in map(get_problems, range(rating, 400, -100)):
+            if problems:
+                break
+
+        rstr = f'{rating} rated ' if rating else ''
+        if not problems:
+            raise DuelCogError(f'No unsolved {rstr}problems left for {ctx.author.mention} vs {opponent.mention}.')
+
+        problems.sort(key=lambda problem: cf_common.cache2.contest_cache.get_contest(
+            problem.contestId).startTimeSeconds)
+
+        choice = max(random.randrange(len(problems)) for _ in range(2))
+        problem = problems[choice]
+
         issue_time = datetime.datetime.now().timestamp()
-        duelid = cf_common.user_db.create_duel(challenger_id, challengee_id, issue_time)
-        await ctx.send(f'{ctx.author.mention} is challenging {opponent.mention} to a duel!')
+        duelid = cf_common.user_db.create_duel(challenger_id, challengee_id, issue_time, problem)
+        await ctx.send(f'{ctx.author.mention} is challenging {opponent.mention} to a {rstr}duel!')
         await asyncio.sleep(_DUEL_EXPIRY_TIME)
         if cf_common.user_db.cancel_duel(duelid, Duel.EXPIRED):
             await ctx.send(f'{ctx.author.mention}, your request to duel {opponent.display_name} has expired!')
@@ -122,44 +155,17 @@ class Dueling(commands.Cog):
         if not active:
             raise DuelCogError(f'{ctx.author.mention}, you are not being challenged.')
 
-        duelid, challenger_id = active
+        duelid, challenger_id, name = active
         challenger = ctx.guild.get_member(challenger_id)
         await ctx.send(f'Duel between {challenger.mention} and {ctx.author.mention} starting in 15 seconds!')
         await asyncio.sleep(15)
 
-        await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author), '!' + str(challenger)))
-        userids = [ctx.author.id, challenger_id]
-        handles = [cf_common.user_db.get_handle(userid, ctx.guild.id) for userid in userids]
-        users = [cf_common.user_db.fetch_cf_user(handle) for handle in handles]
-        lowest_rating = min(user.rating for user in users)
-        rating = max(round(lowest_rating, -2) + _DUEL_RATING_DELTA, 500)
-
-        submissions = [await cf.user.status(handle=handle) for handle in handles]
-        solved = {sub.problem.name for subs in submissions for sub in subs if sub.verdict != 'COMPILATION_ERROR'}
-        def get_problems(rating):
-            return [prob for prob in cf_common.cache2.problem_cache.problems
-                    if prob.rating == rating and prob.name not in solved
-                    and not any(cf_common.is_contest_writer(prob.contestId, handle) for handle in handles)
-                    and not cf_common.is_nonstandard_problem(prob)]
-
-        ratings = itertools.chain(range(rating, 400, -100), range(rating + 100, 3900, 100))
-        for problems in map(get_problems, ratings):
-            if problems:
-                break
-
-        if not problems:
-            raise DuelCogError(f'No unsolved problems left for {challenger.mention} vs {ctx.author.mention}.')
-
-        problems.sort(key=lambda problem: cf_common.cache2.contest_cache.get_contest(
-            problem.contestId).startTimeSeconds)
-
-        choice = max(random.randrange(len(problems)) for _ in range(2))
-        problem = problems[choice]
         start_time = datetime.datetime.now().timestamp()
-        rc = cf_common.user_db.start_duel(duelid, start_time, problem)
+        rc = cf_common.user_db.start_duel(duelid, start_time)
         if rc != 1:
             raise DuelCogError(f'Unable to start the duel between {challenger.mention} and {ctx.author.mention}.')
 
+        problem = cf_common.cache2.problem_cache.problem_by_name[name]
         title = f'{problem.index}. {problem.name}'
         desc = cf_common.cache2.contest_cache.get_contest(problem.contestId).name
         embed = discord.Embed(title=title, url=problem.url, description=desc)

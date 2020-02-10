@@ -442,7 +442,7 @@ class UserDbConn:
 
     def check_duel_accept(self, challengee):
         query = f'''
-            SELECT id, challenger FROM duel
+            SELECT id, challenger, problem_name FROM duel
             WHERE challengee = ? AND status == {Duel.PENDING}
         '''
         return self.conn.execute(query, (challengee,)).fetchone()
@@ -475,11 +475,11 @@ class UserDbConn:
         '''
         return self.conn.execute(query, (userid, userid)).fetchone()
 
-    def create_duel(self, challenger, challengee, issue_time):
+    def create_duel(self, challenger, challengee, issue_time, prob):
         query = f'''
-            INSERT INTO duel (challenger, challengee, issue_time, status) VALUES (?, ?, ?, {Duel.PENDING})
+            INSERT INTO duel (challenger, challengee, issue_time, problem_name, contest_id, p_index, status) VALUES (?, ?, ?, ?, ?, ?, {Duel.PENDING})
         '''
-        duelid = self.conn.execute(query, (challenger, challengee, issue_time)).lastrowid
+        duelid = self.conn.execute(query, (challenger, challengee, issue_time, prob.name, prob.contestId, prob.index)).lastrowid
         self.conn.commit()
         return duelid
 
@@ -505,12 +505,12 @@ class UserDbConn:
         self.conn.commit()
         return rc
 
-    def start_duel(self, duelid, start_time, prob):
+    def start_duel(self, duelid, start_time):
         query = f'''
-            UPDATE duel SET start_time = ?, problem_name = ?, contest_id = ?, p_index = ?, status = {Duel.ONGOING}
+            UPDATE duel SET start_time = ?, status = {Duel.ONGOING}
             WHERE id = ? AND status = {Duel.PENDING}
         '''
-        rc = self.conn.execute(query, (start_time, prob.name, prob.contestId, prob.index, duelid)).rowcount
+        rc = self.conn.execute(query, (start_time, duelid)).rowcount
         if rc != 1:
             self.conn.rollback()
             return 0
