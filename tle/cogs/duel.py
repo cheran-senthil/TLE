@@ -100,7 +100,7 @@ class Dueling(commands.Cog):
 
         submissions = [await cf.user.status(handle=handle) for handle in handles]
         solved = {sub.problem.name for subs in submissions for sub in subs if sub.verdict != 'COMPILATION_ERROR'}
-        seen = {name for handle in handles for name in cf_common.user_db.get_duel_problem_names(handle)}
+        seen = {name for userid in userids for name, in cf_common.user_db.get_duel_problem_names(userid)}
         def get_problems(rating):
             return [prob for prob in cf_common.cache2.problem_cache.problems
                     if prob.rating == rating and prob.name not in solved and prob.name not in seen
