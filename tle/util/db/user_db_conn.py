@@ -554,7 +554,7 @@ class UserDbConn:
 
     def get_duel_problem_names(self, userid):
         query = f'''
-            SELECT problem_name FROM duel WHERE (challengee = ? OR challenger = ?) AND (status == {Duel.COMPLETE} or status == {Duel.INVALID})
+            SELECT problem_name FROM duel WHERE (challengee = ? OR challenger = ?) AND (status == {Duel.COMPLETE} OR status == {Duel.INVALID})
         '''
         return self.conn.execute(query, (userid, userid)).fetchall()
 
