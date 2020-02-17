@@ -594,13 +594,15 @@ class Handles(commands.Cog):
             raise HandleCogError(f'Invalid action {action}')
 
     @commands.command(brief='Grants or removes the specified pingable role',
-                      usage='[give/remove] [vc/duel]')
+                      usage='[give/remove] [vc/duel/dog]')
     async def role(self, ctx, action: str, which: str):
         """e.g. ;role remove duel"""
         if which == 'vc':
             await self._generic_remind(ctx, action, 'Virtual Contestant', 'vc')
         elif which == 'duel':
             await self._generic_remind(ctx, action, 'Duelist', 'duel')
+        elif which == 'dog':
+            await self._generic_remind(ctx, action, 'dog', 'dog')
         else:
             raise HandleCogError(f'Invalid role {which}')
 
