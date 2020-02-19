@@ -245,8 +245,7 @@ class Codeforces(commands.Cog):
                         prob.name not in noguds)]
 
         def check(problem):
-            contest = cf_common.cache2.contest_cache.get_contest(problem.contestId)
-            return (not cf_common.is_nonstandard_contest(contest) and
+            return (not cf_common.is_nonstandard_problem(problem) and
                     not cf_common.is_contest_writer(problem.contestId, handle))
 
         problems = list(filter(check, problems))
