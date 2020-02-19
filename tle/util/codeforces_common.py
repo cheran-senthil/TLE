@@ -247,6 +247,8 @@ class SubFilter:
         self.rlo, self.rhi = 500, 3800
         self.types = []
         self.tags = []
+        self.contests = []
+        self.indices = []
 
     def parse(self, args):
         args = list(set(args))
@@ -263,6 +265,10 @@ class SubFilter:
                 self.types.append('VIRTUAL')
             elif arg == '+practice':
                 self.types.append('PRACTICE')
+            elif arg[0:2] == 'c+':
+                self.contests.append(arg[2:])
+            elif arg[0:2] == 'i+':
+                self.indices.append(arg[2:])
             elif arg[0] == '+':
                 if len(arg) == 1:
                     raise ParamParseError('Problem tag cannot be empty.')
@@ -314,6 +320,8 @@ class SubFilter:
             type_ok = submission.author.participantType in self.types
             date_ok = self.dlo <= submission.creationTimeSeconds < self.dhi
             tag_ok = not self.tags or problem.tag_matches(self.tags)
+            index_ok = not self.indices or any(index.lower() == problem.index.lower() for index in self.indices)
+            contest_ok = not self.contests or (contest and contest.matches(self.contests))
             team_ok = self.team or len(submission.author.members) == 1
             if self.rated:
                 problem_ok = contest and contest.id < cf.GYM_ID_THRESHOLD and not is_nonstandard_problem(problem)
@@ -323,6 +331,6 @@ class SubFilter:
                 problem_ok = (not contest or contest.id >= cf.GYM_ID_THRESHOLD
                               or not is_nonstandard_problem(problem))
                 rating_ok = True
-            if type_ok and date_ok and rating_ok and tag_ok and team_ok and problem_ok:
+            if type_ok and date_ok and rating_ok and tag_ok and team_ok and problem_ok and contest_ok and index_ok:
                 filtered_subs.append(submission)
         return filtered_subs

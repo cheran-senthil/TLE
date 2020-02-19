@@ -147,7 +147,7 @@ class Codeforces(commands.Cog):
         await ctx.send(f'Recommended problem for `{handle}`', embed=embed)
 
     @commands.command(brief='List solved problems',
-                      usage='[handles] [+hardest] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [r>=rating] [r<=rating] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy]')
+                      usage='[handles] [+hardest] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [r>=rating] [r<=rating] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy] [c+marker..] [i+index..]')
     async def stalk(self, ctx, *args):
         """Print problems solved by user sorted by time (default) or rating.
         All submission types are included by default (practice, contest, etc.)
@@ -346,9 +346,6 @@ class Codeforces(commands.Cog):
     async def vc(self, ctx, *args: str):
         """Recommends a contest based on Codeforces rating of the handle provided.
         e.g ;vc mblazev c1729 +global +hello +goodbye +avito"""
-        def strfilt(s):
-            return ''.join(x for x in s.lower() if x.isalnum())
-
         markers = [x for x in args if x[0] == '+']
         handles = [x for x in args if x[0] != '+'] or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
@@ -360,12 +357,10 @@ class Codeforces(commands.Cog):
         if not markers:
             divr = sum(user.effective_rating for user in info) / len(handles)
             div1_indicators = ['div1', 'global', 'avito', 'goodbye', 'hello']
-            divs = ['div3'] if divr < 1600 else ['div2'] if divr < 2100 else div1_indicators
-        else:
-            divs = [strfilt(x) for x in markers]
+            markers = ['div3'] if divr < 1600 else ['div2'] if divr < 2100 else div1_indicators
 
         recommendations = {contest.id for contest in contests if
-                           any(tag in strfilt(contest.name) for tag in divs)
+                           contest.matches(markers)
                            and not cf_common.is_nonstandard_contest(contest)
                            and not any(cf_common.is_contest_writer(contest.id, handle)
                                        for handle in handles)}
@@ -400,16 +395,12 @@ class Codeforces(commands.Cog):
     async def fullsolve(self, ctx, *args: str):
         """Displays a list of contests, sorted by number of unsolved problems.
         Contest names matching any of the provided tags will be considered. e.g ;fullsolve +edu"""
-        def strfilt(s):
-            return ''.join(x for x in s.lower() if x.isalnum())
-
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
-        tags = [strfilt(x) for x in args if x[0] == '+']
+        tags = [x for x in args if x[0] == '+']
 
         problem_to_contests = cf_common.cache2.problemset_cache.problem_to_contests
         contests = [contest for contest in cf_common.cache2.contest_cache.get_contests_in_phase('FINISHED')
-                    if (not tags or any(tag in strfilt(contest.name) for tag in tags))
-                    and not cf_common.is_nonstandard_contest(contest)]
+                    if (not tags or contest.matches(tags)) and not cf_common.is_nonstandard_contest(contest)]
 
         # subs_by_contest_id contains contest_id mapped to [list of problem.name]
         subs_by_contest_id = defaultdict(set)

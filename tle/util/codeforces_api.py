@@ -84,6 +84,10 @@ class Contest(namedtuple('Contest', 'id name startTimeSeconds durationSeconds ty
     def register_url(self):
         return f'{CONTESTS_BASE_URL}{self.id}'
 
+    def matches(self, markers):
+        def strfilt(s):
+            return ''.join(x for x in s.lower() if x.isalnum())
+        return any(strfilt(marker) in strfilt(self.name) for marker in markers)
 
 class Party(namedtuple('Party', ('contestId members participantType teamId teamName ghost room '
                                  'startTimeSeconds'))):
