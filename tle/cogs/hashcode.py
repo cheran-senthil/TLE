@@ -21,6 +21,7 @@ teams = [
     'too_difficult_stop_creating_problems',
     'heisenbugs certainty principle',
     'daegons',
+    'EpsilonCube',
     ]
 
 async def _fetch(url):
