@@ -381,14 +381,13 @@ class Codeforces(commands.Cog):
         if not recommendations:
             raise CodeforcesCogError('Unable to recommend a contest')
 
-        num_contests = len(recommendations)
-        choice = max(random.randrange(num_contests), random.randrange(num_contests))
-        contest_id = sorted(list(recommendations))[choice]
-        # from and count are for ranklist, set to minimum (1) because we only need name
+        recommendations = list(recommendations)
+        random.shuffle(recommendations)
+        contests = [cf_common.cache2.contest_cache.get_contest(contest_id) for contest_id in recommendations[:5]]
+        msg = '\n'.join(f'{i+1}. [{c.name}]({c.url})' for i, c in enumerate(contests))
+        embed = discord_common.cf_color_embed(description=msg)
         str_handles = '`, `'.join(handles)
-        contest, _, _ = await cf.contest.standings(contest_id=contest_id, from_=1, count=1)
-        embed = discord.Embed(title=contest.name, url=contest.url)
-        await ctx.send(f'Recommended contest for `{str_handles}`', embed=embed)
+        await ctx.send(f'Recommended contest(s) for `{str_handles}`', embed=embed)
 
     @commands.command(brief="Display unsolved rounds closest to completion", usage='[keywords]')
     async def fullsolve(self, ctx, *args: str):
