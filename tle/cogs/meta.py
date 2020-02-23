@@ -88,6 +88,14 @@ class Meta(commands.Cog):
         await ctx.send('TLE has been running for ' +
                        pretty_time_format(time.time() - self.start_time))
 
+    @meta.command(brief='Print bot guilds')
+    @commands.has_role('Admin')
+    async def guilds(self, ctx):
+        "Replies with info on the bot's guilds"
+        msg = [f'Guild ID: {guild.id} | Name: {guild.name} | Owner: {guild.owner.id} | Icon: {guild.icon_url}'
+                for guild in self.bot.guilds]
+        await ctx.send('```' + '\n'.join(msg) + '```')
+
 
 def setup(bot):
     bot.add_cog(Meta(bot))
