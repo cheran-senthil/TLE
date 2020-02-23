@@ -347,7 +347,7 @@ class Codeforces(commands.Cog):
         e.g ;vc mblazev c1729 +global +hello +goodbye +avito"""
         markers = [x for x in args if x[0] == '+']
         handles = [x for x in args if x[0] != '+'] or ('!' + str(ctx.author),)
-        handles = await cf_common.resolve_handles(ctx, self.converter, handles)
+        handles = await cf_common.resolve_handles(ctx, self.converter, handles, maxcnt=10)
         user_submissions = [await cf.user.status(handle=handle) for handle in handles]
         info = await cf.user.info(handles=handles)
         contests = cf_common.cache2.contest_cache.get_contests_in_phase('FINISHED')
