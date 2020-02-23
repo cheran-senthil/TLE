@@ -274,16 +274,16 @@ class SubFilter:
                     raise ParamParseError('Problem tag cannot be empty.')
                 self.tags.append(arg[1:])
             elif arg[0:2] == 'd<':
-                self.dhi = parse_date(arg[2:])
+                self.dhi = min(self.dhi, parse_date(arg[2:]))
             elif arg[0:3] == 'd>=':
-                self.dlo = parse_date(arg[3:])
+                self.dlo = max(self.dlo, parse_date(arg[3:]))
             elif arg[0:3] in ['r<=', 'r>=']:
                 if len(arg) < 4:
                     raise ParamParseError(f'{arg} is an invalid rating argument')
                 elif arg[1] == '>':
-                    self.rlo = int(arg[3:])
+                    self.rlo = max(self.rlo, int(arg[3:]))
                 else:
-                    self.rhi = int(arg[3:])
+                    self.rhi = min(self.rhi, int(arg[3:]))
                 self.rated = True
             else:
                 rest.append(arg)
