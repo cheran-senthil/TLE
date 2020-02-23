@@ -5,6 +5,8 @@ import asyncio
 import itertools
 
 from discord.ext import commands
+from collections import defaultdict, namedtuple
+from matplotlib import pyplot as plt
 
 from tle.util.db.user_db_conn import Duel, Winner
 from tle.util import codeforces_api as cf
@@ -12,13 +14,43 @@ from tle.util import codeforces_common as cf_common
 from tle.util import paginator
 from tle.util import discord_common
 from tle.util import table
-
+from tle.cogs.graphs import _get_current_figure_as_file
 
 _DUEL_INVALIDATE_TIME = 60
 _DUEL_EXPIRY_TIME = 5 * 60
 _DUEL_RATING_DELTA = -400
 _DUEL_NO_DRAW_TIME = 30 * 60
 _ELO_CONSTANT = 60
+
+DuelRank = namedtuple('Rank', 'low high title title_abbr color_graph color_embed')
+
+DUEL_RANKS = (
+    DuelRank(-10 ** 9, 1300, 'Newbie', 'N', '#CCCCCC', 0x808080),
+    DuelRank(1300, 1400, 'Pupil', 'P', '#77FF77', 0x008000),
+    DuelRank(1400, 1500, 'Specialist', 'S', '#77DDBB', 0x03a89e),
+    DuelRank(1500, 1600, 'Expert', 'E', '#AAAAFF', 0x0000ff),
+    DuelRank(1600, 1700, 'Candidate Master', 'CM', '#FF88FF', 0xaa00aa),
+    DuelRank(1700, 1800, 'Master', 'M', '#FFCC88', 0xff8c00),
+    DuelRank(1800, 1900, 'International Master', 'IM', '#FFBB55', 0xf57500),
+    DuelRank(1900, 2000, 'Grandmaster', 'GM', '#FF7777', 0xff3030),
+    DuelRank(2000, 2100, 'International Grandmaster', 'IGM', '#FF3333', 0xff0000),
+    DuelRank(2100, 10 ** 9, 'Legendary Grandmaster', 'LGM', '#AA0000', 0xcc0000)
+)
+
+def rating2rank(rating):
+    for rank in DUEL_RANKS:
+        if rank.low <= rating < rank.high:
+            return rank
+
+def _plot_rating_bg():
+    bgcolor = plt.gca().get_facecolor()
+    for rank in DUEL_RANKS:
+        plt.axhspan(rank.low, rank.high, facecolor=rank.color_graph, alpha=0.8, edgecolor=bgcolor, linewidth=0.5)
+
+    locs, labels = plt.xticks()
+    for loc in locs:
+        plt.axvline(loc, color=bgcolor, linewidth=0.5)
+
 
 class DuelCogError(commands.CommandError):
     pass
@@ -262,10 +294,9 @@ class Dueling(commands.Cog):
             raise DuelCogError(f'{member.display_name} is not a registered duelist.')
 
         user = get_cf_user(member.id, ctx.guild.id)
-        desc = f'Duelist profile of {member.mention} aka **[{user.handle}]({user.url})**'
-        embed = discord.Embed(description=desc, color=user.rank.color_embed)
-
         rating = cf_common.user_db.get_duel_rating(member.id)
+        desc = f'Duelist profile of {rating2rank(rating).title} {member.mention} aka **[{user.handle}]({user.url})**'
+        embed = discord.Embed(description=desc, color=rating2rank(rating).color_embed)
         embed.add_field(name='Rating', value=rating, inline=True)
 
         wins = cf_common.user_db.get_duel_wins(member.id)
@@ -398,7 +429,8 @@ class Dueling(commands.Cog):
             t += table.Header('#', 'Name', 'Handle', 'Rating')
             t += table.Line()
             for index, (member, handle, rating) in enumerate(chunk):
-                t += table.Data(_PER_PAGE * page_num + index, f'{member.display_name}', handle, rating)
+                rating_str = f'{rating} ({rating2rank(rating).title_abbr})'
+                t += table.Data(_PER_PAGE * page_num + index, f'{member.display_name}', handle, rating_str)
 
             table_str = f'```\n{t}\n```'
             embed = discord_common.cf_color_embed(description=table_str)
@@ -442,6 +474,70 @@ class Dueling(commands.Cog):
 
         duelid, challenger_id, challengee_id, _, _, _, _ = active
         await self.invalidate_duel(ctx, duelid, challenger_id, challengee_id)
+
+    @duel.command(brief='Plot rating', usage='[duelist]')
+    async def rating(self, ctx, *members: discord.Member):
+        """Plot duelist's rating."""
+        members = members or (ctx.author, )
+        if len(members) > 5:
+            raise DuelCogError(f'Cannot plot more than 5 duelists at once.')
+
+        duelists = [member.id for member in members]
+        duels = cf_common.user_db.get_complete_duels()
+        rating = dict()
+        plot_data = defaultdict(list)
+        time_tick = 0
+        for challenger, challengee, winner, finish_time in duels:
+            challenger_r = rating.get(challenger, 1500)
+            challengee_r = rating.get(challengee, 1500)
+            if winner == Winner.CHALLENGER:
+                delta = round(elo_delta(challenger_r, challengee_r, 1))
+            elif winner == Winner.CHALLENGEE:
+                delta = round(elo_delta(challenger_r, challengee_r, 0))
+            else:
+                delta = round(elo_delta(challenger_r, challengee_r, 0.5))
+
+            rating[challenger] = challenger_r + delta
+            rating[challengee] = challengee_r - delta
+            if challenger in duelists or challengee in duelists:
+                if challenger in duelists:
+                    plot_data[challenger].append((time_tick, rating[challenger]))
+                if challengee in duelists:
+                    plot_data[challengee].append((time_tick, rating[challengee]))
+                time_tick += 1
+
+        if time_tick == 0:
+            raise DuelCogError(f'Nothing to plot.')
+
+        plt.clf()
+        min_rating = 1350
+        max_rating = 1550
+        for duelist, rating_data in plot_data.items():
+            for tick, rating in rating_data:
+                min_rating = min(min_rating, rating)
+                max_rating = max(max_rating, rating)
+
+            x, y = zip(*rating_data)
+            plt.plot(x, y,
+                     linestyle='-',
+                     marker='o',
+                     markersize=2,
+                     markerfacecolor='white',
+                     markeredgewidth=0.5)
+
+        _plot_rating_bg()
+        plt.xlim(0, time_tick - 1)
+        plt.ylim(min_rating - 100, max_rating + 100)
+
+        labels = [f'{ctx.guild.get_member(duelist).display_name} ({rating_data[-1][1]})'
+                  for duelist, rating_data in plot_data.items()]
+        plt.legend(labels, loc='upper left')
+
+        discord_file = _get_current_figure_as_file()
+        embed = discord_common.cf_color_embed(title='Duel rating graph')
+        discord_common.attach_image(embed, discord_file)
+        discord_common.set_author_footer(embed, ctx.author)
+        await ctx.send(embed=embed, file=discord_file)
 
     @discord_common.send_error_if(DuelCogError)
     async def cog_command_error(self, ctx, error):
