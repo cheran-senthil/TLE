@@ -14,7 +14,7 @@ from tle.util import discord_common
 from tle.util import table
 
 
-_DUEL_INVALIDATE_TIME = 60
+_DUEL_INVALIDATE_TIME = 2 * 60
 _DUEL_EXPIRY_TIME = 5 * 60
 _DUEL_RATING_DELTA = -400
 _DUEL_NO_DRAW_TIME = 10 * 60
