@@ -445,9 +445,13 @@ class Handles(commands.Cog):
         user_id_handle_pairs = cf_common.user_db.get_handles_for_guild(guild.id)
         member_handle_pairs = [(guild.get_member(int(user_id)), handle)
                                for user_id, handle in user_id_handle_pairs]
+        def ispurg(member):
+            # TODO: temporary code, todo properly later
+            return any(role.name == 'Purgatory' for role in member.roles)
+
         member_change_pairs = [(member, change_by_handle[handle])
                                for member, handle in member_handle_pairs
-                               if member is not None and handle in change_by_handle]
+                               if member is not None and handle in change_by_handle and not ispurg(member)]
         if not member_change_pairs:
             raise HandleCogError(f'Contest `{contest.id} | {contest.name}` was not rated for any '
                                  'member of this server.')
