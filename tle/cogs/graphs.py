@@ -734,9 +734,9 @@ class Graphs(commands.Cog):
         else:
             countries = [country.title() for country in countries]
             data = [[user.country, user.rating]
-                    for _, user in users if user.country and user.country in countries]
+                    for _, user in users if user.rating and user.country and user.country in countries]
             if not data:
-                raise GraphCogError('No members from the specified countries are present.')
+                raise GraphCogError('No rated members from the specified countries are present.')
 
             color_map = {rating: f'#{cf.rating2rank(rating).color_embed:06x}' for _, rating in data}
             df = pd.DataFrame(data, columns=['Country', 'Rating'])
