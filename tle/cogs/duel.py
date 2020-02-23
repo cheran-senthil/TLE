@@ -17,7 +17,7 @@ from tle.util import table
 _DUEL_INVALIDATE_TIME = 60
 _DUEL_EXPIRY_TIME = 5 * 60
 _DUEL_RATING_DELTA = -400
-_DUEL_NO_DRAW_TIME = 30 * 60
+_DUEL_NO_DRAW_TIME = 10 * 60
 _ELO_CONSTANT = 60
 
 class DuelCogError(commands.CommandError):
