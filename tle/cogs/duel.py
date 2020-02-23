@@ -76,6 +76,11 @@ class Dueling(commands.Cog):
         challenger_id = ctx.author.id
         challengee_id = opponent.id
 
+        await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author), '!' + str(opponent)))
+        userids = [challenger_id, challengee_id]
+        handles = [cf_common.user_db.get_handle(userid, ctx.guild.id) for userid in userids]
+        submissions = [await cf.user.status(handle=handle) for handle in handles]
+
         if not cf_common.user_db.is_duelist(challenger_id):
             raise DuelCogError(f'{ctx.author.mention}, you are not a registered duelist!')
         if not cf_common.user_db.is_duelist(challengee_id):
@@ -87,9 +92,6 @@ class Dueling(commands.Cog):
         if cf_common.user_db.check_duel_challenge(challengee_id):
             raise DuelCogError(f'{opponent.display_name} is currently in a duel!')
 
-        await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author), '!' + str(opponent)))
-        userids = [challenger_id, challengee_id]
-        handles = [cf_common.user_db.get_handle(userid, ctx.guild.id) for userid in userids]
         users = [cf_common.user_db.fetch_cf_user(handle) for handle in handles]
         lowest_rating = min(user.rating for user in users)
         suggested_rating = max(round(lowest_rating, -2) + _DUEL_RATING_DELTA, 500)
@@ -98,7 +100,6 @@ class Dueling(commands.Cog):
         if rating > suggested_rating:
             raise DuelCogError(f'{ctx.author.display_name}, you cannot challenge {opponent .display_name} to a duel rated more than {suggested_rating}!')
 
-        submissions = [await cf.user.status(handle=handle) for handle in handles]
         solved = {sub.problem.name for subs in submissions for sub in subs if sub.verdict != 'COMPILATION_ERROR'}
         seen = {name for userid in userids for name, in cf_common.user_db.get_duel_problem_names(userid)}
         def get_problems(rating):
