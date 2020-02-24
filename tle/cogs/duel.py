@@ -14,7 +14,7 @@ from tle.util import codeforces_common as cf_common
 from tle.util import paginator
 from tle.util import discord_common
 from tle.util import table
-from tle.cogs.graphs import _get_current_figure_as_file
+from tle.util import graph_common as gc
 
 _DUEL_INVALIDATE_TIME = 60
 _DUEL_EXPIRY_TIME = 5 * 60
@@ -41,15 +41,6 @@ def rating2rank(rating):
     for rank in DUEL_RANKS:
         if rank.low <= rating < rank.high:
             return rank
-
-def _plot_rating_bg():
-    bgcolor = plt.gca().get_facecolor()
-    for rank in DUEL_RANKS:
-        plt.axhspan(rank.low, rank.high, facecolor=rank.color_graph, alpha=0.8, edgecolor=bgcolor, linewidth=0.5)
-
-    locs, labels = plt.xticks()
-    for loc in locs:
-        plt.axvline(loc, color=bgcolor, linewidth=0.5)
 
 
 class DuelCogError(commands.CommandError):
@@ -510,9 +501,10 @@ class Dueling(commands.Cog):
             raise DuelCogError(f'Nothing to plot.')
 
         plt.clf()
+        # plot at least from mid gray to mid purple
         min_rating = 1350
         max_rating = 1550
-        for duelist, rating_data in plot_data.items():
+        for rating_data in plot_data.values():
             for tick, rating in rating_data:
                 min_rating = min(min_rating, rating)
                 max_rating = max(max_rating, rating)
@@ -525,15 +517,15 @@ class Dueling(commands.Cog):
                      markerfacecolor='white',
                      markeredgewidth=0.5)
 
-        _plot_rating_bg()
+        gc.plot_rating_bg(DUEL_RANKS)
         plt.xlim(0, time_tick - 1)
         plt.ylim(min_rating - 100, max_rating + 100)
 
-        labels = [f'{ctx.guild.get_member(duelist).display_name} ({rating_data[-1][1]})'
+        labels = ['{} ({})'.format(ctx.guild.get_member(duelist).display_name, rating_data[-1][1])
                   for duelist, rating_data in plot_data.items()]
         plt.legend(labels, loc='upper left')
 
-        discord_file = _get_current_figure_as_file()
+        discord_file = gc.get_current_figure_as_file()
         embed = discord_common.cf_color_embed(title='Duel rating graph')
         discord_common.attach_image(embed, discord_file)
         discord_common.set_author_footer(embed, ctx.author)
