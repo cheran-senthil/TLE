@@ -143,7 +143,7 @@ class HandleNotRegisteredError(ResolveHandleError):
 
 
 class HandleIsVjudgeError(ResolveHandleError):
-    HANDLES = ('vjudge1 vjudge2 vjudge3 vjudge4 vjudge5'
+    HANDLES = ('vjudge1 vjudge2 vjudge3 vjudge4 vjudge5 '
                'luogu_bot1 luogu_bot2 luogu_bot3 luogu_bot4 luogu_bot5').split()
 
     def __init__(self, handle):
