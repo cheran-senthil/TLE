@@ -1,9 +1,7 @@
 import bisect
 import collections
 import datetime as dt
-import io
 import time
-import os
 from typing import List
 
 import discord
@@ -20,6 +18,7 @@ from tle import constants
 from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
 from tle.util import discord_common
+from tle.util import graph_common as gc
 
 pd.plotting.register_matplotlib_converters()
 
@@ -36,30 +35,6 @@ def nice_sub_type(types):
                 'VIRTUAL':'Virtual: {}',
                 'PRACTICE':'Practice: {}'}
     return [nice_map[t] for t in types]
-
-def _get_current_figure_as_file():
-    filename = os.path.join(constants.TEMP_DIR, f'tempplot_{time.time()}.png')
-    plt.savefig(filename, facecolor=plt.gca().get_facecolor(), bbox_inches='tight', pad_inches=0.25)
-
-    with open(filename, 'rb') as file:
-        discord_file = discord.File(io.BytesIO(file.read()), filename='plot.png')
-
-    os.remove(filename)
-    return discord_file
-
-
-def _plot_rating_bg():
-    ymin, ymax = plt.gca().get_ylim()
-    bgcolor = plt.gca().get_facecolor()
-    for rank in cf.RATED_RANKS:
-        plt.axhspan(rank.low, rank.high, facecolor=rank.color_graph, alpha=0.8, edgecolor=bgcolor, linewidth=0.5)
-
-    plt.gcf().autofmt_xdate()
-    locs, labels = plt.xticks()
-    for loc in locs:
-        plt.axvline(loc, color=bgcolor, linewidth=0.5)
-    plt.ylim(ymin, ymax)
-
 
 def _plot_rating(resp, mark='o', labels: List[str] = None):
     labels = [''] * len(resp) if labels is None else labels
@@ -78,7 +53,8 @@ def _plot_rating(resp, mark='o', labels: List[str] = None):
                  markeredgewidth=0.5,
                  label=label)
 
-    _plot_rating_bg()
+    gc.plot_rating_bg(cf.RATED_RANKS)
+    plt.gcf().autofmt_xdate()
 
 def _classify_submissions(submissions):
     solved_by_type = {sub_type: [] for sub_type in cf.Party.PARTICIPANT_TYPES}
@@ -194,7 +170,8 @@ def _plot_extreme(handle, rating, packed_contest_subs_problemset, solved, unsolv
 
     plt.legend(title=f'{handle}: {rating}', title_fontsize=plt.rcParams['legend.fontsize'],
                loc='upper left').set_zorder(20)
-    _plot_rating_bg()
+    gc.plot_rating_bg(cf.RATED_RANKS)
+    plt.gcf().autofmt_xdate()
 
 
 def _plot_average(practice, bin_size, label: str = ''):
@@ -259,7 +236,7 @@ class Graphs(commands.Cog):
                     max_rating = max(max_rating, rating.newRating)
             plt.ylim(min_rating - 100, max_rating + 200)
 
-        discord_file = _get_current_figure_as_file()
+        discord_file = gc.get_current_figure_as_file()
         embed = discord_common.cf_color_embed(title='Rating graph on Codeforces')
         discord_common.attach_image(embed, discord_file)
         discord_common.set_author_footer(embed, ctx.author)
@@ -297,7 +274,7 @@ class Graphs(commands.Cog):
         rating = max(ratingchanges, key=lambda change: change.ratingUpdateTimeSeconds).newRating
         _plot_extreme(handle, rating, packed_contest_subs_problemset, solved, unsolved)
 
-        discord_file = _get_current_figure_as_file()
+        discord_file = gc.get_current_figure_as_file()
         embed = discord_common.cf_color_embed(title='Codeforces extremes graph')
         discord_common.attach_image(embed, discord_file)
         discord_common.set_author_footer(embed, ctx.author)
@@ -353,7 +330,7 @@ class Graphs(commands.Cog):
             plt.hist(all_ratings, bins=hist_bins, label=labels)
             plt.legend(loc='upper right')
 
-        discord_file = _get_current_figure_as_file()
+        discord_file = gc.get_current_figure_as_file()
         embed = discord_common.cf_color_embed(title='Histogram of problems solved on Codeforces')
         discord_common.attach_image(embed, discord_file)
         discord_common.set_author_footer(embed, ctx.author)
@@ -401,7 +378,7 @@ class Graphs(commands.Cog):
             plt.legend()
 
         plt.gcf().autofmt_xdate()
-        discord_file = _get_current_figure_as_file()
+        discord_file = gc.get_current_figure_as_file()
         embed = discord_common.cf_color_embed(title='Histogram of number of solved problems over time')
         discord_common.attach_image(embed, discord_file)
         discord_common.set_author_footer(embed, ctx.author)
@@ -465,7 +442,7 @@ class Graphs(commands.Cog):
         ymin, ymax = plt.gca().get_ylim()
         plt.ylim(max(ymin, filt.rlo - 100), min(ymax, filt.rhi + 100))
 
-        discord_file = _get_current_figure_as_file()
+        discord_file = gc.get_current_figure_as_file()
         embed = discord_common.cf_color_embed(title=f'Rating vs solved problem rating for {handle}')
         discord_common.attach_image(embed, discord_file)
         discord_common.set_author_footer(embed, ctx.author)
@@ -520,7 +497,7 @@ class Graphs(commands.Cog):
         plt.xlabel('Rating')
         plt.ylabel('Number of users')
 
-        discord_file = _get_current_figure_as_file()
+        discord_file = gc.get_current_figure_as_file()
         plt.close(fig)
 
         embed = discord_common.cf_color_embed(title=title)
@@ -663,7 +640,7 @@ class Graphs(commands.Cog):
             vert_line(x)
 
         # Discord stuff
-        discord_file = _get_current_figure_as_file()
+        discord_file = gc.get_current_figure_as_file()
         embed = discord_common.cf_color_embed(title=f'Rating/percentile relationship')
         discord_common.attach_image(embed, discord_file)
         discord_common.set_author_footer(embed, ctx.author)
@@ -688,7 +665,7 @@ class Graphs(commands.Cog):
         plt.ylabel('Number solved')
         plt.legend(prop=self.fontprop)
 
-        discord_file = _get_current_figure_as_file()
+        discord_file = gc.get_current_figure_as_file()
         embed = discord_common.cf_color_embed(title='Histogram of gudgitting')
         discord_common.attach_image(embed, discord_file)
         discord_common.set_author_footer(embed, ctx.author)
@@ -728,7 +705,7 @@ class Graphs(commands.Cog):
             ax.tick_params(axis='x', length=4, color=ax.spines['bottom'].get_edgecolor())
             plt.xlabel('Country')
             plt.ylabel('Number of members')
-            discord_file = _get_current_figure_as_file()
+            discord_file = gc.get_current_figure_as_file()
             plt.close(fig)
             embed = discord_common.cf_color_embed(title='Distribution of server members by country')
         else:
@@ -757,7 +734,7 @@ class Graphs(commands.Cog):
             plt.legend().remove()
             plt.xlabel('Country')
             plt.ylabel('Rating')
-            discord_file = _get_current_figure_as_file()
+            discord_file = gc.get_current_figure_as_file()
             embed = discord_common.cf_color_embed(title='Rating distribution of server members by '
                                                         'country')
 

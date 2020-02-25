@@ -635,6 +635,13 @@ class UserDbConn:
         '''
         return self.conn.execute(query).fetchall()
 
+    def get_complete_duels(self):
+        query = f'''
+            SELECT challenger, challengee, winner, finish_time FROM duel WHERE status={Duel.COMPLETE}
+            ORDER BY finish_time ASC
+        '''
+        return self.conn.execute(query).fetchall()
+
     def get_rankup_channel(self, guild_id):
         query = ('SELECT channel_id '
                  'FROM rankup '
