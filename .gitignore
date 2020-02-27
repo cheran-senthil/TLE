@@ -110,9 +110,6 @@ pip-wheel-metadata/
 # vscode
 .vscode/
 
-# run
-run.sh
-
 # data
 /data
 
