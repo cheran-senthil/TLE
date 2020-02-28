@@ -9,7 +9,7 @@ from tle.util import discord_common
 
 _STAR = '\N{WHITE MEDIUM STAR}'
 _STAR_ORANGE = 0xffaa10
-_STAR_THRESHOLD = 3
+_STAR_THRESHOLD = 5
 
 
 class StarboardCogError(commands.CommandError):
