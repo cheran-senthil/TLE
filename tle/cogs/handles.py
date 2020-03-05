@@ -41,18 +41,21 @@ class HandleCogError(commands.CommandError):
     pass
 
 
+def colorconv(rgb):
+    return tuple(x/255 for x in rgb)
+
 def rating_to_color(rating):
     """returns (r, g, b) pixels values corresponding to rating"""
-    # TODO: Integrate these colors with the ranks in codeforces_api.py
-    BLACK = (10, 10, 10)
-    RED = (255, 20, 20)
-    BLUE = (0, 0, 200)
-    GREEN = (0, 140, 0)
-    ORANGE = (250, 140, 30)
-    PURPLE = (160, 0, 120)
-    CYAN = (0, 165, 170)
-    GREY = (70, 70, 70)
-    if rating is None:
+    # TODO: Use colors from codeforces_api.py
+    BLACK = colorconv((10, 10, 10))
+    RED = colorconv((255, 20, 20))
+    BLUE = colorconv((0, 0, 200))
+    GREEN = colorconv((0, 140, 0))
+    ORANGE = colorconv((250, 140, 30))
+    PURPLE = colorconv((160, 0, 120))
+    CYAN = colorconv((0, 165, 170))
+    GREY = colorconv((70, 70, 70))
+    if rating is None or rating == 'N/A':
         return BLACK
     if rating < 1200:
         return GREY
@@ -79,86 +82,153 @@ FONTS = [
 
 def get_gudgitters_image(rankings):
     """return PIL image for rankings"""
-    SMOKE_WHITE = (250, 250, 250)
-    BLACK = (0, 0, 0)
-
+    # Settings
+    SMOKE_WHITE = colorconv((250, 250, 250))
+    BLACK = colorconv((0, 0, 0))
     DISCORD_GRAY = (.212, .244, .247)
 
-    WIDTH = 900
-    HEIGHT = 450
     BORDER_MARGIN = 20
+
+    LINE_HEIGHT = 50
+    LINE_MARGIN = 20
+    ENTRIES = len(rankings)
+
+    CONTENT_HEIGHT = LINE_HEIGHT*ENTRIES + LINE_MARGIN*(ENTRIES - 1)
+    CONTENT_WIDTH = 900
+    HEIGHT = CONTENT_HEIGHT + 2*BORDER_MARGIN
+    WIDTH = CONTENT_WIDTH + 2*BORDER_MARGIN
+
     COLUMN_MARGIN = 10
-    HEADER_SPACING = 1.25
-    WIDTH_RANK = 0.08*WIDTH
-    WIDTH_NAME = 0.38*WIDTH
-    LINE_HEIGHT = (HEIGHT - 2*BORDER_MARGIN)/(10 + HEADER_SPACING)
+    WIDTH_RANK    = 0.100*CONTENT_WIDTH
+    WIDTH_RATING  = 0.125*CONTENT_WIDTH
+    WIDTH_NAME    = (CONTENT_WIDTH - WIDTH_RANK - WIDTH_RATING)/2
+
+    WIDTH_LABEL    = 0.085*CONTENT_WIDTH
 
     # Cairo+Pango setup
-    surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, WIDTH, HEIGHT)
+    sc = 0.666
+    surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, int(sc*WIDTH), int(sc*HEIGHT))
     context = cairo.Context(surface)
+    context.scale(sc, sc)
     context.set_line_width(1)
-    context.set_source_rgb(*DISCORD_GRAY)
-    context.rectangle(0, 0, WIDTH, HEIGHT)
-    context.fill()
+    #context.rectangle(0, 0, WIDTH, HEIGHT)
+    #context.set_source_rgb(*DISCORD_GRAY)
+    #context.fill()
+    context.translate(BORDER_MARGIN, BORDER_MARGIN)
     layout = PangoCairo.create_layout(context)
-    layout.set_font_description(Pango.font_description_from_string(','.join(FONTS) + ' 20'))
+    layout.set_font_description(Pango.font_description_from_string(','.join(FONTS) + ' 22'))
     layout.set_ellipsize(Pango.EllipsizeMode.END)
 
-    i = 0
-    BG1 = (0.95, 0.95, 0.95)
-    BG2 = (0.9, 0.9, 0.9)
+    def polygon(points):
+        context.move_to(*points[0])
+        for p in points[1:]:
+            context.line_to(*p)
+        context.close_path()
+    def bold(s):
+        return f'<b>{s}</b>'
+    def italic(s):
+        return f'<i>{s}</i>'
+    def mix(rgb1, rgb2, x):
+        return tuple(a*x + b*(1-x) for a,b in zip(rgb1, rgb2))
 
-    def draw_bg(y):
-        nonlocal i
-        i += 1
-        p = i%2
+    def draw_entry(pos, username, handle, rating, y):
         nxty = y + LINE_HEIGHT
+        text_color = rating_to_color(rating)
+        nutella = rating != 'N/A' and int(rating) >= 3000
+        accent_color = BLACK if nutella else text_color
+        rating = str(rating)
+        background_color = SMOKE_WHITE
 
-        # Simple
-        context.move_to(BORDER_MARGIN, y)
-        context.line_to(WIDTH, y)
-        context.line_to(WIDTH, nxty)
-        context.line_to(0, nxty)
+        def slanted_box(start, end):
+            w = CONTENT_WIDTH
+            h = LINE_HEIGHT
+            m = BORDER_MARGIN
+            return polygon([
+                (0 + (1-start)*m, y + start*h),
+                (w -     start*m, y + start*h),
+                (w -       end*m, y +   end*h),
+                (0 +   (1-end)*m, y +   end*h)
+            ])
 
-        if p:
-            context.set_source_rgb(*BG1)
-        else:
-            context.set_source_rgb(*BG2)
-
+        # Entry background
+        margin = 0.02
+        slanted_box(margin,1-margin)
+        context.set_source_rgb(*background_color)
         context.fill()
 
-    def draw_row(pos, username, handle, rating, color, y, bold=False):
-        context.set_source_rgb(*[x/256.0 for x in color])
+        # Color band at bottom
+        h = 0.08
+        yy = 1 - h
+        slanted_box(yy,yy+h)
+        context.set_source_rgb(*mix(accent_color, (1,1,1), 0.50))
+        context.fill()
+
+        # Rank box on the left
+        def draw(width, x):
+            t = 7
+            dx = t
+            dy = dx/width*LINE_HEIGHT
+            polygon([
+                (x-dx, y-dy),
+                (width+x+dy, y-dy),
+                (width+dy, nxty+dy),
+                (0-dx, nxty+dy),
+            ])
+            if nutella:
+                context.set_source_rgb(*BLACK)
+            else:
+                context.set_source_rgb(*accent_color)
+            context.fill()
+        draw(WIDTH_LABEL, BORDER_MARGIN)
 
         context.move_to(BORDER_MARGIN, y)
 
-        def draw(text, width=-1):
+        def draw_text(text, width=-1, style=[], align='l', offset=0, color=(0,0,0)):
+            context.set_source_rgb(*color)
             text = html.escape(text)
-            if bold:
-                text = f'<b>{text}</b>'
+            for s in style:
+                text = s(text)
+
             layout.set_width((width - COLUMN_MARGIN)*1000) # pixel = 1000 pango units
             layout.set_markup(text, -1)
+            rect = layout.get_extents().logical_rect
+            context.save()
+            if align == 'l':
+                offx = 0
+            elif align == 'r':
+                offx = width - rect.width/1000
+            elif align == 'c':
+                offx = (BORDER_MARGIN + width)/2 - rect.width/1000/2
+            offy = LINE_HEIGHT/2 - rect.height/1000/2
+            context.rel_move_to(offx+offset, offy)
             PangoCairo.show_layout(context, layout)
-            context.rel_move_to(width, 0)
+            context.rel_move_to(-offx-offset, -offy)
+            context.restore()
 
-        draw(pos, WIDTH_RANK)
-        draw(username, WIDTH_NAME)
-        draw(handle, WIDTH_NAME)
-        draw(rating)
+        draw_text(pos,
+                  WIDTH_LABEL,
+                  style=[bold, italic],
+                  align='c',
+                  offset=-BORDER_MARGIN,
+                  color=(1,1,1))
+        context.rel_move_to(WIDTH_RANK, 0)
 
-    y = BORDER_MARGIN
+        draw_text(username, WIDTH_NAME, color=text_color)
+        if nutella:
+            draw_text(username[0], WIDTH_NAME, color=accent_color)
+        context.rel_move_to(WIDTH_NAME, 0)
 
-    # draw header
-    draw_row('#', 'Name', 'Handle', 'Rating', SMOKE_WHITE, y, bold=True)
-    y += LINE_HEIGHT*HEADER_SPACING
+        draw_text(handle, WIDTH_NAME, color=text_color)
+        if nutella:
+            draw_text(handle[0], WIDTH_NAME, color=accent_color)
+        context.rel_move_to(WIDTH_NAME, 0)
 
+        draw_text(rating, color=accent_color)
+
+    y = 0
     for pos, name, handle, rating in rankings:
-        color = rating_to_color(rating)
-        draw_bg(y)
-        draw_row(str(pos), name, handle, str(rating), color, y)
-        if rating != 'N/A' and rating >= 3000:  # nutella
-            draw_row('', name[0], handle[0], '', BLACK, y)
-        y += LINE_HEIGHT
+        draw_entry(str(pos), name, handle, rating, y)
+        y += LINE_HEIGHT + LINE_MARGIN
 
     filename = os.path.join(constants.TEMP_DIR, f'tempgitters_{time.time()}.png')
     surface.write_to_png(filename)
