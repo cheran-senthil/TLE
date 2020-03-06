@@ -261,6 +261,9 @@ class Handles(commands.Cog):
         if cf_common.user_db.get_user_id(handle, ctx.guild.id):
             raise HandleCogError(f'The handle `{handle}` is already associated with another user. Ask an Admin in case of an inconsistency.')
 
+        if handle in cf_common.HandleIsVjudgeError.HANDLES:
+            raise HandleCogError(str(cf_common.HandleIsVjudgeError(handle)))
+
         users = await cf.user.info(handles=[handle])
         invoker = str(ctx.author)
         handle = users[0].handle
