@@ -262,7 +262,7 @@ class Handles(commands.Cog):
             raise HandleCogError(f'The handle `{handle}` is already associated with another user. Ask an Admin in case of an inconsistency.')
 
         if handle in cf_common.HandleIsVjudgeError.HANDLES:
-            raise HandleCogError(str(cf_common.HandleIsVjudgeError(handle)))
+            raise cf_common.HandleIsVjudgeError(handle)
 
         users = await cf.user.info(handles=[handle])
         invoker = str(ctx.author)
@@ -611,7 +611,7 @@ class Handles(commands.Cog):
         else:
             raise HandleCogError(f'Invalid role {which}')
 
-    @discord_common.send_error_if(HandleCogError)
+    @discord_common.send_error_if(HandleCogError, cf_common.HandleIsVjudgeError)
     async def cog_command_error(self, ctx, error):
         pass
 
