@@ -211,15 +211,18 @@ class Handles(commands.Cog):
         on the member will be removed.
         """
         role_names_to_remove = {rank.title for rank in cf.RATED_RANKS}
+        to_assign = [role_to_assign]
         if role_to_assign is not None:
             role_names_to_remove.discard(role_to_assign.name)
             if role_to_assign.name not in ['Newbie', 'Pupil', 'Specialist', 'Expert']:
                 role_names_to_remove.add('Purgatory')
+            else:
+                to_assign.append('Purgatory')
         to_remove = [role for role in member.roles if role.name in role_names_to_remove]
         if to_remove:
             await member.remove_roles(*to_remove, reason=reason)
         if role_to_assign is not None and role_to_assign not in member.roles:
-            await member.add_roles(role_to_assign, reason=reason)
+            await member.add_roles(*to_assign, reason=reason)
 
     @handle.command(brief='Set Codeforces handle of a user')
     @commands.has_any_role('Admin', 'Moderator')
