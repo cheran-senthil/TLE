@@ -27,13 +27,6 @@ class CSES(commands.Cog):
     @tasks.task_spec(name='ProblemsetCacheUpdate',
                      waiter=tasks.Waiter.fixed_delay(600))
     async def _cache_data(self, _):
-        print('='*50)
-        print('='*50)
-        print('='*50)
-        print('Reload')
-        print('='*50)
-        print('='*50)
-        print('='*50)
         await self._reload()
 
     async def _reload(self):
