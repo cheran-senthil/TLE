@@ -4,6 +4,7 @@ from collections import defaultdict
 from discord.ext import commands
 from tle.util import cses_scraper as cses
 from tle.util import table
+from tle.util import tasks
 
 
 def score(placings):
@@ -21,12 +22,12 @@ class CSES(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        asyncio.create_task(self._cache_data())
+        self._cache_data.start()
 
-    async def _cache_data(self):
-        while True:
-            await self._reload()
-            await asyncio.sleep(600)
+    @tasks.task_spec(name='ProblemsetCacheUpdate',
+                     waiter=tasks.Waiter.fixed_delay(30*60))
+    async def _cache_data(self, _):
+        await self._reload()
 
     async def _reload(self):
         self.reloading = True
