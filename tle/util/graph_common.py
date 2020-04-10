@@ -5,6 +5,9 @@ import time
 
 from tle import constants
 from matplotlib import pyplot as plt
+from matplotlib import rcParams
+
+rcParams['font.family'] = 'Noto Sans CJK JP'
 
 
 # String wrapper to avoid the underscore behavior in legends
