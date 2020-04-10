@@ -165,7 +165,7 @@ class Codeforces(commands.Cog):
             raise CodeforcesCogError('Submissions not found within the search parameters')
 
         if hardest:
-            submissions.sort(key=lambda sub: sub.problem.rating or 0, reverse=True)
+            submissions.sort(key=lambda sub: (sub.problem.rating or 0, sub.creationTimeSeconds), reverse=True)
         else:
             submissions.sort(key=lambda sub: sub.creationTimeSeconds, reverse=True)
 
