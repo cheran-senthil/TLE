@@ -522,8 +522,12 @@ class Dueling(commands.Cog):
         plt.xlim(0, time_tick - 1)
         plt.ylim(min_rating - 100, max_rating + 100)
 
-        labels = ['{} ({})'.format(ctx.guild.get_member(duelist).display_name, rating_data[-1][1])
-                  for duelist, rating_data in plot_data.items()]
+        labels = [
+            gc.StrWrap('{} ({})'.format(
+                ctx.guild.get_member(duelist).display_name,
+                rating_data[-1][1]))
+            for duelist, rating_data in plot_data.items()
+        ]
         plt.legend(labels, loc='upper left')
 
         discord_file = gc.get_current_figure_as_file()
