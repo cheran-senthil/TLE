@@ -28,6 +28,14 @@ Now all dependencies need to be installed. TLE uses [Poetry](https://poetry.eust
 poetry install
 ```
 
+Hint: If you are using ubuntu, then do the following:
+```bash
+apt-get install python3.7-venv
+apt-get install python3.7-dev
+python3.7 -m pip install poetry
+python3.7 -m poetry install
+```
+
 You will need to setup a bot on your server before continuing, follow the directions [here](https://github.com/reactiflux/discord-irc/wiki/Creating-a-discord-bot-&-getting-a-token). Following this, you should have your bot appearing in your server and you should have the Discord bot token.
 
 To start TLE export the token as an environment variable
@@ -36,7 +44,7 @@ export BOT_TOKEN="<BOT_TOKEN_FROM_DISCORD_CONSOLE>"
 ```
 and run using Python 3.7 or later
 ```
-poetry run python -m tle
+poetry run python3.7 -m tle
 ```
 
 ### Notes
