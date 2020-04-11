@@ -566,7 +566,6 @@ class RanklistCache:
         # Exclude PRACTICE and MANAGER
         standings = [row for row in standings
                      if row.party.participantType in ('CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL')]
-
         if fetch_changes:
             # Fetch final rating changes from CF.
             # For older contests.
@@ -592,10 +591,9 @@ class RanklistCache:
                 # The contest is not rated
                 ranklist = Ranklist(contest, problems, standings, now, is_rated=False)
             else:
-                get = self.cache_master.rating_changes_cache.get_current_rating
-                current_rating = {row.party.members[0].handle: get(row.party.members[0].handle,
-                                                                   default_if_absent=True)
-                                  for row in standings_official}
+                ratedList = await cf.user.ratedList()
+                current_rating = {user.handle: user.effective_rating
+                                  for user in ratedList}
                 if 'Educational' in contest.name:
                     # For some reason educational contests return all contestants in ranklist even
                     # when unofficial contestants are not requested.
