@@ -41,7 +41,7 @@ class HandleCogError(commands.CommandError):
     pass
 
 
-def rating_to_color(rating):
+def rating_to_color(rating, i=0):
     """returns (r, g, b) pixels values corresponding to rating"""
     # TODO: Integrate these colors with the ranks in codeforces_api.py
     BLACK = (10, 10, 10)
@@ -52,19 +52,21 @@ def rating_to_color(rating):
     PURPLE = (160, 0, 120)
     CYAN = (0, 165, 170)
     GREY = (70, 70, 70)
+    ratings = ((1200, 1400, 1600, 1900, 2100, 2400),
+               (1300, 1400, 1500, 1600, 1700, 1800))
     if rating is None:
         return BLACK
-    if rating < 1200:
+    if rating < ratings[i][0]:
         return GREY
-    if rating < 1400:
+    if rating < ratings[i][1]:
         return GREEN
-    if rating < 1600:
+    if rating < ratings[i][2]:
         return CYAN
-    if rating < 1900:
+    if rating < ratings[i][3]:
         return BLUE
-    if rating < 2100:
+    if rating < ratings[i][4]:
         return PURPLE
-    if rating < 2400:
+    if rating < ratings[i][5]:
         return ORANGE
     return RED
 
@@ -77,7 +79,7 @@ FONTS = [
     'Noto Sans CJK KR',
 ]
 
-def get_gudgitters_image(rankings):
+def get_ranklist_image(rankings):
     """return PIL image for rankings"""
     SMOKE_WHITE = (250, 250, 250)
     BLACK = (0, 0, 0)
@@ -117,12 +119,11 @@ def get_gudgitters_image(rankings):
         context.set_source_rgb(*ROW_COLORS[color_index])
         context.fill()
 
-    def draw_row(pos, username, handle, rating, color, y, bold=False):
-        context.set_source_rgb(*[x/255.0 for x in color])
-
+    def draw_row(pos, username, handle, rating, color1, color2, y, bold=False):
         context.move_to(BORDER_MARGIN, y)
 
-        def draw(text, width=-1):
+        def draw(text, color, width=-1):
+            context.set_source_rgb(*[x/255.0 for x in color])
             text = html.escape(text)
             if bold:
                 text = f'<b>{text}</b>'
@@ -131,25 +132,24 @@ def get_gudgitters_image(rankings):
             PangoCairo.show_layout(context, layout)
             context.rel_move_to(width, 0)
 
-        draw(pos, WIDTH_RANK)
-        draw(username, WIDTH_NAME)
-        draw(handle, WIDTH_NAME)
-        draw(rating)
+        draw(pos, color1, WIDTH_RANK)
+        draw(username, color1, WIDTH_NAME)
+        draw(handle, color2, WIDTH_NAME)
+        draw(rating, color1)
 
     #
 
     y = BORDER_MARGIN
 
     # draw header
-    draw_row('#', 'Name', 'Handle', 'Rating', SMOKE_WHITE, y, bold=True)
+    draw_row('#', 'Name', 'Handle', 'Rating', SMOKE_WHITE, SMOKE_WHITE, y, bold=True)
     y += LINE_HEIGHT*HEADER_SPACING
 
-    for i, (pos, name, handle, rating) in enumerate(rankings):
-        color = rating_to_color(rating)
+    for i, (pos, name, handle, rating, color1, color2) in enumerate(rankings):
         draw_bg(y, i%2)
-        draw_row(str(pos), name, handle, str(rating), color, y)
+        draw_row(str(pos), name, handle, str(rating), color1, color2, y)
         if rating != 'N/A' and rating >= 3000:  # nutella
-            draw_row('', name[0], handle[0], '', BLACK, y)
+            draw_row('', name[0], handle[0], '', BLACK, BLACK, y)
         y += LINE_HEIGHT
 
     image_data = io.BytesIO()
@@ -410,6 +410,35 @@ class Handles(commands.Cog):
         embed = discord_common.embed_success(f'Removed handle for {member.mention}')
         await ctx.send(embed=embed)
 
+    @commands.command(brief="Show duelists")
+    async def duelists(self, ctx):
+        """Show the list of duelists with their duel rating."""
+        res = cf_common.user_db.get_duelists()
+        res.sort(key=lambda r: r[1], reverse=True)
+
+        rankings = []
+        index = 0
+        for user_id, rating in res:
+            member = ctx.guild.get_member(int(user_id))
+            if member is None:
+                continue
+
+            handle = cf_common.user_db.get_handle(user_id, ctx.guild.id)
+            user = cf_common.user_db.fetch_cf_user(handle)
+            color1 = rating_to_color(rating, 1)
+            color2 = rating_to_color(user.rating)
+            cfrating = user.rating if user.rating is not None else 'Unrated'
+            rankings.append((index, member.display_name, handle, rating, color1, color2))
+            index += 1
+            if index == 10:
+                break
+
+        if not rankings:
+            raise HandleCogError('There are no registered duelists')
+
+        discord_file = get_ranklist_image(rankings)
+        await ctx.send(file=discord_file)
+
     @commands.command(brief="Show gudgitters", aliases=["gitgudders"])
     async def gudgitters(self, ctx):
         """Show the list of users of gitgud with their scores."""
@@ -427,14 +456,15 @@ class Handles(commands.Cog):
                 user = cf_common.user_db.fetch_cf_user(handle)
                 handle_display = f'{member.display_name} ({score})'
                 rating = user.rating if user.rating is not None else 'Unrated'
-                rankings.append((index, handle_display, handle, rating))
+                color = rating_to_color(rating)
+                rankings.append((index, handle_display, handle, rating, color, color))
                 index += 1
             if index == 10:
                 break
 
         if not rankings:
             raise HandleCogError('No one has completed a gitgud challenge, send ;gitgud to request and ;gotgud to mark it as complete')
-        discord_file = get_gudgitters_image(rankings)
+        discord_file = get_ranklist_image(rankings)
         await ctx.send(file=discord_file)
 
     @handle.command(brief="Show all handles")
