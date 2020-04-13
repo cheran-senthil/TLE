@@ -1,7 +1,7 @@
 import datetime
 import random
 from typing import List
-from math import log10
+import math
 import time
 from collections import defaultdict
 
@@ -451,7 +451,7 @@ class Codeforces(commands.Cog):
 
     @staticmethod
     def composeRatings(ratings: List[float]) -> int:
-        left = 100.0
+        left = -100.0
         right = 4000.0
         for tt in range(20):
             r = (left + right) / 2.0
@@ -463,7 +463,7 @@ class Codeforces(commands.Cog):
             if rWinsProbability==0:
                 left = r
                 continue
-            rating = log10(1 / (rWinsProbability) - 1) * 400 + r
+            rating = math.log10(1 / (rWinsProbability) - 1) * 400 + r
             if rating > r:
                 left = r
             else:
@@ -473,7 +473,7 @@ class Codeforces(commands.Cog):
     @commands.command(brief='Calculate team rating')
     async def teamrate(self, ctx, *handles: str):
         handles = handles or ('!' + str(ctx.author),)
-        is_entire_server = (handles[0] == 'all' and len(handles) == 1)
+        is_entire_server = (handles == ('+server',))
         if is_entire_server:
             res = cf_common.user_db.getallhandleswithrating()
             ratings = [rating for _, _, rating in res]
@@ -482,7 +482,7 @@ class Codeforces(commands.Cog):
             users = await cf.user.info(handles=handles)
             ratings = [user.rating for user in users if user.rating]
         if len(ratings) == 0:
-            await ctx.send("No CF usernames with ratings passed in :'(")
+            await ctx.send("No CF usernames with ratings passed in")
             return
 
         teamRating = Codeforces.composeRatings(ratings)
@@ -498,7 +498,6 @@ class Codeforces(commands.Cog):
         users = await cf.user.info(handles=handle)
         ratings = [user.rating for user in users[:1] if user.rating]
         tourist_rating = users[-1].rating
-        print(ratings, tourist_rating)
         if len(ratings) == 0:
             await ctx.send("Handle isn't set")
             return
