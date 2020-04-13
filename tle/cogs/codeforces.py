@@ -450,9 +450,7 @@ class Codeforces(commands.Cog):
         return 1.0 / (1 + 10**((rb - ra) / 400.0))
 
     @staticmethod
-    def composeRatings(ratings: List[float]) -> int:
-        left = -100.0
-        right = 4000.0
+    def composeRatings(left: float, right: float, ratings: List[float]) -> int:
         for tt in range(20):
             r = (left + right) / 2.0
 
@@ -475,51 +473,31 @@ class Codeforces(commands.Cog):
         handles = handles or ('!' + str(ctx.author),)
         is_entire_server = (handles == ('+server',))
         if is_entire_server:
-            res = cf_common.user_db.getallhandleswithrating()
-            ratings = [rating for _, _, rating in res]
+            res = cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)
+            ratings = {cf_user.handle: cf_user.rating for user_id, cf_user in res if cf_user.rating is not None}
         else:
-            handles = await cf_common.resolve_handles(ctx, self.converter, handles, mincnt=1, maxcnt=1000)
-            users = await cf.user.info(handles=handles)
-            ratings = [user.rating for user in users if user.rating]
+            handle_map = {}
+            for i in handles:
+                parse_str = i.split('*')
+                if len(parse_str) > 1:
+                    handle_map[parse_str[0].lower()] = int(parse_str[1])
+                else:
+                    handle_map[parse_str[0].lower()] = 1
+            if sum(handle_map.values()) > 100000:
+                await ctx.send("Too large of a team!")
+            handles = await cf_common.resolve_handles(ctx, self.converter, list(handle_map.keys()), mincnt=1, maxcnt=1000)
+            users = await cf.user.info(handles=list(handle_map.keys()))
+            ratings = [user.rating for user in users if user.rating for _ in range(handle_map[user.handle.lower()])]
+
         if len(ratings) == 0:
-            await ctx.send("No CF usernames with ratings passed in")
+            await ctx.send("No CF usernames with ratings passed in.")
             return
 
-        teamRating = Codeforces.composeRatings(ratings)
-        if is_entire_server:
-            await ctx.send(f"The entire server's team rating is {teamRating}!")
-        else:
-            await ctx.send(f'The team rating is {teamRating}!')
-
-    @commands.command(brief='Calculates how many of you are needed to beat tourist')
-    async def howmanyfortourist(self, ctx):
-        handle = ('!' + str(ctx.author), "tourist")
-        handle = await cf_common.resolve_handles(ctx, self.converter, handle, mincnt=1, maxcnt=3)
-        users = await cf.user.info(handles=handle)
-        ratings = [user.rating for user in users[:1] if user.rating]
-        tourist_rating = users[-1].rating
-        if len(ratings) == 0:
-            await ctx.send("Handle isn't set")
-            return
-        step = 1<<15
-        cur_cnt = 0
-        while step > 1:
-            step >>= 1
-            cur_number = cur_cnt + step
-            cur_team = ratings * cur_number
-            if Codeforces.composeRatings(cur_team) >= tourist_rating:
-                pass
-            else:
-                cur_cnt += step
-        cur_cnt += 1
-        mxRating = Codeforces.composeRatings(ratings*cur_cnt)
-        if mxRating < tourist_rating:
-            await ctx.send(f"Not even {1<<15} of {handle[0]} could beat tourist <:tourist_mad:556968281982894080>")
-        elif cur_cnt == 1:
-            await ctx.send(f"Tourist is already no match for {handle[0]} <:tourist_think:556968318909808682>")
-        else:
-            await ctx.send(f"With {cur_cnt} copies of {handle[0]}, {handle[0]} could beat tourist! Achieving a rating of {mxRating}. <:tourist:556976108462145541>")
-
+        left = -100.0
+        right = 5000.0
+        teamRating = Codeforces.composeRatings(left, right, ratings)
+        embed = discord.Embed(title=', '.join(handles), description=teamRating, color=cf.rating2rank(teamRating).color_embed)
+        await ctx.send(embed = embed)
 
     @discord_common.send_error_if(CodeforcesCogError, cf_common.ResolveHandleError,
                                   cf_common.FilterError)
