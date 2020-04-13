@@ -478,7 +478,7 @@ class Codeforces(commands.Cog):
         is_entire_server = (handles == ('+server',))
         if is_entire_server:
             res = cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)
-            ratings = {cf_user.handle: cf_user.rating for user_id, cf_user in res if cf_user.rating is not None}
+            ratings = [cf_user.rating for user_id, cf_user in res if cf_user.rating is not None]
             user_str = '+server'
         else:
             handle_map = {}
@@ -496,7 +496,16 @@ class Codeforces(commands.Cog):
             cf_to_original = {a: b for a, b in zip(cf_handles, parsed_handles)}
             original_to_cf = {a: b for a, b in zip(parsed_handles, cf_handles)}
             users = await cf.user.info(handles=cf_handles)
-            user_str = ', '.join([f'{original_to_cf[a]}*{b}' for a, b in handle_map.items()])
+            user_strs = []
+            for a, b in handle_map.items():
+                if b > 1:
+                    user_strs.append(f'{original_to_cf[a]}*{b}')
+                elif b == 1:
+                    user_strs.append(original_to_cf[a])
+                elif b < 0:
+                    raise CodeforcesCogError('How can you have negative members in team?')
+
+            user_str = ', '.join(user_strs)
             ratings = [user.rating for user in users if user.rating for _ in range(handle_map[cf_to_original[user.handle.lower()]])]
 
         if len(ratings) == 0:
