@@ -30,8 +30,7 @@ poetry install
 
 Hint: If you are using ubuntu, then do the following:
 ```bash
-apt-get install python3.7-venv
-apt-get install python3.7-dev
+apt-get install libcairo2-dev pkg-config python3-dev python3.7-venv libgirepository1.0-dev gir1.2-pango-1.0
 python3.7 -m pip install poetry
 python3.7 -m poetry install
 ```
