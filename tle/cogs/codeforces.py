@@ -468,35 +468,44 @@ class Codeforces(commands.Cog):
                 right = r
         return round((left + right) / 2)
 
-    @commands.command(brief='Calculate team rating')
+    @commands.command(brief='Calculate team rating', usage='[handles]')
     async def teamrate(self, ctx, *handles: str):
+        """Provides the combined rating of the entire team.
+        If +server is provided as the only handle, will display the rating of the entire server.
+        Supports multipliers. e.g: ;teamrate gamegame*1000"""
+
         handles = handles or ('!' + str(ctx.author),)
         is_entire_server = (handles == ('+server',))
         if is_entire_server:
             res = cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)
             ratings = {cf_user.handle: cf_user.rating for user_id, cf_user in res if cf_user.rating is not None}
+            user_str = '+server'
         else:
             handle_map = {}
+            parsed_handles = []
             for i in handles:
                 parse_str = i.split('*')
                 if len(parse_str) > 1:
                     handle_map[parse_str[0].lower()] = int(parse_str[1])
                 else:
                     handle_map[parse_str[0].lower()] = 1
+                parsed_handles.append(parse_str[0])
             if sum(handle_map.values()) > 100000:
-                await ctx.send("Too large of a team!")
-            handles = await cf_common.resolve_handles(ctx, self.converter, list(handle_map.keys()), mincnt=1, maxcnt=1000)
-            users = await cf.user.info(handles=list(handle_map.keys()))
-            ratings = [user.rating for user in users if user.rating for _ in range(handle_map[user.handle.lower()])]
+                raise CodeforcesCogError('Too large of a team!')
+            cf_handles = await cf_common.resolve_handles(ctx, self.converter, parsed_handles, mincnt=1, maxcnt=1000)
+            cf_to_original = {a: b for a, b in zip(cf_handles, parsed_handles)}
+            original_to_cf = {a: b for a, b in zip(parsed_handles, cf_handles)}
+            users = await cf.user.info(handles=cf_handles)
+            user_str = ', '.join([f'{original_to_cf[a]}*{b}' for a, b in handle_map.items()])
+            ratings = [user.rating for user in users if user.rating for _ in range(handle_map[cf_to_original[user.handle.lower()]])]
 
         if len(ratings) == 0:
-            await ctx.send("No CF usernames with ratings passed in.")
-            return
+            raise CodeforcesCogError("No CF usernames with ratings passed in.")
 
         left = -100.0
         right = 5000.0
         teamRating = Codeforces.composeRatings(left, right, ratings)
-        embed = discord.Embed(title=', '.join(handles), description=teamRating, color=cf.rating2rank(teamRating).color_embed)
+        embed = discord.Embed(title=user_str, description=teamRating, color=cf.rating2rank(teamRating).color_embed)
         await ctx.send(embed = embed)
 
     @discord_common.send_error_if(CodeforcesCogError, cf_common.ResolveHandleError,
