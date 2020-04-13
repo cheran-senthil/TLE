@@ -1,15 +1,23 @@
+import asyncio
 import logging
-from collections import namedtuple
+import time
+import functools
+from collections import namedtuple, deque
 
 import aiohttp
+
+from discord.ext import commands
 
 API_BASE_URL = 'https://codeforces.com/api/'
 CONTEST_BASE_URL = 'https://codeforces.com/contest/'
 CONTESTS_BASE_URL = 'https://codeforces.com/contests/'
+GYM_BASE_URL = 'https://codeforces.com/gym/'
 PROFILE_BASE_URL = 'https://codeforces.com/profile/'
+ACMSGURU_BASE_URL = 'https://codeforces.com/problemsets/acmsguru/'
+GYM_ID_THRESHOLD = 100000
+DEFAULT_RATING = 1500
 
 logger = logging.getLogger(__name__)
-session = aiohttp.ClientSession()
 
 Rank = namedtuple('Rank', 'low high title title_abbr color_graph color_embed')
 
@@ -38,8 +46,14 @@ def rating2rank(rating):
 
 # Data classes
 
-class User(namedtuple('User', 'handle rating titlePhoto')):
+class User(namedtuple('User', 'handle firstName lastName country city organization contribution '
+                              'rating lastOnlineTimeSeconds registrationTimeSeconds friendOfCount '
+                              'titlePhoto')):
     __slots__ = ()
+
+    @property
+    def effective_rating(self):
+        return self.rating if self.rating is not None else DEFAULT_RATING
 
     @property
     def rank(self):
@@ -64,17 +78,27 @@ class Contest(namedtuple('Contest', 'id name startTimeSeconds durationSeconds ty
 
     @property
     def url(self):
-        return f'{CONTEST_BASE_URL}{self.id}'
+        return f'{CONTEST_BASE_URL if self.id < GYM_ID_THRESHOLD else GYM_BASE_URL}{self.id}'
 
     @property
     def register_url(self):
         return f'{CONTESTS_BASE_URL}{self.id}'
 
+    def matches(self, markers):
+        def strfilt(s):
+            return ''.join(x for x in s.lower() if x.isalnum())
+        return any(strfilt(marker) in strfilt(self.name) for marker in markers)
 
-Party = namedtuple('Party', 'contestId members participantType')
+class Party(namedtuple('Party', ('contestId members participantType teamId teamName ghost room '
+                                 'startTimeSeconds'))):
+    __slots__ = ()
+    PARTICIPANT_TYPES = ('CONTESTANT', 'PRACTICE', 'VIRTUAL', 'MANAGER', 'OUT_OF_COMPETITION')
 
 
-class Problem(namedtuple('Problem', 'contestId index name type rating tags')):
+Member = namedtuple('Member', 'handle')
+
+
+class Problem(namedtuple('Problem', 'contestId problemsetName index name type points rating tags')):
     __slots__ = ()
 
     @property
@@ -83,7 +107,11 @@ class Problem(namedtuple('Problem', 'contestId index name type rating tags')):
 
     @property
     def url(self):
-        return f'{CONTEST_BASE_URL}{self.contestId}/problem/{self.index}'
+        if self.contestId is None:
+            assert self.problemsetName == 'acmsguru', f'Unknown problemset {self.problemsetName}'
+            return f'{ACMSGURU_BASE_URL}problem/99999/{self.index}'
+        base = CONTEST_BASE_URL if self.contestId < GYM_ID_THRESHOLD else GYM_BASE_URL
+        return f'{base}{self.contestId}/problem/{self.index}'
 
     def has_metadata(self):
         return self.contestId is not None and self.rating is not None
@@ -101,9 +129,13 @@ class Problem(namedtuple('Problem', 'contestId index name type rating tags')):
 
 ProblemStatistics = namedtuple('ProblemStatistics', 'contestId index solvedCount')
 
-Submission = namedtuple('Submissions', 'id contestId problem author programmingLanguage verdict creationTimeSeconds')
+Submission = namedtuple('Submissions',
+                        'id contestId problem author programmingLanguage verdict creationTimeSeconds')
 
-RanklistRow = namedtuple('RanklistRow', 'party rank')
+RanklistRow = namedtuple('RanklistRow', 'party rank points penalty problemResults')
+
+ProblemResult = namedtuple('ProblemResult',
+                           'points penalty rejectedAttemptCount type bestSubmissionTimeSeconds')
 
 
 def make_from_dict(namedtuple_cls, dict_):
@@ -113,79 +145,149 @@ def make_from_dict(namedtuple_cls, dict_):
 
 # Error classes
 
-class CodeforcesApiError(Exception):
-    pass
+class CodeforcesApiError(commands.CommandError):
+    """Base class for all API related errors."""
+    def __init__(self, message=None):
+        super().__init__(message or 'Codeforces API error')
+
+
+class TrueApiError(CodeforcesApiError):
+    """An error originating from a valid response of the API."""
+    def __init__(self, comment, message=None):
+        super().__init__(message)
+        self.comment = comment
 
 
 class ClientError(CodeforcesApiError):
-    pass
+    """An error caused by a request to the API failing."""
+    def __init__(self):
+        super().__init__('Error connecting to Codeforces API')
 
 
-class NotFoundError(CodeforcesApiError):
-    pass
+class HandleNotFoundError(TrueApiError):
+    def __init__(self, comment, handle):
+        super().__init__(comment, f'Handle `{handle}` not found on Codeforces')
 
 
-class InvalidParamError(CodeforcesApiError):
-    pass
+class HandleInvalidError(TrueApiError):
+    def __init__(self, comment, handle):
+        super().__init__(comment, f'`{handle}` is not a valid Codeforces handle')
 
 
-class CallLimitExceededError(CodeforcesApiError):
-    pass
+class CallLimitExceededError(TrueApiError):
+    def __init__(self, comment):
+        super().__init__(comment, 'Codeforces API call limit exceeded')
 
 
-class RatingChangesUnavailableError(CodeforcesApiError):
-    pass
+class ContestNotFoundError(TrueApiError):
+    def __init__(self, comment, contest_id):
+        super().__init__(comment, f'Contest with ID `{contest_id}` not found on Codeforces')
+
+
+class RatingChangesUnavailableError(TrueApiError):
+    def __init__(self, comment, contest_id):
+        super().__init__(comment, f'Rating changes unavailable for contest with ID `{contest_id}`')
 
 
 # Codeforces API query methods
 
+_session = None
+
+
+async def initialize():
+    global _session
+    _session = aiohttp.ClientSession()
+
+
+def _bool_to_str(value):
+    if type(value) is bool:
+        return 'true' if value else 'false'
+    raise TypeError(f'Expected bool, got {value} of type {type(value)}')
+
+
+def cf_ratelimit(f):
+    tries = 3
+    per_second = 5
+    last = deque([0]*per_second)
+
+    @functools.wraps(f)
+    async def wrapped(*args, **kwargs):
+        for i in range(tries):
+            now = time.time()
+
+            # Next valid slot is 1s after the `per_second`th last request
+            next_valid = max(now, 1 + last[0])
+            last.append(next_valid)
+            last.popleft()
+
+            # Delay as needed
+            delay = next_valid - now
+            if delay > 0:
+                await asyncio.sleep(delay)
+
+            try:
+                return await f(*args, **kwargs)
+            except (ClientError, CallLimitExceededError) as e:
+                logger.info(f'Try {i+1}/{tries} at query failed.')
+                logger.info(repr(e))
+                if i < tries - 1:
+                    logger.info(f'Retrying...')
+                else:
+                    logger.info(f'Aborting.')
+                    raise e
+    return wrapped
+
+
+@cf_ratelimit
 async def _query_api(path, params=None):
     url = API_BASE_URL + path
     try:
         logger.info(f'Querying CF API at {url} with {params}')
-        headers = {'Accept-Encoding': 'gzip'}  # Explicitly state encoding (though aiohttp accepts gzip by default)
-        async with session.get(url, params=params, headers=headers) as resp:
-            if resp.status == 200:
-                resp = await resp.json()
-                return resp['result']
-            comment = f'HTTP Error {resp.status}'
+        # Explicitly state encoding (though aiohttp accepts gzip by default)
+        headers = {'Accept-Encoding': 'gzip'}
+        async with _session.get(url, params=params, headers=headers) as resp:
             try:
                 respjson = await resp.json()
-                comment += f', {respjson.get("comment")}'
             except aiohttp.ContentTypeError:
-                pass
+                logger.warning(f'CF API did not respond with JSON, status {resp.status}.')
+                raise CodeforcesApiError
+            if resp.status == 200:
+                return respjson['result']
+            comment = f'HTTP Error {resp.status}, {respjson.get("comment")}'
     except aiohttp.ClientError as e:
-        logger.error(f'Request to CF API encountered error: {e}')
-        raise ClientError(e) from e
+        logger.error(f'Request to CF API encountered error: {e!r}')
+        raise ClientError from e
     logger.warning(f'Query to CF API failed: {comment}')
-    if 'not found' in comment:
-        raise NotFoundError(comment)
-    if 'should contain' in comment:
-        raise InvalidParamError(comment)
     if 'limit exceeded' in comment:
         raise CallLimitExceededError(comment)
-    if 'Rating changes are unavailable' in comment:
-        raise RatingChangesUnavailableError(comment)
-    raise CodeforcesApiError(comment)
+    raise TrueApiError(comment)
 
 
 class contest:
     @staticmethod
-    async def list(*, gym=False):
+    async def list(*, gym=None):
         params = {}
-        if gym:
-            params['gym'] = 'true'
+        if gym is not None:
+            params['gym'] = _bool_to_str(gym)
         resp = await _query_api('contest.list', params)
         return [make_from_dict(Contest, contest_dict) for contest_dict in resp]
 
     @staticmethod
     async def ratingChanges(*, contest_id):
         params = {'contestId': contest_id}
-        resp = await _query_api('contest.ratingChanges', params)
+        try:
+            resp = await _query_api('contest.ratingChanges', params)
+        except TrueApiError as e:
+            if 'not found' in e.comment:
+                raise ContestNotFoundError(e.comment, contest_id)
+            if 'Rating changes are unavailable' in e.comment:
+                raise RatingChangesUnavailableError(e.comment, contest_id)
+            raise
         return [make_from_dict(RatingChange, change_dict) for change_dict in resp]
 
     @staticmethod
-    async def standings(*, contest_id, from_=None, count=None, handles=None, room=None, show_unofficial=None):
+    async def standings(*, contest_id, from_=None, count=None, handles=None, room=None,
+                        show_unofficial=None):
         params = {'contestId': contest_id}
         if from_ is not None:
             params['from'] = from_
@@ -196,12 +298,21 @@ class contest:
         if room is not None:
             params['room'] = room
         if show_unofficial is not None:
-            params['showUnofficial'] = show_unofficial
-        resp = await _query_api('contest.standings', params)
+            params['showUnofficial'] = _bool_to_str(show_unofficial)
+        try:
+            resp = await _query_api('contest.standings', params)
+        except TrueApiError as e:
+            if 'not found' in e.comment:
+                raise ContestNotFoundError(e.comment, contest_id)
+            raise
         contest_ = make_from_dict(Contest, resp['contest'])
         problems = [make_from_dict(Problem, problem_dict) for problem_dict in resp['problems']]
         for row in resp['rows']:
+            row['party']['members'] = [make_from_dict(Member, member)
+                                       for member in row['party']['members']]
             row['party'] = make_from_dict(Party, row['party'])
+            row['problemResults'] = [make_from_dict(ProblemResult, problem_result)
+                                     for problem_result in row['problemResults']]
         ranklist = [make_from_dict(RanklistRow, row_dict) for row_dict in resp['rows']]
         return contest_, problems, ranklist
 
@@ -225,20 +336,34 @@ class user:
     @staticmethod
     async def info(*, handles):
         params = {'handles': ';'.join(handles)}
-        resp = await _query_api('user.info', params)
+        try:
+            resp = await _query_api('user.info', params)
+        except TrueApiError as e:
+            if 'not found' in e.comment:
+                # Comment format is "handles: User with handle ***** not found"
+                handle = e.comment.partition('not found')[0].split()[-1]
+                raise HandleNotFoundError(e.comment, handle)
+            raise
         return [make_from_dict(User, user_dict) for user_dict in resp]
 
     @staticmethod
     async def rating(*, handle):
         params = {'handle': handle}
-        resp = await _query_api('user.rating', params)
+        try:
+            resp = await _query_api('user.rating', params)
+        except TrueApiError as e:
+            if 'not found' in e.comment:
+                raise HandleNotFoundError(e.comment, handle)
+            if 'should contain' in e.comment:
+                raise HandleInvalidError(e.comment, handle)
+            raise
         return [make_from_dict(RatingChange, ratingchange_dict) for ratingchange_dict in resp]
 
     @staticmethod
-    async def ratedList(*, activeOnly = True):
+    async def ratedList(*, activeOnly=None):
         params = {}
-        if activeOnly:
-            params['activeOnly'] = 'true'
+        if activeOnly is not None:
+            params['activeOnly'] = _bool_to_str(activeOnly)
         resp = await _query_api('user.ratedList', params=params)
         return [make_from_dict(User, user_dict) for user_dict in resp]
 
@@ -249,8 +374,17 @@ class user:
             params['from'] = from_
         if count is not None:
             params['count'] = count
-        resp = await _query_api('user.status', params)
+        try:
+            resp = await _query_api('user.status', params)
+        except TrueApiError as e:
+            if 'not found' in e.comment:
+                raise HandleNotFoundError(e.comment, handle)
+            if 'should contain' in e.comment:
+                raise HandleInvalidError(e.comment, handle)
+            raise
         for submission in resp:
             submission['problem'] = make_from_dict(Problem, submission['problem'])
+            submission['author']['members'] = [make_from_dict(Member, member)
+                                               for member in submission['author']['members']]
             submission['author'] = make_from_dict(Party, submission['author'])
         return [make_from_dict(Submission, submission_dict) for submission_dict in resp]

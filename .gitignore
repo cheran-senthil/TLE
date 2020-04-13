@@ -106,3 +106,12 @@ venv.bak/
 
 .idea/
 pip-wheel-metadata/
+
+# vscode
+.vscode/
+
+# data
+/data
+
+# logs
+/logs

@@ -27,13 +27,10 @@ class Contestant:
 
 
 class CodeforcesRatingCalculator:
-    def __init__(self, standing_rows, prev_ratings):
+    def __init__(self, standings):
         """Calculate Codeforces rating changes and seeds given contest and user information."""
-        self.contestants = [
-            Contestant(handle, points, penalty, prev_ratings[handle])
-            for handle, _, points, penalty in standing_rows
-        ]
-
+        self.contestants = [Contestant(handle, points, penalty, rating)
+                            for handle, points, penalty, rating in standings]
         self._precalc_seed()
         self._reassign_ranks()
         self._process()

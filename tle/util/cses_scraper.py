@@ -21,15 +21,16 @@ async def _fetch(url):
 
 async def get_problems():
     tree = await _fetch('https://cses.fi/problemset/list/')
-    links = [a.get('href') for a in tree.xpath('//table[3]/tr/td/a')]
-    ids = [int(x.split('/')[-1]) for x in links]
+    links = [li.get('href') for li in tree.xpath('//*[@class="task"]/a')]
+    ids = sorted(int(x.split('/')[-1]) for x in links)
     return ids
 
 
 async def get_problem_leaderboard(num):
     tree = await _fetch(f'https://cses.fi/problemset/stats/{num}/')
-    _, _, fastest_table, shortest_table = tree.xpath('//table')
+    fastest_table, shortest_table = tree.xpath(
+        '//table[@class!="summary-table" and @class!="bot-killer"]')
 
-    fastest = [tr[1].text_content() for tr in fastest_table]
-    shortest = [tr[1].text_content() for tr in shortest_table]
+    fastest = [a.text for a in fastest_table.xpath('.//a')]
+    shortest = [a.text for a in shortest_table.xpath('.//a')]
     return fastest, shortest

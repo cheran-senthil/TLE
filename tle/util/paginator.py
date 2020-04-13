@@ -7,6 +7,11 @@ _REACT_NEXT = '\N{BLACK RIGHT-POINTING TRIANGLE}'
 _REACT_LAST = '\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}'
 
 
+def chunkify(sequence, chunk_size):
+    """Utility method to split a sequence into fixed size chunks."""
+    return [sequence[i: i + chunk_size] for i in range(0, len(sequence), chunk_size)]
+
+
 class PaginatorError(Exception):
     pass
 
@@ -56,7 +61,9 @@ class Paginated:
             await self.message.add_reaction(react)
 
         def check(reaction, user):
-            return bot.user != user and reaction.emoji in self.reaction_map
+            return (bot.user != user and
+                    reaction.message.id == self.message.id and
+                    reaction.emoji in self.reaction_map)
 
         while True:
             try:
@@ -73,7 +80,7 @@ def paginate(bot, channel, pages, *, wait_time, set_pagenum_footers=False):
         raise NoPagesError()
     permissions = channel.permissions_for(channel.guild.me)
     if not permissions.manage_messages:
-        raise InsufficientPermissionsError()
+        raise InsufficientPermissionsError('Permission to manage messages required')
     if len(pages) > 1 and set_pagenum_footers:
         for i, (content, embed) in enumerate(pages):
             embed.set_footer(text=f'Page {i + 1} / {len(pages)}')
