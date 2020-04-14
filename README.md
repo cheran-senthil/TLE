@@ -28,11 +28,18 @@ Now all dependencies need to be installed. TLE uses [Poetry](https://poetry.eust
 poetry install
 ```
 
-Hint: If you are using ubuntu, then do the following:
+Hint:
+
+If you are using ubuntu with older versions of python, then do the following:
 ```bash
-apt-get install libcairo2-dev pkg-config python3-dev python3.7-venv libgirepository1.0-dev gir1.2-pango-1.0
+apt-get install python3.7-venv
 python3.7 -m pip install poetry
 python3.7 -m poetry install
+```
+
+TLE also depends on cairo and pango for graphics and text rendering, which you need to install through your package manager. For ubuntu, the relevant packages are
+```bash
+apt-get install libcairo2-dev libgirepository1.0-dev libpango1.0-dev pkg-config python3-dev gir1.2-pango-1.0
 ```
 
 You will need to setup a bot on your server before continuing, follow the directions [here](https://github.com/reactiflux/discord-irc/wiki/Creating-a-discord-bot-&-getting-a-token). Following this, you should have your bot appearing in your server and you should have the Discord bot token.
