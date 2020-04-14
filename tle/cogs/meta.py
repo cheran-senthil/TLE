@@ -51,7 +51,7 @@ class Meta(commands.Cog):
         """Command the bot or get information about the bot."""
         await ctx.send_help(ctx.command)
 
-    @meta.command(brief='Restarts TLE')
+    @meta.command(brief='Restarts TLE and deploys the specified version according to the env vars. Check run.sh for details.')
     @commands.has_role('Admin')
     async def restart(self, ctx):
         """Restarts the bot."""
@@ -59,6 +59,28 @@ class Meta(commands.Cog):
         # the magic is handled elsewhere
         await ctx.send('Restarting...')
         os._exit(RESTART)
+
+    @meta.command(brief='Sets the origin uri to be used for next deployment', usage='[https_origin_uri]')
+    @commands.has_role('Admin')
+    async def set_origin_uri(self, ctx, origin_uri):
+        """Sets the env var ORIGIN_URI to be used for next deployment."""
+        os.environ['ORIGIN_URI'] = origin_uri
+        await ctx.send('Set the origin uri to be ${origin_uri}.')
+
+    @meta.command(brief='Sets the branch name to be used for next deployment', usage='[branch_name]')
+    @commands.has_role('Admin')
+    async def set_branch(self, ctx, branch):
+        """Sets the env var BRANCH_NAME to be used for next deployment."""
+        os.environ['BRANCH_NAME'] = branch
+        await ctx.send('Set the branch name to be ${branch}.')
+
+    @meta.command(brief='Sets the commit hash to be used for next deployment.', usage='[commit_hash]')
+    @commands.has_role('Admin')
+    async def set_commit_hash(self, ctx, commit_hash):
+        """Sets the env var COMMIT_HASH to be used for next deployment."""
+        os.environ['COMMIT_HASH'] = commit_hash
+        await ctx.send('Set the commit hash to be ${commit_hash}.')
+    
 
     @meta.command(brief='Kill TLE')
     @commands.has_role('Admin')
