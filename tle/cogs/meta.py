@@ -72,13 +72,6 @@ class Meta(commands.Cog):
         await overwrite_file(file_name='ORIGIN_URI', line=origin_uri)
         await ctx.send(f'Set the origin uri to be {origin_uri}.')
 
-    @meta.command(brief='Sets the branch name to be used for next deployment', usage='[branch_name]')
-    @commands.has_role('Admin')
-    async def set_branch(self, ctx, branch):
-        """Sets the env var BRANCH_NAME to be used for next deployment."""
-        await overwrite_file(file_name='BRANCH_NAME', line=branch)
-        await ctx.send(f'Set the branch name to be {branch}.')
-
     @meta.command(brief='Sets the commit hash to be used for next deployment.', usage='[commit_hash]')
     @commands.has_role('Admin')
     async def set_commit_hash(self, ctx, commit_hash):
