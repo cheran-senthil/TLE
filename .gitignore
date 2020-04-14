@@ -94,7 +94,6 @@ venv.bak/
 # Env vars
 environment
 ORIGIN_URI
-BRANCH_NAME
 COMMIT_HASH
 
 # Spyder project settings

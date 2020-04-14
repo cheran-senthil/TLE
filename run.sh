@@ -12,8 +12,7 @@ while true; do
     git fetch origin
     git reset --hard "$COMMIT_HASH"
 
-    FONTCONFIG_FILE=$PWD/extra/fonts.conf
-    poetry run python -m tle
+    FONTCONFIG_FILE=$PWD/extra/fonts.conf poetry run python -m tle
 
     (( $? != 42 )) && break
 
