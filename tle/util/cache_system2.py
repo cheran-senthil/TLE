@@ -591,7 +591,7 @@ class RanklistCache:
                 # The contest is not rated
                 ranklist = Ranklist(contest, problems, standings, now, is_rated=False)
             else:
-                ratedList = await cf.user.ratedList()
+                ratedList = await cf.user.ratedList(activeOnly=False)
                 current_rating = {user.handle: user.effective_rating
                                   for user in ratedList}
                 if 'Educational' in contest.name:

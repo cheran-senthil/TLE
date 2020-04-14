@@ -3,6 +3,7 @@ import logging
 import time
 import functools
 from collections import namedtuple, deque
+from cachetools.func import ttl_cache
 
 import aiohttp
 
@@ -359,6 +360,7 @@ class user:
             raise
         return [make_from_dict(RatingChange, ratingchange_dict) for ratingchange_dict in resp]
 
+    @ttl_cache(ttl=30 * 60)
     @staticmethod
     async def ratedList(*, activeOnly=None):
         params = {}
