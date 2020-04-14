@@ -10,6 +10,11 @@ from tle.util.codeforces_common import pretty_time_format
 RESTART = 42
 
 
+async def overwrite_file(file_name, line):
+    """ Overwrites the file with the given line."""
+    os.system(f'rm {file_name}')
+    os.system(f'echo {line} >> {file_name}')
+
 # Adapted from numpy sources.
 # https://github.com/numpy/numpy/blob/master/setup.py#L64-85
 def git_history():
@@ -64,22 +69,22 @@ class Meta(commands.Cog):
     @commands.has_role('Admin')
     async def set_origin_uri(self, ctx, origin_uri):
         """Sets the env var ORIGIN_URI to be used for next deployment."""
-        os.environ['ORIGIN_URI'] = origin_uri
-        await ctx.send('Set the origin uri to be ${origin_uri}.')
+        await overwrite_file(file_name='ORIGIN_URI', line=origin_uri)
+        await ctx.send(f'Set the origin uri to be {origin_uri}.')
 
     @meta.command(brief='Sets the branch name to be used for next deployment', usage='[branch_name]')
     @commands.has_role('Admin')
     async def set_branch(self, ctx, branch):
         """Sets the env var BRANCH_NAME to be used for next deployment."""
-        os.environ['BRANCH_NAME'] = branch
-        await ctx.send('Set the branch name to be ${branch}.')
+        await overwrite_file(file_name='BRANCH_NAME', line=branch)
+        await ctx.send(f'Set the branch name to be {branch}.')
 
     @meta.command(brief='Sets the commit hash to be used for next deployment.', usage='[commit_hash]')
     @commands.has_role('Admin')
     async def set_commit_hash(self, ctx, commit_hash):
         """Sets the env var COMMIT_HASH to be used for next deployment."""
-        os.environ['COMMIT_HASH'] = commit_hash
-        await ctx.send('Set the commit hash to be ${commit_hash}.')
+        await overwrite_file(file_name='COMMIT_HASH', line=commit_hash)
+        await ctx.send(f'Set the commit hash to be {commit_hash}.')
     
 
     @meta.command(brief='Kill TLE')
