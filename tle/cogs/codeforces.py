@@ -481,18 +481,24 @@ class Codeforces(commands.Cog):
             ratings = [cf_user.rating for user_id, cf_user in res if cf_user.rating is not None]
             user_str = '+server'
         else:
+            def normalize(x):
+                return [i.lower() for i in x]
             handle_map = {}
             parsed_handles = []
             for i in handles:
-                parse_str = i.split('*')
+                parse_str = normalize(i.split('*'))
                 if len(parse_str) > 1:
-                    handle_map[parse_str[0].lower()] = int(parse_str[1])
+                    try:
+                        handle_map[parse_str[0]] = int(parse_str[1])
+                    except ValueError:
+                        raise CodeforcesCogError("Can't multiply by non-integer")
                 else:
-                    handle_map[parse_str[0].lower()] = 1
+                    handle_map[parse_str[0]] = 1
                 parsed_handles.append(parse_str[0])
             if sum(handle_map.values()) > 100000:
                 raise CodeforcesCogError('Too large of a team!')
             cf_handles = await cf_common.resolve_handles(ctx, self.converter, parsed_handles, mincnt=1, maxcnt=1000)
+            cf_handles = normalize(cf_handles)
             cf_to_original = {a: b for a, b in zip(cf_handles, parsed_handles)}
             original_to_cf = {a: b for a, b in zip(parsed_handles, cf_handles)}
             users = await cf.user.info(handles=cf_handles)
