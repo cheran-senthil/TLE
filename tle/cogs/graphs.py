@@ -224,7 +224,7 @@ class Graphs(commands.Cog):
         plt.clf()
         _plot_rating(resp)
         current_ratings = [rating_changes[-1].newRating if rating_changes else 'Unrated' for rating_changes in resp]
-        labels = [f'\N{ZERO WIDTH SPACE}{handle} ({rating})' for handle, rating in zip(handles, current_ratings)]
+        labels = [gc.StrWrap(f'{handle} ({rating})') for handle, rating in zip(handles, current_ratings)]
         plt.legend(labels, loc='upper left')
 
         if not zoom:
@@ -318,11 +318,7 @@ class Graphs(commands.Cog):
         else:
             all_ratings = [[sub.problem.rating for sub in solved_subs]
                            for solved_subs in all_solved_subs]
-
-            # NOTE: matplotlib ignores labels that begin with _
-            # https://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.legend
-            # Add zero-width space to work around this
-            labels = [f'\N{ZERO WIDTH SPACE}{handle}: {len(ratings)}'
+            labels = [gc.StrWrap(f'{handle}: {len(ratings)}')
                       for handle, ratings in zip(handles, all_ratings)]
 
             step = 200
@@ -371,7 +367,7 @@ class Graphs(commands.Cog):
             # NOTE: matplotlib ignores labels that begin with _
             # https://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.legend
             # Add zero-width space to work around this
-            labels = [f'\N{ZERO WIDTH SPACE}{handle}: {len(times)}'
+            labels = [gc.StrWrap(f'{handle}: {len(times)}')
                       for handle, times in zip(handles, all_times)]
 
             plt.hist(all_times, label=labels)
@@ -655,7 +651,7 @@ class Graphs(commands.Cog):
         # shift the [-300, 300] gitgud range to center the text
         hist_bins = list(range(-300 - 50, 300 + 50 + 1, 100))
         deltas = [[x[0] for x in cf_common.user_db.howgud(member.id)] for member in members]
-        labels = [f'\0{member.display_name}: {len(delta)}'
+        labels = [gc.StrWrap(f'{member.display_name}: {len(delta)}')
                   for member, delta in zip(members, deltas)]
 
         plt.clf()
