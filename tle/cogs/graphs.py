@@ -318,10 +318,6 @@ class Graphs(commands.Cog):
         else:
             all_ratings = [[sub.problem.rating for sub in solved_subs]
                            for solved_subs in all_solved_subs]
-
-            # NOTE: matplotlib ignores labels that begin with _
-            # https://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.legend
-            # Add zero-width space to work around this
             labels = [gc.StrWrap(f'{handle}: {len(ratings)}')
                       for handle, ratings in zip(handles, all_ratings)]
 
