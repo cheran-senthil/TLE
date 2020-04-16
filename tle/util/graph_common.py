@@ -2,6 +2,7 @@ import os
 import io
 import discord
 import time
+import matplotlib.font_manager
 
 from tle import constants
 from matplotlib import pyplot as plt
