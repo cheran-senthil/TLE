@@ -483,19 +483,19 @@ class Codeforces(commands.Cog):
         else:
             def normalize(x):
                 return [i.lower() for i in x]
-            handle_map = {}
+            handle_counts = {}
             parsed_handles = []
             for i in handles:
                 parse_str = normalize(i.split('*'))
                 if len(parse_str) > 1:
                     try:
-                        handle_map[parse_str[0]] = int(parse_str[1])
+                        handle_counts[parse_str[0]] = int(parse_str[1])
                     except ValueError:
                         raise CodeforcesCogError("Can't multiply by non-integer")
                 else:
-                    handle_map[parse_str[0]] = 1
+                    handle_counts[parse_str[0]] = 1
                 parsed_handles.append(parse_str[0])
-            if sum(handle_map.values()) > 100000:
+            if sum(handle_counts.values()) > 100000:
                 raise CodeforcesCogError('Too large of a team!')
             cf_handles = await cf_common.resolve_handles(ctx, self.converter, parsed_handles, mincnt=1, maxcnt=1000)
             cf_handles = normalize(cf_handles)
@@ -503,7 +503,7 @@ class Codeforces(commands.Cog):
             original_to_cf = {a: b for a, b in zip(parsed_handles, cf_handles)}
             users = await cf.user.info(handles=cf_handles)
             user_strs = []
-            for a, b in handle_map.items():
+            for a, b in handle_counts.items():
                 if b > 1:
                     user_strs.append(f'{original_to_cf[a]}*{b}')
                 elif b == 1:
@@ -512,13 +512,13 @@ class Codeforces(commands.Cog):
                     raise CodeforcesCogError('How can you have negative members in team?')
 
             user_str = ', '.join(user_strs)
-            ratings = [user.rating for user in users if user.rating for _ in range(handle_map[cf_to_original[user.handle.lower()]])]
+            ratings = [user.rating for user in users if user.rating for _ in range(handle_counts[cf_to_original[user.handle.lower()]])]
 
         if len(ratings) == 0:
             raise CodeforcesCogError("No CF usernames with ratings passed in.")
 
         left = -100.0
-        right = 5000.0
+        right = 10000.0
         teamRating = Codeforces.composeRatings(left, right, ratings)
         embed = discord.Embed(title=user_str, description=teamRating, color=cf.rating2rank(teamRating).color_embed)
         await ctx.send(embed = embed)
