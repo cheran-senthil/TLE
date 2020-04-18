@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import time
+from cachetools.func import ttl_cache
 
 from collections import defaultdict
 from discord.ext import commands
@@ -591,7 +592,7 @@ class RanklistCache:
                 # The contest is not rated
                 ranklist = Ranklist(contest, problems, standings, now, is_rated=False)
             else:
-                ratedList = await cf.user.ratedList(activeOnly=False)
+                ratedList = await CacheSystem.ratedList(activeOnly=False)
                 current_rating = {user.handle: user.effective_rating
                                   for user in ratedList}
                 if 'Educational' in contest.name:
@@ -632,3 +633,8 @@ class CacheSystem:
         await self.contest_cache.run()
         await self.problem_cache.run()
         await self.problemset_cache.run()
+
+    @ttl_cache(ttl = 30 * 60)
+    @staticmethod
+    async def ratedList(*, activeOnly=None):
+        return cf.user.ratedList(activeOnly=activeOnly)
