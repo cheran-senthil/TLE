@@ -592,9 +592,7 @@ class RanklistCache:
                 # The contest is not rated
                 ranklist = Ranklist(contest, problems, standings, now, is_rated=False)
             else:
-                ratedList = await CacheSystem.ratedList(activeOnly=False)
-                current_rating = {user.handle: user.effective_rating
-                                  for user in ratedList}
+                current_rating = CacheSystem.getUsersEffectiveRating(activeOnly=False)
                 if 'Educational' in contest.name:
                     # For some reason educational contests return all contestants in ranklist even
                     # when unofficial contestants are not requested.
@@ -636,5 +634,10 @@ class CacheSystem:
 
     @ttl_cache(ttl = 30 * 60)
     @staticmethod
-    async def ratedList(*, activeOnly=None):
-        return cf.user.ratedList(activeOnly=activeOnly)
+    async def getUsersEffectiveRating(*, activeOnly=None):
+        """ Returns a dictionary mapping user handle to his effective rating for all the users.
+        """
+        ratedList = await cf.user.ratedList(activeOnly=activeOnly)
+        users_effective_rating_dict = {user.handle: user.effective_rating
+                                  for user in ratedList}
+        return users_effective_rating_dict
