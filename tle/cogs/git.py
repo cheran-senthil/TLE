@@ -8,6 +8,9 @@ from discord.ext import commands
 from tle.util.codeforces_common import pretty_time_format
 
 
+# Make sure that running the following commands does not need credentials.
+# You can store your credentials using: git config --global credential.helper store
+
 # Adapted from numpy sources.
 # https://github.com/numpy/numpy/blob/master/setup.py#L64-85
 def _minimal_ext_cmd(cmd):
