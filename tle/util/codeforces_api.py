@@ -337,22 +337,24 @@ class problemset:
 class user:
     @staticmethod
     async def info(*, handles):
-        if len(handles) > MAX_HANDLES_PER_QUERY:
-            chunks = chunkify(handles, MAX_HANDLES_PER_QUERY)
-            logger.warning(f'cf.info request with {len(handles)} handles, \
-            will be chunkified into {len(chunks)} requests.')
-            for chunk in chunks:
-                await user.info(handles=chunk)
-        params = {'handles': ';'.join(handles)}
-        try:
-            resp = await _query_api('user.info', params)
-        except TrueApiError as e:
-            if 'not found' in e.comment:
-                # Comment format is "handles: User with handle ***** not found"
-                handle = e.comment.partition('not found')[0].split()[-1]
-                raise HandleNotFoundError(e.comment, handle)
-            raise
-        return [make_from_dict(User, user_dict) for user_dict in resp]
+        chunks = chunkify(handles, MAX_HANDLES_PER_QUERY)
+        if len(chunks) > 1:
+            logger.warning(f'cf.info request with {len(handles)} handles,'
+            f'will be chunkified into {len(chunks)} requests.')
+
+        result = []
+        for chunk in chunks:
+            params = {'handles': ';'.join(chunk)}
+            try:
+                resp = await _query_api('user.info', params)
+            except TrueApiError as e:
+                if 'not found' in e.comment:
+                    # Comment format is "handles: User with handle ***** not found"
+                    handle = e.comment.partition('not found')[0].split()[-1]
+                    raise HandleNotFoundError(e.comment, handle)
+                raise
+            result += [make_from_dict(User, user_dict) for user_dict in resp]
+        return result
 
     @staticmethod
     async def rating(*, handle):
