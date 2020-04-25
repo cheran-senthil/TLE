@@ -16,6 +16,7 @@ PROFILE_BASE_URL = 'https://codeforces.com/profile/'
 ACMSGURU_BASE_URL = 'https://codeforces.com/problemsets/acmsguru/'
 GYM_ID_THRESHOLD = 100000
 DEFAULT_RATING = 1500
+MAX_HANDLES_PER_QUERY = 300 # To avoid sending too large requests.
 
 logger = logging.getLogger(__name__)
 
@@ -335,6 +336,9 @@ class problemset:
 class user:
     @staticmethod
     async def info(*, handles):
+        if len(handles) > MAX_HANDLES_PER_QUERY:
+            return await user.info(handles=handles[:MAX_HANDLES_PER_QUERY]) + \
+                   await user.info(handles=handles[MAX_HANDLES_PER_QUERY:])
         params = {'handles': ';'.join(handles)}
         try:
             resp = await _query_api('user.info', params)
