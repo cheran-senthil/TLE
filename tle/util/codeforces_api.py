@@ -3,6 +3,7 @@ import logging
 import time
 import functools
 from collections import namedtuple, deque
+from tle.util.paginator import chunkify
 
 import aiohttp
 
@@ -16,6 +17,7 @@ PROFILE_BASE_URL = 'https://codeforces.com/profile/'
 ACMSGURU_BASE_URL = 'https://codeforces.com/problemsets/acmsguru/'
 GYM_ID_THRESHOLD = 100000
 DEFAULT_RATING = 1500
+MAX_HANDLES_PER_QUERY = 300 # To avoid sending too large requests.
 
 logger = logging.getLogger(__name__)
 
@@ -335,16 +337,24 @@ class problemset:
 class user:
     @staticmethod
     async def info(*, handles):
-        params = {'handles': ';'.join(handles)}
-        try:
-            resp = await _query_api('user.info', params)
-        except TrueApiError as e:
-            if 'not found' in e.comment:
-                # Comment format is "handles: User with handle ***** not found"
-                handle = e.comment.partition('not found')[0].split()[-1]
-                raise HandleNotFoundError(e.comment, handle)
-            raise
-        return [make_from_dict(User, user_dict) for user_dict in resp]
+        chunks = chunkify(handles, MAX_HANDLES_PER_QUERY)
+        if len(chunks) > 1:
+            logger.warning(f'cf.info request with {len(handles)} handles,'
+            f'will be chunkified into {len(chunks)} requests.')
+
+        result = []
+        for chunk in chunks:
+            params = {'handles': ';'.join(chunk)}
+            try:
+                resp = await _query_api('user.info', params)
+            except TrueApiError as e:
+                if 'not found' in e.comment:
+                    # Comment format is "handles: User with handle ***** not found"
+                    handle = e.comment.partition('not found')[0].split()[-1]
+                    raise HandleNotFoundError(e.comment, handle)
+                raise
+            result += [make_from_dict(User, user_dict) for user_dict in resp]
+        return result
 
     @staticmethod
     async def rating(*, handle):
