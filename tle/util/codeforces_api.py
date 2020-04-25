@@ -3,7 +3,7 @@ import logging
 import time
 import functools
 from collections import namedtuple, deque
-import math
+from tle.util.paginator import chunkify
 
 import aiohttp
 
@@ -338,10 +338,11 @@ class user:
     @staticmethod
     async def info(*, handles):
         if len(handles) > MAX_HANDLES_PER_QUERY:
+            chunks = chunkify(handles, MAX_HANDLES_PER_QUERY)
             logger.warning(f'cf.info request with {len(handles)} handles, \
-            will be chunkified into {math.ceil(len(handles) / MAX_HANDLES_PER_QUERY)} requests.')
-            return await user.info(handles=handles[:MAX_HANDLES_PER_QUERY]) + \
-                   await user.info(handles=handles[MAX_HANDLES_PER_QUERY:])
+            will be chunkified into {len(chunks)} requests.')
+            for chunk in chunks:
+                await user.info(handles=chunk)
         params = {'handles': ';'.join(handles)}
         try:
             resp = await _query_api('user.info', params)
