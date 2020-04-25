@@ -3,6 +3,7 @@ import logging
 import time
 import functools
 from collections import namedtuple, deque
+import math
 
 import aiohttp
 
@@ -337,6 +338,8 @@ class user:
     @staticmethod
     async def info(*, handles):
         if len(handles) > MAX_HANDLES_PER_QUERY:
+            logger.warning(f'cf.info request with {len(handles)} handles, \
+            will be chunkified into {math.ceil(len(handles) / MAX_HANDLES_PER_QUERY)} requests.')
             return await user.info(handles=handles[:MAX_HANDLES_PER_QUERY]) + \
                    await user.info(handles=handles[MAX_HANDLES_PER_QUERY:])
         params = {'handles': ';'.join(handles)}
