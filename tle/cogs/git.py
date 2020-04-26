@@ -49,13 +49,6 @@ def git_set_origin(origin_uri):
     except OSError as error:
         return f'Setting Origin URI to {origin_uri} failed with error: {error}'
 
-def git_pull():
-    try:
-        out = _minimal_ext_cmd(['git', 'pull'])
-        return out.strip().decode('ascii')
-    except OSError as error:
-        return f'Git Pull failed with error: {error}'
-
 def git_fetch():
     try:
         out = _minimal_ext_cmd(['git', 'fetch', 'origin'])
@@ -63,12 +56,14 @@ def git_fetch():
     except OSError as error:
         return f'Git fetch failed with error: {error}'
 
-def git_reset(commit_hash):
+def git_checkout(branch_name):
     try:
-        out = _minimal_ext_cmd(['git', 'reset', '--hard', commit_hash])
+        git_fetch()
+        out = _minimal_ext_cmd(['git', 'checkout', f'origin/{branch_name}'])
         return out.strip().decode('ascii')
     except OSError as error:
-        return f'Git reset failed with error: {error}'
+        return f'Git checkout failed with error: {error}'
+
 
 class Git(commands.Cog):
     def __init__(self, bot):
@@ -83,15 +78,14 @@ class Git(commands.Cog):
     @git.command(brief='git remote set-url origin $https_origin_uri', usage='[https_origin_uri]')
     @commands.has_role('Admin')
     async def set_origin_uri(self, ctx, origin_uri):
-        await git_set_origin(origin_uri)
+        git_set_origin(origin_uri)
         await ctx.send(f'Set the origin uri to be {origin_uri}.')
 
-    @git.command(brief='git reset --hard $commit_hash', usage='[commit_hash]')
+    @git.command(brief='git checkout origin/$branch_name', usage='[branch_name]')
     @commands.has_role('Admin')
-    async def reset_to_commit(self, ctx, commit_hash):
-        """Sets the env var COMMIT_HASH to be used for next deployment."""
-        await git_reset(commit_hash)
-        await ctx.send(f'Reset to the commit: {commit_hash}.')
+    async def checkout(self, ctx, branch_name):
+        git_checkout(branch_name)
+        await ctx.send(f'Now HEAD is pointing to origin/{branch_name}.')
     
     @git.command(brief='Get git information')
     @commands.has_role('Admin')
