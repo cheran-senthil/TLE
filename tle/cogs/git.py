@@ -49,16 +49,16 @@ def git_set_origin(origin_uri):
     except OSError as error:
         return f'Setting Origin URI to {origin_uri} failed with error: {error}'
 
-def git_fetch():
+def git_fetch(branch_name):
     try:
-        out = _minimal_ext_cmd(['git', 'fetch', 'origin'])
+        out = _minimal_ext_cmd(['git', 'fetch', f'origin/{branch_name}'])
         return out.strip().decode('ascii')
     except OSError as error:
         return f'Git fetch failed with error: {error}'
 
 def git_checkout(branch_name):
     try:
-        git_fetch()
+        git_fetch(branch_name)
         out = _minimal_ext_cmd(['git', 'checkout', f'origin/{branch_name}'])
         return out.strip().decode('ascii')
     except OSError as error:
