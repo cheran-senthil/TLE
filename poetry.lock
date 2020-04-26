@@ -1,5 +1,19 @@
 [[package]]
 category = "main"
+description = "multi backend asyncio cache"
+name = "aiocache"
+optional = false
+python-versions = "*"
+version = "0.11.1"
+
+[package.extras]
+dev = ["asynctest (>=0.11.0)", "codecov", "coverage", "flake8", "ipdb", "marshmallow", "pystache", "pytest", "pytest-asyncio", "pytest-mock", "sphinx", "sphinx-autobuild", "sphinx-rtd-theme", "black"]
+memcached = ["aiomcache (>=0.5.2)"]
+msgpack = ["msgpack (>=0.5.5)"]
+redis = ["aioredis (>=0.3.3)", "aioredis (>=1.0.0)"]
+
+[[package]]
+category = "main"
 description = "Async http client/server framework (asyncio)"
 name = "aiohttp"
 optional = false
@@ -360,10 +374,14 @@ docs = ["sphinx", "jaraco.packaging (>=3.2)", "rst.linker (>=1.9)"]
 testing = ["pathlib2", "contextlib2", "unittest2"]
 
 [metadata]
-content-hash = "402b2da69134896bc8713cfd41441f1780d6896ca78c84684b1619fa5e6a3a20"
+content-hash = "22dff3edf04d52967c8096aa187f89b38e9b0f360f837f863906387d7387b6a6"
 python-versions = "^3.7"
 
 [metadata.files]
+aiocache = [
+    {file = "aiocache-0.11.1-py2.py3-none-any.whl", hash = "sha256:e55c7caaa5753794fd301c3a2e592737fa1d036db9f8d04ae154facdfb48a157"},
+    {file = "aiocache-0.11.1.tar.gz", hash = "sha256:f2ebe0b05cec45782e7b5ea0bb74640f157dd4bb1028b4565364dda9fe33be7f"},
+]
 aiohttp = [
     {file = "aiohttp-3.5.4-cp35-cp35m-macosx_10_10_x86_64.whl", hash = "sha256:199f1d106e2b44b6dacdf6f9245493c7d716b01d0b7fbe1959318ba4dc64d1f5"},
     {file = "aiohttp-3.5.4-cp35-cp35m-macosx_10_11_x86_64.whl", hash = "sha256:0155af66de8c21b8dba4992aaeeabf55503caefae00067a3b1139f86d0ec50ed"},

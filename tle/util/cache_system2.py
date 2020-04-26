@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import time
+from aiocache import cached
 
 from collections import defaultdict
 from discord.ext import commands
@@ -566,7 +567,6 @@ class RanklistCache:
         # Exclude PRACTICE and MANAGER
         standings = [row for row in standings
                      if row.party.participantType in ('CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL')]
-
         if fetch_changes:
             # Fetch final rating changes from CF.
             # For older contests.
@@ -592,10 +592,7 @@ class RanklistCache:
                 # The contest is not rated
                 ranklist = Ranklist(contest, problems, standings, now, is_rated=False)
             else:
-                get = self.cache_master.rating_changes_cache.get_current_rating
-                current_rating = {row.party.members[0].handle: get(row.party.members[0].handle,
-                                                                   default_if_absent=True)
-                                  for row in standings_official}
+                current_rating = await CacheSystem.getUsersEffectiveRating(activeOnly=False)
                 if 'Educational' in contest.name:
                     # For some reason educational contests return all contestants in ranklist even
                     # when unofficial contestants are not requested.
@@ -634,3 +631,13 @@ class CacheSystem:
         await self.contest_cache.run()
         await self.problem_cache.run()
         await self.problemset_cache.run()
+
+    @staticmethod
+    @cached(ttl = 30 * 60)
+    async def getUsersEffectiveRating(*, activeOnly=None):
+        """ Returns a dictionary mapping user handle to his effective rating for all the users.
+        """
+        ratedList = await cf.user.ratedList(activeOnly=activeOnly)
+        users_effective_rating_dict = {user.handle: user.effective_rating
+                                  for user in ratedList}
+        return users_effective_rating_dict
