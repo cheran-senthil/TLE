@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import time
-from cachetools.func import ttl_cache
+from aiocache import cached
 
 from collections import defaultdict
 from discord.ext import commands
@@ -592,7 +592,7 @@ class RanklistCache:
                 # The contest is not rated
                 ranklist = Ranklist(contest, problems, standings, now, is_rated=False)
             else:
-                current_rating = CacheSystem.getUsersEffectiveRating(activeOnly=False)
+                current_rating = await CacheSystem.getUsersEffectiveRating(activeOnly=False)
                 if 'Educational' in contest.name:
                     # For some reason educational contests return all contestants in ranklist even
                     # when unofficial contestants are not requested.
@@ -632,8 +632,8 @@ class CacheSystem:
         await self.problem_cache.run()
         await self.problemset_cache.run()
 
-    @ttl_cache(ttl = 30 * 60)
     @staticmethod
+    @cached(ttl = 30 * 60)
     async def getUsersEffectiveRating(*, activeOnly=None):
         """ Returns a dictionary mapping user handle to his effective rating for all the users.
         """
