@@ -51,7 +51,7 @@ def git_set_origin(origin_uri):
 
 def git_fetch(branch_name):
     try:
-        out = _minimal_ext_cmd(['git', 'fetch', f'origin/{branch_name}'])
+        out = _minimal_ext_cmd(['git', 'fetch', 'origin', f'{branch_name}'])
         return out.strip().decode('ascii')
     except OSError as error:
         return f'Git fetch failed with error: {error}'
