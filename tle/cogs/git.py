@@ -58,7 +58,6 @@ def git_fetch(branch_name):
 
 def git_checkout(branch_name):
     try:
-        git_fetch(branch_name)
         out = _minimal_ext_cmd(['git', 'checkout', f'origin/{branch_name}'])
         return out.strip().decode('ascii')
     except OSError as error:
@@ -78,14 +77,16 @@ class Git(commands.Cog):
     @git.command(brief='git remote set-url origin $https_origin_uri', usage='[https_origin_uri]')
     @commands.has_role('Admin')
     async def set_origin_uri(self, ctx, origin_uri):
-        git_set_origin(origin_uri)
-        await ctx.send(f'Set the origin uri to be {origin_uri}.')
+        git_set_origin(origin_uri) # It doesn't have output.
+        await ctx.send(f'Set remote origin uri to {origin_uri}')
 
     @git.command(brief='git checkout origin/$branch_name', usage='[branch_name]')
     @commands.has_role('Admin')
     async def checkout(self, ctx, branch_name):
-        git_checkout(branch_name)
-        await ctx.send(f'Now HEAD is pointing to origin/{branch_name}.')
+        out = git_fetch(branch_name)
+        await ctx.send(f'Fetching {branch_name}, output:\n{out}')
+        out = git_checkout(branch_name)
+        await ctx.send(f'Checking out to {branch_name}, output:\n{out}')
     
     @git.command(brief='Get git information')
     @commands.has_role('Admin')
