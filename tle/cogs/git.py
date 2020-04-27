@@ -26,14 +26,12 @@ def _minimal_ext_cmd(cmd):
     env['LANG'] = 'C'
     env['LC_ALL'] = 'C'
     out = subprocess.Popen(cmd, stdout = subprocess.PIPE, env=env, stderr = subprocess.STDOUT).communicate()[0]
-    return out
+    return out.strip().decode('ascii')
 
 def git_history():
     try:
-        out = _minimal_ext_cmd(['git', 'rev-parse', '--abbrev-ref', 'HEAD'])
-        branch = out.strip().decode('ascii')
-        out = _minimal_ext_cmd(['git', 'log', '--oneline', '-5'])
-        history = out.strip().decode('ascii')
+        branch = _minimal_ext_cmd(['git', 'rev-parse', '--abbrev-ref', 'HEAD'])
+        history = _minimal_ext_cmd(['git', 'log', '--oneline', '-5'])
         return (
             'Branch:\n' +
             textwrap.indent(branch, '  ') +
@@ -45,22 +43,19 @@ def git_history():
 
 def git_set_origin(origin_uri):
     try:
-        out = _minimal_ext_cmd(['git', 'remote', 'set-url', 'origin', origin_uri])
-        return out.strip().decode('ascii')
+        return _minimal_ext_cmd(['git', 'remote', 'set-url', 'origin', origin_uri])
     except OSError as error:
         return f'Setting Origin URI to {origin_uri} failed with error: {error}'
 
 def git_fetch(branch_name):
     try:
-        out = _minimal_ext_cmd(['git', 'fetch', 'origin', f'{branch_name}'])
-        return out.strip().decode('ascii')
+        return _minimal_ext_cmd(['git', 'fetch', 'origin', f'{branch_name}'])
     except OSError as error:
         return f'Git fetch failed with error: {error}'
 
 def git_checkout(branch_name):
     try:
-        out = _minimal_ext_cmd(['git', 'checkout', f'origin/{branch_name}'])
-        return out.strip().decode('ascii')
+        return _minimal_ext_cmd(['git', 'checkout', f'origin/{branch_name}'])
     except OSError as error:
         return f'Git checkout failed with error: {error}'
 

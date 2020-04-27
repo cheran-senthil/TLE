@@ -20,7 +20,7 @@ class Meta(commands.Cog):
         """Command the bot or get information about the bot."""
         await ctx.send_help(ctx.command)
 
-    @meta.command(brief='Restarts TLE.')
+    @meta.command(brief='Restarts TLE')
     @commands.has_role('Admin')
     async def restart(self, ctx):
         """Restarts the bot."""
