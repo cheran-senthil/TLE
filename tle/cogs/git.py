@@ -3,6 +3,7 @@ import subprocess
 import sys
 import time
 import textwrap
+import logging
 
 from discord.ext import commands
 from tle.util.codeforces_common import pretty_time_format
@@ -24,7 +25,7 @@ def _minimal_ext_cmd(cmd):
     env['LANGUAGE'] = 'C'
     env['LANG'] = 'C'
     env['LC_ALL'] = 'C'
-    out = subprocess.Popen(cmd, stdout = subprocess.PIPE, env=env).communicate()[0]
+    out = subprocess.Popen(cmd, stdout = subprocess.PIPE, env=env, stderr = subprocess.STDOUT).communicate()[0]
     return out
 
 def git_history():
@@ -68,6 +69,7 @@ class Git(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.start_time = time.time()
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     @commands.group(brief='Git commands', invoke_without_command=True)
     async def git(self, ctx):
@@ -77,14 +79,17 @@ class Git(commands.Cog):
     @git.command(brief='git remote set-url origin $https_origin_uri', usage='[https_origin_uri]')
     @commands.has_role('Admin')
     async def set_origin_uri(self, ctx, origin_uri):
-        git_set_origin(origin_uri) # It doesn't have output.
+        self.logger.info(f'Setting origin uri to {origin_uri}')
+        git_set_origin(origin_uri) # It doesn't have any output.
         await ctx.send(f'Set remote origin uri to {origin_uri}')
 
-    @git.command(brief='git checkout origin/$branch_name', usage='[branch_name]')
+    @git.command(brief='git fetch origin $branch_name followed by git checkout origin/$branch_name', usage='[branch_name]')
     @commands.has_role('Admin')
     async def checkout(self, ctx, branch_name):
+        self.logger.info(f'Fetching origin/{branch_name}')
         out = git_fetch(branch_name)
         await ctx.send(f'Fetching {branch_name}, output:\n{out}')
+        self.logger.info(f'Checking out to origin/{branch_name}')
         out = git_checkout(branch_name)
         await ctx.send(f'Checking out to {branch_name}, output:\n{out}')
     
