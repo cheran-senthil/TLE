@@ -28,7 +28,7 @@ def _minimal_ext_cmd(cmd):
     out = subprocess.Popen(cmd, stdout = subprocess.PIPE, env=env, stderr = subprocess.STDOUT).communicate()[0]
     return out.strip().decode('ascii')
 
-def git_history():
+def _git_history():
     try:
         branch = _minimal_ext_cmd(['git', 'rev-parse', '--abbrev-ref', 'HEAD'])
         history = _minimal_ext_cmd(['git', 'log', '--oneline', '-5'])
@@ -41,19 +41,19 @@ def git_history():
     except OSError as error:
         return f'Fetching git info failed with error: {error}'
 
-def git_set_origin(origin_uri):
+def _git_set_origin(origin_uri):
     try:
         return _minimal_ext_cmd(['git', 'remote', 'set-url', 'origin', origin_uri])
     except OSError as error:
         return f'Setting Origin URI to {origin_uri} failed with error: {error}'
 
-def git_fetch(branch_name):
+def _git_fetch(branch_name):
     try:
         return _minimal_ext_cmd(['git', 'fetch', 'origin', f'{branch_name}'])
     except OSError as error:
         return f'Git fetch failed with error: {error}'
 
-def git_checkout(branch_name):
+def _git_checkout(branch_name):
     try:
         return _minimal_ext_cmd(['git', 'checkout', f'origin/{branch_name}'])
     except OSError as error:
@@ -75,24 +75,24 @@ class Git(commands.Cog):
     @commands.has_role('Admin')
     async def set_origin_uri(self, ctx, origin_uri):
         self.logger.info(f'Setting origin uri to {origin_uri}')
-        git_set_origin(origin_uri) # It doesn't have any output.
+        _git_set_origin(origin_uri) # It doesn't have any output.
         await ctx.send(f'Set remote origin uri to {origin_uri}')
 
     @git.command(brief='git fetch origin $branch_name followed by git checkout origin/$branch_name', usage='[branch_name]')
     @commands.has_role('Admin')
     async def checkout(self, ctx, branch_name):
         self.logger.info(f'Fetching origin/{branch_name}')
-        out = git_fetch(branch_name)
+        out = _git_fetch(branch_name)
         await ctx.send(f'Fetching {branch_name}, output:\n{out}')
         self.logger.info(f'Checking out to origin/{branch_name}')
-        out = git_checkout(branch_name)
+        out = _git_checkout(branch_name)
         await ctx.send(f'Checking out to {branch_name}, output:\n{out}')
     
     @git.command(brief='Get git information')
     @commands.has_role('Admin')
     async def history(self, ctx):
         """Replies with git information."""
-        await ctx.send('```yaml\n' + git_history() + '```')
+        await ctx.send('```yaml\n' + _git_history() + '```')
 
 def setup(bot):
     bot.add_cog(Git(bot))
