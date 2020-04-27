@@ -75,8 +75,8 @@ class Git(commands.Cog):
     @commands.has_role('Admin')
     async def set_origin_uri(self, ctx, origin_uri):
         self.logger.info(f'Setting origin uri to {origin_uri}')
-        _git_set_origin(origin_uri) # It doesn't have any output.
-        await ctx.send(f'Set remote origin uri to {origin_uri}')
+        out = _git_set_origin(origin_uri)
+        await ctx.send(f'Setting remote origin uri to {origin_uri}, output:\n{out}')
 
     @git.command(brief='git fetch origin $branch_name followed by git checkout origin/$branch_name', usage='[branch_name]')
     @commands.has_role('Admin')
