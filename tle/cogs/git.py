@@ -76,17 +76,17 @@ class Git(commands.Cog):
     async def set_origin_uri(self, ctx, origin_uri):
         self.logger.info(f'Setting origin uri to {origin_uri}')
         out = _git_set_origin(origin_uri)
-        await ctx.send(f'Setting remote origin uri to {origin_uri}, output:\n{out}')
+        await ctx.send(f'Setting remote origin uri to {origin_uri}, output:\n```yaml\n{out} ```')
 
     @git.command(brief='git fetch origin $branch_name followed by git checkout origin/$branch_name', usage='[branch_name]')
     @commands.has_role('Admin')
     async def checkout(self, ctx, branch_name):
         self.logger.info(f'Fetching origin/{branch_name}')
         out = _git_fetch(branch_name)
-        await ctx.send(f'Fetching {branch_name}, output:\n{out}')
+        await ctx.send(f'Fetching {branch_name}, output:```yaml\n{out} ```')
         self.logger.info(f'Checking out to origin/{branch_name}')
         out = _git_checkout(branch_name)
-        await ctx.send(f'Checking out to {branch_name}, output:\n{out}')
+        await ctx.send(f'Checking out to {branch_name}, output:```yaml\n{out} ```')
     
     @git.command(brief='Get git information')
     @commands.has_role('Admin')
