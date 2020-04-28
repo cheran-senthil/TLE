@@ -558,7 +558,7 @@ class Graphs(commands.Cog):
                                                       args,
                                                       mincnt=0,
                                                       maxcnt=50)
-            infos = await cf.user.info(handles=set(handles))
+            infos = await cf.user.info(handles=list(set(handles)))
 
             users_to_mark = {}
             for info in infos:
