@@ -593,6 +593,8 @@ class RanklistCache:
                 ranklist = Ranklist(contest, problems, standings, now, is_rated=False)
             else:
                 current_rating = await CacheSystem.getUsersEffectiveRating(activeOnly=False)
+                current_rating = {row.party.members[0].handle: current_rating.get(row.party.members[0].handle, 1500)
+                                  for row in standings_official}
                 if 'Educational' in contest.name:
                     # For some reason educational contests return all contestants in ranklist even
                     # when unofficial contestants are not requested.
