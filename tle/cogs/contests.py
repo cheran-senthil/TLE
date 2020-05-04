@@ -413,20 +413,27 @@ class Contests(commands.Cog):
 
     @commands.command(brief='Show ranklist for given handles and/or server members')
     async def ranklist(self, ctx, contest_id: int, *handles: str):
+        await self._ranklist(ctx, contest_id, handles)
+
+    async def _ranklist(self, ctx, contest_id: int, *handles: str, vc:bool = False):
         """Shows ranklist for the contest with given contest id. If handles contains
         '+server', all server members are included. No handles defaults to '+server'.
         """
 
         contest = cf_common.cache2.contest_cache.get_contest(contest_id)
-        wait_msg = None
-        try:
-            ranklist = cf_common.cache2.ranklist_cache.get_ranklist(contest)
-        except cache_system2.RanklistNotMonitored:
-            if contest.phase == 'BEFORE':
-                raise ContestCogError(f'Contest `{contest.id} | {contest.name}` has not started')
-            wait_msg = await ctx.send('Please wait...')
-            ranklist = await cf_common.cache2.ranklist_cache.generate_ranklist(contest.id,
-                                                                               fetch_changes=True)
+        if vc:
+            # TODO: re-enumerate the ranks.
+            ranklist = await cf_common.cache2.ranklist_cache.generate_vc_ranklist(contest.id, handles)
+        else:                                                                    
+            wait_msg = None
+            try:
+                ranklist = cf_common.cache2.ranklist_cache.get_ranklist(contest)
+            except cache_system2.RanklistNotMonitored:
+                if contest.phase == 'BEFORE':
+                    raise ContestCogError(f'Contest `{contest.id} | {contest.name}` has not started')
+                wait_msg = await ctx.send('Please wait...')
+                ranklist = await cf_common.cache2.ranklist_cache.generate_ranklist(contest.id,
+                                                                                   fetch_changes=True)
 
         handles = set(handles)
         if not handles:
@@ -470,6 +477,27 @@ class Contests(commands.Cog):
 
         await ctx.send(embed=self._make_contest_embed_for_ranklist(ranklist))
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=_STANDINGS_PAGINATE_WAIT_TIME)
+
+    @commands.command(brief='Show ranklist for the given vc, considering only the given handles')
+    @commands.has_role('Admin')
+    async def vc_ranklist(self, ctx, contest_id: int, *handles: str):
+        await self._ranklist(ctx, contest_id, handles, vc=True)
+
+    @commands.command(brief='Start a rated vc.')
+    @commands.has_role('Admin')
+    async def rated_vc(self, ctx, contest_id:int, *handles: str):
+        total_duration = 5 * 60 # seconds
+        step = 60 # seconds
+        for _ in range(0, total_duration, step):
+            await asyncio.sleep(step)
+            await self._ranklist(ctx, contest_id, handles, vc=True)
+        ranklist = await cf_common.cache2.ranklist_cache.generate_vc_ranklist(contest_id, handles)
+        time = dt.datetime.now().timestamp()
+        for handle, delta in ranklist.delta_by_handle:
+            old_rating = cf_common.user_db.get_vc_rating(handle, True)
+            new_rating = old_rating + delta
+            cf_common.user_db.update_vc_rating(handle, new_rating, contest_id, time)
+
 
     @discord_common.send_error_if(ContestCogError, rl.RanklistError,
                                   cache_system2.CacheError,  cf_common.ResolveHandleError)
