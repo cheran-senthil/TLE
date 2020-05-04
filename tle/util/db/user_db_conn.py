@@ -164,6 +164,7 @@ class UserDbConn:
         self.conn.execute('''
             CREATE TABLE IF NOT EXISTS "vc_rating" (
                 "user_id"	TEXT,
+                "vc_id"     TEXT,
                 "time"      REAL,
                 "rating"    INTEGER,
                 PRIMARY KEY("user_id", "time")
@@ -720,9 +721,13 @@ class UserDbConn:
 
     # VC Rating
 
-    def update_vc_rating(self, user_id, rating):
-        now = datetime.datetime.now().timestamp()
-        self._insert_one('vc_rating', ('user_id', 'time', 'rating'), (user_id, now, rating))
+    def update_vc_rating(self, user_id, rating, vc_id=None, time = None):
+        if time is None:
+            time = datetime.datetime.now().timestamp()
+        if vc_id is None:
+            vc_id = 'none'
+        self._insert_one('vc_rating', ('user_id', 'vc_id', 'time', 'rating'),
+                                      (user_id, vc_id, time, rating))
 
     def get_vc_rating(self, user_id, create_if_not_exist=False):
         query = ('SELECT MAX(time), rating '

@@ -505,6 +505,12 @@ class RanklistNotMonitored(RanklistCacheError):
         self.contest = contest
 
 
+
+def getUsersVCRating(user_ids):
+        users_vc_rating_dict = {user_id: cf_common.user_db.get_vc_rating(user_id, True)
+                                for user_id in user_ids}
+        return users_vc_rating_dict
+
 class RanklistCache:
     _RELOAD_DELAY = 2 * 60
 
@@ -607,16 +613,15 @@ class RanklistCache:
 
     async def generate_vc_ranklist(self, contest_id, handles):
         contest, problems, standings = await cf.contest.standings(contest_id=contest_id,
-                                                                  show_unofficial=True)
+                                                                  show_unofficial=True, handles=list(handles))
         now = time.time()
         standings = [row for row in standings
                     if row.party.participantType == 'VIRTUAL'
                     and row.party.teamId is None
-                    and ((row.party.members[0].handle in handles) or handles is None)
                     ]
 
         handles = [row.party.members[0].handle for row in standings]
-        current_rating = await CacheSystem.getUsersVCRating(handles)
+        current_rating = getUsersVCRating(handles)
         ranklist = Ranklist(contest, problems, standings, now, is_rated=True)
         ranklist.predict(current_rating)
 
@@ -661,9 +666,3 @@ class CacheSystem:
                                   for user in ratedList}
         return users_effective_rating_dict
 
-    @staticmethod
-    @cached(ttl = 30 * 60)
-    async def getUsersVCRating(user_ids):
-        users_vc_rating_dict = {user_id: cf_common.user_db.get_vc_rating(user_id, True)
-                                for user_id in user_ids}
-        return users_vc_rating_dict
