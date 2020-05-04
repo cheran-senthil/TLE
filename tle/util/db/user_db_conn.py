@@ -1,4 +1,5 @@
 import sqlite3
+import datetime
 import time
 from enum import IntEnum
 
@@ -160,6 +161,16 @@ class UserDbConn:
             'guild_id     TEXT PRIMARY KEY'
             ')'
         )
+        self.conn.execute('''
+            CREATE TABLE IF NOT EXISTS "vc_rating" (
+                "user_id"	TEXT,
+                "time"      REAL,
+                "rating"    INTEGER,
+                PRIMARY KEY("user_id", "time")
+            )
+        ''')
+        
+
 
     def _insert_one(self, table: str, columns, values: tuple):
         n = len(values)
@@ -706,6 +717,27 @@ class UserDbConn:
         rc = self.conn.execute(active_query, active_ids).rowcount
         self.conn.commit()
         return rc
+
+    # VC Rating
+
+    def update_vc_rating(self, user_id, rating):
+        now = datetime.datetime.now().timestamp()
+        self._insert_one('vc_rating', ('user_id', 'time', 'rating'), (user_id, now, rating))
+
+    def get_vc_rating(self, user_id, create_if_not_exist=False):
+        query = ('SELECT MAX(time), rating '
+                 'FROM vc_rating '
+                 f'WHERE user_id = "{user_id}" '
+                 )
+        rating = self.conn.execute(query).fetchone()[1]
+        if rating is None:
+            if create_if_not_exist:
+                rating = 1500
+                self.update_vc_rating(user_id, rating)
+            else:
+                return None
+        return rating
+    
 
     def close(self):
         self.conn.close()
