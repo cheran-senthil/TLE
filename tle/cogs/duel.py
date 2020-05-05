@@ -8,7 +8,7 @@ from discord.ext import commands
 from collections import defaultdict, namedtuple
 from matplotlib import pyplot as plt
 
-from tle.util.db.user_db_conn import Duel, Winner
+from tle.util.db.user_db_conn import Duel, DuelType, Winner
 from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
 from tle.util import paginator
@@ -56,13 +56,16 @@ def get_cf_user(userid, guild_id):
     handle = cf_common.user_db.get_handle(userid, guild_id)
     return cf_common.user_db.fetch_cf_user(handle)
 
-def complete_duel(duelid, guild_id, win_status, winner, loser, finish_time, score):
+def complete_duel(duelid, guild_id, win_status, winner, loser, finish_time, score, dtype):
     winner_r = cf_common.user_db.get_duel_rating(winner.id)
     loser_r = cf_common.user_db.get_duel_rating(loser.id)
     delta = round(elo_delta(winner_r, loser_r, score))
-    rc = cf_common.user_db.complete_duel(duelid, win_status, finish_time, winner.id, loser.id, delta)
+    rc = cf_common.user_db.complete_duel(duelid, win_status, finish_time, winner.id, loser.id, delta, dtype)
     if rc == 0:
         raise DuelCogError('Hey! No cheating!')
+
+    if dtype == DuelType.UNOFFICIAL:
+        return None
 
     winner_cf = get_cf_user(winner.id, guild_id)
     loser_cf = get_cf_user(loser.id, guild_id)
@@ -119,9 +122,8 @@ class Dueling(commands.Cog):
         lowest_rating = min(user.rating for user in users)
         suggested_rating = max(round(lowest_rating, -2) + _DUEL_RATING_DELTA, 500)
         rating = round(rating, -2) if rating else suggested_rating
-
-        if rating > suggested_rating:
-            raise DuelCogError(f'{ctx.author.display_name}, you cannot challenge {opponent .display_name} to a duel rated more than {suggested_rating}!')
+        unofficial = rating > suggested_rating
+        dtype = DuelType.UNOFFICIAL if unofficial else DuelType.OFFICIAL
 
         solved = {sub.problem.name for subs in submissions for sub in subs if sub.verdict != 'COMPILATION_ERROR'}
         seen = {name for userid in userids for name, in cf_common.user_db.get_duel_problem_names(userid)}
@@ -146,10 +148,12 @@ class Dueling(commands.Cog):
         problem = problems[choice]
 
         issue_time = datetime.datetime.now().timestamp()
-        duelid = cf_common.user_db.create_duel(challenger_id, challengee_id, issue_time, problem)
-        await ctx.send(f'{ctx.author.mention} is challenging {opponent.mention} to a {rstr}duel!')
+        duelid = cf_common.user_db.create_duel(challenger_id, challengee_id, issue_time, problem, dtype)
+
+        ostr = 'an **unofficial**' if unofficial else 'a'
+        await ctx.send(f'{ctx.author.mention} is challenging {opponent.mention} to {ostr} {rstr}duel!')
         await asyncio.sleep(_DUEL_EXPIRY_TIME)
-        if cf_common.user_db.cancel_duel(duelid, Duel.EXPIRED):
+        if cf_common.user_db.cancel_duel(duelid, Duel.EXPIRED, dtype):
             await ctx.send(f'{ctx.author.mention}, your request to duel {opponent.display_name} has expired!')
 
     @duel.command(brief='Decline a duel')
@@ -203,7 +207,7 @@ class Dueling(commands.Cog):
         if not active:
             raise DuelCogError(f'{ctx.author.mention}, you are not in a duel.')
 
-        duelid, challenger_id, challengee_id, start_time, problem_name, contest_id, index = active
+        duelid, challenger_id, challengee_id, start_time, problem_name, contest_id, index, dtype = active
 
         UNSOLVED = 0
         TESTING = -1
@@ -236,17 +240,17 @@ class Dueling(commands.Cog):
                 winner = challenger if challenger_time < challengee_time else challengee
                 loser = challenger if challenger_time > challengee_time else challengee
                 win_status = Winner.CHALLENGER if winner == challenger else Winner.CHALLENGEE
-                embed = complete_duel(duelid, ctx.guild.id, win_status, winner, loser, min(challenger_time, challengee_time), 1)
+                embed = complete_duel(duelid, ctx.guild.id, win_status, winner, loser, min(challenger_time, challengee_time), 1, dtype)
                 await ctx.send(f'Both {challenger.mention} and {challengee.mention} solved it but {winner.mention} was {diff} faster!', embed=embed)
             else:
-                embed = complete_duel(duelid, ctx.guild.id, Winner.DRAW, challenger, challengee, challenger_time, 0.5)
+                embed = complete_duel(duelid, ctx.guild.id, Winner.DRAW, challenger, challengee, challenger_time, 0.5, dtype)
                 await ctx.send(f"{challenger.mention} and {challengee.mention} solved the problem in the exact same amount of time! It's a draw!", embed=embed)
 
         elif challenger_time:
-            embed = complete_duel(duelid, ctx.guild.id, Winner.CHALLENGER, challenger, challengee, challenger_time, 1)
+            embed = complete_duel(duelid, ctx.guild.id, Winner.CHALLENGER, challenger, challengee, challenger_time, 1, dtype)
             await ctx.send(f'{challenger.mention} beat {challengee.mention} in a duel!', embed=embed)
         elif challengee_time:
-            embed = complete_duel(duelid, ctx.guild.id, Winner.CHALLENGEE, challengee, challenger, challengee_time, 1)
+            embed = complete_duel(duelid, ctx.guild.id, Winner.CHALLENGEE, challengee, challenger, challengee_time, 1, dtype)
             await ctx.send(f'{challengee.mention} beat {challenger.mention} in a duel!', embed=embed)
         else:
             await ctx.send('Nobody solved the problem yet.')
@@ -257,7 +261,7 @@ class Dueling(commands.Cog):
         if not active:
             raise DuelCogError(f'{ctx.author.mention}, you are not in a duel.')
 
-        duelid, challenger_id, challengee_id, start_time = active
+        duelid, challenger_id, challengee_id, start_time, dtype = active
         now = datetime.datetime.now().timestamp()
         if now - start_time < _DUEL_NO_DRAW_TIME:
             draw_time = cf_common.pretty_time_format(start_time + _DUEL_NO_DRAW_TIME - now)
@@ -276,7 +280,7 @@ class Dueling(commands.Cog):
             return
 
         offerer = ctx.guild.get_member(self.draw_offers[duelid])
-        embed = complete_duel(duelid, ctx.guild.id, Winner.DRAW, offerer, ctx.author, now, 0.5)
+        embed = complete_duel(duelid, ctx.guild.id, Winner.DRAW, offerer, ctx.author, now, 0.5, dtype)
         await ctx.send(f'{ctx.author.mention} accepted draw offer by {offerer.mention}.', embed=embed)
 
     @duel.command(brief='Show duelist profile')
@@ -451,7 +455,7 @@ class Dueling(commands.Cog):
         if not active:
             raise DuelCogError(f'{ctx.author.mention}, you are not in a duel.')
 
-        duelid, challenger_id, challengee_id, start_time, _, _, _ = active
+        duelid, challenger_id, challengee_id, start_time, _, _, _, _ = active
         if datetime.datetime.now().timestamp() - start_time > _DUEL_INVALIDATE_TIME:
             raise DuelCogError(f'{ctx.author.mention}, you can no longer invalidate your duel.')
         await self.invalidate_duel(ctx, duelid, challenger_id, challengee_id)
@@ -464,7 +468,7 @@ class Dueling(commands.Cog):
         if not active:
             raise DuelCogError(f'{member.display_name} is not in a duel.')
 
-        duelid, challenger_id, challengee_id, _, _, _, _ = active
+        duelid, challenger_id, challengee_id, _, _, _, _, _ = active
         await self.invalidate_duel(ctx, duelid, challenger_id, challengee_id)
 
     @duel.command(brief='Plot rating', usage='[duelist]')

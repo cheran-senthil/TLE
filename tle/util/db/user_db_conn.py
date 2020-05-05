@@ -26,6 +26,10 @@ class Winner(IntEnum):
     CHALLENGER = 1
     CHALLENGEE = 2
 
+class DuelType(IntEnum):
+    UNOFFICIAL = 0
+    OFFICIAL = 1
+
 
 class UserDbError(commands.CommandError):
     pass
@@ -96,7 +100,8 @@ class UserDbConn:
                 "contest_id"	INTEGER,
                 "p_index"	INTEGER,
                 "status"	INTEGER,
-                "winner"	INTEGER
+                "winner"	INTEGER,
+                "type"		INTEGER
             )
         ''')
         self.conn.execute('''
@@ -463,23 +468,23 @@ class UserDbConn:
 
     def check_duel_draw(self, userid):
         query = f'''
-            SELECT id, challenger, challengee, start_time FROM duel
+            SELECT id, challenger, challengee, start_time, type FROM duel
             WHERE (challenger = ? OR challengee = ?) AND status == {Duel.ONGOING}
         '''
         return self.conn.execute(query, (userid, userid)).fetchone()
 
     def check_duel_complete(self, userid):
         query = f'''
-            SELECT id, challenger, challengee, start_time, problem_name, contest_id, p_index FROM duel
+            SELECT id, challenger, challengee, start_time, problem_name, contest_id, p_index, type FROM duel
             WHERE (challenger = ? OR challengee = ?) AND status == {Duel.ONGOING}
         '''
         return self.conn.execute(query, (userid, userid)).fetchone()
 
-    def create_duel(self, challenger, challengee, issue_time, prob):
+    def create_duel(self, challenger, challengee, issue_time, prob, dtype):
         query = f'''
-            INSERT INTO duel (challenger, challengee, issue_time, problem_name, contest_id, p_index, status) VALUES (?, ?, ?, ?, ?, ?, {Duel.PENDING})
+            INSERT INTO duel (challenger, challengee, issue_time, problem_name, contest_id, p_index, status, type) VALUES (?, ?, ?, ?, ?, ?, {Duel.PENDING}, ?)
         '''
-        duelid = self.conn.execute(query, (challenger, challengee, issue_time, prob.name, prob.contestId, prob.index)).lastrowid
+        duelid = self.conn.execute(query, (challenger, challengee, issue_time, prob.name, prob.contestId, prob.index, dtype)).lastrowid
         self.conn.commit()
         return duelid
 
@@ -517,7 +522,7 @@ class UserDbConn:
         self.conn.commit()
         return rc
 
-    def complete_duel(self, duelid, winner, finish_time, winner_id = -1, loser_id = -1, delta = 0):
+    def complete_duel(self, duelid, winner, finish_time, winner_id = -1, loser_id = -1, delta = 0, dtype = DuelType.OFFICIAL):
         query = f'''
             UPDATE duel SET status = {Duel.COMPLETE}, finish_time = ?, winner = ? WHERE id = ? AND status = {Duel.ONGOING}
         '''
@@ -526,8 +531,10 @@ class UserDbConn:
             self.conn.rollback()
             return 0
 
-        self.update_duel_rating(winner_id, +delta)
-        self.update_duel_rating(loser_id, -delta)
+        if dtype == DuelType.OFFICIAL:
+            self.update_duel_rating(winner_id, +delta)
+            self.update_duel_rating(loser_id, -delta)
+
         self.conn.commit()
         return 1
 
