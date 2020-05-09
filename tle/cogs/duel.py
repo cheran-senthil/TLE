@@ -153,7 +153,7 @@ class Dueling(commands.Cog):
         ostr = 'an **unofficial**' if unofficial else 'a'
         await ctx.send(f'{ctx.author.mention} is challenging {opponent.mention} to {ostr} {rstr}duel!')
         await asyncio.sleep(_DUEL_EXPIRY_TIME)
-        if cf_common.user_db.cancel_duel(duelid, Duel.EXPIRED, dtype):
+        if cf_common.user_db.cancel_duel(duelid, Duel.EXPIRED):
             await ctx.send(f'{ctx.author.mention}, your request to duel {opponent.display_name} has expired!')
 
     @duel.command(brief='Decline a duel')
