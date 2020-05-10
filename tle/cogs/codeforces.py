@@ -458,11 +458,7 @@ class Codeforces(commands.Cog):
             for rating in ratings:
                 rWinsProbability *= Codeforces.getEloWinProbability(r, rating)
 
-            if rWinsProbability==0:
-                left = r
-                continue
-            rating = math.log10(1 / (rWinsProbability) - 1) * 400 + r
-            if rating > r:
+            if rWinsProbability < 0.5:
                 left = r
             else:
                 right = r
