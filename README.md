@@ -68,15 +68,10 @@ apt-get install libjpeg-dev zlib1g-dev
 
 You will need to setup a bot on your server before continuing, follow the directions [here](https://github.com/reactiflux/discord-irc/wiki/Creating-a-discord-bot-&-getting-a-token). Following this, you should have your bot appearing in your server and you should have the Discord bot token.
 
-To start TLE export the token as an environment variable
+To start TLE export the token as an environment variable and run TLE using:
 
 ```bash
 export BOT_TOKEN="<BOT_TOKEN_FROM_DISCORD_CONSOLE>"
-```
-
-and run
-
-```bash
 poetry run python -m tle
 ```
 
