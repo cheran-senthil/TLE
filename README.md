@@ -30,7 +30,9 @@ Clone the repository
 git clone https://github.com/cheran-senthil/TLE
 ```
 
-Now all dependencies need to be installed. TLE uses [Poetry](https://poetry.eustace.io/) to manage dependencies. After installing Poetry navigate to the root of the repo and run
+### Dependencies
+
+Now all dependencies need to be installed. TLE uses [Poetry](https://poetry.eustace.io/) to manage its python dependencies. After installing Poetry navigate to the root of the repo and run
 
 ```bash
 poetry install
@@ -48,19 +50,21 @@ python3.7 -m poetry install
 
 ---
 
-TLE also depends on cairo and pango for graphics and text rendering, which you need to install through your package manager. For Ubuntu, the relevant packages can be installed with:
+#### Library dependencies
+
+TLE also depends on cairo and pango for graphics and text rendering, which you need to install. For Ubuntu, the relevant packages can be installed with:
 
 ```bash
 apt-get install libcairo2-dev libgirepository1.0-dev libpango1.0-dev pkg-config python3-dev gir1.2-pango-1.0
 ```
 
-TLE also depends on pillow, which needs to install the following packages:
+Additionally TLE uses pillow for graphics, which requires the following packages:
 
 ```bash
 apt-get install libjpeg-dev zlib1g-dev
 ```
 
----
+### Final steps
 
 You will need to setup a bot on your server before continuing, follow the directions [here](https://github.com/reactiflux/discord-irc/wiki/Creating-a-discord-bot-&-getting-a-token). Following this, you should have your bot appearing in your server and you should have the Discord bot token.
 
