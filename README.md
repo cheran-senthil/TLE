@@ -43,7 +43,7 @@ poetry install
 If you are using Ubuntu with older versions of python, then do the following:
 
 ```bash
-apt-get install python3.7-venv
+apt-get install python3.7-venv libpython3.7-dev
 python3.7 -m pip install poetry
 python3.7 -m poetry install
 ```
