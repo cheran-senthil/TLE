@@ -455,8 +455,8 @@ class Codeforces(commands.Cog):
             r = (left + right) / 2.0
 
             rWinsProbability = 1.0
-            for rating in ratings:
-                rWinsProbability *= Codeforces.getEloWinProbability(r, rating)
+            for rating, count in ratings:
+                rWinsProbability *= Codeforces.getEloWinProbability(r, rating)**count
 
             if rWinsProbability < 0.5:
                 left = r
@@ -491,8 +491,7 @@ class Codeforces(commands.Cog):
                 else:
                     handle_counts[parse_str[0]] = 1
                 parsed_handles.append(parse_str[0])
-            if sum(handle_counts.values()) > 100000:
-                raise CodeforcesCogError('Too large of a team!')
+
             cf_handles = await cf_common.resolve_handles(ctx, self.converter, parsed_handles, mincnt=1, maxcnt=1000)
             cf_handles = normalize(cf_handles)
             cf_to_original = {a: b for a, b in zip(cf_handles, parsed_handles)}
@@ -508,7 +507,7 @@ class Codeforces(commands.Cog):
                     raise CodeforcesCogError('How can you have negative members in team?')
 
             user_str = ', '.join(user_strs)
-            ratings = [user.rating for user in users if user.rating for _ in range(handle_counts[cf_to_original[user.handle.lower()]])]
+            ratings = [(user.rating, handle_counts[cf_to_original[user.handle.lower()]]) for user in users if user.rating]
 
         if len(ratings) == 0:
             raise CodeforcesCogError("No CF usernames with ratings passed in.")
