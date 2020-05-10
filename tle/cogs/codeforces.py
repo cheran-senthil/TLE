@@ -503,8 +503,8 @@ class Codeforces(commands.Cog):
                     user_strs.append(f'{original_to_cf[a]}*{b}')
                 elif b == 1:
                     user_strs.append(original_to_cf[a])
-                elif b < 0:
-                    raise CodeforcesCogError('How can you have negative members in team?')
+                elif b <= 0:
+                    raise CodeforcesCogError('How can you have nonpositive members in team?')
 
             user_str = ', '.join(user_strs)
             ratings = [(user.rating, handle_counts[cf_to_original[user.handle.lower()]]) for user in users if user.rating]
