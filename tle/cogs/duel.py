@@ -528,7 +528,7 @@ class Dueling(commands.Cog):
                 rating_data[-1][1]))
             for duelist, rating_data in plot_data.items()
         ]
-        plt.legend(labels, loc='upper left')
+        plt.legend(labels, loc='upper left', prop=gc.fontprop)
 
         discord_file = gc.get_current_figure_as_file()
         embed = discord_common.cf_color_embed(title='Duel rating graph')

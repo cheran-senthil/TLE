@@ -8,7 +8,7 @@ from tle import constants
 from matplotlib import pyplot as plt
 from matplotlib import rcParams
 
-rcParams['font.sans-serif'] = 'Noto Sans CJK JP'
+fontprop = matplotlib.font_manager.FontProperties(fname=constants.NOTO_SANS_CJK_REGULAR_FONT_PATH)
 
 
 # String wrapper to avoid the underscore behavior in legends
