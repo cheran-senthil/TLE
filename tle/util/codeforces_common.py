@@ -311,7 +311,7 @@ class SubFilter:
                     problems.add(problem_key)
         return solved_subs
 
-    def filter(self, submissions):
+    def filter_subs(self, submissions):
         submissions = SubFilter.filter_solved(submissions)
         filtered_subs = []
         for submission in submissions:
@@ -334,3 +334,8 @@ class SubFilter:
             if type_ok and date_ok and rating_ok and tag_ok and team_ok and problem_ok and contest_ok and index_ok:
                 filtered_subs.append(submission)
         return filtered_subs
+
+    def filter_rating_changes(self, rating_changes):
+        rating_changes = [change for change in rating_changes
+                    if self.dlo <= change.ratingUpdateTimeSeconds < self.dhi]
+        return rating_changes

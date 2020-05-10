@@ -36,9 +36,9 @@ def nice_sub_type(types):
                 'PRACTICE':'Practice: {}'}
     return [nice_map[t] for t in types]
 
-def _plot_rating(resp, mark='o', labels: List[str] = None):
-    labels = [''] * len(resp) if labels is None else labels
-    for rating_changes, label in zip(resp, labels):
+def _plot_rating(resp, mark='o'):
+
+    for rating_changes in resp:
         ratings, times = [], []
         for rating_change in rating_changes:
             ratings.append(rating_change.newRating)
@@ -50,8 +50,7 @@ def _plot_rating(resp, mark='o', labels: List[str] = None):
                  marker=mark,
                  markersize=3,
                  markerfacecolor='white',
-                 markeredgewidth=0.5,
-                 label=label)
+                 markeredgewidth=0.5)
 
     gc.plot_rating_bg(cf.RATED_RANKS)
     plt.gcf().autofmt_xdate()
@@ -205,13 +204,17 @@ class Graphs(commands.Cog):
         use a server member's name instead by prefixing it with '!'."""
         await ctx.send_help('plot')
 
-    @plot.command(brief='Plot Codeforces rating graph', usage='[+zoom] [handles...]')
+    @plot.command(brief='Plot Codeforces rating graph', usage='[+zoom] [handles...] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy]')
     async def rating(self, ctx, *args: str):
         """Plots Codeforces rating graph for the handles provided."""
+
+        filt = cf_common.SubFilter()
+        args = filt.parse(args)
         (zoom,), args = cf_common.filter_flags(args, ['+zoom'])
         handles = args or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         resp = [await cf.user.rating(handle=handle) for handle in handles]
+        resp = [filt.filter_rating_changes(rating_changes) for rating_changes in resp]
 
         if not any(resp):
             handles_str = ', '.join(f'`{handle}`' for handle in handles)
@@ -290,7 +293,7 @@ class Graphs(commands.Cog):
         handles = args or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         resp = [await cf.user.status(handle=handle) for handle in handles]
-        all_solved_subs = [filt.filter(submissions) for submissions in resp]
+        all_solved_subs = [filt.filter_subs(submissions) for submissions in resp]
 
         if not any(all_solved_subs):
             raise GraphCogError(f'There are no problems within the specified parameters.')
@@ -341,7 +344,7 @@ class Graphs(commands.Cog):
         handles = args or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         resp = [await cf.user.status(handle=handle) for handle in handles]
-        all_solved_subs = [filt.filter(submissions) for submissions in resp]
+        all_solved_subs = [filt.filter_subs(submissions) for submissions in resp]
 
         if not any(all_solved_subs):
             raise GraphCogError(f'There are no problems within the specified parameters.')
@@ -402,11 +405,8 @@ class Graphs(commands.Cog):
         handle = handle or '!' + str(ctx.author)
         handle, = await cf_common.resolve_handles(ctx, self.converter, (handle,))
         rating_resp = [await cf.user.rating(handle=handle)]
-        submissions = filt.filter(await cf.user.status(handle=handle))
-
-        rating_resp = [[change for change in changes
-                        if filt.dlo <= change.ratingUpdateTimeSeconds < filt.dhi]
-                       for changes in rating_resp]
+        rating_resp = [filt.filter_rating_changes(rating_changes) for rating_changes in rating_resp]
+        submissions = filt.filter_subs(await cf.user.status(handle=handle))
 
         def extract_time_and_rating(submissions):
             return [(dt.datetime.fromtimestamp(sub.creationTimeSeconds), sub.problem.rating)
