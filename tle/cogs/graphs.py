@@ -208,9 +208,9 @@ class Graphs(commands.Cog):
     async def rating(self, ctx, *args: str):
         """Plots Codeforces rating graph for the handles provided."""
 
+        (zoom,), args = cf_common.filter_flags(args, ['+zoom'])
         filt = cf_common.SubFilter()
         args = filt.parse(args)
-        (zoom,), args = cf_common.filter_flags(args, ['+zoom'])
         handles = args or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         resp = [await cf.user.rating(handle=handle) for handle in handles]
