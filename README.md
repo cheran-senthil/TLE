@@ -71,7 +71,7 @@ You will need to setup a bot on your server before continuing, follow the direct
 To start TLE export the token as an environment variable and run TLE using:
 
 ```bash
-export BOT_TOKEN="<BOT_TOKEN_FROM_DISCORD_CONSOLE>"
+export BOT_TOKEN="XXXXXXXXXXXXXXXXXXXXXXXX.XXXXXX.XXXXXXXXXXXXXXXXXXXXXXXXXXX"
 poetry run python -m tle
 ```
 
