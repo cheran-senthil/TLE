@@ -162,7 +162,7 @@ class Codeforces(commands.Cog):
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         submissions = [await cf.user.status(handle=handle) for handle in handles]
         submissions = [sub for subs in submissions for sub in subs]
-        submissions = filt.filter(submissions)
+        submissions = filt.filter_subs(submissions)
 
         if not submissions:
             raise CodeforcesCogError('Submissions not found within the search parameters')
