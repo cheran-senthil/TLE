@@ -12,7 +12,6 @@ from discord.ext import commands
 from matplotlib import pyplot as plt
 from matplotlib import patches as patches
 from matplotlib import lines as mlines
-from matplotlib import font_manager as fm
 
 from tle import constants
 from tle.util import codeforces_api as cf
@@ -195,7 +194,6 @@ class Graphs(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.converter = commands.MemberConverter()
-        self.fontprop = fm.FontProperties(fname=constants.NOTO_SANS_CJK_REGULAR_FONT_PATH)
 
     @commands.group(brief='Graphs for analyzing Codeforces activity',
                     invoke_without_command=True)
@@ -659,7 +657,7 @@ class Graphs(commands.Cog):
         plt.hist(deltas, bins=hist_bins, label=labels, rwidth=1)
         plt.xlabel('Problem delta')
         plt.ylabel('Number solved')
-        plt.legend(prop=self.fontprop)
+        plt.legend(prop=gc.fontprop)
 
         discord_file = gc.get_current_figure_as_file()
         embed = discord_common.cf_color_embed(title='Histogram of gudgitting')
