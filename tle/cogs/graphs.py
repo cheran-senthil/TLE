@@ -326,8 +326,8 @@ class Graphs(commands.Cog):
 
             step = 200
             hist_bins = list(range(filt.rlo - step // 2, filt.rhi + step // 2 + 1, step))
-            plt.hist(all_ratings, bins=hist_bins, label=labels)
-            plt.legend(loc='upper right')
+            plt.hist(all_ratings, bins=hist_bins)
+            plt.legend(labels, loc='upper right')
 
         discord_file = gc.get_current_figure_as_file()
         embed = discord_common.cf_color_embed(title='Histogram of problems solved on Codeforces')
@@ -373,8 +373,8 @@ class Graphs(commands.Cog):
             labels = [gc.StrWrap(f'{handle}: {len(times)}')
                       for handle, times in zip(handles, all_times)]
 
-            plt.hist(all_times, label=labels)
-            plt.legend()
+            plt.hist(all_times)
+            plt.legend(labels)
 
         plt.gcf().autofmt_xdate()
         discord_file = gc.get_current_figure_as_file()
