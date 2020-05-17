@@ -507,7 +507,7 @@ class RanklistNotMonitored(RanklistCacheError):
 
 
 def getUsersVCRating(user_ids):
-        users_vc_rating_dict = {user_id: cf_common.user_db.get_vc_rating(user_id, True)
+        users_vc_rating_dict = {user_id: cf_common.user_db.get_vc_rating(user_id)
                                 for user_id in user_ids}
         return users_vc_rating_dict
 
@@ -613,18 +613,29 @@ class RanklistCache:
 
     async def generate_vc_ranklist(self, contest_id, handles):
         contest, problems, standings = await cf.contest.standings(contest_id=contest_id,
-                                                                  show_unofficial=True, handles=list(handles))
-        now = time.time()
+                                                                  show_unofficial=True)
+        # Exclude PRACTICE and MANAGER
         standings = [row for row in standings
-                    if row.party.participantType == 'VIRTUAL'
-                    and row.party.teamId is None
-                    ]
+                     if row.party.participantType in ('CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL')]
+        _, _, official_standings = await cf.contest.standings(contest_id=contest_id)
+        now = time.time()
+        current_official_rating = await CacheSystem.getUsersEffectiveRating(activeOnly=False)
+        current_official_rating = {row.party.members[0].handle: current_official_rating.get(row.party.members[0].handle, 1500)
+                                  for row in official_standings}
 
-        handles = [row.party.members[0].handle for row in standings]
-        current_rating = getUsersVCRating(handles)
+        # TODO: assert that none of the given handles are in the official standings.
+        handles = [row.party.members[0].handle for row in standings if row.party.members[0].handle in handles]
+        current_vc_rating = getUsersVCRating(handles)
         ranklist = Ranklist(contest, problems, standings, now, is_rated=True)
-        ranklist.predict(current_rating)
+        delta_by_handle = {}
+        for handle in handles:
+            mixed_ratings = current_official_rating.copy()
+            mixed_ratings[handle] = current_vc_rating.get(handle)
+            ranklist.predict(mixed_ratings)
+            delta_by_handle[handle] = ranklist.delta_by_handle.get(handle, 0)
 
+        ranklist.predict(current_official_rating)
+        ranklist.delta_by_handle.update(delta_by_handle)
         return ranklist
 
     async def _fetch(self, contests):

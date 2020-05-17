@@ -2,10 +2,13 @@ import sqlite3
 import datetime
 import time
 from enum import IntEnum
+from collections import namedtuple
 
 from discord.ext import commands
 
 from tle.util import codeforces_api as cf
+
+_DEFAULT_VC_RATING = 1500
 
 class Gitgud(IntEnum):
     GOTGUD = 0
@@ -30,6 +33,9 @@ class Winner(IntEnum):
 class DuelType(IntEnum):
     UNOFFICIAL = 0
     OFFICIAL = 1
+class RatedVC(IntEnum):
+    ONGOING = 0
+    FINISHED = 1
 
 
 class UserDbError(commands.CommandError):
@@ -49,9 +55,18 @@ class UniqueConstraintFailed(UserDbError):
     pass
 
 
+def namedtuple_factory(cursor, row):
+    """Returns sqlite rows as named tuples."""
+    # TODO: Handle the case where there's a field like "MAX(column)"
+    fields = [col[0] for col in cursor.description]
+    Row = namedtuple("Row", fields)
+    return Row(*row)
+
+
 class UserDbConn:
     def __init__(self, dbfile):
         self.conn = sqlite3.connect(dbfile)
+        self.conn.row_factory = namedtuple_factory
         self.create_tables()
 
     def create_tables(self):
@@ -161,15 +176,33 @@ class UserDbConn:
             'guild_id     TEXT PRIMARY KEY'
             ')'
         )
+
+        # Rated VCs stuff:
         self.conn.execute('''
-            CREATE TABLE IF NOT EXISTS "vc_rating" (
-                "user_id"	TEXT,
-                "vc_id"     TEXT,
-                "time"      REAL,
-                "rating"    INTEGER,
-                PRIMARY KEY("user_id", "time")
+            CREATE TABLE IF NOT EXISTS "rated_vcs" (
+                "id"	         INTEGER PRIMARY KEY AUTOINCREMENT,
+                "contest_id"     INTEGER NOT NULL,
+                "start_time"     REAL,
+                "finish_time"    REAL,
+                "status"         INTEGER
             )
         ''')
+
+        # TODO: Do we need to explicitly specify the fk constraint or just depend on the middleware?
+        self.conn.execute('''
+            CREATE TABLE IF NOT EXISTS "rated_vc_users" (
+                "vc_id"	         INTEGER,
+                "user_id"        TEXT NOT NULL,
+                "rating"         INTEGER,
+
+                CONSTRAINT fk_vc
+                    FOREIGN KEY (vc_id)
+                    REFERENCES rated_vcs(id),
+
+                PRIMARY KEY(vc_id, user_id)
+            )
+        ''')
+
         
 
 
@@ -719,28 +752,79 @@ class UserDbConn:
         self.conn.commit()
         return rc
 
-    # VC Rating
+    # Rated VC stuff
 
-    def update_vc_rating(self, user_id, rating, vc_id=None, time = None):
-        if time is None:
-            time = datetime.datetime.now().timestamp()
-        if vc_id is None:
-            vc_id = 'none'
-        self._insert_one('vc_rating', ('user_id', 'vc_id', 'time', 'rating'),
-                                      (user_id, vc_id, time, rating))
+    def create_rated_vc(self, contest_id: int, start_time: float, finish_time: float, user_ids: [str]):
+        """ Creates a rated vc and returns its id.
+        """
+        query = ('INSERT INTO rated_vcs '
+                 '(contest_id, start_time, finish_time, status) '
+                 f'VALUES ({contest_id}, {start_time}, {finish_time}, {RatedVC.ONGOING}) ')
+        id = None
+        with self.conn:
+            id = self.conn.execute(query).lastrowid
+            self.conn.commit()
 
-    def get_vc_rating(self, user_id, create_if_not_exist=False):
-        query = ('SELECT MAX(time), rating '
-                 'FROM vc_rating '
+        for user_id in user_ids:
+            query = ('INSERT INTO rated_vc_users '
+                 '(vc_id, user_id) '
+                 f'VALUES ({id}, "{user_id}") ')
+            with self.conn:
+                self.conn.execute(query)
+                self.conn.commit()
+        return id
+
+    def get_rated_vc(self, vc_id: int):
+        query = ('SELECT * '
+                'FROM rated_vcs '
+                f'WHERE id = {vc_id} ')
+        vc = self.conn.execute(query).fetchone()
+        return vc
+
+    def get_ongoing_rated_vc_ids(self):
+        query = ('SELECT id '
+                 'FROM rated_vcs '
+                 f'WHERE status = "{RatedVC.ONGOING}" '
+                 )
+        vcs = self.conn.execute(query).fetchall()
+        vc_ids = [vc.id for vc in vcs]
+        return vc_ids
+
+    def get_rated_vc_user_ids(self, vc_id: int):
+        query = ('SELECT user_id '
+                 'FROM rated_vc_users '
+                 f'WHERE vc_id = {vc_id} '
+                 )
+        users = self.conn.execute(query).fetchall()
+        user_ids = [user.user_id for user in users]
+        return user_ids
+
+    def finish_rated_vc(self, vc_id: int):
+        query = ('UPDATE rated_vcs '
+                f'SET status = {RatedVC.FINISHED} '
+                f'WHERE id = {vc_id} ')
+
+        with self.conn:
+            self.conn.execute(query)
+            self.conn.commit()
+
+    def update_vc_rating(self, vc_id: int, user_id: str, rating: int):
+        query = ('INSERT OR REPLACE INTO rated_vc_users '
+                 '(vc_id, user_id, rating) '
+                 f'VALUES ({vc_id}, "{user_id}", {rating}) ')
+
+        with self.conn:
+            self.conn.execute(query)
+            self.conn.commit()
+
+    def get_vc_rating(self, user_id):
+        query = ('SELECT MAX(vc_id) AS latest_vc_id, rating '
+                 'FROM rated_vc_users '
                  f'WHERE user_id = "{user_id}" '
                  )
-        rating = self.conn.execute(query).fetchone()[1]
+        rating = self.conn.execute(query).fetchone().rating
         if rating is None:
-            if create_if_not_exist:
-                rating = 1500
-                self.update_vc_rating(user_id, rating)
-            else:
-                return None
+            return _DEFAULT_VC_RATING
         return rating
     
 
