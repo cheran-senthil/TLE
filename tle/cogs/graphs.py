@@ -395,6 +395,8 @@ class Graphs(commands.Cog):
             elif arg[0:2] == 's=':
                 point_size = int(arg[2:])
             else:
+                if handle:
+                    raise GraphCogError('Only one handle allowed.')
                 handle = arg
 
         if bin_size < 1 or point_size < 1 or point_size > 100:
@@ -410,8 +412,8 @@ class Graphs(commands.Cog):
             return [(dt.datetime.fromtimestamp(sub.creationTimeSeconds), sub.problem.rating)
                     for sub in submissions]
 
-        if not any(rating_resp) and not any(submissions):
-            raise GraphCogError(f'User `{handle}` is not rated and has not solved any rated problem')
+        if not any(submissions):
+            raise GraphCogError(f'No submissions for user `{handle}`')
 
         solved_by_type = _classify_submissions(submissions)
         regular = extract_time_and_rating(solved_by_type['CONTESTANT'] +
