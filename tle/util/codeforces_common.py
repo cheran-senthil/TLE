@@ -201,7 +201,7 @@ async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
     if '+server' in handles:
         handles.remove('+server')
         guild_handles = {handle for discord_id, handle
-                            in cf_common.user_db.get_handles_for_guild(ctx.guild.id)}
+                            in user_db.get_handles_for_guild(ctx.guild.id)}
         handles.update(guild_handles)
     if len(handles) < mincnt or (maxcnt and maxcnt < len(handles)):
         raise HandleCountOutOfBoundsError(mincnt, maxcnt)

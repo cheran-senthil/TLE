@@ -471,13 +471,11 @@ class Contests(commands.Cog):
         paginator.paginate(self.bot, channel, pages, wait_time=_STANDINGS_PAGINATE_WAIT_TIME)
 
     @commands.command(brief='Show ranklist for the given vc, considering only the given handles', usage = '<contest_id> [handles]')
-    @commands.has_any_role('Admin', 'Moderator')
     async def vc_ranklist(self, ctx, contest_id: int, *handles: str):
         handles = await cf_common.resolve_handles(ctx, self.member_converter, handles, maxcnt=None)
         await self._ranklist(ctx.channel, contest_id, handles, vc=True, show_contest_embed=False)
 
     @commands.command(brief='Start a rated vc.', usage='<contest_id> <duration_in_mins> <handles>')
-    @commands.has_any_role('Admin', 'Moderator')
     async def ratedvc(self, ctx, contest_id:int, duration:int, *handles: str):
         handles = await cf_common.resolve_handles(ctx, self.member_converter, handles, maxcnt=None)
         start_time = time.time()
@@ -503,6 +501,7 @@ class Contests(commands.Cog):
             old_rating = cf_common.user_db.get_vc_rating(handle)
             new_rating = old_rating + delta
             cf_common.user_db.update_vc_rating(vc_id, handle, new_rating)
+            await channel.send(f'{handle} : {old_rating} ---> {new_rating}')
         cf_common.user_db.finish_rated_vc(vc_id)
         return
         
@@ -517,6 +516,33 @@ class Contests(commands.Cog):
         channel = self.bot.get_channel(int(channel_id))
         for rated_vc_id in ongoing_rated_vcs:
             await self._watch_rated_vc(rated_vc_id, channel)
+
+    @commands.command(brief='Show vc ratings', usage = '')
+    async def vc_ratings(self, ctx):
+        handles = await cf_common.resolve_handles(ctx, self.member_converter, handles=None, maxcnt=None)
+        users = [(handle, handle, cf_common.user_db.get_vc_rating(handle))
+                 for handle in handles
+                ]
+
+        _PER_PAGE = 10
+        def make_page(chunk, page_num):
+            style = table.Style('{:>}  {:<}  {:<}  {:<}')
+            t = table.Table(style)
+            t += table.Header('#', 'Name', 'Handle', 'Rating')
+            t += table.Line()
+            for index, (member, handle, rating) in enumerate(chunk):
+                rating_str = f'{rating} ({rating2rank(rating).title_abbr})'
+                t += table.Data(_PER_PAGE * page_num + index, f'{member.display_name}', handle, rating_str)
+
+            table_str = f'```\n{t}\n```'
+            embed = discord_common.cf_color_embed(description=table_str)
+            return 'List of duelists', embed
+
+        if not users:
+            raise DuelCogError('There are no active duelists.')
+
+        pages = [make_page(chunk, k) for k, chunk in enumerate(paginator.chunkify(users, _PER_PAGE))]
+        paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
 
     @discord_common.send_error_if(ContestCogError, rl.RanklistError,

@@ -57,8 +57,7 @@ class UniqueConstraintFailed(UserDbError):
 
 def namedtuple_factory(cursor, row):
     """Returns sqlite rows as named tuples."""
-    # TODO: Handle the case where there's a field like "MAX(column)"
-    fields = [col[0] for col in cursor.description]
+    fields = [col[0] for col in cursor.description if col[0].isidentifier()]
     Row = namedtuple("Row", fields)
     return Row(*row)
 
@@ -204,7 +203,7 @@ class UserDbConn:
         ''')
 
         
-
+    # Helper functions.
 
     def _insert_one(self, table: str, columns, values: tuple):
         n = len(values)
@@ -223,6 +222,18 @@ class UserDbConn:
         rc = self.conn.executemany(query, values).rowcount
         self.conn.commit()
         return rc
+
+    def _fetchone(self, query:str, row_factory=None):
+        self.conn.row_factory = row_factory
+        res = self.conn.execute(query).fetchone()
+        self.conn.row_factory = None
+        return res
+
+    def _fetchall(self, query:str, row_factory=None):
+        self.conn.row_factory = row_factory
+        res = self.conn.execute(query).fetchall()
+        self.conn.row_factory = None
+        return res
 
     def new_challenge(self, user_id, issue_time, prob, delta):
         query1 = '''
@@ -778,7 +789,7 @@ class UserDbConn:
         query = ('SELECT * '
                 'FROM rated_vcs '
                 f'WHERE id = {vc_id} ')
-        vc = self.conn.execute(query).fetchone()
+        vc = self._fetchone(query, namedtuple_factory)
         return vc
 
     def get_ongoing_rated_vc_ids(self):
@@ -786,7 +797,7 @@ class UserDbConn:
                  'FROM rated_vcs '
                  f'WHERE status = "{RatedVC.ONGOING}" '
                  )
-        vcs = self.conn.execute(query).fetchall()
+        vcs = self._fetchall(query, namedtuple_factory)
         vc_ids = [vc.id for vc in vcs]
         return vc_ids
 
@@ -795,7 +806,7 @@ class UserDbConn:
                  'FROM rated_vc_users '
                  f'WHERE vc_id = {vc_id} '
                  )
-        users = self.conn.execute(query).fetchall()
+        users = self._fetchall(query, namedtuple_factory)
         user_ids = [user.user_id for user in users]
         return user_ids
 
@@ -820,9 +831,9 @@ class UserDbConn:
     def get_vc_rating(self, user_id):
         query = ('SELECT MAX(vc_id) AS latest_vc_id, rating '
                  'FROM rated_vc_users '
-                 f'WHERE user_id = "{user_id}" '
+                 f'WHERE user_id = "{user_id}" AND rating IS NOT NULL'
                  )
-        rating = self.conn.execute(query).fetchone().rating
+        rating = self._fetchone(query, namedtuple_factory).rating
         if rating is None:
             return _DEFAULT_VC_RATING
         return rating
