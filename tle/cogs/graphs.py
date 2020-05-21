@@ -656,10 +656,10 @@ class Graphs(commands.Cog):
 
         plt.clf()
         plt.margins(x=0)
-        plt.hist(deltas, bins=hist_bins, label=labels, rwidth=1)
+        plt.hist(deltas, bins=hist_bins, rwidth=1)
         plt.xlabel('Problem delta')
         plt.ylabel('Number solved')
-        plt.legend(prop=gc.fontprop)
+        plt.legend(labels, prop=gc.fontprop)
 
         discord_file = gc.get_current_figure_as_file()
         embed = discord_common.cf_color_embed(title='Histogram of gudgitting')
