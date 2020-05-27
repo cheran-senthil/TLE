@@ -481,7 +481,11 @@ class Contests(commands.Cog):
         start_time = time.time()
         finish_time = start_time + duration * 60
         cf_common.user_db.create_rated_vc(contest_id, start_time, finish_time, list(handles))
-        await ctx.send(f'Starting ratedvc {contest_id} with handles: {handles}')
+        title = f'Starting rated VC {contest_id} with handles:'
+        msg = "\n".join(handles)
+        contest = cf_common.cache2.contest_cache.get_contest(contest_id)
+        embed = discord_common.cf_color_embed(title=title, description=msg, url=contest.url)
+        await ctx.send(embed=embed)
 
     @staticmethod
     def _make_vc_rating_changes_embed(guild, contest_id, change_by_handle):
@@ -538,7 +542,7 @@ class Contests(commands.Cog):
 
         desc = '\n'.join(rank_changes_str) or 'No rank changes'
         embed = discord_common.cf_color_embed(title=contest.name, url=contest.url, description=desc)
-        embed.set_author(name='Rank updates')
+        embed.set_author(name='VC Results')
         embed.add_field(name='Rating Changes',
                         value='\n'.join(rating_changes_str),
                         inline=False)
@@ -553,8 +557,6 @@ class Contests(commands.Cog):
             await self._ranklist(channel, vc.contest_id, handles, vc=True, show_contest_embed=False)
             return
         ranklist = await cf_common.cache2.ranklist_cache.generate_vc_ranklist(vc.contest_id, handles)
-        await channel.send('Final Standings')
-        await self._ranklist(channel, vc.contest_id, handles, ranklist=ranklist)
         rating_change_by_handle = {}
         RatingChange = namedtuple('RatingChange', 'handle oldRating newRating')
         for handle in handles:
@@ -566,6 +568,8 @@ class Contests(commands.Cog):
             rating_change_by_handle[handle] = RatingChange(handle=handle, oldRating=old_rating, newRating=new_rating)
             cf_common.user_db.update_vc_rating(vc_id, handle, new_rating)
         cf_common.user_db.finish_rated_vc(vc_id)
+        await channel.send('Final Standings')
+        await self._ranklist(channel, vc.contest_id, handles, ranklist=ranklist, show_contest_embed=False)
         await channel.send(embed=self._make_vc_rating_changes_embed(channel.guild, vc.contest_id, rating_change_by_handle))
         return
         
