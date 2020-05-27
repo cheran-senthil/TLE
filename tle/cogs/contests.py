@@ -5,7 +5,7 @@ import logging
 import time
 import datetime as dt
 import os
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 
 import discord
 from discord.ext import commands
@@ -26,7 +26,7 @@ _CONTEST_PAGINATE_WAIT_TIME = 5 * 60
 _STANDINGS_PER_PAGE = 15
 _STANDINGS_PAGINATE_WAIT_TIME = 2 * 60
 _FINISHED_CONTESTS_LIMIT = 5
-_WATCHING_RATED_VC_WAIT_TIME = 5 * 60
+_WATCHING_RATED_VC_WAIT_TIME = 10 * 60
 
 class ContestCogError(commands.CommandError):
     pass
@@ -483,6 +483,67 @@ class Contests(commands.Cog):
         cf_common.user_db.create_rated_vc(contest_id, start_time, finish_time, list(handles))
         await ctx.send(f'Starting ratedvc {contest_id} with handles: {handles}')
 
+    @staticmethod
+    def _make_vc_rating_changes_embed(guild, contest_id, change_by_handle):
+        """Make an embed containing a list of rank changes and top rating increases for the members
+        of this guild.
+        """
+        contest = cf_common.cache2.contest_cache.get_contest(contest_id)
+        user_id_handle_pairs = cf_common.user_db.get_handles_for_guild(guild.id)
+        member_handle_pairs = [(guild.get_member(int(user_id)), handle)
+                               for user_id, handle in user_id_handle_pairs]
+        def ispurg(member):
+            # TODO: temporary code, todo properly later
+            return any(role.name == 'Purgatory' for role in member.roles)
+
+        member_change_pairs = [(member, change_by_handle[handle])
+                               for member, handle in member_handle_pairs
+                               if member is not None and handle in change_by_handle and not ispurg(member)]
+        if not member_change_pairs:
+            raise HandleCogError(f'No member of this server participated in VC `{contest.id} | {contest.name}`.')
+
+        member_change_pairs.sort(key=lambda pair: pair[1].newRating, reverse=True)
+        rank_to_role = {role.name: role for role in guild.roles}
+
+        def rating_to_displayable_rank(rating):
+            rank = cf.rating2rank(rating).title
+            role = rank_to_role.get(rank)
+            return role.mention if role else rank
+
+        rank_changes_str = []
+        for member, change in member_change_pairs:
+            cache = cf_common.cache2.rating_changes_cache
+            if (change.oldRating == 1500
+                    and len(cache.get_rating_changes_for_handle(change.handle)) == 1):
+                # If this is the user's first rated contest.
+                # TODO handle the new rating system changes regarding newcomers.
+                old_role = 'Unrated'
+            else:
+                old_role = rating_to_displayable_rank(change.oldRating)
+            new_role = rating_to_displayable_rank(change.newRating)
+            if new_role != old_role:
+                rank_change_str = (f'{member.mention} [{change.handle}]({cf.PROFILE_BASE_URL}{change.handle}): {old_role} '
+                                   f'\N{LONG RIGHTWARDS ARROW} {new_role}')
+                rank_changes_str.append(rank_change_str)
+
+        member_change_pairs.sort(key=lambda pair: pair[1].newRating - pair[1].oldRating,
+                                 reverse=True)
+        rating_changes_str = []
+        for member, change in member_change_pairs:
+            delta = change.newRating - change.oldRating
+            rating_change_str = (f'{member.mention} [{change.handle}]({cf.PROFILE_BASE_URL}{change.handle}): {change.oldRating} '
+                            f'\N{HORIZONTAL BAR} **{delta:+}** \N{LONG RIGHTWARDS ARROW} '
+                            f'{change.newRating}')
+            rating_changes_str.append(rating_change_str)
+
+        desc = '\n'.join(rank_changes_str) or 'No rank changes'
+        embed = discord_common.cf_color_embed(title=contest.name, url=contest.url, description=desc)
+        embed.set_author(name='Rank updates')
+        embed.add_field(name='Rating Changes',
+                        value='\n'.join(rating_changes_str),
+                        inline=False)
+        return embed
+
     async def _watch_rated_vc(self, vc_id: int, channel):
         vc = cf_common.user_db.get_rated_vc(vc_id)
         handles = cf_common.user_db.get_rated_vc_user_ids(vc_id)
@@ -494,15 +555,18 @@ class Contests(commands.Cog):
         ranklist = await cf_common.cache2.ranklist_cache.generate_vc_ranklist(vc.contest_id, handles)
         await channel.send('Final Standings')
         await self._ranklist(channel, vc.contest_id, handles, ranklist=ranklist)
+        rating_change_by_handle = {}
+        RatingChange = namedtuple('RatingChange', 'handle oldRating newRating')
         for handle in handles:
             delta = ranklist.delta_by_handle.get(handle)
             if delta is None: # The user did not participate.
                 delta = 0 # TODO check if there's a better way to handle this case.
             old_rating = cf_common.user_db.get_vc_rating(handle)
             new_rating = old_rating + delta
+            rating_change_by_handle[handle] = RatingChange(handle=handle, oldRating=old_rating, newRating=new_rating)
             cf_common.user_db.update_vc_rating(vc_id, handle, new_rating)
-            await channel.send(f'{handle} : {old_rating} ---> {new_rating}')
         cf_common.user_db.finish_rated_vc(vc_id)
+        await channel.send(embed=self._make_vc_rating_changes_embed(channel.guild, vc.contest_id, rating_change_by_handle))
         return
         
 
