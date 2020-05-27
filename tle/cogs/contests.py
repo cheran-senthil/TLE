@@ -519,10 +519,13 @@ class Contests(commands.Cog):
 
     @commands.command(brief='Show vc ratings', usage = '')
     async def vc_ratings(self, ctx):
-        handles = await cf_common.resolve_handles(ctx, self.member_converter, handles=None, maxcnt=None)
-        users = [(handle, handle, cf_common.user_db.get_vc_rating(handle))
-                 for handle in handles
-                ]
+        handles = await cf_common.resolve_handles(ctx, self.member_converter, handles=set(), maxcnt=None)
+        users = [(await self.member_converter.convert(ctx, str(discord_id)), handle, cf_common.user_db.get_vc_rating(handle, default_if_not_exist=False))
+                 for discord_id, handle in cf_common.user_db.get_handles_for_guild(ctx.guild.id)]
+        # Filter only rated users. (Those who entered at least one rated vc.)
+        users = [(member, handle, rating)
+                 for member, handle, rating in users
+                 if rating is not None]
 
         _PER_PAGE = 10
         def make_page(chunk, page_num):
@@ -531,18 +534,19 @@ class Contests(commands.Cog):
             t += table.Header('#', 'Name', 'Handle', 'Rating')
             t += table.Line()
             for index, (member, handle, rating) in enumerate(chunk):
-                rating_str = f'{rating} ({rating2rank(rating).title_abbr})'
+                rating_str = f'{rating} ({cf.rating2rank(rating).title_abbr})'
                 t += table.Data(_PER_PAGE * page_num + index, f'{member.display_name}', handle, rating_str)
 
             table_str = f'```\n{t}\n```'
             embed = discord_common.cf_color_embed(description=table_str)
-            return 'List of duelists', embed
+            return 'VC Ratings', embed
 
         if not users:
-            raise DuelCogError('There are no active duelists.')
+            raise ContestCogError('There are no active VCers.')
 
         pages = [make_page(chunk, k) for k, chunk in enumerate(paginator.chunkify(users, _PER_PAGE))]
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
+
 
 
     @discord_common.send_error_if(ContestCogError, rl.RanklistError,

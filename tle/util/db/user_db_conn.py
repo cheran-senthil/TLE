@@ -801,7 +801,7 @@ class UserDbConn:
         vc_ids = [vc.id for vc in vcs]
         return vc_ids
 
-    def get_rated_vc_user_ids(self, vc_id: int):
+    def get_rated_vc_user_ids(self, vc_id:int):
         query = ('SELECT user_id '
                  'FROM rated_vc_users '
                  f'WHERE vc_id = {vc_id} '
@@ -810,7 +810,7 @@ class UserDbConn:
         user_ids = [user.user_id for user in users]
         return user_ids
 
-    def finish_rated_vc(self, vc_id: int):
+    def finish_rated_vc(self, vc_id:int):
         query = ('UPDATE rated_vcs '
                 f'SET status = {RatedVC.FINISHED} '
                 f'WHERE id = {vc_id} ')
@@ -819,7 +819,7 @@ class UserDbConn:
             self.conn.execute(query)
             self.conn.commit()
 
-    def update_vc_rating(self, vc_id: int, user_id: str, rating: int):
+    def update_vc_rating(self, vc_id:int, user_id:str, rating:int):
         query = ('INSERT OR REPLACE INTO rated_vc_users '
                  '(vc_id, user_id, rating) '
                  f'VALUES ({vc_id}, "{user_id}", {rating}) ')
@@ -828,14 +828,16 @@ class UserDbConn:
             self.conn.execute(query)
             self.conn.commit()
 
-    def get_vc_rating(self, user_id):
+    def get_vc_rating(self, user_id:str, default_if_not_exist:bool = True):
         query = ('SELECT MAX(vc_id) AS latest_vc_id, rating '
                  'FROM rated_vc_users '
                  f'WHERE user_id = "{user_id}" AND rating IS NOT NULL'
                  )
         rating = self._fetchone(query, namedtuple_factory).rating
         if rating is None:
-            return _DEFAULT_VC_RATING
+            if default_if_not_exist:
+                return _DEFAULT_VC_RATING
+            return None
         return rating
     
 
