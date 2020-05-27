@@ -1,6 +1,7 @@
 from discord.ext import commands
 
 from tle.util.ranklist.rating_calculator import CodeforcesRatingCalculator
+from requests.structures import CaseInsensitiveDict
 
 
 class RanklistError(commands.CommandError):
@@ -35,13 +36,13 @@ class Ranklist:
 
         self.is_rated = is_rated
 
-        self.standing_by_id = {}
+        self.standing_by_id = CaseInsensitiveDict()
         for row in self.standings:
             if row.party.ghost:
                 # Apparently ghosts don't have team ID.
                 id_ = row.party.teamName
             else:
-                id_ = row.party.teamId or row.party.members[0].handle
+                id_ = "Team:"+str(row.party.teamId) if row.party.teamId else row.party.members[0].handle
             self.standing_by_id[id_] = row
 
         self.delta_by_handle = None
