@@ -624,7 +624,9 @@ class RanklistCache:
                                   for row in official_standings}
 
         # TODO: assert that none of the given handles are in the official standings.
-        handles = [row.party.members[0].handle for row in standings if row.party.members[0].handle in handles]
+        handles = [row.party.members[0].handle for row in standings
+                   if row.party.members[0].handle in handles
+                   and row.party.participantType == 'VIRTUAL']
         current_vc_rating = getUsersVCRating(handles)
         ranklist = Ranklist(contest, problems, standings, now, is_rated=True)
         delta_by_handle = {}
@@ -634,8 +636,7 @@ class RanklistCache:
             ranklist.predict(mixed_ratings)
             delta_by_handle[handle] = ranklist.delta_by_handle.get(handle, 0)
 
-        ranklist.predict(current_official_rating)
-        ranklist.delta_by_handle.update(delta_by_handle)
+        ranklist.delta_by_handle = delta_by_handle
         return ranklist
 
     async def _fetch(self, contests):
