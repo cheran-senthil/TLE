@@ -9,6 +9,7 @@ from collections import defaultdict, namedtuple
 
 import discord
 from discord.ext import commands
+from matplotlib import pyplot as plt
 
 from tle.util import codeforces_common as cf_common
 from tle.util import cache_system2
@@ -20,6 +21,7 @@ from tle.util import paginator
 from tle.util import ranklist as rl
 from tle.util import table
 from tle.util import tasks
+from tle.util import graph_common as gc
 
 _CONTESTS_PER_PAGE = 5
 _CONTEST_PAGINATE_WAIT_TIME = 5 * 60
@@ -615,7 +617,52 @@ class Contests(commands.Cog):
         pages = [make_page(chunk, k) for k, chunk in enumerate(paginator.chunkify(users, _PER_PAGE))]
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
+    @commands.command(brief='Plot vc rating for a single user', usage = '[handle]')
+    async def vc_rating(self, ctx, handle: str):
+        """Plot duelist's rating."""
+        rating_history = cf_common.user_db.get_vc_rating_history(handle)
+        if not rating_history:
+            raise ContestCogError(f'Nothing to plot.')
 
+        plot_data = defaultdict(list)
+        plot_data[handle].append((0, 1500))
+        for vc_id, rating in rating_history:
+            plot_data[handle].append((vc_id, rating))
+
+        plt.clf()
+        # plot at least from mid gray to mid purple
+        min_rating = 1350
+        max_rating = 1550
+        for rating_data in plot_data.values():
+            for _, rating in rating_data:
+                min_rating = min(min_rating, rating)
+                max_rating = max(max_rating, rating)
+
+            x, y = zip(*rating_data)
+            plt.plot(x, y,
+                     linestyle='-',
+                     marker='o',
+                     markersize=2,
+                     markerfacecolor='white',
+                     markeredgewidth=0.5)
+
+        gc.plot_rating_bg(cf.RATED_RANKS)
+        plt.xlim(0, rating_history[-1].vc_id)
+        plt.ylim(min_rating - 100, max_rating + 100)
+
+        labels = [
+            gc.StrWrap('{} ({})'.format(
+                handle,
+                rating_data[-1][1]))
+            for handle, rating_data in plot_data.items()
+        ]
+        plt.legend(labels, loc='upper left')
+
+        discord_file = gc.get_current_figure_as_file()
+        embed = discord_common.cf_color_embed(title='VC rating graph')
+        discord_common.attach_image(embed, discord_file)
+        discord_common.set_author_footer(embed, ctx.author)
+        await ctx.send(embed=embed, file=discord_file)
 
     @discord_common.send_error_if(ContestCogError, rl.RanklistError,
                                   cache_system2.CacheError,  cf_common.ResolveHandleError)

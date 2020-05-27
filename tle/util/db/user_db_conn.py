@@ -840,6 +840,15 @@ class UserDbConn:
             return None
         return rating
     
+    def get_vc_rating_history(self, user_id:str):
+        """ Return [vc_id, rating].
+        """
+        query = ('SELECT vc_id, rating '
+                 'FROM rated_vc_users '
+                 f'WHERE user_id = "{user_id}" AND rating IS NOT NULL'
+                 )
+        ratings = self._fetchall(query, namedtuple_factory)
+        return ratings
 
     def close(self):
         self.conn.close()
