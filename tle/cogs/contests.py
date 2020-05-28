@@ -439,8 +439,6 @@ class Contests(commands.Cog):
 
         handle_standings = []
         for handle in handles:
-            if handle[0:5]=="Team:":
-                continue
             try:
                 standing = ranklist.get_standing_row(handle)
             except rl.HandleNotPresentError:
