@@ -3,6 +3,8 @@ import io
 import discord
 import time
 import matplotlib.font_manager
+import matplotlib
+matplotlib.use('agg') # Explicitly set the backend to avoid issues
 
 from tle import constants
 from matplotlib import pyplot as plt
