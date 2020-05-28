@@ -443,6 +443,11 @@ class Contests(commands.Cog):
                 standing = ranklist.get_standing_row(handle)
             except rl.HandleNotPresentError:
                 continue
+
+            # Database has correct handle ignoring case, update to it
+            # TODO: It will throw an exception if this row corresponds to a team. At present ranklist doesnt show teams.
+            # It should be fixed in https://github.com/cheran-senthil/TLE/issues/72
+            handle=standing.party.members[0].handle
             handle_standings.append((handle, standing))
 
         if not handle_standings:

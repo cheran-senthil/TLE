@@ -1,6 +1,7 @@
 from discord.ext import commands
 
 from tle.util.ranklist.rating_calculator import CodeforcesRatingCalculator
+from tle.util.handledict import HandleDict
 
 
 class RanklistError(commands.CommandError):
@@ -35,7 +36,7 @@ class Ranklist:
 
         self.is_rated = is_rated
 
-        self.standing_by_id = {}
+        self.standing_by_id = HandleDict()
         for row in self.standings:
             if row.party.ghost:
                 # Apparently ghosts don't have team ID.
