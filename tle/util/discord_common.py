@@ -32,6 +32,10 @@ def embed_alert(desc):
 def cf_color_embed(**kwargs):
     return discord.Embed(**kwargs, color=random.choice(_CF_COLORS))
 
+#seed is a random no in range(100)
+def cf_color_embed_fixed(seed,**kwargs):
+    return discord.Embed(**kwargs, color=_CF_COLORS[int(len(_CF_COLORS)*seed/100)])
+
 
 def attach_image(embed, img_file):
     embed.set_image(url=f'attachment://{img_file.filename}')

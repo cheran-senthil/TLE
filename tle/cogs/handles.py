@@ -34,6 +34,7 @@ _NAME_MAX_LEN = 20
 _PAGINATE_WAIT_TIME = 5 * 60  # 5 minutes
 _PRETTY_HANDLES_PER_PAGE = 10
 _TOP_DELTAS_COUNT = 5
+_MAX_RATING_CHANGES_PER_EMBED = 20
 _UPDATE_HANDLE_STATUS_INTERVAL = 6 * 60 * 60  # 6 hours
 
 
@@ -290,8 +291,9 @@ class Handles(commands.Cog):
             channel = guild.get_channel(channel_id)
             if channel is not None:
                 with contextlib.suppress(HandleCogError):
-                    embed = self._make_rankup_embed(guild, contest, change_by_handle)
-                    await channel.send(embed=embed)
+                    embeds = self._make_rankup_embed(guild, contest, change_by_handle)
+                    for embed in embeds:
+                        await channel.send(embed=embed)
 
         await asyncio.gather(*(update_for_guild(guild) for guild in self.bot.guilds),
                              return_exceptions=True)
@@ -589,13 +591,24 @@ class Handles(commands.Cog):
                             f'{change.newRating}')
             top_increases_str.append(increase_str)
 
-        desc = '\n'.join(rank_changes_str) or 'No rank changes'
-        embed = discord_common.cf_color_embed(title=contest.name, url=contest.url, description=desc)
-        embed.set_author(name='Rank updates')
-        embed.add_field(name='Top rating increases',
-                        value='\n'.join(top_increases_str) or 'Nobody got a positive delta :(',
-                        inline=False)
-        return embed
+        if not rank_changes_str:
+            rank_changes_str=['No rank changes']
+
+        embeds = []
+        embed_color_seed=random.randrange(0,100)
+        for start in range(0,len(rank_changes_str), _MAX_RATING_CHANGES_PER_EMBED):
+            desc = '\n'.join(rank_changes_str[start:start+_MAX_RATING_CHANGES_PER_EMBED])
+            if start:
+                embed = discord_common.cf_color_embed_fixed(description=desc,seed=embed_color_seed)
+            else:
+                embed = discord_common.cf_color_embed_fixed(title=contest.name, url=contest.url, description=desc,seed=embed_color_seed)
+                embed.set_author(name='Rank updates')
+            embeds.append(embed)
+
+        top_rating_increases_embed = discord_common.cf_color_embed_fixed(description='\n'.join(top_increases_str) or 'Nobody got a positive delta :(',seed=embed_color_seed)
+        top_rating_increases_embed.set_author(name='Top rating increases')
+        embeds.append(top_rating_increases_embed)
+        return embeds
 
     @commands.group(brief='Commands for role updates',
                     invoke_without_command=True)
@@ -673,7 +686,9 @@ class Handles(commands.Cog):
                                  f'{contest.name}`.')
 
         change_by_handle = {change.handle: change for change in changes}
-        await ctx.channel.send(embed=self._make_rankup_embed(ctx.guild, contest, change_by_handle))
+        rankup_embeds=self._make_rankup_embed(ctx.guild, contest, change_by_handle)
+        for rankup_embed in rankup_embeds:
+            await ctx.channel.send(embed=rankup_embed)
 
     async def _generic_remind(self, ctx, action, role_name, what):
         roles = [role for role in ctx.guild.roles if role.name == role_name]
