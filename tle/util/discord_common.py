@@ -85,6 +85,7 @@ async def presence(bot):
             member for member in bot.get_all_members()
             if 'Purgatory' not in {role.name for role in member.roles}
         ])
+        logger.info(f'{target.display_name} orz.')
         await bot.change_presence(activity=discord.Game(
             name=f'{target.display_name} orz'))
         await asyncio.sleep(10 * 60)
