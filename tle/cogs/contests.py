@@ -453,6 +453,10 @@ class Contests(commands.Cog):
             handle_standings.append((handle, standing))
 
         if not handle_standings:
+            try:
+                await wait_msg.delete()
+            except:
+                pass
             raise ContestCogError(f'None of the handles are present in the ranklist of `{contest.name}`')
 
         handle_standings.sort(key=lambda data: data[1].rank)
@@ -474,11 +478,14 @@ class Contests(commands.Cog):
 
     @commands.command(brief='Show ranklist for the given vc, considering only the given handles', usage = '<contest_id> [handles]')
     async def vc_ranklist(self, ctx, contest_id: int, *handles: str):
-        handles = await cf_common.resolve_handles(ctx, self.member_converter, handles, maxcnt=None)
+        handles = await cf_common.resolve_handles(ctx, self.member_converter, handles, maxcnt=50)
         await self._ranklist(ctx.channel, contest_id, handles, vc=True, show_contest_embed=False)
 
     @commands.command(brief='Start a rated vc.', usage='<contest_id> <duration_in_mins> <handles>')
     async def ratedvc(self, ctx, contest_id:int, duration:int, *handles: str):
+        if handles is None:
+            await ctx.send('Missing handles')
+            return
         handles = await cf_common.resolve_handles(ctx, self.member_converter, handles, maxcnt=None)
         start_time = time.time()
         finish_time = start_time + duration * 60
@@ -596,6 +603,7 @@ class Contests(commands.Cog):
         users = [(member, handle, rating)
                  for member, handle, rating in users
                  if rating is not None]
+        users.sort(key=lambda user: -user[2])
 
         _PER_PAGE = 10
         def make_page(chunk, page_num):
