@@ -457,7 +457,11 @@ class Contests(commands.Cog):
                 await wait_msg.delete()
             except:
                 pass
-            raise ContestCogError(f'None of the handles are present in the ranklist of `{contest.name}`')
+            error = f'None of the handles are present in the ranklist of `{contest.name}`'
+            if vc:
+                await ctx.send(embed=embed_alert(error))
+                return
+            raise ContestCogError(error)
 
         handle_standings.sort(key=lambda data: data[1].rank)
         deltas = None
