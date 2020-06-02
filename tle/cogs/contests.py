@@ -28,7 +28,7 @@ _CONTEST_PAGINATE_WAIT_TIME = 5 * 60
 _STANDINGS_PER_PAGE = 15
 _STANDINGS_PAGINATE_WAIT_TIME = 2 * 60
 _FINISHED_CONTESTS_LIMIT = 5
-_WATCHING_RATED_VC_WAIT_TIME = 10 * 60
+_WATCHING_RATED_VC_WAIT_TIME = 7 * 60
 
 class ContestCogError(commands.CommandError):
     pass
@@ -459,7 +459,7 @@ class Contests(commands.Cog):
                 pass
             error = f'None of the handles are present in the ranklist of `{contest.name}`'
             if vc:
-                await ctx.send(embed=embed_alert(error))
+                await channel.send(embed=discord_common.embed_alert(error))
                 return
             raise ContestCogError(error)
 
@@ -487,10 +487,15 @@ class Contests(commands.Cog):
 
     @commands.command(brief='Start a rated vc.', usage='<contest_id> <duration_in_mins> <handles>')
     async def ratedvc(self, ctx, contest_id:int, duration:int, *handles: str):
-        if handles is None:
-            await ctx.send('Missing handles')
-            return
-        handles = await cf_common.resolve_handles(ctx, self.member_converter, handles, maxcnt=None)
+        if not handles:
+            raise ContestCogError('Missing handles')
+        if duration <= 0:
+            raise ContestCogError('Duration must be positive.')
+        handles = await cf_common.resolve_handles(ctx, self.member_converter, handles, maxcnt=50)
+        
+        _, _, ranklist = await cf.contest.standings(contest_id=contest_id, handles=handles, show_unofficial=True)
+        if ranklist:
+            raise ContestCogError(f'Some of the handles: {", ".join(handles)} have submissions in the contest')
         start_time = time.time()
         finish_time = start_time + duration * 60
         cf_common.user_db.create_rated_vc(contest_id, start_time, finish_time, list(handles))
@@ -512,13 +517,10 @@ class Contests(commands.Cog):
         def ispurg(member):
             # TODO: temporary code, todo properly later
             return any(role.name == 'Purgatory' for role in member.roles)
-
         member_change_pairs = [(member, change_by_handle[handle])
                                for member, handle in member_handle_pairs
                                if member is not None and handle in change_by_handle and not ispurg(member)]
-        if not member_change_pairs:
-            raise HandleCogError(f'No member of this server participated in VC `{contest.id} | {contest.name}`.')
-
+        
         member_change_pairs.sort(key=lambda pair: pair[1].newRating, reverse=True)
         rank_to_role = {role.name: role for role in guild.roles}
 
@@ -557,7 +559,7 @@ class Contests(commands.Cog):
         embed = discord_common.cf_color_embed(title=contest.name, url=contest.url, description=desc)
         embed.set_author(name='VC Results')
         embed.add_field(name='Rating Changes',
-                        value='\n'.join(rating_changes_str),
+                        value='\n'.join(rating_changes_str) or 'No rating changes',
                         inline=False)
         return embed
 
@@ -581,9 +583,8 @@ class Contests(commands.Cog):
             rating_change_by_handle[handle] = RatingChange(handle=handle, oldRating=old_rating, newRating=new_rating)
             cf_common.user_db.update_vc_rating(vc_id, handle, new_rating)
         cf_common.user_db.finish_rated_vc(vc_id)
-        await channel.send('Final Standings')
-        await self._ranklist(channel, vc.contest_id, handles, ranklist=ranklist, show_contest_embed=False)
         await channel.send(embed=self._make_vc_rating_changes_embed(channel.guild, vc.contest_id, rating_change_by_handle))
+        await self._ranklist(channel, vc.contest_id, handles, vc=True, ranklist=ranklist, show_contest_embed=False)
         return
         
 
@@ -631,7 +632,7 @@ class Contests(commands.Cog):
 
     @commands.command(brief='Plot vc rating for a single user', usage = '[handle]')
     async def vc_rating(self, ctx, handle: str):
-        """Plot duelist's rating."""
+        """Plots VC rating for a single user."""
         rating_history = cf_common.user_db.get_vc_rating_history(handle)
         if not rating_history:
             raise ContestCogError(f'Nothing to plot.')
@@ -677,7 +678,8 @@ class Contests(commands.Cog):
         await ctx.send(embed=embed, file=discord_file)
 
     @discord_common.send_error_if(ContestCogError, rl.RanklistError,
-                                  cache_system2.CacheError,  cf_common.ResolveHandleError)
+                                  cache_system2.CacheError,  cf_common.ResolveHandleError,
+                                  commands.errors.MissingRequiredArgument)
     async def cog_command_error(self, ctx, error):
         pass
 
