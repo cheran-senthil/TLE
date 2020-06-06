@@ -7,6 +7,7 @@ import datetime
 from collections import defaultdict
 
 from discord.ext import commands
+import discord
 
 from tle import constants
 from tle.util import cache_system2
@@ -221,6 +222,15 @@ async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
             raise HandleIsVjudgeError(handle)
         resolved_handles.append(handle)
     return resolved_handles
+
+def members_to_handles(members: [discord.Member], guild_id):
+    handles = []
+    for member in members:
+        handle = user_db.get_handle(member.id, guild_id)
+        if handle is None:
+            raise HandleNotRegisteredError(member)
+        handles.append(handle)
+    return handles
 
 def filter_flags(args, params):
     args = list(args)

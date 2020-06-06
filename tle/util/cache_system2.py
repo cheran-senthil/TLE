@@ -619,9 +619,9 @@ class RanklistCache:
                      if row.party.participantType in ('CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL')]
         _, _, official_standings = await cf.contest.standings(contest_id=contest_id)
         now = time.time()
-        current_official_rating = await CacheSystem.getUsersEffectiveRating(activeOnly=False)
-        current_official_rating = {row.party.members[0].handle: current_official_rating.get(row.party.members[0].handle, 1500)
-                                  for row in official_standings}
+        rating_changes = await cf.contest.ratingChanges(contest_id=contest_id)
+        current_official_rating = {rating_change.handle : rating_change.oldRating
+                                    for rating_change in rating_changes}
 
         # TODO: assert that none of the given handles are in the official standings.
         handles = [row.party.members[0].handle for row in standings
