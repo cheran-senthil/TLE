@@ -8,6 +8,7 @@ from discord.ext import commands
 
 from tle.util import codeforces_api as cf
 from tle.util import db
+from tle.util import tasks
 
 logger = logging.getLogger(__name__)
 
@@ -74,17 +75,23 @@ async def bot_error_handler(ctx, exception):
         exc_info = type(exception), exception, exception.__traceback__
         logger.exception('Ignoring exception in command {}:'.format(ctx.command), exc_info=exc_info)
 
+class OrzPresence:
+    def __init__(self, bot):
+        self.bot = bot
 
-async def presence(bot):
-    await bot.change_presence(activity=discord.Activity(
-        type=discord.ActivityType.listening,
-        name='your commands'))
-    await asyncio.sleep(60)
-    while True:
+    @tasks.task_spec(name='OrzUpdate',
+                     waiter=tasks.Waiter.fixed_delay(5*60))
+    async def _presence(self, _):
         target = random.choice([
-            member for member in bot.get_all_members()
+            member for member in self.bot.get_all_members()
             if 'Purgatory' not in {role.name for role in member.roles}
         ])
-        await bot.change_presence(activity=discord.Game(
+        await self.bot.change_presence(activity=discord.Game(
             name=f'{target.display_name} orz'))
-        await asyncio.sleep(10 * 60)
+
+    async def start(self):
+        await self.bot.change_presence(activity=discord.Activity(
+            type=discord.ActivityType.listening,
+            name='your commands'))
+        await asyncio.sleep(60)
+        self._presence.start()
