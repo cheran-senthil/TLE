@@ -52,7 +52,7 @@ def rating_to_color(rating):
     PURPLE = (160, 0, 120)
     CYAN = (0, 165, 170)
     GREY = (70, 70, 70)
-    if rating is None:
+    if rating is None or rating=='N/A':
         return BLACK
     if rating < 1200:
         return GREY
@@ -147,8 +147,8 @@ def get_gudgitters_image(rankings):
     for i, (pos, name, handle, rating) in enumerate(rankings):
         color = rating_to_color(rating)
         draw_bg(y, i%2)
-        draw_row(str(pos), name, handle, str(rating), color, y)
-        if rating != 'N/A' and rating >= 3000:  # nutella
+        draw_row(str(pos), name, handle, str(rating) if rating else 'N/A', color, y)
+        if rating and rating >= 3000:  # nutella
             draw_row('', name[0], handle[0], '', BLACK, y)
         y += LINE_HEIGHT
 
@@ -426,7 +426,7 @@ class Handles(commands.Cog):
                 handle = cf_common.user_db.get_handle(user_id, ctx.guild.id)
                 user = cf_common.user_db.fetch_cf_user(handle)
                 handle_display = f'{member.display_name} ({score})'
-                rating = user.rating if user.rating is not None else 'Unrated'
+                rating = user.rating
                 rankings.append((index, handle_display, handle, rating))
                 index += 1
             if index == 10:
