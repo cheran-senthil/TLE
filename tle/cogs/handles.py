@@ -147,7 +147,7 @@ def get_gudgitters_image(rankings):
     for i, (pos, name, handle, rating) in enumerate(rankings):
         color = rating_to_color(rating)
         draw_bg(y, i%2)
-        draw_row(str(pos), name, handle, str(rating) if rating else "N/A", color, y)
+        draw_row(str(pos), name, handle, str(rating) if rating else 'N/A', color, y)
         if rating and rating >= 3000:  # nutella
             draw_row('', name[0], handle[0], '', BLACK, y)
         y += LINE_HEIGHT
