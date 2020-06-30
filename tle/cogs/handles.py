@@ -255,6 +255,7 @@ class Handles(commands.Cog):
         self.font = ImageFont.truetype(constants.NOTO_SANS_CJK_BOLD_FONT_PATH, size=26) # font for ;handle pretty
 
     @commands.Cog.listener()
+    @discord_common.once
     async def on_ready(self):
         cf_common.event_sys.add_listener(self._on_rating_changes)
         self._set_ex_users_inactive_task.start()

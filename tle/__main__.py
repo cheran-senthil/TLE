@@ -68,11 +68,12 @@ def main():
     # Restrict bot usage to inside guild channels only.
     bot.add_check(no_dm_check)
 
-    presence = discord_common.OrzPresence(bot)
-    @bot.event
-    async def on_ready():
+    # cf_common.initialize needs to run first, so it must be set as the bot's
+    # on_ready event handler rather than an on_ready listener.
+    @discord_common.on_ready_event_once(bot)
+    async def init():
         await cf_common.initialize(args.nodb)
-        await presence.start()
+        asyncio.create_task(discord_common.presence(bot))
 
     bot.add_listener(discord_common.bot_error_handler, name='on_command_error')
 
