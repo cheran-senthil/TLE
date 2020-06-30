@@ -104,6 +104,7 @@ class Contests(commands.Cog):
         self.logger = logging.getLogger(self.__class__.__name__)
 
     @commands.Cog.listener()
+    @discord_common.once
     async def on_ready(self):
         self._update_task.start()
 

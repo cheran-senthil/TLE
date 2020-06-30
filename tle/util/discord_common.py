@@ -8,6 +8,7 @@ from discord.ext import commands
 
 from tle.util import codeforces_api as cf
 from tle.util import db
+from tle.util import tasks
 
 logger = logging.getLogger(__name__)
 
@@ -75,16 +76,49 @@ async def bot_error_handler(ctx, exception):
         logger.exception('Ignoring exception in command {}:'.format(ctx.command), exc_info=exc_info)
 
 
+def once(func):
+    """Decorator that wraps the given async function such that it is executed only once."""
+    first = True
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        nonlocal first
+        if first:
+            first = False
+            await func(*args, **kwargs)
+
+    return wrapper
+
+
+def on_ready_event_once(bot):
+    """Decorator that uses bot.event to set the given function as the bot's on_ready event handler,
+    but does not execute it more than once.
+    """
+    def register_on_ready(func):
+        @bot.event
+        @once
+        async def on_ready():
+            await func()
+
+    return register_on_ready
+
+
 async def presence(bot):
     await bot.change_presence(activity=discord.Activity(
         type=discord.ActivityType.listening,
         name='your commands'))
     await asyncio.sleep(60)
-    while True:
-        target = random.choice([
-            member for member in bot.get_all_members()
-            if 'Purgatory' not in {role.name for role in member.roles}
-        ])
-        await bot.change_presence(activity=discord.Game(
-            name=f'{target.display_name} orz'))
-        await asyncio.sleep(10 * 60)
+
+    @tasks.task(name='OrzUpdate',
+               waiter=tasks.Waiter.fixed_delay(5*60))
+    async def presence_task(_):
+        while True:
+            target = random.choice([
+                member for member in bot.get_all_members()
+                if 'Purgatory' not in {role.name for role in member.roles}
+            ])
+            await bot.change_presence(activity=discord.Game(
+                name=f'{target.display_name} orz'))
+            await asyncio.sleep(10 * 60)
+
+    presence_task.start()
+
