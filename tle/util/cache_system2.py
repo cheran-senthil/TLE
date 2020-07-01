@@ -504,13 +504,6 @@ class RanklistNotMonitored(RanklistCacheError):
         super().__init__(f'The ranklist for `{contest.name}` is not being monitored')
         self.contest = contest
 
-
-
-def getUsersVCRating(user_ids):
-        users_vc_rating_dict = {user_id: cf_common.user_db.get_vc_rating(user_id)
-                                for user_id in user_ids}
-        return users_vc_rating_dict
-
 class RanklistCache:
     _RELOAD_DELAY = 2 * 60
 
@@ -611,7 +604,8 @@ class RanklistCache:
 
         return ranklist
 
-    async def generate_vc_ranklist(self, contest_id, handles):
+    async def generate_vc_ranklist(self, contest_id, handle_to_member_id):
+        handles = list(handle_to_member_id.keys())
         contest, problems, standings = await cf.contest.standings(contest_id=contest_id,
                                                                   show_unofficial=True)
         # Exclude PRACTICE and MANAGER
@@ -627,7 +621,8 @@ class RanklistCache:
         handles = [row.party.members[0].handle for row in standings
                    if row.party.members[0].handle in handles
                    and row.party.participantType == 'VIRTUAL']
-        current_vc_rating = getUsersVCRating(handles)
+        current_vc_rating =  {handle: cf_common.user_db.get_vc_rating(handle_to_member_id.get(handle))
+                                for handle in handles}
         ranklist = Ranklist(contest, problems, standings, now, is_rated=True)
         delta_by_handle = {}
         for handle in handles:

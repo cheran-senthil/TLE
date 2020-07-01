@@ -28,7 +28,7 @@ _CONTEST_PAGINATE_WAIT_TIME = 5 * 60
 _STANDINGS_PER_PAGE = 15
 _STANDINGS_PAGINATE_WAIT_TIME = 2 * 60
 _FINISHED_CONTESTS_LIMIT = 5
-_WATCHING_RATED_VC_WAIT_TIME = 7 * 60
+_WATCHING_RATED_VC_WAIT_TIME = 10 * 60
 
 class ContestCogError(commands.CommandError):
     pass
@@ -443,7 +443,7 @@ class Contests(commands.Cog):
         wait_msg = await channel.send('Generating ranklist, please wait...')
         if ranklist is None:
             if vc:
-                ranklist = await cf_common.cache2.ranklist_cache.generate_vc_ranklist(contest.id, handles)
+                assert False, 'Ranklists must be pre-generated for VCs'
             else:                                                                    
                 try:
                     ranklist = cf_common.cache2.ranklist_cache.get_ranklist(contest)
@@ -515,7 +515,7 @@ class Contests(commands.Cog):
             raise ContestCogError(f'Some of the handles: {", ".join(handles)} have submissions in the contest')
         start_time = time.time()
         finish_time = start_time + duration * 60
-        cf_common.user_db.create_rated_vc(contest_id, start_time, finish_time, list(handles))
+        cf_common.user_db.create_rated_vc(contest_id, start_time, finish_time, [member.id for member in members])
         title = f'Starting rated VC {contest_id} with handles:'
         msg = "\n".join(handles)
         contest = cf_common.cache2.contest_cache.get_contest(contest_id)
@@ -582,23 +582,26 @@ class Contests(commands.Cog):
 
     async def _watch_rated_vc(self, vc_id: int, channel):
         vc = cf_common.user_db.get_rated_vc(vc_id)
-        handles = cf_common.user_db.get_rated_vc_user_ids(vc_id)
+        member_ids = cf_common.user_db.get_rated_vc_user_ids(vc_id)
+        handles = [cf_common.user_db.get_handle(member_id, channel.guild.id) for member_id in member_ids]
+        handle_to_member_id = {handle : member_id for handle, member_id in zip(handles, member_ids)}
         now = time.time()
         if now < vc.finish_time:
             # Display current standings
-            await self._ranklist(channel, vc.contest_id, handles, vc=True, show_contest_embed=True, vc_start_time=vc.start_time, vc_end_time=vc.finish_time)
+            ranklist = await cf_common.cache2.ranklist_cache.generate_vc_ranklist(vc.contest_id, handle_to_member_id)
+            await self._ranklist(channel, vc.contest_id, handles, vc=True, show_contest_embed=True, vc_start_time=vc.start_time, vc_end_time=vc.finish_time, ranklist=ranklist)
             return
-        ranklist = await cf_common.cache2.ranklist_cache.generate_vc_ranklist(vc.contest_id, handles)
+        ranklist = await cf_common.cache2.ranklist_cache.generate_vc_ranklist(vc.contest_id, handle_to_member_id)
         rating_change_by_handle = {}
         RatingChange = namedtuple('RatingChange', 'handle oldRating newRating')
-        for handle in handles:
+        for handle, member_id in zip(handles, member_ids):
             delta = ranklist.delta_by_handle.get(handle)
             if delta is None: # The user did not participate.
                 delta = 0 # TODO check if there's a better way to handle this case.
-            old_rating = cf_common.user_db.get_vc_rating(handle)
+            old_rating = cf_common.user_db.get_vc_rating(member_id)
             new_rating = old_rating + delta
             rating_change_by_handle[handle] = RatingChange(handle=handle, oldRating=old_rating, newRating=new_rating)
-            cf_common.user_db.update_vc_rating(vc_id, handle, new_rating)
+            cf_common.user_db.update_vc_rating(vc_id, member_id, new_rating)
         cf_common.user_db.finish_rated_vc(vc_id)
         await channel.send(embed=self._make_vc_rating_changes_embed(channel.guild, vc.contest_id, rating_change_by_handle))
         await self._ranklist(channel, vc.contest_id, handles, vc=True, ranklist=ranklist, show_contest_embed=False)
@@ -619,8 +622,8 @@ class Contests(commands.Cog):
     @commands.command(brief='Show vc ratings', usage = '')
     async def vc_ratings(self, ctx):
         handles = await cf_common.resolve_handles(ctx, self.member_converter, handles=set(), maxcnt=None)
-        users = [(await self.member_converter.convert(ctx, str(discord_id)), handle, cf_common.user_db.get_vc_rating(handle, default_if_not_exist=False))
-                 for discord_id, handle in cf_common.user_db.get_handles_for_guild(ctx.guild.id)]
+        users = [(await self.member_converter.convert(ctx, str(member_id)), handle, cf_common.user_db.get_vc_rating(member_id, default_if_not_exist=False))
+                 for member_id, handle in cf_common.user_db.get_handles_for_guild(ctx.guild.id)]
         # Filter only rated users. (Those who entered at least one rated vc.)
         users = [(member, handle, rating)
                  for member, handle, rating in users
@@ -647,17 +650,17 @@ class Contests(commands.Cog):
         pages = [make_page(chunk, k) for k, chunk in enumerate(paginator.chunkify(users, _PER_PAGE))]
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
-    @commands.command(brief='Plot vc rating for a single user', usage = '[handle]')
-    async def vc_rating(self, ctx, handle: str):
+    @commands.command(brief='Plot vc rating for a single user', usage = '@user')
+    async def vc_rating(self, ctx, member: discord.Member):
         """Plots VC rating for a single user."""
-        rating_history = cf_common.user_db.get_vc_rating_history(handle)
+        rating_history = cf_common.user_db.get_vc_rating_history(member.id)
         if not rating_history:
             raise ContestCogError(f'Nothing to plot.')
 
         plot_data = defaultdict(list)
-        plot_data[handle].append((0, 1500))
+        plot_data[member.display_name].append((0, 1500))
         for vc_id, rating in rating_history:
-            plot_data[handle].append((vc_id, rating))
+            plot_data[member.display_name].append((vc_id, rating))
 
         plt.clf()
         # plot at least from mid gray to mid purple
@@ -679,12 +682,11 @@ class Contests(commands.Cog):
         gc.plot_rating_bg(cf.RATED_RANKS)
         plt.xlim(0, rating_history[-1].vc_id)
         plt.ylim(min_rating - 100, max_rating + 100)
-
         labels = [
             gc.StrWrap('{} ({})'.format(
-                handle,
+                member_display_name,
                 rating_data[-1][1]))
-            for handle, rating_data in plot_data.items()
+            for member_display_name, rating_data in plot_data.items()
         ]
         plt.legend(labels, loc='upper left')
 
