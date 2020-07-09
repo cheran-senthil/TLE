@@ -434,7 +434,7 @@ class Contests(commands.Cog):
         handles = await cf_common.resolve_handles(ctx, self.member_converter, handles, maxcnt=None)
         await self._ranklist(ctx.channel, contest_id, handles)
 
-    async def _ranklist(self, channel, contest_id: int, handles: [str], vc:bool = False, show_contest_embed:bool = True, ranklist = None, vc_start_time=None, vc_end_time=None):
+    async def _ranklist(self, channel, contest_id: int, handles: [str], vc:bool = False, show_contest_embed:bool = True, ranklist = None, vc_start_time=None, vc_end_time=None, delete_after:float=None):
         """Shows ranklist for the contest with given contest id. If handles contains
         '+server', all server members are included. No handles defaults to '+server'.
         """
@@ -454,9 +454,9 @@ class Contests(commands.Cog):
                                                                                     fetch_changes=True)
         if show_contest_embed:
             if vc:
-                await channel.send(embed=self._make_contest_embed_for_vc_ranklist(ranklist, vc_start_time, vc_end_time))
+                await channel.send(embed=self._make_contest_embed_for_vc_ranklist(ranklist, vc_start_time, vc_end_time), delete_after=delete_after)
             else:
-                await channel.send(embed=self._make_contest_embed_for_ranklist(ranklist))
+                await channel.send(embed=self._make_contest_embed_for_ranklist(ranklist), delete_after=delete_after)
         handle_standings = []
         for handle in handles:
             try:
@@ -477,7 +477,7 @@ class Contests(commands.Cog):
                 pass
             error = f'None of the handles are present in the ranklist of `{contest.name}`'
             if vc:
-                await channel.send(embed=discord_common.embed_alert(error))
+                await channel.send(embed=discord_common.embed_alert(error), delete_after=delete_after)
                 return
             raise ContestCogError(error)
 
@@ -494,14 +494,15 @@ class Contests(commands.Cog):
                 await wait_msg.delete()
             except:
                 pass
-        paginator.paginate(self.bot, channel, pages, wait_time=_STANDINGS_PAGINATE_WAIT_TIME)
+        paginator.paginate(self.bot, channel, pages, wait_time=_STANDINGS_PAGINATE_WAIT_TIME, delete_after=delete_after)
+        
 
     @commands.command(brief='Show ranklist for the given vc, considering only the given handles', usage = '<contest_id> [handles]')
     async def vc_ranklist(self, ctx, contest_id: int, *handles: str):
         handles = await cf_common.resolve_handles(ctx, self.member_converter, handles, maxcnt=50)
         await self._ranklist(ctx.channel, contest_id, handles, vc=True, show_contest_embed=False)
 
-    @commands.command(brief='Start a rated vc.', usage='<contest_id> <duration_in_mins> <handles>')
+    @commands.command(brief='Start a rated vc.', usage='<contest_id> <duration_in_mins> <@user1 @user2 ...>')
     async def ratedvc(self, ctx, contest_id:int, duration:int, *members: discord.Member):
         if not members:
             raise ContestCogError('Missing members')
@@ -589,7 +590,7 @@ class Contests(commands.Cog):
         if now < vc.finish_time:
             # Display current standings
             ranklist = await cf_common.cache2.ranklist_cache.generate_vc_ranklist(vc.contest_id, handle_to_member_id)
-            await self._ranklist(channel, vc.contest_id, handles, vc=True, show_contest_embed=True, vc_start_time=vc.start_time, vc_end_time=vc.finish_time, ranklist=ranklist)
+            await self._ranklist(channel, vc.contest_id, handles, vc=True, show_contest_embed=True, vc_start_time=vc.start_time, vc_end_time=vc.finish_time, ranklist=ranklist, delete_after=_WATCHING_RATED_VC_WAIT_TIME)
             return
         ranklist = await cf_common.cache2.ranklist_cache.generate_vc_ranklist(vc.contest_id, handle_to_member_id)
         rating_change_by_handle = {}
