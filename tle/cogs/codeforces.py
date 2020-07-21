@@ -120,8 +120,8 @@ class Codeforces(commands.Cog):
         solved = {sub.problem.name for sub in submissions if sub.verdict == 'OK'}
 
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
-                    if prob.rating == rating and prob.name not in solved]
-        problems = [prob for prob in problems if not cf_common.is_contest_writer(prob.contestId, handle)]
+                    if prob.rating == rating and prob.name not in solved and
+                    not cf_common.is_contest_writer(prob.contestId, handle)]
         if tags:
             problems = [prob for prob in problems if prob.tag_matches(tags)]
 
