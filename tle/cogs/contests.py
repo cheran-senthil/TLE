@@ -443,7 +443,7 @@ class Contests(commands.Cog):
         wait_msg = await channel.send('Generating ranklist, please wait...')
         if ranklist is None:
             if vc:
-                assert False, 'Ranklists must be pre-generated for VCs'
+                raise ContestCogError('Ranklists must be pre-generated for VCs')
             else:                                                                    
                 try:
                     ranklist = cf_common.cache2.ranklist_cache.get_ranklist(contest)
@@ -530,19 +530,15 @@ class Contests(commands.Cog):
 
     @staticmethod
     def _make_vc_rating_changes_embed(guild, contest_id, change_by_handle):
-        """Make an embed containing a list of rank changes and top rating increases for the members
-        of this guild.
+        """Make an embed containing a list of rank changes and rating changes for ratedvc participants.
         """
         contest = cf_common.cache2.contest_cache.get_contest(contest_id)
         user_id_handle_pairs = cf_common.user_db.get_handles_for_guild(guild.id)
         member_handle_pairs = [(guild.get_member(int(user_id)), handle)
                                for user_id, handle in user_id_handle_pairs]
-        def ispurg(member):
-            # TODO: temporary code, todo properly later
-            return any(role.name == 'Purgatory' for role in member.roles)
         member_change_pairs = [(member, change_by_handle[handle])
                                for member, handle in member_handle_pairs
-                               if member is not None and handle in change_by_handle and not ispurg(member)]
+                               if member is not None and handle in change_by_handle]
         
         member_change_pairs.sort(key=lambda pair: pair[1].newRating, reverse=True)
         rank_to_role = {role.name: role for role in guild.roles}
@@ -554,9 +550,7 @@ class Contests(commands.Cog):
 
         rank_changes_str = []
         for member, change in member_change_pairs:
-            cache = cf_common.cache2.rating_changes_cache
-            if (change.oldRating == 1500
-                    and len(cache.get_rating_changes_for_handle(change.handle)) == 1):
+            if len(cf_common.user_db.get_vc_rating_history(member.id)) == 1:
                 # If this is the user's first rated contest.
                 # TODO handle the new rating system changes regarding newcomers.
                 old_role = 'Unrated'
@@ -582,7 +576,7 @@ class Contests(commands.Cog):
         embed = discord_common.cf_color_embed(title=contest.name, url=contest.url, description=desc)
         embed.set_author(name='VC Results')
         embed.add_field(name='Rating Changes',
-                        value='\n'.join(rating_changes_str) or 'No rating changes',
+                        value='\n'.join(rating_changes_str),
                         inline=False)
         return embed
 
@@ -592,12 +586,11 @@ class Contests(commands.Cog):
         handles = [cf_common.user_db.get_handle(member_id, channel.guild.id) for member_id in member_ids]
         handle_to_member_id = {handle : member_id for handle, member_id in zip(handles, member_ids)}
         now = time.time()
+        ranklist = await cf_common.cache2.ranklist_cache.generate_vc_ranklist(vc.contest_id, handle_to_member_id)
         if now < vc.finish_time:
             # Display current standings
-            ranklist = await cf_common.cache2.ranklist_cache.generate_vc_ranklist(vc.contest_id, handle_to_member_id)
             await self._ranklist(channel, vc.contest_id, handles, vc=True, show_contest_embed=True, vc_start_time=vc.start_time, vc_end_time=vc.finish_time, ranklist=ranklist, delete_after=_WATCHING_RATED_VC_WAIT_TIME)
             return
-        ranklist = await cf_common.cache2.ranklist_cache.generate_vc_ranklist(vc.contest_id, handle_to_member_id)
         rating_change_by_handle = {}
         RatingChange = namedtuple('RatingChange', 'handle oldRating newRating')
         for handle, member_id in zip(handles, member_ids):
@@ -611,8 +604,6 @@ class Contests(commands.Cog):
         cf_common.user_db.finish_rated_vc(vc_id)
         await channel.send(embed=self._make_vc_rating_changes_embed(channel.guild, vc.contest_id, rating_change_by_handle))
         await self._ranklist(channel, vc.contest_id, handles, vc=True, ranklist=ranklist, show_contest_embed=False)
-        return
-        
 
     @tasks.task_spec(name='WatchRatedVCs',
                      waiter=tasks.Waiter.fixed_delay(_WATCHING_RATED_VC_WAIT_TIME))
@@ -664,7 +655,6 @@ class Contests(commands.Cog):
             raise ContestCogError(f'Nothing to plot.')
 
         plot_data = defaultdict(list)
-        plot_data[member.display_name].append((0, 1500))
         for vc_id, rating in rating_history:
             plot_data[member.display_name].append((vc_id, rating))
 
