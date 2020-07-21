@@ -738,6 +738,94 @@ class Graphs(commands.Cog):
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
 
+    @plot.command(brief='Show rating changes by rank', usage='contest_id [+server] [+zoom] [handles..]')
+    async def visualrank(self, ctx, contest_id: int, *args: str):
+        """Plot rating changes by rank. Add handles to specify a handle in the plot.
+        if arguments contains `+server`, it will include just server members and not all codeforces users.
+        Specify `+zoom` to zoom to the neighborhood of handles."""
+
+        args = set(args)
+        (in_server, zoom), handles = cf_common.filter_flags(args, ['+server', '+zoom'])
+        handles = await cf_common.resolve_handles(ctx, self.converter, handles, mincnt=0, maxcnt=20)
+
+        users = cf_common.cache2.rating_changes_cache.get_rating_changes_for_contest(contest_id)
+
+        if not users:
+            raise GraphCogError(f'No rating change cache for contest `{contest_id}`')
+
+        if in_server:
+            guild_handles = [handle for discord_id, handle
+                             in cf_common.user_db.get_handles_for_guild(ctx.guild.id)]
+            users = [user for user in users if user.handle in guild_handles]
+
+        ranks = []
+        delta = []
+        color = []
+        users_to_mark = dict()
+
+        for user in users:
+            user_delta = user.newRating - user.oldRating
+
+            ranks.append(user.rank)
+            delta.append(user_delta)
+            color.append(cf.rating2rank(user.oldRating).color_graph)
+
+            if user.handle in handles:
+                users_to_mark[user.handle] = (user.rank, user_delta)
+
+        title = users[0].contestName
+
+        plt.clf()
+        fig = plt.figure(figsize=(12, 8))
+        plt.title(title)
+        plt.xlabel('Rank')
+        plt.ylabel('Rating Changes')
+
+        ymargin = 50
+        xmargin = 50
+        if users_to_mark and zoom:
+            xmin = min(point[0] for point in users_to_mark.values())
+            xmax = max(point[0] for point in users_to_mark.values())
+            ymin = min(point[1] for point in users_to_mark.values())
+            ymax = max(point[1] for point in users_to_mark.values())
+            mark_size = 2e4 / (xmax - xmin + 2 * xmargin)
+
+            plt.xlim(xmin - xmargin, xmax + xmargin)
+            plt.ylim(ymin - ymargin, ymax + ymargin)
+        else:
+            ylim = 0
+            if users_to_mark:
+                ylim = max(abs(point[1]) for point in users_to_mark.values())
+            ylim = max(ylim, 200)
+            xmax = max(user.rank for user in users)
+            mark_size = 2e4 / (xmax + 2 * xmargin)
+
+            plt.xlim(-xmargin, xmax + xmargin)
+            plt.ylim(-ylim - ymargin, ylim + ymargin)
+
+        plt.scatter(ranks, delta, s=mark_size, c=color)
+
+        for handle, point in users_to_mark.items():
+            plt.annotate(handle,
+                         xy=point,
+                         xytext=(0, 0),
+                         textcoords='offset points',
+                         ha='left',
+                         va='bottom',
+                         fontsize='large')
+            plt.plot(*point,
+                     marker='o',
+                     markersize=5,
+                     color='black')
+
+        discord_file = gc.get_current_figure_as_file()
+        plt.close(fig)
+
+        embed = discord_common.cf_color_embed(title=title)
+        discord_common.attach_image(embed, discord_file)
+        discord_common.set_author_footer(embed, ctx.author)
+        await ctx.send(embed=embed, file=discord_file)
+
     @discord_common.send_error_if(GraphCogError,  cf_common.ResolveHandleError,
                                   cf_common.FilterError)
     async def cog_command_error(self, ctx, error):
