@@ -508,7 +508,12 @@ class Contests(commands.Cog):
             raise ContestCogError('Missing members')
         if duration <= 0:
             raise ContestCogError('Duration must be positive.')
-        await cf.contest.ratingChanges(contest_id=contest_id)
+        try:
+            await cf.contest.ratingChanges(contest_id=contest_id)
+        except cf.RatingChangesUnavailableError:
+            error = f'`{contest.name}` was unrated or the ratings changes are not published yet.'
+            raise ContestCogError(error)
+
         handles = cf_common.members_to_handles(members, ctx.guild.id)
         
         _, _, ranklist = await cf.contest.standings(contest_id=contest_id, handles=handles, show_unofficial=True)
