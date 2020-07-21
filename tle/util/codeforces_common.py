@@ -110,6 +110,28 @@ def is_nonstandard_problem(problem):
     return (is_nonstandard_contest(cache2.contest_cache.get_contest(problem.contestId)) or
             problem.tag_matches(['*special']))
 
+
+async def get_visited_contests(handles:[str]):
+    """ Returns a set of contest ids of contests that any of the given handles
+        has at least one non-CE submission.
+    """
+    user_submissions = [await cf.user.status(handle=handle) for handle in handles]
+    problem_to_contests = cf_common.cache2.problemset_cache.problem_to_contests
+
+    contest_ids = set()
+    for subs in user_submissions:
+            for sub in subs:
+                if sub.verdict == 'COMPILATION_ERROR':
+                    continue
+                try:
+                    contest = cf_common.cache2.contest_cache.get_contest(sub.problem.contestId)
+                    problem_id = (sub.problem.name, contest.startTimeSeconds)
+                    for cid in problem_to_contests[problem_id]:
+                        contest_ids.add(cid)
+                except cache_system2.ContestNotFound:
+                    pass
+    return contest_ids
+
 # These are special rated-for-all contests which have a combined ranklist for onsite and online
 # participants. The onsite participants have their submissions marked as out of competition. Just
 # Codeforces things.

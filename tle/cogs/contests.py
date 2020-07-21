@@ -515,9 +515,8 @@ class Contests(commands.Cog):
             raise ContestCogError(error)
 
         handles = cf_common.members_to_handles(members, ctx.guild.id)
-        
-        _, _, ranklist = await cf.contest.standings(contest_id=contest_id, handles=handles, show_unofficial=True)
-        if ranklist:
+        visited_contests = cf_common.get_visited_contests(handles)
+        if contest_id in visited_contests:
             raise ContestCogError(f'Some of the handles: {", ".join(handles)} have submissions in the contest')
         start_time = time.time()
         finish_time = start_time + duration * 60
