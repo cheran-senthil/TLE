@@ -761,17 +761,17 @@ class Graphs(commands.Cog):
         ranks = []
         delta = []
         color = []
-        users_to_mark = dict()
+        users_to_mark = {}
 
-        for user in rating_changes:
-            user_delta = user.newRating - user.oldRating
+        for rating_change in rating_changes:
+            user_delta = rating_change.newRating - rating_change.oldRating
 
-            ranks.append(user.rank)
+            ranks.append(rating_change.rank)
             delta.append(user_delta)
-            color.append(cf.rating2rank(user.oldRating).color_graph)
+            color.append(cf.rating2rank(rating_change.oldRating).color_graph)
 
-            if user.handle in handles:
-                users_to_mark[user.handle] = (user.rank, user_delta)
+            if rating_change.handle in handles:
+                users_to_mark[rating_change.handle] = (rating_change.rank, user_delta)
 
         title = rating_changes[0].contestName
 
@@ -788,21 +788,20 @@ class Graphs(commands.Cog):
             xmax = max(point[0] for point in users_to_mark.values())
             ymin = min(point[1] for point in users_to_mark.values())
             ymax = max(point[1] for point in users_to_mark.values())
-            mark_size = 2e4 / (xmax - xmin + 2 * xmargin)
-
-            plt.xlim(xmin - xmargin, xmax + xmargin)
-            plt.ylim(ymin - ymargin, ymax + ymargin)
         else:
             ylim = 0
             if users_to_mark:
                 ylim = max(abs(point[1]) for point in users_to_mark.values())
             ylim = max(ylim, 200)
-            xmax = max(user.rank for user in rating_changes)
-            mark_size = 2e4 / (xmax + 2 * xmargin)
 
-            plt.xlim(-xmargin, xmax + xmargin)
-            plt.ylim(-ylim - ymargin, ylim + ymargin)
+            xmin = 0
+            xmax = max(rating_change.rank for rating_change in rating_changes)
+            ymin = -ylim
+            ymax = ylim
 
+        mark_size = 2e4 / (xmax - xmin + 2 * xmargin)
+        plt.xlim(xmin - xmargin, xmax + xmargin)
+        plt.ylim(ymin - ymargin, ymax + ymargin)
         plt.scatter(ranks, delta, s=mark_size, c=color)
 
         for handle, point in users_to_mark.items():
