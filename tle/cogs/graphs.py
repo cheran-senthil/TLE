@@ -758,28 +758,11 @@ class Graphs(commands.Cog):
         if not rating_changes:
             raise GraphCogError(f'No rating changes for contest `{contest_id}`')
 
-        ranks = []
-        delta = []
-        color = []
         users_to_mark = {}
-
         for rating_change in rating_changes:
             user_delta = rating_change.newRating - rating_change.oldRating
-
-            ranks.append(rating_change.rank)
-            delta.append(user_delta)
-            color.append(cf.rating2rank(rating_change.oldRating).color_graph)
-
             if rating_change.handle in handles:
                 users_to_mark[rating_change.handle] = (rating_change.rank, user_delta)
-
-        title = rating_changes[0].contestName
-
-        plt.clf()
-        fig = plt.figure(figsize=(12, 8))
-        plt.title(title)
-        plt.xlabel('Rank')
-        plt.ylabel('Rating Changes')
 
         ymargin = 50
         xmargin = 50
@@ -799,7 +782,27 @@ class Graphs(commands.Cog):
             ymin = -ylim
             ymax = ylim
 
-        mark_size = 2e4 / (xmax - xmin + 2 * xmargin)
+        ranks = []
+        delta = []
+        color = []
+        for rating_change in rating_changes:
+            user_delta = rating_change.newRating - rating_change.oldRating
+
+            if (xmin - xmargin <= rating_change.rank <= xmax + xmargin
+                    and ymin - ymargin <= user_delta <= ymax + ymargin):
+                ranks.append(rating_change.rank)
+                delta.append(user_delta)
+                color.append(cf.rating2rank(rating_change.oldRating).color_graph)
+
+        title = rating_changes[0].contestName
+
+        plt.clf()
+        fig = plt.figure(figsize=(12, 8))
+        plt.title(title)
+        plt.xlabel('Rank')
+        plt.ylabel('Rating Changes')
+
+        mark_size = 2e4 / len(ranks)
         plt.xlim(xmin - xmargin, xmax + xmargin)
         plt.ylim(ymin - ymargin, ymax + ymargin)
         plt.scatter(ranks, delta, s=mark_size, c=color)
