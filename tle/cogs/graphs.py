@@ -749,14 +749,14 @@ class Graphs(commands.Cog):
         handles = await cf_common.resolve_handles(ctx, self.converter, handles, mincnt=0, maxcnt=20)
 
         rating_changes = await cf.contest.ratingChanges(contest_id=contest_id)
+        if in_server:
+            guild_handles = set(handle for discord_id, handle
+                                in cf_common.user_db.get_handles_for_guild(ctx.guild.id))
+            rating_changes = [rating_change for rating_change in rating_changes
+                              if rating_change.handle in guild_handles]
 
         if not rating_changes:
             raise GraphCogError(f'No rating changes for contest `{contest_id}`')
-
-        if in_server:
-            guild_handles = [handle for discord_id, handle
-                             in cf_common.user_db.get_handles_for_guild(ctx.guild.id)]
-            rating_changes = [rating_change for rating_change in rating_changes if rating_change.handle in guild_handles]
 
         ranks = []
         delta = []
