@@ -14,6 +14,7 @@ from tle import constants
 from tle.util import font_downloader
 from tle.util import codeforces_common as cf_common
 from tle.util import discord_common
+from tle.util import tatsumaki_api as tatsu
 
 
 def setup():
@@ -73,6 +74,7 @@ def main():
     @discord_common.on_ready_event_once(bot)
     async def init():
         await cf_common.initialize(args.nodb)
+        await tatsu.initialize()
         asyncio.create_task(discord_common.presence(bot))
 
     bot.add_listener(discord_common.bot_error_handler, name='on_command_error')
