@@ -748,22 +748,22 @@ class Graphs(commands.Cog):
         (in_server, zoom), handles = cf_common.filter_flags(args, ['+server', '+zoom'])
         handles = await cf_common.resolve_handles(ctx, self.converter, handles, mincnt=0, maxcnt=20)
 
-        users = cf_common.cache2.rating_changes_cache.get_rating_changes_for_contest(contest_id)
+        rating_changes = await cf.contest.ratingChanges(contest_id=contest_id)
 
-        if not users:
-            raise GraphCogError(f'No rating change cache for contest `{contest_id}`')
+        if not rating_changes:
+            raise GraphCogError(f'No rating changes for contest `{contest_id}`')
 
         if in_server:
             guild_handles = [handle for discord_id, handle
                              in cf_common.user_db.get_handles_for_guild(ctx.guild.id)]
-            users = [user for user in users if user.handle in guild_handles]
+            rating_changes = [rating_change for rating_change in rating_changes if rating_change.handle in guild_handles]
 
         ranks = []
         delta = []
         color = []
         users_to_mark = dict()
 
-        for user in users:
+        for user in rating_changes:
             user_delta = user.newRating - user.oldRating
 
             ranks.append(user.rank)
@@ -773,7 +773,7 @@ class Graphs(commands.Cog):
             if user.handle in handles:
                 users_to_mark[user.handle] = (user.rank, user_delta)
 
-        title = users[0].contestName
+        title = rating_changes[0].contestName
 
         plt.clf()
         fig = plt.figure(figsize=(12, 8))
@@ -797,7 +797,7 @@ class Graphs(commands.Cog):
             if users_to_mark:
                 ylim = max(abs(point[1]) for point in users_to_mark.values())
             ylim = max(ylim, 200)
-            xmax = max(user.rank for user in users)
+            xmax = max(user.rank for user in rating_changes)
             mark_size = 2e4 / (xmax + 2 * xmargin)
 
             plt.xlim(-xmargin, xmax + xmargin)
