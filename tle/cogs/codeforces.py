@@ -104,36 +104,30 @@ class Codeforces(commands.Cog):
             await ctx.send(embed=embed)
 
     @commands.command(brief='Recommend a problem',
-                      usage='[tags...] [lower] [upper]')
+                      usage='[tags...] [rating]')
     @cf_common.user_guard(group='gitgud')
     async def gimme(self, ctx, *args):
+        handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
+        rating = round(cf_common.user_db.fetch_cf_user(handle).effective_rating, -2)
         tags = []
-        bounds = []
         for arg in args:
             if arg.isdigit():
-                bounds.append(int(arg))
+                rating = int(arg)
             else:
                 tags.append(arg)
 
-        handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions if sub.verdict == 'OK'}
 
-        lower = bounds[0] if len(bounds) > 0 else None
-        if lower is None:
-            user = cf_common.user_db.fetch_cf_user(handle)
-            lower = round(user.effective_rating, -2)
-        upper = bounds[1] if len(bounds) > 1 else lower + 200
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
-                    if lower <= prob.rating and prob.name not in solved]
-        problems = [prob for prob in problems if not cf_common.is_contest_writer(prob.contestId, handle)]
+                    if prob.rating == rating and prob.name not in solved and
+                    not cf_common.is_contest_writer(prob.contestId, handle)]
         if tags:
             problems = [prob for prob in problems if prob.tag_matches(tags)]
+
         if not problems:
-            await ctx.send('Problems not found within the search parameters')
-            return
-        upper = max(upper, min([prob.rating for prob in problems]))
-        problems = [prob for prob in problems if prob.rating <= upper]
+            raise CodeforcesCogError('Problems not found within the search parameters')
+
         problems.sort(key=lambda problem: cf_common.cache2.contest_cache.get_contest(
             problem.contestId).startTimeSeconds)
 
