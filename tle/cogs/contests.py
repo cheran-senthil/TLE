@@ -586,7 +586,16 @@ class Contests(commands.Cog):
         handle_to_member_id = {handle : member_id for handle, member_id in zip(handles, member_ids)}
         now = time.time()
         ranklist = await cf_common.cache2.ranklist_cache.generate_vc_ranklist(vc.contest_id, handle_to_member_id)
-        if now < vc.finish_time:
+        async def has_running_subs(handle):
+            return [sub for sub in await cf.user.status(handle=handle)
+                    if sub.verdict == 'TESTING'
+                    and sub.problem.contestId == vc.contest_id
+                    and sub.relativeTimeSeconds <= vc.finish_time - vc.start_time]
+        running_subs_flag = any([await has_running_subs(handle) for handle in handles])
+        if running_subs_flag:
+            msg = 'Some submissions are still being judged'
+            await channel.send(embed=discord_common.embed_alert(msg), delete_after=_WATCHING_RATED_VC_WAIT_TIME)
+        if now < vc.finish_time or running_subs_flag:
             # Display current standings
             await self._ranklist(channel, vc.contest_id, handles, vc=True, show_contest_embed=True, vc_start_time=vc.start_time, vc_end_time=vc.finish_time, ranklist=ranklist, delete_after=_WATCHING_RATED_VC_WAIT_TIME)
             return
@@ -646,16 +655,16 @@ class Contests(commands.Cog):
         pages = [make_page(chunk, k) for k, chunk in enumerate(paginator.chunkify(users, _PER_PAGE))]
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
-    @commands.command(brief='Plot vc rating for a single user', usage = '@user')
-    async def vc_rating(self, ctx, member: discord.Member):
-        """Plots VC rating for a single user."""
-        rating_history = cf_common.user_db.get_vc_rating_history(member.id)
-        if not rating_history:
-            raise ContestCogError(f'Nothing to plot.')
-
+    @commands.command(brief='Plot vc rating for a list of at most 5 users', usage = '@user1 @user2 ..')
+    async def vc_rating(self, ctx, members: [discord.Member]):
+        """Plots VC rating for at most 5 users."""
         plot_data = defaultdict(list)
-        for vc_id, rating in rating_history:
-            plot_data[member.display_name].append((vc_id, rating))
+        for member in members:
+            rating_history = cf_common.user_db.get_vc_rating_history(member.id)
+            if not rating_history:
+                raise ContestCogError(f'{member.mention} has no vc history.')
+            for vc_id, rating in rating_history:
+                plot_data[member.display_name].append((vc_id, rating))
 
         plt.clf()
         # plot at least from mid gray to mid purple
