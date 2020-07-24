@@ -522,7 +522,7 @@ class Contests(commands.Cog):
         finish_time = start_time + duration * 60
         cf_common.user_db.create_rated_vc(contest_id, start_time, finish_time, [member.id for member in members])
         title = f'Starting rated VC {contest_id} with handles:'
-        msg = "\n".join(handles)
+        msg = discord.utils.escape_markdown("\n".join(f'[{handle}]({cf.PROFILE_BASE_URL}{handle})' for handle in handles))
         contest = cf_common.cache2.contest_cache.get_contest(contest_id)
         embed = discord_common.cf_color_embed(title=title, description=msg, url=contest.url)
         await ctx.send(embed=embed)
@@ -559,6 +559,7 @@ class Contests(commands.Cog):
             if new_role != old_role:
                 rank_change_str = (f'{member.mention} [{change.handle}]({cf.PROFILE_BASE_URL}{change.handle}): {old_role} '
                                    f'\N{LONG RIGHTWARDS ARROW} {new_role}')
+                rank_change_str = discord.utiles.escape_markdown(rank_change_str)
                 rank_changes_str.append(rank_change_str)
 
         member_change_pairs.sort(key=lambda pair: pair[1].newRating - pair[1].oldRating,
@@ -569,6 +570,7 @@ class Contests(commands.Cog):
             rating_change_str = (f'{member.mention} [{change.handle}]({cf.PROFILE_BASE_URL}{change.handle}): {change.oldRating} '
                             f'\N{HORIZONTAL BAR} **{delta:+}** \N{LONG RIGHTWARDS ARROW} '
                             f'{change.newRating}')
+            rating_change_str = discord.utiles.escape_markdown(rating_change_str)
             rating_changes_str.append(rating_change_str)
 
         desc = '\n'.join(rank_changes_str) or 'No rank changes'
