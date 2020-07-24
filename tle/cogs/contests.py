@@ -656,8 +656,11 @@ class Contests(commands.Cog):
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
     @commands.command(brief='Plot vc rating for a list of at most 5 users', usage = '@user1 @user2 ..')
-    async def vc_rating(self, ctx, members: [discord.Member]):
+    async def vc_rating(self, ctx, *members: discord.Member):
         """Plots VC rating for at most 5 users."""
+        members = members or (ctx.author, )
+        if len(members) > 5:
+            raise ContestCogError(f'Cannot plot more than 5 VCers at once.')
         plot_data = defaultdict(list)
         for member in members:
             rating_history = cf_common.user_db.get_vc_rating_history(member.id)
