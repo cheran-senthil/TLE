@@ -515,7 +515,7 @@ class Contests(commands.Cog):
             raise ContestCogError(error)
 
         handles = cf_common.members_to_handles(members, ctx.guild.id)
-        visited_contests = cf_common.get_visited_contests(handles)
+        visited_contests = await cf_common.get_visited_contests(handles)
         if contest_id in visited_contests:
             raise ContestCogError(f'Some of the handles: {", ".join(handles)} have submissions in the contest')
         start_time = time.time()

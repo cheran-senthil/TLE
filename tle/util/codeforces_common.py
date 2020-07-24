@@ -116,7 +116,7 @@ async def get_visited_contests(handles:[str]):
         has at least one non-CE submission.
     """
     user_submissions = [await cf.user.status(handle=handle) for handle in handles]
-    problem_to_contests = cf_common.cache2.problemset_cache.problem_to_contests
+    problem_to_contests = cache2.problemset_cache.problem_to_contests
 
     contest_ids = set()
     for subs in user_submissions:
@@ -124,7 +124,7 @@ async def get_visited_contests(handles:[str]):
                 if sub.verdict == 'COMPILATION_ERROR':
                     continue
                 try:
-                    contest = cf_common.cache2.contest_cache.get_contest(sub.problem.contestId)
+                    contest = cache2.contest_cache.get_contest(sub.problem.contestId)
                     problem_id = (sub.problem.name, contest.startTimeSeconds)
                     for cid in problem_to_contests[problem_id]:
                         contest_ids.add(cid)
