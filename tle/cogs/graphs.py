@@ -738,6 +738,96 @@ class Graphs(commands.Cog):
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
 
+    @plot.command(brief='Show rating changes by rank', usage='contest_id [+server] [+zoom] [handles..]')
+    async def visualrank(self, ctx, contest_id: int, *args: str):
+        """Plot rating changes by rank. Add handles to specify a handle in the plot.
+        if arguments contains `+server`, it will include just server members and not all codeforces users.
+        Specify `+zoom` to zoom to the neighborhood of handles."""
+
+        args = set(args)
+        (in_server, zoom), handles = cf_common.filter_flags(args, ['+server', '+zoom'])
+        handles = await cf_common.resolve_handles(ctx, self.converter, handles, mincnt=0, maxcnt=20)
+
+        rating_changes = await cf.contest.ratingChanges(contest_id=contest_id)
+        if in_server:
+            guild_handles = set(handle for discord_id, handle
+                                in cf_common.user_db.get_handles_for_guild(ctx.guild.id))
+            rating_changes = [rating_change for rating_change in rating_changes
+                              if rating_change.handle in guild_handles or rating_change.handle in handles]
+
+        if not rating_changes:
+            raise GraphCogError(f'No rating changes for contest `{contest_id}`')
+
+        users_to_mark = {}
+        for rating_change in rating_changes:
+            user_delta = rating_change.newRating - rating_change.oldRating
+            if rating_change.handle in handles:
+                users_to_mark[rating_change.handle] = (rating_change.rank, user_delta)
+
+        ymargin = 50
+        xmargin = 50
+        if users_to_mark and zoom:
+            xmin = min(point[0] for point in users_to_mark.values())
+            xmax = max(point[0] for point in users_to_mark.values())
+            ymin = min(point[1] for point in users_to_mark.values())
+            ymax = max(point[1] for point in users_to_mark.values())
+        else:
+            ylim = 0
+            if users_to_mark:
+                ylim = max(abs(point[1]) for point in users_to_mark.values())
+            ylim = max(ylim, 200)
+
+            xmin = 0
+            xmax = max(rating_change.rank for rating_change in rating_changes)
+            ymin = -ylim
+            ymax = ylim
+
+        ranks = []
+        delta = []
+        color = []
+        for rating_change in rating_changes:
+            user_delta = rating_change.newRating - rating_change.oldRating
+
+            if (xmin - xmargin <= rating_change.rank <= xmax + xmargin
+                    and ymin - ymargin <= user_delta <= ymax + ymargin):
+                ranks.append(rating_change.rank)
+                delta.append(user_delta)
+                color.append(cf.rating2rank(rating_change.oldRating).color_graph)
+
+        title = rating_changes[0].contestName
+
+        plt.clf()
+        fig = plt.figure(figsize=(12, 8))
+        plt.title(title)
+        plt.xlabel('Rank')
+        plt.ylabel('Rating Changes')
+
+        mark_size = 2e4 / len(ranks)
+        plt.xlim(xmin - xmargin, xmax + xmargin)
+        plt.ylim(ymin - ymargin, ymax + ymargin)
+        plt.scatter(ranks, delta, s=mark_size, c=color)
+
+        for handle, point in users_to_mark.items():
+            plt.annotate(handle,
+                         xy=point,
+                         xytext=(0, 0),
+                         textcoords='offset points',
+                         ha='left',
+                         va='bottom',
+                         fontsize='large')
+            plt.plot(*point,
+                     marker='o',
+                     markersize=5,
+                     color='black')
+
+        discord_file = gc.get_current_figure_as_file()
+        plt.close(fig)
+
+        embed = discord_common.cf_color_embed(title=title)
+        discord_common.attach_image(embed, discord_file)
+        discord_common.set_author_footer(embed, ctx.author)
+        await ctx.send(embed=embed, file=discord_file)
+
     @discord_common.send_error_if(GraphCogError,  cf_common.ResolveHandleError,
                                   cf_common.FilterError)
     async def cog_command_error(self, ctx, error):
