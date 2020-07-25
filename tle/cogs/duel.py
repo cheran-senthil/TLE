@@ -98,7 +98,7 @@ class Dueling(commands.Cog):
 
     @duel.command(brief='Challenge to a duel')
     async def challenge(self, ctx, opponent: discord.Member, rating:int=None):
-        """Challenge another server member to a duel. Problem difficulty will be the lesser of duelist ratings minus 400. You can alternatively specify a lower rating. The challenge expires if ignored for 5 minutes."""
+        """Challenge another server member to a duel. Problem difficulty will be the lesser of duelist ratings minus 400. You can alternatively specify a different rating. The duel will be unrated if specified rating is above the default value. The challenge expires if ignored for 5 minutes."""
         challenger_id = ctx.author.id
         challengee_id = opponent.id
 
