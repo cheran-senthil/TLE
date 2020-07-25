@@ -753,7 +753,7 @@ class Graphs(commands.Cog):
             guild_handles = set(handle for discord_id, handle
                                 in cf_common.user_db.get_handles_for_guild(ctx.guild.id))
             rating_changes = [rating_change for rating_change in rating_changes
-                              if rating_change.handle in guild_handles]
+                              if rating_change.handle in guild_handles or rating_change.handle in handles]
 
         if not rating_changes:
             raise GraphCogError(f'No rating changes for contest `{contest_id}`')
