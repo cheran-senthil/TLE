@@ -322,7 +322,7 @@ class Graphs(commands.Cog):
             labels = [gc.StrWrap(f'{handle}: {len(ratings)}')
                       for handle, ratings in zip(handles, all_ratings)]
 
-            step = 200
+            step = 200 if filt.rhi - filt.rlo > 3000 // len(handles) else 100
             hist_bins = list(range(filt.rlo - step // 2, filt.rhi + step // 2 + 1, step))
             plt.hist(all_ratings, bins=hist_bins)
             plt.legend(labels, loc='upper right')
@@ -377,6 +377,42 @@ class Graphs(commands.Cog):
         plt.gcf().autofmt_xdate()
         discord_file = gc.get_current_figure_as_file()
         embed = discord_common.cf_color_embed(title='Histogram of number of solved problems over time')
+        discord_common.attach_image(embed, discord_file)
+        discord_common.set_author_footer(embed, ctx.author)
+        await ctx.send(embed=embed, file=discord_file)
+
+    @plot.command(brief='Plot count of solved CF problems over time.',
+                  usage='[handles] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [r>=rating] [r<=rating] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy] [c+marker..] [i+index..]')
+    async def curve(self, ctx, *args: str):
+        """Plots the count of problems solved over time on Codeforces for the handles provided."""
+        filt = cf_common.SubFilter()
+        args = filt.parse(args)
+        handles = args or ('!' + str(ctx.author),)
+        handles = await cf_common.resolve_handles(ctx, self.converter, handles)
+        resp = [await cf.user.status(handle=handle) for handle in handles]
+        all_solved_subs = [filt.filter_subs(submissions) for submissions in resp]
+
+        if not any(all_solved_subs):
+            raise GraphCogError(f'There are no problems within the specified parameters.')
+
+        plt.clf()
+        plt.xlabel('Time')
+        plt.ylabel('Cumulative solve count')
+
+        all_times = [[dt.datetime.fromtimestamp(sub.creationTimeSeconds) for sub in solved_subs]
+                     for solved_subs in all_solved_subs]
+        for times in all_times:
+            cumulative_solve_count = range(1, len(times)+1)
+            plt.plot(times, cumulative_solve_count)
+
+        labels = [gc.StrWrap(f'{handle}: {len(times)}')
+                  for handle, times in zip(handles, all_times)]
+
+        plt.legend(labels)
+
+        plt.gcf().autofmt_xdate()
+        discord_file = gc.get_current_figure_as_file()
+        embed = discord_common.cf_color_embed(title='Curve of number of solved problems over time')
         discord_common.attach_image(embed, discord_file)
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
