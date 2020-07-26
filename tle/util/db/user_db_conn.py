@@ -1,5 +1,4 @@
 import sqlite3
-import datetime
 import time
 from enum import IntEnum
 from collections import namedtuple

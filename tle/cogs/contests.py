@@ -28,7 +28,8 @@ _CONTEST_PAGINATE_WAIT_TIME = 5 * 60
 _STANDINGS_PER_PAGE = 15
 _STANDINGS_PAGINATE_WAIT_TIME = 2 * 60
 _FINISHED_CONTESTS_LIMIT = 5
-_WATCHING_RATED_VC_WAIT_TIME = 10 * 60
+_WATCHING_RATED_VC_WAIT_TIME = 10 * 60 # seconds
+_MIN_RATED_VC_DURATION = 30 # minutes
 
 class ContestCogError(commands.CommandError):
     pass
@@ -506,8 +507,8 @@ class Contests(commands.Cog):
     async def ratedvc(self, ctx, contest_id:int, duration:int, *members: discord.Member):
         if not members:
             raise ContestCogError('Missing members')
-        if duration <= 0:
-            raise ContestCogError('Duration must be positive.')
+        if duration < _MIN_RATED_VC_DURATION:
+            raise ContestCogError(f'Duration must be at least {_MIN_RATED_VC_DURATION} minutes.')
         try:
             await cf.contest.ratingChanges(contest_id=contest_id)
         except cf.RatingChangesUnavailableError:
