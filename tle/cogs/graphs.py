@@ -402,8 +402,9 @@ class Graphs(commands.Cog):
         all_times = [[dt.datetime.fromtimestamp(sub.creationTimeSeconds) for sub in solved_subs]
                      for solved_subs in all_solved_subs]
         for times in all_times:
-            cumulative_solve_count = range(1, len(times)+1)
-            plt.plot(times, cumulative_solve_count)
+            cumulative_solve_count = list(range(1, len(times)+1)) + [len(times)]
+            timestretched = times + [min(dt.datetime.now(), dt.datetime.fromtimestamp(filt.dhi))]
+            plt.plot(timestretched, cumulative_solve_count)
 
         labels = [gc.StrWrap(f'{handle}: {len(times)}')
                   for handle, times in zip(handles, all_times)]
