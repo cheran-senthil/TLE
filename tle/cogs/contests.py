@@ -432,32 +432,29 @@ class Contests(commands.Cog):
 
     @commands.command(brief='Show ranklist for given handles and/or server members')
     async def ranklist(self, ctx, contest_id: int, *handles: str):
-        handles = await cf_common.resolve_handles(ctx, self.member_converter, handles, maxcnt=None)
-        await self._ranklist(ctx.channel, contest_id, handles)
-
-    async def _ranklist(self, channel, contest_id: int, handles: [str], vc:bool = False, show_contest_embed:bool = True, ranklist = None, vc_start_time=None, vc_end_time=None, delete_after:float=None):
         """Shows ranklist for the contest with given contest id. If handles contains
         '+server', all server members are included. No handles defaults to '+server'.
         """
-        
+        handles = await cf_common.resolve_handles(ctx, self.member_converter, handles, maxcnt=None)
         contest = cf_common.cache2.contest_cache.get_contest(contest_id)
         wait_msg = await channel.send('Generating ranklist, please wait...')
+        ranklist = None
+        try:
+            ranklist = cf_common.cache2.ranklist_cache.get_ranklist(contest)
+        except cache_system2.RanklistNotMonitored:
+            if contest.phase == 'BEFORE':
+                raise ContestCogError(f'Contest `{contest.id} | {contest.name}` has not started')
+            ranklist = await cf_common.cache2.ranklist_cache.generate_ranklist(contest.id,
+                                                                            fetch_changes=True)
+        await wait_msg.delete()
+        await channel.send(embed=self._make_contest_embed_for_ranklist(ranklist))
+        await self._show_ranklist(channel=ctx.channel, contest_id=contest_id, handles=handles, ranklist=ranklist)
+
+    async def _show_ranklist(self, channel, contest_id: int, handles: [str], ranklist, vc:bool = False, delete_after:float=None):        
+        contest = cf_common.cache2.contest_cache.get_contest(contest_id)
         if ranklist is None:
-            if vc:
-                raise ContestCogError('Ranklists must be pre-generated for VCs')
-            else:                                                                    
-                try:
-                    ranklist = cf_common.cache2.ranklist_cache.get_ranklist(contest)
-                except cache_system2.RanklistNotMonitored:
-                    if contest.phase == 'BEFORE':
-                        raise ContestCogError(f'Contest `{contest.id} | {contest.name}` has not started')
-                    ranklist = await cf_common.cache2.ranklist_cache.generate_ranklist(contest.id,
-                                                                                    fetch_changes=True)
-        if show_contest_embed:
-            if vc:
-                await channel.send(embed=self._make_contest_embed_for_vc_ranklist(ranklist, vc_start_time, vc_end_time), delete_after=delete_after)
-            else:
-                await channel.send(embed=self._make_contest_embed_for_ranklist(ranklist), delete_after=delete_after)
+            raise ContestCogError('No ranklist to show')
+            
         handle_standings = []
         for handle in handles:
             try:
@@ -472,10 +469,6 @@ class Contests(commands.Cog):
             handle_standings.append((handle, standing))
 
         if not handle_standings:
-            try:
-                await wait_msg.delete()
-            except:
-                pass
             error = f'None of the handles are present in the ranklist of `{contest.name}`'
             if vc:
                 await channel.send(embed=discord_common.embed_alert(error), delete_after=delete_after)
@@ -489,19 +482,16 @@ class Contests(commands.Cog):
 
         problem_indices = [problem.index for problem in ranklist.problems]
         pages = self._make_standings_pages(contest, problem_indices, handle_standings, deltas)
-
-        if wait_msg:
-            try:
-                await wait_msg.delete()
-            except:
-                pass
         paginator.paginate(self.bot, channel, pages, wait_time=_STANDINGS_PAGINATE_WAIT_TIME, delete_after=delete_after)
         
 
     @commands.command(brief='Show ranklist for the given vc, considering only the given handles', usage = '<contest_id> [handles]')
-    async def vc_ranklist(self, ctx, contest_id: int, *handles: str):
-        handles = await cf_common.resolve_handles(ctx, self.member_converter, handles, maxcnt=50)
-        await self._ranklist(ctx.channel, contest_id, handles, vc=True, show_contest_embed=False)
+    async def vc_ranklist(self, ctx, contest_id: int, *members: discord.Member):
+        member_ids = [member.id for member in members]
+        handles = [cf_common.user_db.get_handle(member_id, channel.guild.id) for member_id in member_ids]
+        handle_to_member_id = {handle : member_id for handle, member_id in zip(handles, member_ids)}
+        ranklist = await cf_common.cache2.ranklist_cache.generate_vc_ranklist(contest_id, handle_to_member_id)
+        await self._show_ranklist(channel=ctx.channel, contest_id=contest_id, handles=handles, ranklist=ranklist, vc=True)
 
     @commands.command(brief='Start a rated vc.', usage='<contest_id> <duration_in_mins> <@user1 @user2 ...>')
     async def ratedvc(self, ctx, contest_id:int, duration:int, *members: discord.Member):
@@ -600,7 +590,8 @@ class Contests(commands.Cog):
             await channel.send(embed=discord_common.embed_alert(msg), delete_after=_WATCHING_RATED_VC_WAIT_TIME)
         if now < vc.finish_time or running_subs_flag:
             # Display current standings
-            await self._ranklist(channel, vc.contest_id, handles, vc=True, show_contest_embed=True, vc_start_time=vc.start_time, vc_end_time=vc.finish_time, ranklist=ranklist, delete_after=_WATCHING_RATED_VC_WAIT_TIME)
+            await channel.send(embed=self._make_contest_embed_for_vc_ranklist(ranklist, vc_start_time, vc_end_time), delete_after=_WATCHING_RATED_VC_WAIT_TIME)
+            await self._show_ranklist(channel, vc.contest_id, handles, ranklist=ranklist, vc=True, delete_after=_WATCHING_RATED_VC_WAIT_TIME)
             return
         rating_change_by_handle = {}
         RatingChange = namedtuple('RatingChange', 'handle oldRating newRating')
@@ -614,7 +605,7 @@ class Contests(commands.Cog):
             cf_common.user_db.update_vc_rating(vc_id, member_id, new_rating)
         cf_common.user_db.finish_rated_vc(vc_id)
         await channel.send(embed=self._make_vc_rating_changes_embed(channel.guild, vc.contest_id, rating_change_by_handle))
-        await self._ranklist(channel, vc.contest_id, handles, vc=True, ranklist=ranklist, show_contest_embed=False)
+        await self._show_ranklist(channel, vc.contest_id, handles, ranklist=ranklist, vc=True)
 
     @tasks.task_spec(name='WatchRatedVCs',
                      waiter=tasks.Waiter.fixed_delay(_WATCHING_RATED_VC_WAIT_TIME))
