@@ -511,7 +511,7 @@ class Contests(commands.Cog):
             raise ContestCogError(f'Some of the handles: {", ".join(handles)} have submissions in the contest')
         start_time = time.time()
         finish_time = start_time + duration * 60
-        cf_common.user_db.create_rated_vc(contest_id, start_time, finish_time, [member.id for member in members])
+        cf_common.user_db.create_rated_vc(contest_id, start_time, finish_time, ctx.guild.id, [member.id for member in members])
         title = f'Starting rated VC {contest_id} with handles:'
         msg = discord.utils.escape_markdown("\n".join(f'[{handle}]({cf.PROFILE_BASE_URL}{handle})' for handle in handles))
         contest = cf_common.cache2.contest_cache.get_contest(contest_id)
@@ -572,8 +572,12 @@ class Contests(commands.Cog):
                         inline=False)
         return embed
 
-    async def _watch_rated_vc(self, vc_id: int, channel):
+    async def _watch_rated_vc(self, vc_id: int):
         vc = cf_common.user_db.get_rated_vc(vc_id)
+        channel_id = cf_common.user_db.get_rated_vc_channel(vc.guild_id)
+        if channel_id is None:
+            raise ContestCogError('No Rated VC channel')
+        channel = self.bot.get_channel(int(channel_id))
         member_ids = cf_common.user_db.get_rated_vc_user_ids(vc_id)
         handles = [cf_common.user_db.get_handle(member_id, channel.guild.id) for member_id in member_ids]
         handle_to_member_id = {handle : member_id for handle, member_id in zip(handles, member_ids)}
@@ -613,12 +617,8 @@ class Contests(commands.Cog):
         ongoing_rated_vcs = cf_common.user_db.get_ongoing_rated_vc_ids()
         if ongoing_rated_vcs is None:
             return
-        channel_id = cf_common.user_db.get_rated_vc_channel(guild_id)
-        if channel_id is None:
-            raise ContestCogError('No Rated VC channel')
-        channel = self.bot.get_channel(int(channel_id))
         for rated_vc_id in ongoing_rated_vcs:
-            await self._watch_rated_vc(rated_vc_id, channel)
+            await self._watch_rated_vc(rated_vc_id)
 
     @commands.command(brief='Set the rated vc channel to the current channel', usage = '')
     async def rated_vc_here(self, ctx):

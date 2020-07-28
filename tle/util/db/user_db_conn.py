@@ -182,7 +182,8 @@ class UserDbConn:
                 "contest_id"     INTEGER NOT NULL,
                 "start_time"     REAL,
                 "finish_time"    REAL,
-                "status"         INTEGER
+                "status"         INTEGER,
+                "guild_id"       TEXT
             )
         ''')
 
@@ -771,15 +772,15 @@ class UserDbConn:
 
     # Rated VC stuff
 
-    def create_rated_vc(self, contest_id: int, start_time: float, finish_time: float, user_ids: [str]):
+    def create_rated_vc(self, contest_id: int, start_time: float, finish_time: float, guild_id: str, user_ids: [str]):
         """ Creates a rated vc and returns its id.
         """
         query = ('INSERT INTO rated_vcs '
-                 '(contest_id, start_time, finish_time, status) '
-                 f'VALUES ( ?, ?,  ?, ?)')
+                 '(contest_id, start_time, finish_time, status, guild_id) '
+                 f'VALUES ( ?, ?, ?, ?, ?)')
         id = None
         with self.conn:
-            id = self.conn.execute(query, (contest_id, start_time, finish_time, RatedVC.ONGOING)).lastrowid
+            id = self.conn.execute(query, (contest_id, start_time, finish_time, RatedVC.ONGOING, guild_id)).lastrowid
 
         for user_id in user_ids:
             query = ('INSERT INTO rated_vc_users '
