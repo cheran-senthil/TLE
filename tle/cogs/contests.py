@@ -622,10 +622,31 @@ class Contests(commands.Cog):
         ongoing_rated_vcs = cf_common.user_db.get_ongoing_rated_vc_ids()
         if ongoing_rated_vcs is None:
             return
-        channel_id = os.environ.get('RATED_VC_CHANNEL_ID')
+        channel_id = cf_common.user_db.get_rated_vc_channel(guild_id)
+        if channel_id is None:
+            raise ContestCogError('No Rated VC channel')
         channel = self.bot.get_channel(int(channel_id))
         for rated_vc_id in ongoing_rated_vcs:
             await self._watch_rated_vc(rated_vc_id, channel)
+
+    @commands.command(brief='Set the rated vc channel to the current channel', usage = '')
+    async def rated_vc_here(self, ctx):
+        """ Sets the rated vc channel to the current channel.
+        """
+        cf_common.user_db.set_rated_vc_channel(ctx.guild.id, ctx.channel.id)
+        await ctx.send(embed=discord_common.embed_success('Rated VC channel saved successfully'))
+
+    @commands.command(brief='Get the rated vc channel', usage = '')
+    async def get_rated_vc_channel(self, ctx):
+        """ Gets the rated vc channel.
+        """
+        channel_id = cf_common.user_db.get_rated_vc_channel(ctx.guild.id)
+        channel = await ctx.guild.get_channel(channel_id)
+        if channel is None:
+            raise ContestCogError('There is no rated vc channel')
+        embed = discord_common.embed_success('Current rated vc channel')
+        embed.add_field(name='Channel', value=channel.mention)
+        await ctx.send(embed=embed)
 
     @commands.command(brief='Show vc ratings', usage = '')
     async def vc_ratings(self, ctx):

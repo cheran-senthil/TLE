@@ -201,6 +201,13 @@ class UserDbConn:
             )
         ''')
 
+        self.conn.execute('''
+            CREATE TABLE IF NOT EXISTS rated_vc_settings (
+                guild_id TEXT PRIMARY KEY,
+                channel_id TEXT
+            )
+        ''')
+
         
     # Helper functions.
 
@@ -780,7 +787,6 @@ class UserDbConn:
                  f'VALUES (? , "?")')
             with self.conn:
                 self.conn.execute(query, (id, user_id))
-                self.conn.commit()
         return id
 
     def get_rated_vc(self, vc_id: int):
@@ -815,7 +821,6 @@ class UserDbConn:
 
         with self.conn:
             self.conn.execute(query, (RatedVC.FINISHED, vc_id))
-            self.conn.commit()
 
     def update_vc_rating(self, vc_id:int, user_id:str, rating:int):
         query = ('INSERT OR REPLACE INTO rated_vc_users '
@@ -824,7 +829,6 @@ class UserDbConn:
 
         with self.conn:
             self.conn.execute(query, (vc_id, user_id, rating))
-            self.conn.commit()
 
     def get_vc_rating(self, user_id:str, default_if_not_exist:bool = True):
         query = ('SELECT MAX(vc_id) AS latest_vc_id, rating '
@@ -847,6 +851,21 @@ class UserDbConn:
                  )
         ratings = self._fetchall(query, params=(user_id,), row_factory=namedtuple_factory)
         return ratings
+
+    def set_rated_vc_channel(self, guild_id, channel_id):
+        query = '''
+            INSERT OR REPLACE INTO rated_vc_settings (guild_id, channel_id)
+            VALUES (?, ?)
+        '''
+        self.conn.execute(query, (guild_id, channel_id))
+        self.conn.commit()
+
+    def get_rated_vc_channel(self, guild_id):
+        query = ('SELECT channel_id '
+                 'FROM rated_vc_settings '
+                 'WHERE guild_id = ?')
+        channel_id = self.conn.execute(query, (guild_id,)).fetchone()
+        return int(channel_id[0]) if channel_id else None
 
     def close(self):
         self.conn.close()
