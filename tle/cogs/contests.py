@@ -561,7 +561,7 @@ class Contests(commands.Cog):
             rating_change_str = (f'{member.mention} [{change.handle}]({cf.PROFILE_BASE_URL}{change.handle}): {change.oldRating} '
                             f'\N{HORIZONTAL BAR} **{delta:+}** \N{LONG RIGHTWARDS ARROW} '
                             f'{change.newRating}')
-            rating_change_str = discord.utiles.escape_markdown(rating_change_str)
+            rating_change_str = discord.utils.escape_markdown(rating_change_str)
             rating_changes_str.append(rating_change_str)
 
         desc = '\n'.join(rank_changes_str) or 'No rank changes'
@@ -594,7 +594,7 @@ class Contests(commands.Cog):
             await channel.send(embed=discord_common.embed_alert(msg), delete_after=_WATCHING_RATED_VC_WAIT_TIME)
         if now < vc.finish_time or running_subs_flag:
             # Display current standings
-            await channel.send(embed=self._make_contest_embed_for_vc_ranklist(ranklist, vc_start_time, vc_end_time), delete_after=_WATCHING_RATED_VC_WAIT_TIME)
+            await channel.send(embed=self._make_contest_embed_for_vc_ranklist(ranklist, vc.start_time, vc.finish_time), delete_after=_WATCHING_RATED_VC_WAIT_TIME)
             await self._show_ranklist(channel, vc.contest_id, handles, ranklist=ranklist, vc=True, delete_after=_WATCHING_RATED_VC_WAIT_TIME)
             return
         rating_change_by_handle = {}
