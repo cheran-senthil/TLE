@@ -13,6 +13,7 @@ from discord.ext import commands
 from matplotlib import pyplot as plt
 from matplotlib import patches as patches
 from matplotlib import lines as mlines
+from matplotlib import dates as mdates
 
 from tle import constants
 from tle.util import codeforces_api as cf
@@ -402,6 +403,9 @@ class Graphs(commands.Cog):
                 bins=min(40 // len(handles), phase_cnt))
             plt.legend(labels)
 
+        locator = mdates.AutoDateLocator()
+        plt.gca().xaxis.set_major_locator(locator)
+        plt.gca().xaxis.set_major_formatter(mdates.AutoDateFormatter(locator))
         plt.gcf().autofmt_xdate()
         discord_file = gc.get_current_figure_as_file()
         embed = discord_common.cf_color_embed(title='Histogram of number of solved problems over time')
