@@ -435,7 +435,7 @@ class Contests(commands.Cog):
         """Shows ranklist for the contest with given contest id. If handles contains
         '+server', all server members are included. No handles defaults to '+server'.
         """
-        handles = await cf_common.resolve_handles(ctx, self.member_converter, handles, maxcnt=None)
+        handles = await cf_common.resolve_handles(ctx, self.member_converter, handles, maxcnt=None, default_to_all_server=True)
         contest = cf_common.cache2.contest_cache.get_contest(contest_id)
         wait_msg = await channel.send('Generating ranklist, please wait...')
         ranklist = None
@@ -641,7 +641,7 @@ class Contests(commands.Cog):
 
     @commands.command(brief='Show vc ratings', usage = '')
     async def vc_ratings(self, ctx):
-        handles = await cf_common.resolve_handles(ctx, self.member_converter, handles=set(), maxcnt=None)
+        handles = await cf_common.resolve_handles(ctx, self.member_converter, handles=set(), maxcnt=None, default_to_all_server=True)
         users = [(await self.member_converter.convert(ctx, str(member_id)), handle, cf_common.user_db.get_vc_rating(member_id, default_if_not_exist=False))
                  for member_id, handle in cf_common.user_db.get_handles_for_guild(ctx.guild.id)]
         # Filter only rated users. (Those who entered at least one rated vc.)

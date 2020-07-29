@@ -215,11 +215,11 @@ def days_ago(t):
         return 'yesterday'
     return f'{math.floor(days)} days ago'
 
-async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
+async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5, default_to_all_server=False):
     """Convert an iterable of strings to CF handles. A string beginning with ! indicates Discord username,
      otherwise it is a raw CF handle to be left unchanged."""
     handles = set(handles)
-    if not handles:
+    if default_to_all_server and not handles:
         handles.add('+server')
     if '+server' in handles:
         handles.remove('+server')
