@@ -2,6 +2,7 @@ import bisect
 import collections
 import datetime as dt
 import time
+import math
 from typing import List
 
 import discord
@@ -199,7 +200,8 @@ class Graphs(commands.Cog):
                     invoke_without_command=True)
     async def plot(self, ctx):
         """Plot various graphs. Wherever Codeforces handles are accepted it is possible to
-        use a server member's name instead by prefixing it with '!'."""
+        use a server member's name instead by prefixing it with '!',
+        for name with spaces use \"!name with spaces\" (with quotes)."""
         await ctx.send_help('plot')
 
     @plot.command(brief='Plot Codeforces rating graph', usage='[+zoom] [handles...] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy]')
@@ -281,10 +283,10 @@ class Graphs(commands.Cog):
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
 
-    @plot.command(brief='Show histogram of solved problems on CF.',
+    @plot.command(brief='Show histogram of solved problems\' rating on CF',
                   usage='[handles] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [r>=rating] [r<=rating] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy] [c+marker..] [i+index..]')
     async def solved(self, ctx, *args: str):
-        """Shows a histogram of problems solved on Codeforces for the handles provided.
+        """Shows a histogram of solved problems' rating on Codeforces for the handles provided.
         e.g. ;plot solved meooow +contest +virtual +outof +dp"""
         filt = cf_common.SubFilter()
         args = filt.parse(args)
@@ -333,13 +335,24 @@ class Graphs(commands.Cog):
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
 
-    @plot.command(brief='Show histogram of solved problems on CF.',
-                  usage='[handles] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [r>=rating] [r<=rating] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy] [c+marker..] [i+index..]')
+    @plot.command(brief='Show histogram of solved problems on CF over time',
+                  usage='[handles] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [r>=rating] [r<=rating] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy] [phase_days=] [c+marker..] [i+index..]')
     async def hist(self, ctx, *args: str):
-        """Shows the histogram of problems solved over time on Codeforces for the handles provided."""
+        """Shows the histogram of problems solved on Codeforces over time for the handles provided"""
         filt = cf_common.SubFilter()
         args = filt.parse(args)
-        handles = args or ('!' + str(ctx.author),)
+        handles, phase_days = None, 1
+        for arg in args:
+            if arg[0:11] == 'phase_days=':
+                phase_days = int(arg[11:])
+            else:
+                handles = handles + (arg,) if handles else (arg,)
+
+        if phase_days < 1:
+            raise GraphCogError('Invalid parameters')
+        phase_time = dt.timedelta(days=phase_days)
+
+        handles = handles or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         resp = [await cf.user.status(handle=handle) for handle in handles]
         all_solved_subs = [filt.filter_subs(submissions) for submissions in resp]
@@ -357,7 +370,16 @@ class Graphs(commands.Cog):
 
             nice_names = nice_sub_type(filt.types)
             labels = [name.format(len(times)) for name, times in zip(nice_names, all_times)]
-            plt.hist(all_times, stacked=True, label=labels, bins=34)
+
+            dlo = min([min(times) if times else dt.datetime.now() for times in all_times]).date()
+            dhi = min(dt.datetime.today() + dt.timedelta(days=1), dt.datetime.fromtimestamp(filt.dhi)).date()
+            phase_cnt = math.ceil((dhi - dlo) / phase_time)
+            plt.hist(
+                all_times,
+                stacked=True,
+                label=labels,
+                range=(dhi - phase_cnt * phase_time, dhi - dt.timedelta(days=1)),
+                bins=min(40, phase_cnt))
 
             total = sum(map(len, all_times))
             plt.legend(title=f'{handle}: {total}', title_fontsize=plt.rcParams['legend.fontsize'])
@@ -371,7 +393,13 @@ class Graphs(commands.Cog):
             labels = [gc.StrWrap(f'{handle}: {len(times)}')
                       for handle, times in zip(handles, all_times)]
 
-            plt.hist(all_times)
+            dlo = min([min(times) if times else dt.datetime.now() for times in all_times]).date()
+            dhi = min(dt.datetime.today() + dt.timedelta(days=1), dt.datetime.fromtimestamp(filt.dhi)).date()
+            phase_cnt = math.ceil((dhi - dlo) / phase_time)
+            plt.hist(
+                all_times,
+                range=(dhi - phase_cnt * phase_time, dhi - dt.timedelta(days=1)),
+                bins=min(40 // len(handles), phase_cnt))
             plt.legend(labels)
 
         plt.gcf().autofmt_xdate()
@@ -381,7 +409,7 @@ class Graphs(commands.Cog):
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
 
-    @plot.command(brief='Plot count of solved CF problems over time.',
+    @plot.command(brief='Plot count of solved CF problems over time',
                   usage='[handles] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [r>=rating] [r<=rating] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy] [c+marker..] [i+index..]')
     async def curve(self, ctx, *args: str):
         """Plots the count of problems solved over time on Codeforces for the handles provided."""
@@ -418,7 +446,7 @@ class Graphs(commands.Cog):
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
 
-    @plot.command(brief='Show history of problems solved by rating.',
+    @plot.command(brief='Show history of problems solved by rating',
                   aliases=['chilli'], usage='[handle] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [r>=rating] [r<=rating] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy] [b=10] [s=3] [c+marker..] [i+index..]')
     async def scatter(self, ctx, *args):
         """Plot Codeforces rating overlaid on a scatter plot of problems solved.
