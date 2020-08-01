@@ -28,14 +28,12 @@ def embed_success(desc):
 def embed_alert(desc):
     return discord.Embed(description=str(desc), color=_ALERT_AMBER)
 
+def random_cf_color():
+    return random.choice(_CF_COLORS)
 
-def cf_color_embed(**kwargs):
-    return discord.Embed(**kwargs, color=random.choice(_CF_COLORS))
-
-#seed is a random no in range(100)
-def cf_color_embed_fixed(seed,**kwargs):
-    return discord.Embed(**kwargs, color=_CF_COLORS[int(len(_CF_COLORS)*seed/100)])
-
+def cf_color_embed(*,color=None,**kwargs):
+    color = color or random_cf_color()
+    return discord.Embed(**kwargs, color=color)
 
 def attach_image(embed, img_file):
     embed.set_image(url=f'attachment://{img_file.filename}')

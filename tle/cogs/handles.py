@@ -591,21 +591,20 @@ class Handles(commands.Cog):
                             f'{change.newRating}')
             top_increases_str.append(increase_str)
 
-        if not rank_changes_str:
-            rank_changes_str=['No rank changes']
+        rank_changes_str= rank_changes_str or ['No rank changes']
 
         embeds = []
-        embed_color_seed=random.randrange(0,100)
+        embed_color=discord_common.random_cf_color()
         for start in range(0,len(rank_changes_str), _MAX_RATING_CHANGES_PER_EMBED):
             desc = '\n'.join(rank_changes_str[start:start+_MAX_RATING_CHANGES_PER_EMBED])
             if start:
-                embed = discord_common.cf_color_embed_fixed(description=desc,seed=embed_color_seed)
+                embed = discord_common.cf_color_embed(description=desc,color=embed_color)
             else:
-                embed = discord_common.cf_color_embed_fixed(title=contest.name, url=contest.url, description=desc,seed=embed_color_seed)
+                embed = discord_common.cf_color_embed(title=contest.name, url=contest.url, description=desc,color=embed_color)
                 embed.set_author(name='Rank updates')
             embeds.append(embed)
 
-        top_rating_increases_embed = discord_common.cf_color_embed_fixed(description='\n'.join(top_increases_str) or 'Nobody got a positive delta :(',seed=embed_color_seed)
+        top_rating_increases_embed = discord_common.cf_color_embed(description='\n'.join(top_increases_str) or 'Nobody got a positive delta :(',color=embed_color)
         top_rating_increases_embed.set_author(name='Top rating increases')
         embeds.append(top_rating_increases_embed)
         return embeds
