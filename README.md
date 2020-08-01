@@ -30,6 +30,8 @@ Clone the repository
 git clone https://github.com/cheran-senthil/TLE
 ```
 
+Read [here](faq.md#tle-on-heroku) how to depoly it on [Heroku](https://www.heroku.com/).
+
 ### Dependencies
 
 Now all dependencies need to be installed. TLE uses [Poetry](https://poetry.eustace.io/) to manage its python dependencies. After installing Poetry navigate to the root of the repo and run
