@@ -619,14 +619,14 @@ class Contests(commands.Cog):
             await self._watch_rated_vc(rated_vc_id)
 
     @commands.command(brief='Set the rated vc channel to the current channel', usage = '')
-    async def rated_vc_here(self, ctx):
+    async def set_ratedvc_channel(self, ctx):
         """ Sets the rated vc channel to the current channel.
         """
         cf_common.user_db.set_rated_vc_channel(ctx.guild.id, ctx.channel.id)
         await ctx.send(embed=discord_common.embed_success('Rated VC channel saved successfully'))
 
     @commands.command(brief='Get the rated vc channel', usage = '')
-    async def get_rated_vc_channel(self, ctx):
+    async def get_ratedvc_channel(self, ctx):
         """ Gets the rated vc channel.
         """
         channel_id = cf_common.user_db.get_rated_vc_channel(ctx.guild.id)
@@ -673,7 +673,7 @@ class Contests(commands.Cog):
         """Plots VC rating for at most 5 users."""
         members = members or (ctx.author, )
         if len(members) > 5:
-            raise ContestCogError(f'Cannot plot more than 5 VCers at once.')
+            raise ContestCogError('Cannot plot more than 5 VCers at once.')
         plot_data = defaultdict(list)
         for member in members:
             rating_history = cf_common.user_db.get_vc_rating_history(member.id)
