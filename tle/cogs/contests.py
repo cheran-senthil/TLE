@@ -10,6 +10,7 @@ from collections import defaultdict, namedtuple
 import discord
 from discord.ext import commands
 from matplotlib import pyplot as plt
+from matplotlib import dates as mdates
 
 from tle.util import codeforces_common as cf_common
 from tle.util import cache_system2
@@ -675,33 +676,45 @@ class Contests(commands.Cog):
         if len(members) > 5:
             raise ContestCogError('Cannot plot more than 5 VCers at once.')
         plot_data = defaultdict(list)
+        
+        min_rating = 1100
+        max_rating = 1800
+        min_date = dt.datetime(year=3000, month=1, day=1)
+        max_date = dt.datetime(year=2000, month=1, day=1)
+        
         for member in members:
             rating_history = cf_common.user_db.get_vc_rating_history(member.id)
             if not rating_history:
                 raise ContestCogError(f'{member.mention} has no vc history.')
             for vc_id, rating in rating_history:
-                plot_data[member.display_name].append((vc_id, rating))
+                vc = cf_common.user_db.get_rated_vc(vc_id)
+                date = dt.datetime.fromtimestamp(vc.finish_time)
+                plot_data[member.display_name].append((date, rating))
+                min_rating = min(min_rating, rating)
+                max_rating = max(max_rating, rating)
+                min_date = min(min_date, date)
+                max_date = max(max_date, date)
 
         plt.clf()
         # plot at least from mid gray to mid purple
-        min_rating = 1350
-        max_rating = 1550
         for rating_data in plot_data.values():
-            for _, rating in rating_data:
-                min_rating = min(min_rating, rating)
-                max_rating = max(max_rating, rating)
-
             x, y = zip(*rating_data)
             plt.plot(x, y,
                      linestyle='-',
                      marker='o',
-                     markersize=2,
+                     markersize=4,
                      markerfacecolor='white',
                      markeredgewidth=0.5)
 
         gc.plot_rating_bg(cf.RATED_RANKS)
-        plt.xlim(0, rating_history[-1].vc_id)
-        plt.ylim(min_rating - 100, max_rating + 100)
+        plt.gcf().autofmt_xdate()
+
+        if min_date == max_date:
+            plt.xlim(min_date - dt.timedelta(days=30), max_date + dt.timedelta(days=30))
+        else:
+            plt.xlim(min_date, max_date)
+        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+        plt.ylim(min_rating - 100, max_rating + 200)
         labels = [
             gc.StrWrap('{} ({})'.format(
                 member_display_name,
