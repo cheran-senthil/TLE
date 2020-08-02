@@ -488,7 +488,7 @@ class Contests(commands.Cog):
     @commands.command(brief='Show ranklist for the given vc, considering only the given handles', usage = '<contest_id> [handles]')
     async def vc_ranklist(self, ctx, contest_id: int, *members: discord.Member):
         member_ids = [member.id for member in members]
-        handles = [cf_common.user_db.get_handle(member_id, channel.guild.id) for member_id in member_ids]
+        handles = [cf_common.user_db.get_handle(member_id, ctx.guild.id) for member_id in member_ids]
         handle_to_member_id = {handle : member_id for handle, member_id in zip(handles, member_ids)}
         ranklist = await cf_common.cache2.ranklist_cache.generate_vc_ranklist(contest_id, handle_to_member_id)
         await self._show_ranklist(channel=ctx.channel, contest_id=contest_id, handles=handles, ranklist=ranklist, vc=True)
@@ -548,7 +548,7 @@ class Contests(commands.Cog):
                 old_role = rating_to_displayable_rank(change.oldRating)
             new_role = rating_to_displayable_rank(change.newRating)
             if new_role != old_role:
-                rank_change_str = (f'{member.mention} [{discord.utiles.escape_markdown(change.handle)}]({cf.PROFILE_BASE_URL}{change.handle}): {old_role} '
+                rank_change_str = (f'{member.mention} [{discord.utils.escape_markdown(change.handle)}]({cf.PROFILE_BASE_URL}{change.handle}): {old_role} '
                                    f'\N{LONG RIGHTWARDS ARROW} {new_role}')
                 rank_changes_str.append(rank_change_str)
 
