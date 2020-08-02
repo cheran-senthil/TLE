@@ -31,7 +31,8 @@ def embed_alert(desc):
 def random_cf_color():
     return random.choice(_CF_COLORS)
 
-def cf_color_embed(*,color=None,**kwargs):
+
+def cf_color_embed(*, color=None, **kwargs):
     color = color or random_cf_color()
     return discord.Embed(**kwargs, color=color)
 

@@ -34,7 +34,7 @@ _NAME_MAX_LEN = 20
 _PAGINATE_WAIT_TIME = 5 * 60  # 5 minutes
 _PRETTY_HANDLES_PER_PAGE = 10
 _TOP_DELTAS_COUNT = 5
-_MAX_RATING_CHANGES_PER_EMBED = 1
+_MAX_RATING_CHANGES_PER_EMBED = 15
 _UPDATE_HANDLE_STATUS_INTERVAL = 6 * 60 * 60  # 6 hours
 
 
@@ -591,20 +591,24 @@ class Handles(commands.Cog):
                             f'{change.newRating}')
             top_increases_str.append(increase_str)
 
-        rank_changes_str= rank_changes_str or ['No rank changes']
+        rank_changes_str = rank_changes_str or ['No rank changes']
+        embed_color = discord_common.random_cf_color()
 
-        embed_color=discord_common.random_cf_color()
-
-        embed_heading = discord_common.cf_color_embed(title=contest.name, url=contest.url, description="",color=embed_color)
+        embed_heading = discord_common.cf_color_embed(
+            title=contest.name, url=contest.url, description="", color=embed_color)
         embed_heading.set_author(name="Rank updates")
+
         embeds = [embed_heading]
 
-        for rank_changes_chunk in paginator.chunkify(rank_changes_str, _MAX_RATING_CHANGES_PER_EMBED):
+        for rank_changes_chunk in paginator.chunkify(
+                rank_changes_str, _MAX_RATING_CHANGES_PER_EMBED):
             desc = '\n'.join(rank_changes_chunk)
-            embed = discord_common.cf_color_embed(description=desc,color=embed_color)
+            embed = discord_common.cf_color_embed(
+                description=desc, color=embed_color)
             embeds.append(embed)
 
-        top_rating_increases_embed = discord_common.cf_color_embed(description='\n'.join(top_increases_str) or 'Nobody got a positive delta :(',color=embed_color)
+        top_rating_increases_embed = discord_common.cf_color_embed(description='\n'.join(
+            top_increases_str) or 'Nobody got a positive delta :(', color=embed_color)
         top_rating_increases_embed.set_author(name='Top rating increases')
         embeds.append(top_rating_increases_embed)
         return embeds
@@ -685,7 +689,7 @@ class Handles(commands.Cog):
                                  f'{contest.name}`.')
 
         change_by_handle = {change.handle: change for change in changes}
-        rankup_embeds=self._make_rankup_embed(ctx.guild, contest, change_by_handle)
+        rankup_embeds = self._make_rankup_embed(ctx.guild, contest, change_by_handle)
         for rankup_embed in rankup_embeds:
             await ctx.channel.send(embed=rankup_embed)
 
