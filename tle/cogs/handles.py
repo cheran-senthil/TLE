@@ -34,7 +34,7 @@ _NAME_MAX_LEN = 20
 _PAGINATE_WAIT_TIME = 5 * 60  # 5 minutes
 _PRETTY_HANDLES_PER_PAGE = 10
 _TOP_DELTAS_COUNT = 5
-_MAX_RATING_CHANGES_PER_EMBED = 20
+_MAX_RATING_CHANGES_PER_EMBED = 1
 _UPDATE_HANDLE_STATUS_INTERVAL = 6 * 60 * 60  # 6 hours
 
 
@@ -593,15 +593,15 @@ class Handles(commands.Cog):
 
         rank_changes_str= rank_changes_str or ['No rank changes']
 
-        embeds = []
         embed_color=discord_common.random_cf_color()
-        for start in range(0,len(rank_changes_str), _MAX_RATING_CHANGES_PER_EMBED):
-            desc = '\n'.join(rank_changes_str[start:start+_MAX_RATING_CHANGES_PER_EMBED])
-            if start:
-                embed = discord_common.cf_color_embed(description=desc,color=embed_color)
-            else:
-                embed = discord_common.cf_color_embed(title=contest.name, url=contest.url, description=desc,color=embed_color)
-                embed.set_author(name='Rank updates')
+
+        embed_heading = discord_common.cf_color_embed(title=contest.name, url=contest.url, description="",color=embed_color)
+        embed_heading.set_author(name="Rank updates")
+        embeds = [embed_heading]
+
+        for rank_changes_chunk in paginator.chunkify(rank_changes_str, _MAX_RATING_CHANGES_PER_EMBED):
+            desc = '\n'.join(rank_changes_chunk)
+            embed = discord_common.cf_color_embed(description=desc,color=embed_color)
             embeds.append(embed)
 
         top_rating_increases_embed = discord_common.cf_color_embed(description='\n'.join(top_increases_str) or 'Nobody got a positive delta :(',color=embed_color)
