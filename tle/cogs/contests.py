@@ -92,6 +92,16 @@ async def _send_reminder_at(channel, role, contests, before_secs, send_time):
     await channel.send(role.mention, embed=embed)
 
 
+def _get_ongoing_vc_participants():
+    """ Returns a set containing the `member_id`s of users who are registered in an ongoing vc.
+    """
+    ongoing_vc_ids = cf_common.user_db.get_ongoing_rated_vc_ids()
+    ongoing_vc_participants = set()
+    for vc_id in ongoing_vc_ids:
+        vc_participants = set(cf_common.user_db.get_rated_vc_user_ids(vc_id))
+        ongoing_vc_participants |= vc_participants
+    return ongoing_vc_participants
+
 class Contests(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -505,6 +515,15 @@ class Contests(commands.Cog):
             error = f'`{contest.name}` was unrated or the ratings changes are not published yet.'
             raise ContestCogError(error)
 
+        ongoing_vc_member_ids = _get_ongoing_vc_participants()
+        this_vc_member_ids = {str(member.id) for member in members}
+        intersection = this_vc_member_ids & ongoing_vc_member_ids
+        if intersection:
+            # TODO: Think of another name xD
+            bad_boys = ", ".join([ctx.guild.get_member(int(member_id)).mention for member_id in intersection])
+            error = f'{bad_boys} are registered in ongoing ratedvcs.'
+            raise ContestCogError(error)
+
         handles = cf_common.members_to_handles(members, ctx.guild.id)
         visited_contests = await cf_common.get_visited_contests(handles)
         if contest_id in visited_contests:
@@ -514,7 +533,6 @@ class Contests(commands.Cog):
         cf_common.user_db.create_rated_vc(contest_id, start_time, finish_time, ctx.guild.id, [member.id for member in members])
         title = f'Starting rated VC {contest_id} with handles:'
         msg = "\n".join(f'[{discord.utils.escape_markdown(handle)}]({cf.PROFILE_BASE_URL}{handle})' for handle in handles)
-        contest = cf_common.cache2.contest_cache.get_contest(contest_id)
         embed = discord_common.cf_color_embed(title=title, description=msg, url=contest.url)
         await ctx.send(embed=embed)
 
