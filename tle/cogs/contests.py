@@ -639,6 +639,7 @@ class Contests(commands.Cog):
             await self._watch_rated_vc(rated_vc_id)
 
     @commands.command(brief='Set the rated vc channel to the current channel', usage = '')
+    @commands.has_role('Admin')
     async def set_ratedvc_channel(self, ctx):
         """ Sets the rated vc channel to the current channel.
         """
