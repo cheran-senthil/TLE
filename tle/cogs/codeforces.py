@@ -345,7 +345,6 @@ class Codeforces(commands.Cog):
         markers = [x for x in args if x[0] == '+']
         handles = [x for x in args if x[0] != '+'] or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles, maxcnt=10)
-        user_submissions = [await cf.user.status(handle=handle) for handle in handles]
         info = await cf.user.info(handles=handles)
         contests = cf_common.cache2.contest_cache.get_contests_in_phase('FINISHED')
         problem_to_contests = cf_common.cache2.problemset_cache.problem_to_contests
