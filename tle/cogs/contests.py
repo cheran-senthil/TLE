@@ -509,6 +509,7 @@ class Contests(commands.Cog):
             raise ContestCogError('Missing members')
         if duration < _MIN_RATED_VC_DURATION:
             raise ContestCogError(f'Duration must be at least {_MIN_RATED_VC_DURATION} minutes.')
+        contest = cf_common.cache2.contest_cache.get_contest(contest_id)
         try:
             await cf.contest.ratingChanges(contest_id=contest_id)
         except cf.RatingChangesUnavailableError:
