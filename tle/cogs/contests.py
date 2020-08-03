@@ -698,8 +698,6 @@ class Contests(commands.Cog):
         
         min_rating = 1100
         max_rating = 1800
-        min_date = dt.datetime(year=3000, month=1, day=1)
-        max_date = dt.datetime(year=2000, month=1, day=1)
         
         for member in members:
             rating_history = cf_common.user_db.get_vc_rating_history(member.id)
@@ -711,8 +709,6 @@ class Contests(commands.Cog):
                 plot_data[member.display_name].append((date, rating))
                 min_rating = min(min_rating, rating)
                 max_rating = max(max_rating, rating)
-                min_date = min(min_date, date)
-                max_date = max(max_date, date)
 
         plt.clf()
         # plot at least from mid gray to mid purple
