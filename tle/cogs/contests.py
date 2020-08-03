@@ -505,6 +505,9 @@ class Contests(commands.Cog):
 
     @commands.command(brief='Start a rated vc.', usage='<contest_id> <duration_in_mins> <@user1 @user2 ...>')
     async def ratedvc(self, ctx, contest_id:int, duration:int, *members: discord.Member):
+        ratedvc_channel_id = cf_common.user_db.get_rated_vc_channel(ctx.guild.id)
+        if not ratedvc_channel_id or ctx.channel.id != ratedvc_channel_id:
+            raise ContestCogError('You must use this command in ratedvc channel.')
         if not members:
             raise ContestCogError('Missing members')
         if duration < _MIN_RATED_VC_DURATION:
