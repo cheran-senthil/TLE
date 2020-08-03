@@ -728,8 +728,6 @@ class Contests(commands.Cog):
         gc.plot_rating_bg(cf.RATED_RANKS)
         plt.gcf().autofmt_xdate()
 
-        if min_date != max_date:
-            plt.xlim(min_date, max_date)
         plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
         plt.ylim(min_rating - 100, max_rating + 200)
         labels = [
