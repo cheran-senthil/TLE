@@ -4,7 +4,6 @@ import json
 import logging
 import time
 import datetime as dt
-import os
 from collections import defaultdict, namedtuple
 
 import discord
@@ -631,7 +630,7 @@ class Contests(commands.Cog):
         """ Gets the rated vc channel.
         """
         channel_id = cf_common.user_db.get_rated_vc_channel(ctx.guild.id)
-        channel = await ctx.guild.get_channel(channel_id)
+        channel = ctx.guild.get_channel(channel_id)
         if channel is None:
             raise ContestCogError('There is no rated vc channel')
         embed = discord_common.embed_success('Current rated vc channel')
@@ -639,7 +638,7 @@ class Contests(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command(brief='Show vc ratings', usage = '')
-    async def vc_ratings(self, ctx):
+    async def vcratings(self, ctx):
         handles = await cf_common.resolve_handles(ctx, self.member_converter, handles=set(), maxcnt=None, default_to_all_server=True)
         users = [(await self.member_converter.convert(ctx, str(member_id)), handle, cf_common.user_db.get_vc_rating(member_id, default_if_not_exist=False))
                  for member_id, handle in cf_common.user_db.get_handles_for_guild(ctx.guild.id)]
@@ -670,7 +669,7 @@ class Contests(commands.Cog):
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
     @commands.command(brief='Plot vc rating for a list of at most 5 users', usage = '@user1 @user2 ..')
-    async def vc_rating(self, ctx, *members: discord.Member):
+    async def vcrating(self, ctx, *members: discord.Member):
         """Plots VC rating for at most 5 users."""
         members = members or (ctx.author, )
         if len(members) > 5:
@@ -709,9 +708,7 @@ class Contests(commands.Cog):
         gc.plot_rating_bg(cf.RATED_RANKS)
         plt.gcf().autofmt_xdate()
 
-        if min_date == max_date:
-            plt.xlim(min_date - dt.timedelta(days=30), max_date + dt.timedelta(days=30))
-        else:
+        if min_date != max_date:
             plt.xlim(min_date, max_date)
         plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
         plt.ylim(min_rating - 100, max_rating + 200)
@@ -721,7 +718,7 @@ class Contests(commands.Cog):
                 rating_data[-1][1]))
             for member_display_name, rating_data in plot_data.items()
         ]
-        plt.legend(labels, loc='upper left')
+        plt.legend(labels, loc='upper left', prop=gc.fontprop)
 
         discord_file = gc.get_current_figure_as_file()
         embed = discord_common.cf_color_embed(title='VC rating graph')
