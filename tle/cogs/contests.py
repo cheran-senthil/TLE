@@ -566,7 +566,7 @@ class Contests(commands.Cog):
         embed = discord_common.cf_color_embed(title=contest.name, url=contest.url, description=desc)
         embed.set_author(name='VC Results')
         embed.add_field(name='Rating Changes',
-                        value='\n'.join(rating_changes_str),
+                        value='\n'.join(rating_changes_str) or 'No rating changes',
                         inline=False)
         return embed
 
@@ -600,7 +600,8 @@ class Contests(commands.Cog):
         for handle, member_id in zip(handles, member_ids):
             delta = ranklist.delta_by_handle.get(handle)
             if delta is None: # The user did not participate.
-                delta = 0 # TODO check if there's a better way to handle this case.
+                cf_common.user_db.remove_last_ratedvc_participation(member_id)
+                continue
             old_rating = cf_common.user_db.get_vc_rating(member_id)
             new_rating = old_rating + delta
             rating_change_by_handle[handle] = RatingChange(handle=handle, oldRating=old_rating, newRating=new_rating)

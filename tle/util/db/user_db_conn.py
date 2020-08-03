@@ -868,5 +868,18 @@ class UserDbConn:
         channel_id = self.conn.execute(query, (guild_id,)).fetchone()
         return int(channel_id[0]) if channel_id else None
 
+    def remove_last_ratedvc_participation(self, user_id:str):
+        query = ('SELECT MAX(vc_id) AS vc_id '
+                 'FROM rated_vc_users '
+                 'WHERE user_id = ? '
+                 )
+        vc_id = self._fetchone(query, params=(user_id, ), row_factory=namedtuple_factory).vc_id
+        query = ('DELETE FROM rated_vc_users '
+                 'WHERE user_id = ? AND vc_id = ? ')
+        with self.conn:
+            return self.conn.execute(query, (user_id, vc_id)).rowcount
+
+
+
     def close(self):
         self.conn.close()
