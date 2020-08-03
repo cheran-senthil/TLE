@@ -532,7 +532,7 @@ class Contests(commands.Cog):
         start_time = time.time()
         finish_time = start_time + duration * 60
         cf_common.user_db.create_rated_vc(contest_id, start_time, finish_time, ctx.guild.id, [member.id for member in members])
-        title = f'Starting rated VC {contest_id} with handles:'
+        title = f'Starting {contest.name} for:'
         msg = "\n".join(f'[{discord.utils.escape_markdown(handle)}]({cf.PROFILE_BASE_URL}{handle})' for handle in handles)
         embed = discord_common.cf_color_embed(title=title, description=msg, url=contest.url)
         await ctx.send(embed=embed)
