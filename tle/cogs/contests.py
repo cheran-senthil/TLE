@@ -447,7 +447,7 @@ class Contests(commands.Cog):
         """
         handles = await cf_common.resolve_handles(ctx, self.member_converter, handles, maxcnt=None, default_to_all_server=True)
         contest = cf_common.cache2.contest_cache.get_contest(contest_id)
-        wait_msg = await channel.send('Generating ranklist, please wait...')
+        wait_msg = await ctx.channel.send('Generating ranklist, please wait...')
         ranklist = None
         try:
             ranklist = cf_common.cache2.ranklist_cache.get_ranklist(contest)
@@ -457,7 +457,7 @@ class Contests(commands.Cog):
             ranklist = await cf_common.cache2.ranklist_cache.generate_ranklist(contest.id,
                                                                             fetch_changes=True)
         await wait_msg.delete()
-        await channel.send(embed=self._make_contest_embed_for_ranklist(ranklist))
+        await ctx.channel.send(embed=self._make_contest_embed_for_ranklist(ranklist))
         await self._show_ranklist(channel=ctx.channel, contest_id=contest_id, handles=handles, ranklist=ranklist)
 
     async def _show_ranklist(self, channel, contest_id: int, handles: [str], ranklist, vc:bool = False, delete_after:float=None):        
@@ -523,9 +523,8 @@ class Contests(commands.Cog):
         this_vc_member_ids = {str(member.id) for member in members}
         intersection = this_vc_member_ids & ongoing_vc_member_ids
         if intersection:
-            # TODO: Think of another name xD
-            bad_boys = ", ".join([ctx.guild.get_member(int(member_id)).mention for member_id in intersection])
-            error = f'{bad_boys} are registered in ongoing ratedvcs.'
+            busy_members = ", ".join([ctx.guild.get_member(int(member_id)).mention for member_id in intersection])
+            error = f'{busy_members} are registered in ongoing ratedvcs.'
             raise ContestCogError(error)
 
         handles = cf_common.members_to_handles(members, ctx.guild.id)
@@ -564,7 +563,6 @@ class Contests(commands.Cog):
         for member, change in member_change_pairs:
             if len(cf_common.user_db.get_vc_rating_history(member.id)) == 1:
                 # If this is the user's first rated contest.
-                # TODO handle the new rating system changes regarding newcomers.
                 old_role = 'Unrated'
             else:
                 old_role = rating_to_displayable_rank(change.oldRating)
