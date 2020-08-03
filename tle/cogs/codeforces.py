@@ -501,7 +501,7 @@ class Codeforces(commands.Cog):
         await ctx.send(embed = embed)
 
     @discord_common.send_error_if(CodeforcesCogError, cf_common.ResolveHandleError,
-                                  cf_common.FilterError)
+                                  cf_common.FilterError, commands.UserInputError)
     async def cog_command_error(self, ctx, error):
         pass
 

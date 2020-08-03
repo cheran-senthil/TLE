@@ -864,8 +864,8 @@ class Graphs(commands.Cog):
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
 
-    @discord_common.send_error_if(GraphCogError,  cf_common.ResolveHandleError,
-                                  cf_common.FilterError)
+    @discord_common.send_error_if(GraphCogError, cf_common.ResolveHandleError,
+                                  cf_common.FilterError, commands.UserInputError)
     async def cog_command_error(self, ctx, error):
         pass
 
