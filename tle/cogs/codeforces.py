@@ -361,19 +361,9 @@ class Codeforces(commands.Cog):
                            and not any(cf_common.is_contest_writer(contest.id, handle)
                                        for handle in handles)}
 
-        # discard contests in which user has non-CE submissions
-        for subs in user_submissions:
-            for sub in subs:
-                if sub.verdict == 'COMPILATION_ERROR':
-                    continue
-
-                try:
-                    contest = cf_common.cache2.contest_cache.get_contest(sub.problem.contestId)
-                    problem_id = (sub.problem.name, contest.startTimeSeconds)
-                    for cid in problem_to_contests[problem_id]:
-                        recommendations.discard(cid)
-                except cache_system2.ContestNotFound:
-                    pass
+        # Discard contests in which user has non-CE submissions.
+        visited_contests = await cf_common.get_visited_contests(handles)
+        recommendations = recommendations - visited_contests
 
         if not recommendations:
             raise CodeforcesCogError('Unable to recommend a contest')
