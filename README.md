@@ -30,7 +30,7 @@ Clone the repository
 git clone https://github.com/cheran-senthil/TLE
 ```
 
-Read [here](faq.md#tle-on-heroku) how to depoly it on [Heroku](https://www.heroku.com/).
+Read [here](faq.md#tle-on-heroku) about why TLE can't be depolyed on [Heroku](https://www.heroku.com/).
 
 ### Dependencies
 
