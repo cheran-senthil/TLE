@@ -9,7 +9,6 @@ from collections import defaultdict, namedtuple
 import discord
 from discord.ext import commands
 from matplotlib import pyplot as plt
-from matplotlib import dates as mdates
 
 from tle.util import codeforces_common as cf_common
 from tle.util import cache_system2
@@ -726,7 +725,6 @@ class Contests(commands.Cog):
         gc.plot_rating_bg(cf.RATED_RANKS)
         plt.gcf().autofmt_xdate()
 
-        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
         plt.ylim(min_rating - 100, max_rating + 200)
         labels = [
             gc.StrWrap('{} ({})'.format(
