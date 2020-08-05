@@ -27,8 +27,8 @@ _CONTEST_PAGINATE_WAIT_TIME = 5 * 60
 _STANDINGS_PER_PAGE = 15
 _STANDINGS_PAGINATE_WAIT_TIME = 2 * 60
 _FINISHED_CONTESTS_LIMIT = 5
-_WATCHING_RATED_VC_WAIT_TIME = 10 * 60 # seconds
-_MIN_RATED_VC_DURATION = 30 # minutes
+_WATCHING_RATED_VC_WAIT_TIME = 10 * 60  # seconds
+_MIN_RATED_VC_DURATION = 30  # minutes
 
 class ContestCogError(commands.CommandError):
     pass
@@ -492,14 +492,6 @@ class Contests(commands.Cog):
         problem_indices = [problem.index for problem in ranklist.problems]
         pages = self._make_standings_pages(contest, problem_indices, handle_standings, deltas)
         paginator.paginate(self.bot, channel, pages, wait_time=_STANDINGS_PAGINATE_WAIT_TIME, delete_after=delete_after)
-
-    @commands.command(brief='Show ranklist for the given vc, considering only the given handles', usage='<contest_id> [handles]')
-    async def vcranklist(self, ctx, contest_id: int, *members: discord.Member):
-        member_ids = [member.id for member in members]
-        handles = [cf_common.user_db.get_handle(member_id, ctx.guild.id) for member_id in member_ids]
-        handle_to_member_id = {handle : member_id for handle, member_id in zip(handles, member_ids)}
-        ranklist = await cf_common.cache2.ranklist_cache.generate_vc_ranklist(contest_id, handle_to_member_id)
-        await self._show_ranklist(channel=ctx.channel, contest_id=contest_id, handles=handles, ranklist=ranklist, vc=True)
 
     @commands.command(brief='Start a rated vc.', usage='<contest_id> <duration_in_mins> <@user1 @user2 ...>')
     async def ratedvc(self, ctx, contest_id: int, duration: int, *members: discord.Member):
