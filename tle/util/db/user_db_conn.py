@@ -780,12 +780,10 @@ class UserDbConn:
         id = None
         with self.conn:
             id = self.conn.execute(query, (contest_id, start_time, finish_time, RatedVC.ONGOING, guild_id)).lastrowid
-
-        for user_id in user_ids:
-            query = ('INSERT INTO rated_vc_users '
-                 '(vc_id, user_id) '
-                 'VALUES (? , ?)')
-            with self.conn:
+            for user_id in user_ids:
+                query = ('INSERT INTO rated_vc_users '
+                         '(vc_id, user_id) '
+                         'VALUES (? , ?)')
                 self.conn.execute(query, (id, user_id))
         return id
 
@@ -853,12 +851,11 @@ class UserDbConn:
         return ratings
 
     def set_rated_vc_channel(self, guild_id, channel_id):
-        query = '''
-            INSERT OR REPLACE INTO rated_vc_settings (guild_id, channel_id)
-            VALUES (?, ?)
-        '''
-        self.conn.execute(query, (guild_id, channel_id))
-        self.conn.commit()
+        query = ('INSERT OR REPLACE INTO rated_vc_settings '
+                 ' (guild_id, channel_id) VALUES (?, ?)'
+                 )
+        with self.conn:
+            self.conn.execute(query, (guild_id, channel_id))
 
     def get_rated_vc_channel(self, guild_id):
         query = ('SELECT channel_id '

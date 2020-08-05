@@ -5,7 +5,7 @@ import math
 import time
 import datetime
 from collections import defaultdict
-
+import itertools
 from discord.ext import commands
 import discord
 
@@ -118,19 +118,17 @@ async def get_visited_contests(handles : [str]):
     user_submissions = [await cf.user.status(handle=handle) for handle in handles]
     problem_to_contests = cache2.problemset_cache.problem_to_contests
 
-    contest_ids = set()
-    for subs in user_submissions:
-        for sub in subs:
-            if sub.verdict == 'COMPILATION_ERROR':
-                continue
-            try:
-                contest = cache2.contest_cache.get_contest(sub.problem.contestId)
-                problem_id = (sub.problem.name, contest.startTimeSeconds)
-                for cid in problem_to_contests[problem_id]:
-                    contest_ids.add(cid)
-            except cache_system2.ContestNotFound:
-                pass
-    return contest_ids
+    contest_ids = []
+    for sub in itertools.chain.from_iterable(user_submissions):
+        if sub.verdict == 'COMPILATION_ERROR':
+            continue
+        try:
+            contest = cache2.contest_cache.get_contest(sub.problem.contestId)
+            problem_id = (sub.problem.name, contest.startTimeSeconds)
+            contest_ids += problem_to_contests[problem_id]
+        except cache_system2.ContestNotFound:
+            pass
+    return set(contest_ids)
 
 # These are special rated-for-all contests which have a combined ranklist for onsite and online
 # participants. The onsite participants have their submissions marked as out of competition. Just

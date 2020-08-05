@@ -347,7 +347,6 @@ class Codeforces(commands.Cog):
         handles = await cf_common.resolve_handles(ctx, self.converter, handles, maxcnt=10)
         info = await cf.user.info(handles=handles)
         contests = cf_common.cache2.contest_cache.get_contests_in_phase('FINISHED')
-        problem_to_contests = cf_common.cache2.problemset_cache.problem_to_contests
 
         if not markers:
             divr = sum(user.effective_rating for user in info) / len(handles)
@@ -355,14 +354,14 @@ class Codeforces(commands.Cog):
             markers = ['div3'] if divr < 1600 else ['div2'] if divr < 2100 else div1_indicators
 
         recommendations = {contest.id for contest in contests if
-                           contest.matches(markers)
-                           and not cf_common.is_nonstandard_contest(contest)
-                           and not any(cf_common.is_contest_writer(contest.id, handle)
+                           contest.matches(markers) and
+                           not cf_common.is_nonstandard_contest(contest) and
+                           not any(cf_common.is_contest_writer(contest.id, handle)
                                        for handle in handles)}
 
         # Discard contests in which user has non-CE submissions.
         visited_contests = await cf_common.get_visited_contests(handles)
-        recommendations = recommendations - visited_contests
+        recommendations -= visited_contests
 
         if not recommendations:
             raise CodeforcesCogError('Unable to recommend a contest')
