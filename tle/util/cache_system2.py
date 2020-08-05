@@ -618,9 +618,9 @@ class RanklistCache:
 
         # TODO: assert that none of the given handles are in the official standings.
         handles = [row.party.members[0].handle for row in standings
-                   if row.party.members[0].handle in handles
-                   and row.party.participantType == 'VIRTUAL']
-        current_vc_rating =  {handle: cf_common.user_db.get_vc_rating(handle_to_member_id.get(handle))
+                   if row.party.members[0].handle in handles and
+                      row.party.participantType == 'VIRTUAL']
+        current_vc_rating = {handle: cf_common.user_db.get_vc_rating(handle_to_member_id.get(handle))
                                 for handle in handles}
         ranklist = Ranklist(contest, problems, standings, now, is_rated=True)
         delta_by_handle = {}
@@ -663,7 +663,7 @@ class CacheSystem:
         await self.problemset_cache.run()
 
     @staticmethod
-    @cached(ttl = 30 * 60)
+    @cached(ttl=30 * 60)
     async def getUsersEffectiveRating(*, activeOnly=None):
         """ Returns a dictionary mapping user handle to his effective rating for all the users.
         """

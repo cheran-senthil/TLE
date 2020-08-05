@@ -1,5 +1,4 @@
 import sqlite3
-import time
 from enum import IntEnum
 from collections import namedtuple
 
@@ -209,7 +208,7 @@ class UserDbConn:
             )
         ''')
 
-        
+
     # Helper functions.
 
     def _insert_one(self, table: str, columns, values: tuple):
@@ -230,13 +229,13 @@ class UserDbConn:
         self.conn.commit()
         return rc
 
-    def _fetchone(self, query:str, params=None, row_factory=None):
+    def _fetchone(self, query: str, params=None, row_factory=None):
         self.conn.row_factory = row_factory
         res = self.conn.execute(query, params).fetchone()
         self.conn.row_factory = None
         return res
 
-    def _fetchall(self, query:str, params=None, row_factory=None):
+    def _fetchall(self, query: str, params=None, row_factory=None):
         self.conn.row_factory = row_factory
         res = self.conn.execute(query, params).fetchall()
         self.conn.row_factory = None
@@ -777,7 +776,7 @@ class UserDbConn:
         """
         query = ('INSERT INTO rated_vcs '
                  '(contest_id, start_time, finish_time, status, guild_id) '
-                 f'VALUES ( ?, ?, ?, ?, ?)')
+                 'VALUES ( ?, ?, ?, ?, ?)')
         id = None
         with self.conn:
             id = self.conn.execute(query, (contest_id, start_time, finish_time, RatedVC.ONGOING, guild_id)).lastrowid
@@ -785,7 +784,7 @@ class UserDbConn:
         for user_id in user_ids:
             query = ('INSERT INTO rated_vc_users '
                  '(vc_id, user_id) '
-                 f'VALUES (? , ?)')
+                 'VALUES (? , ?)')
             with self.conn:
                 self.conn.execute(query, (id, user_id))
         return id
@@ -793,48 +792,48 @@ class UserDbConn:
     def get_rated_vc(self, vc_id: int):
         query = ('SELECT * '
                 'FROM rated_vcs '
-                f'WHERE id = ? ')
+                'WHERE id = ? ')
         vc = self._fetchone(query, params=(vc_id,), row_factory=namedtuple_factory)
         return vc
 
     def get_ongoing_rated_vc_ids(self):
         query = ('SELECT id '
                  'FROM rated_vcs '
-                 f'WHERE status = ? '
+                 'WHERE status = ? '
                  )
         vcs = self._fetchall(query, params=(RatedVC.ONGOING,), row_factory=namedtuple_factory)
         vc_ids = [vc.id for vc in vcs]
         return vc_ids
 
-    def get_rated_vc_user_ids(self, vc_id:int):
+    def get_rated_vc_user_ids(self, vc_id: int):
         query = ('SELECT user_id '
                  'FROM rated_vc_users '
-                 f'WHERE vc_id = ? '
+                 'WHERE vc_id = ? '
                  )
         users = self._fetchall(query, params=(vc_id,), row_factory=namedtuple_factory)
         user_ids = [user.user_id for user in users]
         return user_ids
 
-    def finish_rated_vc(self, vc_id:int):
+    def finish_rated_vc(self, vc_id: int):
         query = ('UPDATE rated_vcs '
-                f'SET status = ? '
-                f'WHERE id = ? ')
+                'SET status = ? '
+                'WHERE id = ? ')
 
         with self.conn:
             self.conn.execute(query, (RatedVC.FINISHED, vc_id))
 
-    def update_vc_rating(self, vc_id:int, user_id:str, rating:int):
+    def update_vc_rating(self, vc_id: int, user_id: str, rating: int):
         query = ('INSERT OR REPLACE INTO rated_vc_users '
                  '(vc_id, user_id, rating) '
-                 f'VALUES (?, ?, ?) ')
+                 'VALUES (?, ?, ?) ')
 
         with self.conn:
             self.conn.execute(query, (vc_id, user_id, rating))
 
-    def get_vc_rating(self, user_id:str, default_if_not_exist:bool = True):
+    def get_vc_rating(self, user_id: str, default_if_not_exist: bool = True):
         query = ('SELECT MAX(vc_id) AS latest_vc_id, rating '
                  'FROM rated_vc_users '
-                 f'WHERE user_id = ? AND rating IS NOT NULL'
+                 'WHERE user_id = ? AND rating IS NOT NULL'
                  )
         rating = self._fetchone(query, params=(user_id, ), row_factory=namedtuple_factory).rating
         if rating is None:
@@ -842,13 +841,13 @@ class UserDbConn:
                 return _DEFAULT_VC_RATING
             return None
         return rating
-    
-    def get_vc_rating_history(self, user_id:str):
+
+    def get_vc_rating_history(self, user_id: str):
         """ Return [vc_id, rating].
         """
         query = ('SELECT vc_id, rating '
                  'FROM rated_vc_users '
-                 f'WHERE user_id = ? AND rating IS NOT NULL'
+                 'WHERE user_id = ? AND rating IS NOT NULL'
                  )
         ratings = self._fetchall(query, params=(user_id,), row_factory=namedtuple_factory)
         return ratings
@@ -868,7 +867,7 @@ class UserDbConn:
         channel_id = self.conn.execute(query, (guild_id,)).fetchone()
         return int(channel_id[0]) if channel_id else None
 
-    def remove_last_ratedvc_participation(self, user_id:str):
+    def remove_last_ratedvc_participation(self, user_id: str):
         query = ('SELECT MAX(vc_id) AS vc_id '
                  'FROM rated_vc_users '
                  'WHERE user_id = ? '
@@ -878,8 +877,6 @@ class UserDbConn:
                  'WHERE user_id = ? AND vc_id = ? ')
         with self.conn:
             return self.conn.execute(query, (user_id, vc_id)).rowcount
-
-
 
     def close(self):
         self.conn.close()

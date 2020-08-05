@@ -111,7 +111,7 @@ def is_nonstandard_problem(problem):
             problem.tag_matches(['*special']))
 
 
-async def get_visited_contests(handles:[str]):
+async def get_visited_contests(handles : [str]):
     """ Returns a set of contest ids of contests that any of the given handles
         has at least one non-CE submission.
     """
@@ -120,16 +120,16 @@ async def get_visited_contests(handles:[str]):
 
     contest_ids = set()
     for subs in user_submissions:
-            for sub in subs:
-                if sub.verdict == 'COMPILATION_ERROR':
-                    continue
-                try:
-                    contest = cache2.contest_cache.get_contest(sub.problem.contestId)
-                    problem_id = (sub.problem.name, contest.startTimeSeconds)
-                    for cid in problem_to_contests[problem_id]:
-                        contest_ids.add(cid)
-                except cache_system2.ContestNotFound:
-                    pass
+        for sub in subs:
+            if sub.verdict == 'COMPILATION_ERROR':
+                continue
+            try:
+                contest = cache2.contest_cache.get_contest(sub.problem.contestId)
+                problem_id = (sub.problem.name, contest.startTimeSeconds)
+                for cid in problem_to_contests[problem_id]:
+                    contest_ids.add(cid)
+            except cache_system2.ContestNotFound:
+                pass
     return contest_ids
 
 # These are special rated-for-all contests which have a combined ranklist for onsite and online
