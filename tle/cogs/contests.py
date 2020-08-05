@@ -494,7 +494,7 @@ class Contests(commands.Cog):
         paginator.paginate(self.bot, channel, pages, wait_time=_STANDINGS_PAGINATE_WAIT_TIME, delete_after=delete_after)
 
     @commands.command(brief='Show ranklist for the given vc, considering only the given handles', usage='<contest_id> [handles]')
-    async def vc_ranklist(self, ctx, contest_id: int, *members: discord.Member):
+    async def vcranklist(self, ctx, contest_id: int, *members: discord.Member):
         member_ids = [member.id for member in members]
         handles = [cf_common.user_db.get_handle(member_id, ctx.guild.id) for member_id in member_ids]
         handle_to_member_id = {handle : member_id for handle, member_id in zip(handles, member_ids)}

@@ -608,9 +608,15 @@ class RanklistCache:
         handles = list(handle_to_member_id.keys())
         contest, problems, standings = await cf.contest.standings(contest_id=contest_id,
                                                                   show_unofficial=True)
-        # Exclude PRACTICE and MANAGER
+        # Exclude PRACTICE, MANAGER and OUR_OF_COMPETITION
         standings = [row for row in standings
-                     if row.party.participantType in ('CONTESTANT', 'VIRTUAL')]
+                     if row.party.participantType == 'CONTESTANT' or
+                        row.party.members[0].handle in handles]
+        standings.sort(key=lambda row: row.rank)
+        for i in range(len(standings)):
+            standings[i] = standings[i]._replace(rank=i + 1)
+        print(standings[0].rank)
+        print(standings[0].party.members[0].handle)
         now = time.time()
         rating_changes = await cf.contest.ratingChanges(contest_id=contest_id)
         current_official_rating = {rating_change.handle : rating_change.oldRating
