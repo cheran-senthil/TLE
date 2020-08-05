@@ -424,7 +424,7 @@ class Contests(commands.Cog):
             msg = f'{start}{en}|{en}{duration}{en}|{en}Ended {since} ago'
             embed.add_field(name='When', value=msg, inline=False)
         return embed
-    
+
     @staticmethod
     def _make_contest_embed_for_vc_ranklist(ranklist, vc_start_time=None, vc_end_time=None):
         contest = ranklist.contest
@@ -459,11 +459,11 @@ class Contests(commands.Cog):
         await ctx.channel.send(embed=self._make_contest_embed_for_ranklist(ranklist))
         await self._show_ranklist(channel=ctx.channel, contest_id=contest_id, handles=handles, ranklist=ranklist)
 
-    async def _show_ranklist(self, channel, contest_id: int, handles: [str], ranklist, vc:bool = False, delete_after:float=None):        
+    async def _show_ranklist(self, channel, contest_id: int, handles: [str], ranklist, vc: bool = False, delete_after: float = None):
         contest = cf_common.cache2.contest_cache.get_contest(contest_id)
         if ranklist is None:
             raise ContestCogError('No ranklist to show')
-            
+
         handle_standings = []
         for handle in handles:
             try:
@@ -474,7 +474,7 @@ class Contests(commands.Cog):
             # Database has correct handle ignoring case, update to it
             # TODO: It will throw an exception if this row corresponds to a team. At present ranklist doesnt show teams.
             # It should be fixed in https://github.com/cheran-senthil/TLE/issues/72
-            handle=standing.party.members[0].handle
+            handle = standing.party.members[0].handle
             handle_standings.append((handle, standing))
 
         if not handle_standings:
@@ -492,9 +492,8 @@ class Contests(commands.Cog):
         problem_indices = [problem.index for problem in ranklist.problems]
         pages = self._make_standings_pages(contest, problem_indices, handle_standings, deltas)
         paginator.paginate(self.bot, channel, pages, wait_time=_STANDINGS_PAGINATE_WAIT_TIME, delete_after=delete_after)
-        
 
-    @commands.command(brief='Show ranklist for the given vc, considering only the given handles', usage = '<contest_id> [handles]')
+    @commands.command(brief='Show ranklist for the given vc, considering only the given handles', usage='<contest_id> [handles]')
     async def vc_ranklist(self, ctx, contest_id: int, *members: discord.Member):
         member_ids = [member.id for member in members]
         handles = [cf_common.user_db.get_handle(member_id, ctx.guild.id) for member_id in member_ids]
@@ -503,7 +502,7 @@ class Contests(commands.Cog):
         await self._show_ranklist(channel=ctx.channel, contest_id=contest_id, handles=handles, ranklist=ranklist, vc=True)
 
     @commands.command(brief='Start a rated vc.', usage='<contest_id> <duration_in_mins> <@user1 @user2 ...>')
-    async def ratedvc(self, ctx, contest_id:int, duration:int, *members: discord.Member):
+    async def ratedvc(self, ctx, contest_id: int, duration: int, *members: discord.Member):
         ratedvc_channel_id = cf_common.user_db.get_rated_vc_channel(ctx.guild.id)
         if not ratedvc_channel_id or ctx.channel.id != ratedvc_channel_id:
             raise ContestCogError('You must use this command in ratedvc channel.')
@@ -549,7 +548,7 @@ class Contests(commands.Cog):
         member_change_pairs = [(member, change_by_handle[handle])
                                for member, handle in member_handle_pairs
                                if member is not None and handle in change_by_handle]
-        
+
         member_change_pairs.sort(key=lambda pair: pair[1].newRating, reverse=True)
         rank_to_role = {role.name: role for role in guild.roles}
 
@@ -600,11 +599,13 @@ class Contests(commands.Cog):
         handle_to_member_id = {handle : member_id for handle, member_id in zip(handles, member_ids)}
         now = time.time()
         ranklist = await cf_common.cache2.ranklist_cache.generate_vc_ranklist(vc.contest_id, handle_to_member_id)
+
         async def has_running_subs(handle):
             return [sub for sub in await cf.user.status(handle=handle)
-                    if sub.verdict == 'TESTING'
-                    and sub.problem.contestId == vc.contest_id
-                    and sub.relativeTimeSeconds <= vc.finish_time - vc.start_time]
+                    if sub.verdict == 'TESTING' and
+                       sub.problem.contestId == vc.contest_id and
+                       sub.relativeTimeSeconds <= vc.finish_time - vc.start_time]
+
         running_subs_flag = any([await has_running_subs(handle) for handle in handles])
         if running_subs_flag:
             msg = 'Some submissions are still being judged'
@@ -618,7 +619,7 @@ class Contests(commands.Cog):
         RatingChange = namedtuple('RatingChange', 'handle oldRating newRating')
         for handle, member_id in zip(handles, member_ids):
             delta = ranklist.delta_by_handle.get(handle)
-            if delta is None: # The user did not participate.
+            if delta is None:  # The user did not participate.
                 cf_common.user_db.remove_last_ratedvc_participation(member_id)
                 continue
             old_rating = cf_common.user_db.get_vc_rating(member_id)
@@ -638,7 +639,7 @@ class Contests(commands.Cog):
         for rated_vc_id in ongoing_rated_vcs:
             await self._watch_rated_vc(rated_vc_id)
 
-    @commands.command(brief='Set the rated vc channel to the current channel', usage = '')
+    @commands.command(brief='Set the rated vc channel to the current channel')
     @commands.has_role('Admin')
     async def set_ratedvc_channel(self, ctx):
         """ Sets the rated vc channel to the current channel.
@@ -646,7 +647,7 @@ class Contests(commands.Cog):
         cf_common.user_db.set_rated_vc_channel(ctx.guild.id, ctx.channel.id)
         await ctx.send(embed=discord_common.embed_success('Rated VC channel saved successfully'))
 
-    @commands.command(brief='Get the rated vc channel', usage = '')
+    @commands.command(brief='Get the rated vc channel')
     async def get_ratedvc_channel(self, ctx):
         """ Gets the rated vc channel.
         """
@@ -658,9 +659,8 @@ class Contests(commands.Cog):
         embed.add_field(name='Channel', value=channel.mention)
         await ctx.send(embed=embed)
 
-    @commands.command(brief='Show vc ratings', usage = '')
+    @commands.command(brief='Show vc ratings')
     async def vcratings(self, ctx):
-        handles = await cf_common.resolve_handles(ctx, self.member_converter, handles=set(), maxcnt=None, default_to_all_server=True)
         users = [(await self.member_converter.convert(ctx, str(member_id)), handle, cf_common.user_db.get_vc_rating(member_id, default_if_not_exist=False))
                  for member_id, handle in cf_common.user_db.get_handles_for_guild(ctx.guild.id)]
         # Filter only rated users. (Those who entered at least one rated vc.)
@@ -670,6 +670,7 @@ class Contests(commands.Cog):
         users.sort(key=lambda user: -user[2])
 
         _PER_PAGE = 10
+
         def make_page(chunk, page_num):
             style = table.Style('{:>}  {:<}  {:<}  {:<}')
             t = table.Table(style)
@@ -689,17 +690,17 @@ class Contests(commands.Cog):
         pages = [make_page(chunk, k) for k, chunk in enumerate(paginator.chunkify(users, _PER_PAGE))]
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
-    @commands.command(brief='Plot vc rating for a list of at most 5 users', usage = '@user1 @user2 ..')
+    @commands.command(brief='Plot vc rating for a list of at most 5 users', usage='@user1 @user2 ..')
     async def vcrating(self, ctx, *members: discord.Member):
         """Plots VC rating for at most 5 users."""
         members = members or (ctx.author, )
         if len(members) > 5:
             raise ContestCogError('Cannot plot more than 5 VCers at once.')
         plot_data = defaultdict(list)
-        
+
         min_rating = 1100
         max_rating = 1800
-        
+
         for member in members:
             rating_history = cf_common.user_db.get_vc_rating_history(member.id)
             if not rating_history:
@@ -741,7 +742,7 @@ class Contests(commands.Cog):
         await ctx.send(embed=embed, file=discord_file)
 
     @discord_common.send_error_if(ContestCogError, rl.RanklistError,
-                                  cache_system2.CacheError,  cf_common.ResolveHandleError,
+                                  cache_system2.CacheError, cf_common.ResolveHandleError,
                                   commands.errors.MissingRequiredArgument)
     async def cog_command_error(self, ctx, error):
         pass
