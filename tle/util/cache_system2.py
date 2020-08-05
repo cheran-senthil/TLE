@@ -610,8 +610,7 @@ class RanklistCache:
                                                                   show_unofficial=True)
         # Exclude PRACTICE and MANAGER
         standings = [row for row in standings
-                     if row.party.participantType in ('CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL')]
-        _, _, official_standings = await cf.contest.standings(contest_id=contest_id)
+                     if row.party.participantType in ('CONTESTANT', 'VIRTUAL')]
         now = time.time()
         rating_changes = await cf.contest.ratingChanges(contest_id=contest_id)
         current_official_rating = {rating_change.handle : rating_change.oldRating
