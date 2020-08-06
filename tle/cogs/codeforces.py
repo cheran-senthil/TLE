@@ -345,10 +345,8 @@ class Codeforces(commands.Cog):
         markers = [x for x in args if x[0] == '+']
         handles = [x for x in args if x[0] != '+'] or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles, maxcnt=10)
-        user_submissions = [await cf.user.status(handle=handle) for handle in handles]
         info = await cf.user.info(handles=handles)
         contests = cf_common.cache2.contest_cache.get_contests_in_phase('FINISHED')
-        problem_to_contests = cf_common.cache2.problemset_cache.problem_to_contests
 
         if not markers:
             divr = sum(user.effective_rating for user in info) / len(handles)
@@ -356,24 +354,14 @@ class Codeforces(commands.Cog):
             markers = ['div3'] if divr < 1600 else ['div2'] if divr < 2100 else div1_indicators
 
         recommendations = {contest.id for contest in contests if
-                           contest.matches(markers)
-                           and not cf_common.is_nonstandard_contest(contest)
-                           and not any(cf_common.is_contest_writer(contest.id, handle)
+                           contest.matches(markers) and
+                           not cf_common.is_nonstandard_contest(contest) and
+                           not any(cf_common.is_contest_writer(contest.id, handle)
                                        for handle in handles)}
 
-        # discard contests in which user has non-CE submissions
-        for subs in user_submissions:
-            for sub in subs:
-                if sub.verdict == 'COMPILATION_ERROR':
-                    continue
-
-                try:
-                    contest = cf_common.cache2.contest_cache.get_contest(sub.problem.contestId)
-                    problem_id = (sub.problem.name, contest.startTimeSeconds)
-                    for cid in problem_to_contests[problem_id]:
-                        recommendations.discard(cid)
-                except cache_system2.ContestNotFound:
-                    pass
+        # Discard contests in which user has non-CE submissions.
+        visited_contests = await cf_common.get_visited_contests(handles)
+        recommendations -= visited_contests
 
         if not recommendations:
             raise CodeforcesCogError('Unable to recommend a contest')

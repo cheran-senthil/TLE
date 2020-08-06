@@ -1,10 +1,12 @@
 import sqlite3
-import time
 from enum import IntEnum
+from collections import namedtuple
 
 from discord.ext import commands
 
 from tle.util import codeforces_api as cf
+
+_DEFAULT_VC_RATING = 1500
 
 class Gitgud(IntEnum):
     GOTGUD = 0
@@ -29,6 +31,9 @@ class Winner(IntEnum):
 class DuelType(IntEnum):
     UNOFFICIAL = 0
     OFFICIAL = 1
+class RatedVC(IntEnum):
+    ONGOING = 0
+    FINISHED = 1
 
 
 class UserDbError(commands.CommandError):
@@ -48,9 +53,17 @@ class UniqueConstraintFailed(UserDbError):
     pass
 
 
+def namedtuple_factory(cursor, row):
+    """Returns sqlite rows as named tuples."""
+    fields = [col[0] for col in cursor.description if col[0].isidentifier()]
+    Row = namedtuple("Row", fields)
+    return Row(*row)
+
+
 class UserDbConn:
     def __init__(self, dbfile):
         self.conn = sqlite3.connect(dbfile)
+        self.conn.row_factory = namedtuple_factory
         self.create_tables()
 
     def create_tables(self):
@@ -161,6 +174,43 @@ class UserDbConn:
             ')'
         )
 
+        # Rated VCs stuff:
+        self.conn.execute('''
+            CREATE TABLE IF NOT EXISTS "rated_vcs" (
+                "id"	         INTEGER PRIMARY KEY AUTOINCREMENT,
+                "contest_id"     INTEGER NOT NULL,
+                "start_time"     REAL,
+                "finish_time"    REAL,
+                "status"         INTEGER,
+                "guild_id"       TEXT
+            )
+        ''')
+
+        # TODO: Do we need to explicitly specify the fk constraint or just depend on the middleware?
+        self.conn.execute('''
+            CREATE TABLE IF NOT EXISTS "rated_vc_users" (
+                "vc_id"	         INTEGER,
+                "user_id"        TEXT NOT NULL,
+                "rating"         INTEGER,
+
+                CONSTRAINT fk_vc
+                    FOREIGN KEY (vc_id)
+                    REFERENCES rated_vcs(id),
+
+                PRIMARY KEY(vc_id, user_id)
+            )
+        ''')
+
+        self.conn.execute('''
+            CREATE TABLE IF NOT EXISTS rated_vc_settings (
+                guild_id TEXT PRIMARY KEY,
+                channel_id TEXT
+            )
+        ''')
+
+
+    # Helper functions.
+
     def _insert_one(self, table: str, columns, values: tuple):
         n = len(values)
         query = '''
@@ -178,6 +228,18 @@ class UserDbConn:
         rc = self.conn.executemany(query, values).rowcount
         self.conn.commit()
         return rc
+
+    def _fetchone(self, query: str, params=None, row_factory=None):
+        self.conn.row_factory = row_factory
+        res = self.conn.execute(query, params).fetchone()
+        self.conn.row_factory = None
+        return res
+
+    def _fetchall(self, query: str, params=None, row_factory=None):
+        self.conn.row_factory = row_factory
+        res = self.conn.execute(query, params).fetchall()
+        self.conn.row_factory = None
+        return res
 
     def new_challenge(self, user_id, issue_time, prob, delta):
         query1 = '''
@@ -706,6 +768,112 @@ class UserDbConn:
         rc = self.conn.execute(active_query, active_ids).rowcount
         self.conn.commit()
         return rc
+
+    # Rated VC stuff
+
+    def create_rated_vc(self, contest_id: int, start_time: float, finish_time: float, guild_id: str, user_ids: [str]):
+        """ Creates a rated vc and returns its id.
+        """
+        query = ('INSERT INTO rated_vcs '
+                 '(contest_id, start_time, finish_time, status, guild_id) '
+                 'VALUES ( ?, ?, ?, ?, ?)')
+        id = None
+        with self.conn:
+            id = self.conn.execute(query, (contest_id, start_time, finish_time, RatedVC.ONGOING, guild_id)).lastrowid
+            for user_id in user_ids:
+                query = ('INSERT INTO rated_vc_users '
+                         '(vc_id, user_id) '
+                         'VALUES (? , ?)')
+                self.conn.execute(query, (id, user_id))
+        return id
+
+    def get_rated_vc(self, vc_id: int):
+        query = ('SELECT * '
+                'FROM rated_vcs '
+                'WHERE id = ? ')
+        vc = self._fetchone(query, params=(vc_id,), row_factory=namedtuple_factory)
+        return vc
+
+    def get_ongoing_rated_vc_ids(self):
+        query = ('SELECT id '
+                 'FROM rated_vcs '
+                 'WHERE status = ? '
+                 )
+        vcs = self._fetchall(query, params=(RatedVC.ONGOING,), row_factory=namedtuple_factory)
+        vc_ids = [vc.id for vc in vcs]
+        return vc_ids
+
+    def get_rated_vc_user_ids(self, vc_id: int):
+        query = ('SELECT user_id '
+                 'FROM rated_vc_users '
+                 'WHERE vc_id = ? '
+                 )
+        users = self._fetchall(query, params=(vc_id,), row_factory=namedtuple_factory)
+        user_ids = [user.user_id for user in users]
+        return user_ids
+
+    def finish_rated_vc(self, vc_id: int):
+        query = ('UPDATE rated_vcs '
+                'SET status = ? '
+                'WHERE id = ? ')
+
+        with self.conn:
+            self.conn.execute(query, (RatedVC.FINISHED, vc_id))
+
+    def update_vc_rating(self, vc_id: int, user_id: str, rating: int):
+        query = ('INSERT OR REPLACE INTO rated_vc_users '
+                 '(vc_id, user_id, rating) '
+                 'VALUES (?, ?, ?) ')
+
+        with self.conn:
+            self.conn.execute(query, (vc_id, user_id, rating))
+
+    def get_vc_rating(self, user_id: str, default_if_not_exist: bool = True):
+        query = ('SELECT MAX(vc_id) AS latest_vc_id, rating '
+                 'FROM rated_vc_users '
+                 'WHERE user_id = ? AND rating IS NOT NULL'
+                 )
+        rating = self._fetchone(query, params=(user_id, ), row_factory=namedtuple_factory).rating
+        if rating is None:
+            if default_if_not_exist:
+                return _DEFAULT_VC_RATING
+            return None
+        return rating
+
+    def get_vc_rating_history(self, user_id: str):
+        """ Return [vc_id, rating].
+        """
+        query = ('SELECT vc_id, rating '
+                 'FROM rated_vc_users '
+                 'WHERE user_id = ? AND rating IS NOT NULL'
+                 )
+        ratings = self._fetchall(query, params=(user_id,), row_factory=namedtuple_factory)
+        return ratings
+
+    def set_rated_vc_channel(self, guild_id, channel_id):
+        query = ('INSERT OR REPLACE INTO rated_vc_settings '
+                 ' (guild_id, channel_id) VALUES (?, ?)'
+                 )
+        with self.conn:
+            self.conn.execute(query, (guild_id, channel_id))
+
+    def get_rated_vc_channel(self, guild_id):
+        query = ('SELECT channel_id '
+                 'FROM rated_vc_settings '
+                 'WHERE guild_id = ?')
+        channel_id = self.conn.execute(query, (guild_id,)).fetchone()
+        return int(channel_id[0]) if channel_id else None
+
+    def remove_last_ratedvc_participation(self, user_id: str):
+        query = ('SELECT MAX(vc_id) AS vc_id '
+                 'FROM rated_vc_users '
+                 'WHERE user_id = ? '
+                 )
+        vc_id = self._fetchone(query, params=(user_id, ), row_factory=namedtuple_factory).vc_id
+        query = ('DELETE FROM rated_vc_users '
+                 'WHERE user_id = ? AND vc_id = ? ')
+        with self.conn:
+            return self.conn.execute(query, (user_id, vc_id)).rowcount
 
     def close(self):
         self.conn.close()

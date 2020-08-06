@@ -504,7 +504,6 @@ class RanklistNotMonitored(RanklistCacheError):
         super().__init__(f'The ranklist for `{contest.name}` is not being monitored')
         self.contest = contest
 
-
 class RanklistCache:
     _RELOAD_DELAY = 2 * 60
 
@@ -605,6 +604,38 @@ class RanklistCache:
 
         return ranklist
 
+    async def generate_vc_ranklist(self, contest_id, handle_to_member_id):
+        handles = list(handle_to_member_id.keys())
+        contest, problems, standings = await cf.contest.standings(contest_id=contest_id,
+                                                                  show_unofficial=True)
+        # Exclude PRACTICE, MANAGER and OUR_OF_COMPETITION
+        standings = [row for row in standings
+                     if row.party.participantType == 'CONTESTANT' or
+                        row.party.members[0].handle in handles]
+        standings.sort(key=lambda row: row.rank)
+        standings = [row._replace(rank=i + 1) for i, row in enumerate(standings)]
+        now = time.time()
+        rating_changes = await cf.contest.ratingChanges(contest_id=contest_id)
+        current_official_rating = {rating_change.handle : rating_change.oldRating
+                                    for rating_change in rating_changes}
+
+        # TODO: assert that none of the given handles are in the official standings.
+        handles = [row.party.members[0].handle for row in standings
+                   if row.party.members[0].handle in handles and
+                      row.party.participantType == 'VIRTUAL']
+        current_vc_rating = {handle: cf_common.user_db.get_vc_rating(handle_to_member_id.get(handle))
+                                for handle in handles}
+        ranklist = Ranklist(contest, problems, standings, now, is_rated=True)
+        delta_by_handle = {}
+        for handle in handles:
+            mixed_ratings = current_official_rating.copy()
+            mixed_ratings[handle] = current_vc_rating.get(handle)
+            ranklist.predict(mixed_ratings)
+            delta_by_handle[handle] = ranklist.delta_by_handle.get(handle, 0)
+
+        ranklist.delta_by_handle = delta_by_handle
+        return ranklist
+
     async def _fetch(self, contests):
         ranklist_by_contest = {}
         for contest in contests:
@@ -635,7 +666,7 @@ class CacheSystem:
         await self.problemset_cache.run()
 
     @staticmethod
-    @cached(ttl = 30 * 60)
+    @cached(ttl=30 * 60)
     async def getUsersEffectiveRating(*, activeOnly=None):
         """ Returns a dictionary mapping user handle to his effective rating for all the users.
         """
@@ -643,3 +674,4 @@ class CacheSystem:
         users_effective_rating_dict = {user.handle: user.effective_rating
                                   for user in ratedList}
         return users_effective_rating_dict
+

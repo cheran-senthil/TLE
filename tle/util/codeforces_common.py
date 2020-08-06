@@ -5,8 +5,9 @@ import math
 import time
 import datetime
 from collections import defaultdict
-
+import itertools
 from discord.ext import commands
+import discord
 
 from tle import constants
 from tle.util import cache_system2
@@ -109,6 +110,26 @@ def is_nonstandard_problem(problem):
     return (is_nonstandard_contest(cache2.contest_cache.get_contest(problem.contestId)) or
             problem.tag_matches(['*special']))
 
+
+async def get_visited_contests(handles : [str]):
+    """ Returns a set of contest ids of contests that any of the given handles
+        has at least one non-CE submission.
+    """
+    user_submissions = [await cf.user.status(handle=handle) for handle in handles]
+    problem_to_contests = cache2.problemset_cache.problem_to_contests
+
+    contest_ids = []
+    for sub in itertools.chain.from_iterable(user_submissions):
+        if sub.verdict == 'COMPILATION_ERROR':
+            continue
+        try:
+            contest = cache2.contest_cache.get_contest(sub.problem.contestId)
+            problem_id = (sub.problem.name, contest.startTimeSeconds)
+            contest_ids += problem_to_contests[problem_id]
+        except cache_system2.ContestNotFound:
+            pass
+    return set(contest_ids)
+
 # These are special rated-for-all contests which have a combined ranklist for onsite and online
 # participants. The onsite participants have their submissions marked as out of competition. Just
 # Codeforces things.
@@ -192,9 +213,17 @@ def days_ago(t):
         return 'yesterday'
     return f'{math.floor(days)} days ago'
 
-async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
+async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5, default_to_all_server=False):
     """Convert an iterable of strings to CF handles. A string beginning with ! indicates Discord username,
      otherwise it is a raw CF handle to be left unchanged."""
+    handles = set(handles)
+    if default_to_all_server and not handles:
+        handles.add('+server')
+    if '+server' in handles:
+        handles.remove('+server')
+        guild_handles = {handle for discord_id, handle
+                            in user_db.get_handles_for_guild(ctx.guild.id)}
+        handles.update(guild_handles)
     if len(handles) < mincnt or (maxcnt and maxcnt < len(handles)):
         raise HandleCountOutOfBoundsError(mincnt, maxcnt)
     resolved_handles = []
@@ -213,6 +242,15 @@ async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
             raise HandleIsVjudgeError(handle)
         resolved_handles.append(handle)
     return resolved_handles
+
+def members_to_handles(members: [discord.Member], guild_id):
+    handles = []
+    for member in members:
+        handle = user_db.get_handle(member.id, guild_id)
+        if handle is None:
+            raise HandleNotRegisteredError(member)
+        handles.append(handle)
+    return handles
 
 def filter_flags(args, params):
     args = list(args)
