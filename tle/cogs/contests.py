@@ -28,7 +28,7 @@ _STANDINGS_PER_PAGE = 15
 _STANDINGS_PAGINATE_WAIT_TIME = 2 * 60
 _FINISHED_CONTESTS_LIMIT = 5
 _WATCHING_RATED_VC_WAIT_TIME = 10 * 60  # seconds
-_MIN_RATED_VC_DURATION = 30  # minutes
+_RATEDVC_EXTRA_TIME = 10 * 60  # seconds
 
 class ContestCogError(commands.CommandError):
     pass
@@ -493,15 +493,13 @@ class Contests(commands.Cog):
         pages = self._make_standings_pages(contest, problem_indices, handle_standings, deltas)
         paginator.paginate(self.bot, channel, pages, wait_time=_STANDINGS_PAGINATE_WAIT_TIME, delete_after=delete_after)
 
-    @commands.command(brief='Start a rated vc.', usage='<contest_id> <duration_in_mins> <@user1 @user2 ...>')
-    async def ratedvc(self, ctx, contest_id: int, duration: int, *members: discord.Member):
+    @commands.command(brief='Start a rated vc.', usage='<contest_id> <@user1 @user2 ...>')
+    async def ratedvc(self, ctx, contest_id: int, *members: discord.Member):
         ratedvc_channel_id = cf_common.user_db.get_rated_vc_channel(ctx.guild.id)
         if not ratedvc_channel_id or ctx.channel.id != ratedvc_channel_id:
             raise ContestCogError('You must use this command in ratedvc channel.')
         if not members:
             raise ContestCogError('Missing members')
-        if duration < _MIN_RATED_VC_DURATION:
-            raise ContestCogError(f'Duration must be at least {_MIN_RATED_VC_DURATION} minutes.')
         contest = cf_common.cache2.contest_cache.get_contest(contest_id)
         try:
             await cf.contest.ratingChanges(contest_id=contest_id)
@@ -522,11 +520,14 @@ class Contests(commands.Cog):
         if contest_id in visited_contests:
             raise ContestCogError(f'Some of the handles: {", ".join(handles)} have submissions in the contest')
         start_time = time.time()
-        finish_time = start_time + duration * 60
+        finish_time = start_time + contest.durationSeconds + _RATEDVC_EXTRA_TIME
         cf_common.user_db.create_rated_vc(contest_id, start_time, finish_time, ctx.guild.id, [member.id for member in members])
         title = f'Starting {contest.name} for:'
         msg = "\n".join(f'[{discord.utils.escape_markdown(handle)}]({cf.PROFILE_BASE_URL}{handle})' for handle in handles)
         embed = discord_common.cf_color_embed(title=title, description=msg, url=contest.url)
+        await ctx.send(embed=embed)
+        embed = discord_common.embed_alert(f'You have {int(finish_time - start_time) // 60} minutes to complete the vc!')
+        embed.set_footer(text='GL & HF')
         await ctx.send(embed=embed)
 
     @staticmethod
