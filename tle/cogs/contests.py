@@ -632,6 +632,17 @@ class Contests(commands.Cog):
         for rated_vc_id in ongoing_rated_vcs:
             await self._watch_rated_vc(rated_vc_id)
 
+    @commands.command(brief='Unregister this user from an ongoing ratedvc', usage='@user')
+    @commands.has_any_role('Admin', 'Moderator')
+    async def _unregistervc(self, ctx, user: discord.Member):
+        """ Unregister this user from an ongoing ratedvc.
+        """
+        ongoing_vc_member_ids = _get_ongoing_vc_participants()
+        if str(user.id) not in ongoing_vc_member_ids:
+            raise ContestCogError(f'{user.mention} has no ongoing ratedvc!')
+        cf_common.user_db.remove_last_ratedvc_participation(user.id)
+        await ctx.send(embed=discord_common.embed_success(f'Successfully unregistered {user.mention} from the ongoing vc.'))
+
     @commands.command(brief='Set the rated vc channel to the current channel')
     @commands.has_role('Admin')
     async def set_ratedvc_channel(self, ctx):
