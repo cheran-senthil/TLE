@@ -147,7 +147,8 @@ class CacheDbConn:
         query = ('SELECT contest_id, name, handle, rank, rating_update_time, old_rating, new_rating '
                  'FROM rating_change r '
                  'LEFT JOIN contest c '
-                 'ON r.contest_id = c.id')
+                 'ON r.contest_id = c.id '
+                 'ORDER BY rating_update_time')
         res = self.conn.execute(query)
         return (cf.RatingChange._make(change) for change in res)
 
