@@ -467,11 +467,7 @@ class RatingChangesCache:
         changes = self.cache_master.conn.get_all_rating_changes()
         handle_rating_cache = {}
         for change in changes:
-            delta = change.newRating - change.oldRating
-            try:
-                handle_rating_cache[change.handle] += delta
-            except KeyError:
-                handle_rating_cache[change.handle] = cf.DEFAULT_RATING + delta
+            handle_rating_cache[change.handle] = change.newRating
         self.handle_rating_cache = handle_rating_cache
         self.logger.info(f'Ratings for {len(handle_rating_cache)} handles cached')
 
