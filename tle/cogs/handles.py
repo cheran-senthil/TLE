@@ -706,7 +706,7 @@ class Handles(commands.Cog):
         else:
             raise HandleCogError(f'Invalid role {which}')
 
-    @discord_common.send_error_if(HandleCogError, cf_common.HandleIsVjudgeError, commands.UserInputError)
+    @discord_common.send_error_if(HandleCogError, cf_common.HandleIsVjudgeError)
     async def cog_command_error(self, ctx, error):
         pass
 

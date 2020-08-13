@@ -540,7 +540,7 @@ class Dueling(commands.Cog):
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
 
-    @discord_common.send_error_if(DuelCogError, commands.UserInputError)
+    @discord_common.send_error_if(DuelCogError)
     async def cog_command_error(self, ctx, error):
         pass
 

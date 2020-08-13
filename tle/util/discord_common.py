@@ -71,6 +71,8 @@ async def bot_error_handler(ctx, exception):
         await ctx.send(embed=embed_alert('Sorry, this command is temporarily disabled'))
     elif isinstance(exception, cf.CodeforcesApiError):
         await ctx.send(embed=embed_alert(exception))
+    elif isinstance(exception, commands.UserInputError):
+        await ctx.send(embed=embed_alert(exception))
     else:
         exc_info = type(exception), exception, exception.__traceback__
         logger.exception('Ignoring exception in command {}:'.format(ctx.command), exc_info=exc_info)
