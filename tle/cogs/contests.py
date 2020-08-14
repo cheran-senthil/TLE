@@ -746,8 +746,7 @@ class Contests(commands.Cog):
         await ctx.send(embed=embed, file=discord_file)
 
     @discord_common.send_error_if(ContestCogError, rl.RanklistError,
-                                  cache_system2.CacheError, cf_common.ResolveHandleError,
-                                  commands.errors.MissingRequiredArgument)
+                                  cache_system2.CacheError, cf_common.ResolveHandleError)
     async def cog_command_error(self, ctx, error):
         pass
 

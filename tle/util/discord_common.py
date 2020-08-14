@@ -69,7 +69,7 @@ async def bot_error_handler(ctx, exception):
         await ctx.send(embed=embed_alert('Commands are disabled in private channels'))
     elif isinstance(exception, commands.DisabledCommand):
         await ctx.send(embed=embed_alert('Sorry, this command is temporarily disabled'))
-    elif isinstance(exception, cf.CodeforcesApiError):
+    elif isinstance(exception, (cf.CodeforcesApiError, commands.UserInputError)):
         await ctx.send(embed=embed_alert(exception))
     else:
         exc_info = type(exception), exception, exception.__traceback__
