@@ -381,7 +381,7 @@ class Graphs(commands.Cog):
                 all_times,
                 stacked=True,
                 label=labels,
-                range=(dhi - phase_cnt * phase_time, dhi - dt.timedelta(days=1)),
+                range=(dhi - phase_cnt * phase_time, dhi),
                 bins=min(40, phase_cnt))
 
             total = sum(map(len, all_times))
@@ -401,7 +401,7 @@ class Graphs(commands.Cog):
             phase_cnt = math.ceil((dhi - dlo) / phase_time)
             plt.hist(
                 all_times,
-                range=(dhi - phase_cnt * phase_time, dhi - dt.timedelta(days=1)),
+                range=(dhi - phase_cnt * phase_time, dhi),
                 bins=min(40 // len(handles), phase_cnt))
             plt.legend(labels)
 
