@@ -750,21 +750,24 @@ class UserDbConn:
                  'WHERE guild_id = ?')
         return self.conn.execute(query, (guild_id,)).fetchone() is not None
 
-    def update_status(self, active_ids: list):
-        # TODO: Deal with the whole status thing.
-        if not active_ids: return 0
-        placeholders = ', '.join(['?'] * len(active_ids))
+    def reset_status(self, id):
         inactive_query = '''
             UPDATE user_handle
             SET active = 0
-            WHERE user_id NOT IN ({})
-        '''.format(placeholders)
+            WHERE guild_id = ?
+        '''
+        self.conn.execute(inactive_query, (id,))
+        self.conn.commit()
+
+    def update_status(self, active_ids: list):
+        # TODO: Deal with the whole status thing.
+        placeholders = ', '.join(['?'] * len(active_ids))
+        if not active_ids: return 0
         active_query = '''
             UPDATE user_handle
             SET active = 1
             WHERE user_id IN ({})
         '''.format(placeholders)
-        self.conn.execute(inactive_query, active_ids)
         rc = self.conn.execute(active_query, active_ids).rowcount
         self.conn.commit()
         return rc
