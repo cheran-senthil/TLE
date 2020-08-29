@@ -592,10 +592,9 @@ class Handles(commands.Cog):
             top_increases_str.append(increase_str)
 
         rank_changes_str = rank_changes_str or ['No rank changes']
-        embed_color = discord_common.random_cf_color()
 
         embed_heading = discord_common.cf_color_embed(
-            title=contest.name, url=contest.url, description="", color=embed_color)
+            title=contest.name, url=contest.url, description="")
         embed_heading.set_author(name="Rank updates")
 
         embeds = [embed_heading]
@@ -604,13 +603,14 @@ class Handles(commands.Cog):
                 rank_changes_str, _MAX_RATING_CHANGES_PER_EMBED):
             desc = '\n'.join(rank_changes_chunk)
             embed = discord_common.cf_color_embed(
-                description=desc, color=embed_color)
+                description=desc)
             embeds.append(embed)
 
         top_rating_increases_embed = discord_common.cf_color_embed(description='\n'.join(
-            top_increases_str) or 'Nobody got a positive delta :(', color=embed_color)
+            top_increases_str) or 'Nobody got a positive delta :(')
         top_rating_increases_embed.set_author(name='Top rating increases')
         embeds.append(top_rating_increases_embed)
+        embeds=discord_common.cf_same_color_embeds(embeds)
         return embeds
 
     @commands.group(brief='Commands for role updates',

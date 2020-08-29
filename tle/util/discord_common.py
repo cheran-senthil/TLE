@@ -31,14 +31,18 @@ def embed_alert(desc):
 def random_cf_color():
     return random.choice(_CF_COLORS)
 
+def cf_color_embed(**kwargs):
+    return discord.Embed(**kwargs, color=random_cf_color())
 
-def cf_color_embed(*, color=None, **kwargs):
-    color = color or random_cf_color()
-    return discord.Embed(**kwargs, color=color)
+def cf_same_color_embeds(embeds):
+    color = random_cf_color()
+    for embed in embeds:
+        embed.color=color
+    return embeds
+
 
 def attach_image(embed, img_file):
     embed.set_image(url=f'attachment://{img_file.filename}')
-
 
 def set_author_footer(embed, user):
     embed.set_footer(text=f'Requested by {user}', icon_url=user.avatar_url)
