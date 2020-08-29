@@ -285,6 +285,7 @@ class SubFilter:
         self.rlo, self.rhi = 500, 3800
         self.types = []
         self.tags = []
+        self.excluded_tags = []
         self.contests = []
         self.indices = []
 
@@ -311,6 +312,10 @@ class SubFilter:
                 if len(arg) == 1:
                     raise ParamParseError('Problem tag cannot be empty.')
                 self.tags.append(arg[1:])
+            elif arg[0] == '-':
+                if len(arg) == 1:
+                    raise ParamParseError('Problem tag cannot be empty.')
+                self.excluded_tags.append(arg[1:])
             elif arg[0:2] == 'd<':
                 self.dhi = min(self.dhi, parse_date(arg[2:]))
             elif arg[0:3] == 'd>=':
@@ -357,7 +362,7 @@ class SubFilter:
             contest = cache2.contest_cache.contest_by_id.get(problem.contestId, None)
             type_ok = submission.author.participantType in self.types
             date_ok = self.dlo <= submission.creationTimeSeconds < self.dhi
-            tag_ok = not self.tags or problem.tag_matches(self.tags)
+            tag_ok = (not self.tags or problem.tag_matches(self.tags)) and problem.tag_not_in(self.excluded_tags)
             index_ok = not self.indices or any(index.lower() == problem.index.lower() for index in self.indices)
             contest_ok = not self.contests or (contest and contest.matches(self.contests))
             team_ok = self.team or len(submission.author.members) == 1

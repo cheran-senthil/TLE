@@ -128,6 +128,10 @@ class Problem(namedtuple('Problem', 'contestId problemsetName index name type po
             matches.update(curmatch)
         return list(matches)
 
+    def tag_not_in(self, query_tags):
+        """If every query tag is not a substring of any problem tag, returns true and false otherwise."""
+        return not any(query_tag in tag for tag in self.tags for query_tag in query_tags)
+
 
 ProblemStatistics = namedtuple('ProblemStatistics', 'contestId index solvedCount')
 
