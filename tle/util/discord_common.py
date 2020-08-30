@@ -43,6 +43,7 @@ def cf_same_color_embeds(embeds):
 def attach_image(embed, img_file):
     embed.set_image(url=f'attachment://{img_file.filename}')
 
+
 def set_author_footer(embed, user):
     embed.set_footer(text=f'Requested by {user}', icon_url=user.avatar_url)
 
