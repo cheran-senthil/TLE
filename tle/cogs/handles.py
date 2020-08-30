@@ -609,7 +609,7 @@ class Handles(commands.Cog):
         top_rating_increases_embed.set_author(name='Top rating increases')
 
         embeds.append(top_rating_increases_embed)
-        discord_common.cf_same_color_embeds(embeds)
+        discord_common.set_same_cf_color(embeds)
 
         return embeds
 

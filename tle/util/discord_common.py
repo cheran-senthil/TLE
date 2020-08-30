@@ -34,7 +34,7 @@ def random_cf_color():
 def cf_color_embed(**kwargs):
     return discord.Embed(**kwargs, color=random_cf_color())
 
-def cf_same_color_embeds(embeds):
+def set_same_cf_color(embeds):
     color = random_cf_color()
     for embed in embeds:
         embed.color=color
