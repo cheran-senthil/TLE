@@ -38,7 +38,6 @@ def cf_same_color_embeds(embeds):
     color = random_cf_color()
     for embed in embeds:
         embed.color=color
-    return embeds
 
 
 def attach_image(embed, img_file):

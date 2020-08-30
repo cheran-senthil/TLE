@@ -33,7 +33,7 @@ _HANDLES_PER_PAGE = 15
 _NAME_MAX_LEN = 20
 _PAGINATE_WAIT_TIME = 5 * 60  # 5 minutes
 _PRETTY_HANDLES_PER_PAGE = 10
-_TOP_DELTAS_COUNT = 5
+_TOP_DELTAS_COUNT = 10
 _MAX_RATING_CHANGES_PER_EMBED = 15
 _UPDATE_HANDLE_STATUS_INTERVAL = 6 * 60 * 60  # 6 hours
 
@@ -291,7 +291,7 @@ class Handles(commands.Cog):
             channel = guild.get_channel(channel_id)
             if channel is not None:
                 with contextlib.suppress(HandleCogError):
-                    embeds = self._make_rankup_embed(guild, contest, change_by_handle)
+                    embeds = self._make_rankup_embeds(guild, contest, change_by_handle)
                     for embed in embeds:
                         await channel.send(embed=embed)
 
@@ -538,7 +538,7 @@ class Handles(commands.Cog):
                                                reason='Codeforces rank update')
 
     @staticmethod
-    def _make_rankup_embed(guild, contest, change_by_handle):
+    def _make_rankup_embeds(guild, contest, change_by_handle):
         """Make an embed containing a list of rank changes and top rating increases for the members
         of this guild.
         """
@@ -593,7 +593,7 @@ class Handles(commands.Cog):
 
         rank_changes_str = rank_changes_str or ['No rank changes']
 
-        embed_heading = discord_common.cf_color_embed(
+        embed_heading = discord.Embed(
             title=contest.name, url=contest.url, description="")
         embed_heading.set_author(name="Rank updates")
 
@@ -602,15 +602,14 @@ class Handles(commands.Cog):
         for rank_changes_chunk in paginator.chunkify(
                 rank_changes_str, _MAX_RATING_CHANGES_PER_EMBED):
             desc = '\n'.join(rank_changes_chunk)
-            embed = discord_common.cf_color_embed(
-                description=desc)
+            embed = discord.Embed(description=desc)
             embeds.append(embed)
 
-        top_rating_increases_embed = discord_common.cf_color_embed(description='\n'.join(
+        top_rating_increases_embed = discord.Embed(description='\n'.join(
             top_increases_str) or 'Nobody got a positive delta :(')
         top_rating_increases_embed.set_author(name='Top rating increases')
         embeds.append(top_rating_increases_embed)
-        embeds=discord_common.cf_same_color_embeds(embeds)
+        discord_common.cf_same_color_embeds(embeds)
         return embeds
 
     @commands.group(brief='Commands for role updates',
@@ -689,7 +688,7 @@ class Handles(commands.Cog):
                                  f'{contest.name}`.')
 
         change_by_handle = {change.handle: change for change in changes}
-        rankup_embeds = self._make_rankup_embed(ctx.guild, contest, change_by_handle)
+        rankup_embeds = self._make_rankup_embeds(ctx.guild, contest, change_by_handle)
         for rankup_embed in rankup_embeds:
             await ctx.channel.send(embed=rankup_embed)
 
