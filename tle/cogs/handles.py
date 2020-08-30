@@ -596,7 +596,6 @@ class Handles(commands.Cog):
         embed_heading = discord.Embed(
             title=contest.name, url=contest.url, description="")
         embed_heading.set_author(name="Rank updates")
-
         embeds = [embed_heading]
 
         for rank_changes_chunk in paginator.chunkify(
@@ -608,8 +607,10 @@ class Handles(commands.Cog):
         top_rating_increases_embed = discord.Embed(description='\n'.join(
             top_increases_str) or 'Nobody got a positive delta :(')
         top_rating_increases_embed.set_author(name='Top rating increases')
+
         embeds.append(top_rating_increases_embed)
         discord_common.cf_same_color_embeds(embeds)
+
         return embeds
 
     @commands.group(brief='Commands for role updates',
