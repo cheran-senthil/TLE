@@ -28,7 +28,8 @@ _STANDINGS_PER_PAGE = 15
 _STANDINGS_PAGINATE_WAIT_TIME = 2 * 60
 _FINISHED_CONTESTS_LIMIT = 5
 _WATCHING_RATED_VC_WAIT_TIME = 5 * 60  # seconds
-_RATEDVC_EXTRA_TIME = 10 * 60  # seconds
+_RATED_VC_EXTRA_TIME = 10 * 60  # seconds
+_MIN_RATED_CONTESTANTS_FOR_RATED_VC = 50
 
 class ContestCogError(commands.CommandError):
     pass
@@ -502,9 +503,10 @@ class Contests(commands.Cog):
             raise ContestCogError('Missing members')
         contest = cf_common.cache2.contest_cache.get_contest(contest_id)
         try:
-            await cf.contest.ratingChanges(contest_id=contest_id)
-        except cf.RatingChangesUnavailableError:
-            error = f'`{contest.name}` was unrated or the ratings changes are not published yet.'
+            (await cf.contest.ratingChanges(contest_id=contest_id))[_MIN_RATED_CONTESTANTS_FOR_RATED_VC - 1]
+        except (cf.RatingChangesUnavailableError, IndexError):
+            error = (f'`{contest.name}` was not rated for at least {_MIN_RATED_CONTESTANTS_FOR_RATED_VC} contestants'
+                    ' or the ratings changes are not published yet.')
             raise ContestCogError(error)
 
         ongoing_vc_member_ids = _get_ongoing_vc_participants()
@@ -520,7 +522,7 @@ class Contests(commands.Cog):
         if contest_id in visited_contests:
             raise ContestCogError(f'Some of the handles: {", ".join(handles)} have submissions in the contest')
         start_time = time.time()
-        finish_time = start_time + contest.durationSeconds + _RATEDVC_EXTRA_TIME
+        finish_time = start_time + contest.durationSeconds + _RATED_VC_EXTRA_TIME
         cf_common.user_db.create_rated_vc(contest_id, start_time, finish_time, ctx.guild.id, [member.id for member in members])
         title = f'Starting {contest.name} for:'
         msg = "\n".join(f'[{discord.utils.escape_markdown(handle)}]({cf.PROFILE_BASE_URL}{handle})' for handle in handles)
