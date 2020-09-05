@@ -142,13 +142,13 @@ def get_gudgitters_image(rankings):
     y = BORDER_MARGIN
 
     # draw header
-    draw_row('#', 'Name', 'Handle', 'Rating', SMOKE_WHITE, y, bold=True)
+    draw_row('#', 'Name', 'Handle', 'Points', SMOKE_WHITE, y, bold=True)
     y += LINE_HEIGHT*HEADER_SPACING
 
-    for i, (pos, name, handle, rating) in enumerate(rankings):
+    for i, (pos, name, handle, rating, score) in enumerate(rankings):
         color = rating_to_color(rating)
         draw_bg(y, i%2)
-        draw_row(str(pos), name, handle, str(rating) if rating else 'N/A', color, y)
+        draw_row(str(pos), f'{name} ({rating if rating else "N/A"})', handle, str(score), color, y)
         if rating and rating >= 3000:  # nutella
             draw_row('', name[0], handle[0], '', BLACK, y)
         y += LINE_HEIGHT
@@ -428,9 +428,9 @@ class Handles(commands.Cog):
             if score > 0:
                 handle = cf_common.user_db.get_handle(user_id, ctx.guild.id)
                 user = cf_common.user_db.fetch_cf_user(handle)
-                handle_display = f'{member.display_name} ({score})'
+                discord_handle = member.display_name
                 rating = user.rating
-                rankings.append((index, handle_display, handle, rating))
+                rankings.append((index, discord_handle, handle, rating, score))
                 index += 1
             if index == 10:
                 break
