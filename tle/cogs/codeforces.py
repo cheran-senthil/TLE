@@ -369,7 +369,8 @@ class Codeforces(commands.Cog):
         recommendations = list(recommendations)
         random.shuffle(recommendations)
         contests = [cf_common.cache2.contest_cache.get_contest(contest_id) for contest_id in recommendations[:5]]
-        msg = '\n'.join(f'{i+1}. [{c.name}]({c.url})' for i, c in enumerate(contests))
+        msg = '\n'.join(f'{i+1}. [{c.name}]({c.url}) {cf_common.pretty_time_format(c.durationSeconds)}'
+                        for i, c in enumerate(contests))
         embed = discord_common.cf_color_embed(description=msg)
         str_handles = '`, `'.join(handles)
         await ctx.send(f'Recommended contest(s) for `{str_handles}`', embed=embed)
