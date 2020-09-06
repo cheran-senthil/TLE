@@ -312,10 +312,10 @@ class SubFilter:
                 if len(arg) == 1:
                     raise ParamParseError('Problem tag cannot be empty.')
                 self.tags.append(arg[1:])
-            elif arg[0] == '-':
+            elif arg[0:2] == 'e+':
                 if len(arg) == 1:
                     raise ParamParseError('Problem tag cannot be empty.')
-                self.excluded_tags.append(arg[1:])
+                self.excluded_tags.append(arg[2:])
             elif arg[0:2] == 'd<':
                 self.dhi = min(self.dhi, parse_date(arg[2:]))
             elif arg[0:3] == 'd>=':
