@@ -71,6 +71,7 @@ class Paginated:
                 await reaction.remove(user)
                 await self.reaction_map[reaction.emoji]()
             except asyncio.TimeoutError:
+                await self.message.clear_reactions()
                 break
 
 
