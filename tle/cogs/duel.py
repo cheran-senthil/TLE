@@ -119,7 +119,9 @@ class Dueling(commands.Cog):
             raise DuelCogError(f'{opponent.display_name} is currently in a duel!')
 
         users = [cf_common.user_db.fetch_cf_user(handle) for handle in handles]
-        lowest_rating = min(user.rating for user in users)
+        
+        fix_if_unrated = lambda rating : 0 if rating is None else rating  # Issue #81
+        lowest_rating = min(fix_if_unrated(user.rating) for user in users)
         suggested_rating = max(round(lowest_rating, -2) + _DUEL_RATING_DELTA, 500)
         rating = round(rating, -2) if rating else suggested_rating
         unofficial = rating > suggested_rating
