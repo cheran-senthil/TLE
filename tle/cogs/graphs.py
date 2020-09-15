@@ -226,27 +226,21 @@ class Graphs(commands.Cog):
                 message = f'None of the given users {handles_str} are rated'
             raise GraphCogError(message)
         
+        def max_prefix(user):
+            max_rate = 0
+            res = []
+            for data in user:
+                old_rating = data.oldRating
+                if old_rating == 0:
+                    old_rating = 1500
+                if data.newRating - old_rating >= 0 and data.newRating >= max_rate:
+                    max_rate = data.newRating
+                    res.append(data)
+            return(res)
+        
         if peak:
-            resp2 = []
-            for user in resp:
-                mark = []
-                max_rate = 0
-                for data in user:
-                    old_rating = data.oldRating
-                    if(old_rating == 0):
-                        old_rating = 1500
-                    if data.newRating - old_rating >= 0 and data.newRating >= max_rate:
-                        max_rate = data.newRating
-                        mark.append(1)
-                    else:
-                        mark.append(0)
-                user2 = []
-                for i in range(len(user)):
-                    if mark[i] == 1:
-                        user2.append(user[i]);
-                user = user2
-                resp2.append(user)
-            resp = resp2
+            resp = [max_prefix(user) for user in resp]
+                
         plt.clf()
         _plot_rating(resp)
         current_ratings = [rating_changes[-1].newRating if rating_changes else 'Unrated' for rating_changes in resp]
