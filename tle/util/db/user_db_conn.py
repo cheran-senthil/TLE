@@ -707,7 +707,7 @@ class UserDbConn:
     def get_complete_official_duels(self):
         query = f'''
             SELECT challenger, challengee, winner, finish_time FROM duel WHERE status={Duel.COMPLETE}
-            AND type={Duel.OFFICIAL} ORDER BY finish_time ASC
+            AND type={DuelType.OFFICIAL} ORDER BY finish_time ASC
         '''
         return self.conn.execute(query).fetchall()
 
