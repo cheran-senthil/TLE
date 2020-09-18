@@ -479,7 +479,7 @@ class Dueling(commands.Cog):
             raise DuelCogError(f'Cannot plot more than 5 duelists at once.')
 
         duelists = [member.id for member in members]
-        duels = cf_common.user_db.get_complete_duels()
+        duels = cf_common.user_db.get_complete_official_duels()
         rating = dict()
         plot_data = defaultdict(list)
         time_tick = 0
