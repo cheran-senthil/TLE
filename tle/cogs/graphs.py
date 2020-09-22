@@ -613,10 +613,10 @@ class Graphs(commands.Cog):
                                 binsize=100,
                                 title=title)
 
-    @plot.command(brief='Show percentile distribution on codeforces', usage='[+zoom] [handles...]')
+    @plot.command(brief='Show percentile distribution on codeforces', usage='[+zoom] [+nomarker] [handles...]')
     async def centile(self, ctx, *args: str):
         """Show percentile distribution of codeforces and mark given handles in the plot. If +zoom and handles are given, it zooms to the neighborhood of the handles."""
-        (zoom,), args = cf_common.filter_flags(args, ['+zoom'])
+        (zoom, nomarker), args = cf_common.filter_flags(args, ['+zoom', '+nomarker'])
         # Prepare data
         intervals = [(rank.low, rank.high) for rank in cf.RATED_RANKS]
         colors = [rank.color_graph for rank in cf.RATED_RANKS]
@@ -626,23 +626,22 @@ class Graphs(commands.Cog):
         n = len(ratings)
         perc = 100*np.arange(n)/n
 
-        if args:
+        users_to_mark = {}
+        if not nomarker:
+            handles = args or ('!' + str(ctx.author),)
             handles = await cf_common.resolve_handles(ctx,
                                                       self.converter,
-                                                      args,
+                                                      handles,
                                                       mincnt=0,
                                                       maxcnt=50)
             infos = await cf.user.info(handles=list(set(handles)))
 
-            users_to_mark = {}
             for info in infos:
                 if info.rating is None:
                     raise GraphCogError(f'User `{info.handle}` is not rated')
                 ix = bisect.bisect_left(ratings, info.rating)
                 cent = 100*ix/len(ratings)
                 users_to_mark[info.handle] = info.rating,cent
-        else:
-            users_to_mark = {}
 
         # Plot
         plt.clf()
