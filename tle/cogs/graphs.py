@@ -206,11 +206,11 @@ class Graphs(commands.Cog):
         for name with spaces use "!name with spaces" (with quotes)."""
         await ctx.send_help('plot')
 
-    @plot.command(brief='Plot Codeforces rating graph', usage='[+zoom] [handles...] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy]')
+    @plot.command(brief='Plot Codeforces rating graph', usage='[+zoom] [+peak] [handles...] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy]')
     async def rating(self, ctx, *args: str):
         """Plots Codeforces rating graph for the handles provided."""
 
-        (zoom,), args = cf_common.filter_flags(args, ['+zoom'])
+        (zoom, peak), args = cf_common.filter_flags(args, ['+zoom' , '+peak'])
         filt = cf_common.SubFilter()
         args = filt.parse(args)
         handles = args or ('!' + str(ctx.author),)
@@ -225,7 +225,22 @@ class Graphs(commands.Cog):
             else:
                 message = f'None of the given users {handles_str} are rated'
             raise GraphCogError(message)
-
+        
+        def max_prefix(user):
+            max_rate = 0
+            res = []
+            for data in user:
+                old_rating = data.oldRating
+                if old_rating == 0:
+                    old_rating = 1500
+                if data.newRating - old_rating >= 0 and data.newRating >= max_rate:
+                    max_rate = data.newRating
+                    res.append(data)
+            return(res)
+        
+        if peak:
+            resp = [max_prefix(user) for user in resp]
+                
         plt.clf()
         _plot_rating(resp)
         current_ratings = [rating_changes[-1].newRating if rating_changes else 'Unrated' for rating_changes in resp]
