@@ -10,10 +10,11 @@ from tle.util import codeforces_common as cf_common
 from tle.util import codeforces_api as cf
 from tle.util import events
 from tle.util import tasks
+from tle.util import paginator
 from tle.util.ranklist import Ranklist
 
 logger = logging.getLogger(__name__)
-
+_CONTESTS_PER_BATCH_IN_CACHE_UPDATES = 100
 
 class CacheError(commands.CommandError):
     pass
@@ -390,10 +391,14 @@ class RatingChangesCache:
         """Fetch rating changes for contests which are not saved in database. Intended for
         manual trigger."""
         contests = self.cache_master.contest_cache.contests_by_phase['FINISHED']
-        contests = [contest for contest in contests if not self.has_rating_changes_saved(contest.id)]
-        changes = await self._fetch(contests)
-        self._save_changes(changes)
-        return len(changes)
+        contests = [
+            contest for contest in contests if not self.has_rating_changes_saved(contest.id)]
+        total_changes = 0
+        for contests_chunk in paginator.chunkify(contests, _CONTESTS_PER_BATCH_IN_CACHE_UPDATES):
+            contests_chunk = await self._fetch(contests_chunk)
+            self._save_changes(contests_chunk)
+            total_changes += len(contests_chunk)
+        return total_changes
 
     def is_newly_finished_without_rating_changes(self, contest):
         now = time.time()
