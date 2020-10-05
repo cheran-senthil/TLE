@@ -68,7 +68,7 @@ apt-get install libjpeg-dev zlib1g-dev
 
 You will need to setup a bot on your server before continuing, follow the directions [here](https://github.com/reactiflux/discord-irc/wiki/Creating-a-discord-bot-&-getting-a-token). Following this, you should have your bot appearing in your server and you should have the Discord bot token.
 
-Create a new file "environment".
+Create a new file `environment`.
 
 ```bash
 cp environment.template environment
