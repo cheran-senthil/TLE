@@ -476,6 +476,8 @@ class Contests(commands.Cog):
             # TODO: It will throw an exception if this row corresponds to a team. At present ranklist doesnt show teams.
             # It should be fixed in https://github.com/cheran-senthil/TLE/issues/72
             handle = standing.party.members[0].handle
+            if vc and standing.party.participantType != 'VIRTUAL':
+                continue
             handle_standings.append((handle, standing))
 
         if not handle_standings:
