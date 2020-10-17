@@ -268,14 +268,15 @@ class Handles(commands.Cog):
     @commands.command(brief='update status, mark guild members as active')
     @commands.has_role('Admin')
     async def _updatestatus(self, ctx):
+        gid = ctx.guild.id
         active_ids = [m.id for m in ctx.guild.members]
-        cf_common.user_db.reset_status(ctx.guild.id)
-        rc = sum(cf_common.user_db.update_status(chunk) for chunk in paginator.chunkify(active_ids, 100))
+        cf_common.user_db.reset_status(gid)
+        rc = sum(cf_common.user_db.update_status(gid, chunk) for chunk in paginator.chunkify(active_ids, 100))
         await ctx.send(f'{rc} members active with handle')
 
     @commands.Cog.listener()
     async def on_member_join(self, member):
-        rc = cf_common.user_db.update_status([member.id])
+        rc = cf_common.user_db.update_status(member.guild.id, [member.id])
         if rc == 1:
             handle = cf_common.user_db.get_handle(member.id, member.guild.id)
             await self._update_ranks(member.guild, [(int(member.id), handle)])

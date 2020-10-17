@@ -759,7 +759,7 @@ class UserDbConn:
         self.conn.execute(inactive_query, (id,))
         self.conn.commit()
 
-    def update_status(self, active_ids: list):
+    def update_status(self, guild_id: str, active_ids: list):
         # TODO: Deal with the whole status thing.
         placeholders = ', '.join(['?'] * len(active_ids))
         if not active_ids: return 0
@@ -767,8 +767,9 @@ class UserDbConn:
             UPDATE user_handle
             SET active = 1
             WHERE user_id IN ({})
+            AND guild_id = ?
         '''.format(placeholders)
-        rc = self.conn.execute(active_query, active_ids).rowcount
+        rc = self.conn.execute(active_query, (active_ids, guild_id)).rowcount
         self.conn.commit()
         return rc
 
