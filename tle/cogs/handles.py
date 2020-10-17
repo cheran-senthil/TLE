@@ -278,7 +278,7 @@ class Handles(commands.Cog):
         rc = cf_common.user_db.update_status([member.id])
         if rc == 1:
             handle = cf_common.user_db.get_handle(member.id, member.guild.id)
-            await self._update_ranks(member.guild, [int(member.id), handle])
+            await self._update_ranks(member.guild, [(int(member.id), handle)])
 
     @tasks.task_spec(name='SetExUsersInactive',
                      waiter=tasks.Waiter.fixed_delay(_UPDATE_HANDLE_STATUS_INTERVAL))
