@@ -30,18 +30,6 @@ class Codeforces(commands.Cog):
         self.bot = bot
         self.converter = commands.MemberConverter()
 
-    @commands.command(brief='update status, mark guild members as active')
-    @commands.has_role('Admin')
-    async def _updatestatus(self, ctx):
-        active_ids = [m.id for m in ctx.guild.members]
-        cf_common.user_db.reset_status(ctx.guild.id)
-        rc = sum(cf_common.user_db.update_status(chunk) for chunk in paginator.chunkify(active_ids, 100))
-        await ctx.send(f'{rc} members active with handle')
-
-    @commands.Cog.listener()
-    async def on_member_join(self, member):
-        cf_common.user_db.update_status([member.id])
-
     async def _validate_gitgud_status(self, ctx, delta):
         if delta is not None and delta % 100 != 0:
             raise CodeforcesCogError('Delta must be a multiple of 100.')

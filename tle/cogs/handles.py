@@ -265,6 +265,20 @@ class Handles(commands.Cog):
     async def on_member_remove(self, member):
         cf_common.user_db.set_inactive([(member.guild.id, member.id)])
 
+    @commands.command(brief='update status, mark guild members as active')
+    @commands.has_role('Admin')
+    async def _updatestatus(self, ctx):
+        active_ids = [m.id for m in ctx.guild.members]
+        cf_common.user_db.reset_status(ctx.guild.id)
+        rc = sum(cf_common.user_db.update_status(chunk) for chunk in paginator.chunkify(active_ids, 100))
+        await ctx.send(f'{rc} members active with handle')
+
+    @commands.Cog.listener()
+    async def on_member_join(self, member):
+        rc = cf_common.user_db.update_status([member.id])
+        if rc == 1:
+            await self._update_ranks(member.guild, [int(member.id), cf_common.user_db.get_handle(member.id)])
+
     @tasks.task_spec(name='SetExUsersInactive',
                      waiter=tasks.Waiter.fixed_delay(_UPDATE_HANDLE_STATUS_INTERVAL))
     async def _set_ex_users_inactive_task(self, _):
@@ -286,7 +300,7 @@ class Handles(commands.Cog):
         async def update_for_guild(guild):
             if cf_common.user_db.has_auto_role_update_enabled(guild.id):
                 with contextlib.suppress(HandleCogError):
-                    await self._update_ranks(guild)
+                    await self._update_ranks_all(guild)
             channel_id = cf_common.user_db.get_rankup_channel(guild.id)
             channel = guild.get_channel(channel_id)
             if channel is not None:
@@ -510,11 +524,14 @@ class Handles(commands.Cog):
         buffer.seek(0)
         await ctx.send(msg, file=discord.File(buffer, 'handles.png'))
 
-    async def _update_ranks(self, guild):
+    async def _update_ranks_all(self, guild):
         """For each member in the guild, fetches their current ratings and updates their role if
         required.
         """
         res = cf_common.user_db.get_handles_for_guild(guild.id)
+        await self._update_ranks(guild, res)
+
+    async def _update_ranks(self, guild, res):
         member_handles = [(guild.get_member(int(user_id)), handle) for user_id, handle in res]
         member_handles = [(member, handle) for member, handle in member_handles if member is not None]
         if not member_handles:
@@ -623,7 +640,7 @@ class Handles(commands.Cog):
     @commands.has_any_role('Admin', 'Moderator')
     async def now(self, ctx):
         """Updates Codeforces rank roles for every member in this server."""
-        await self._update_ranks(ctx.guild)
+        await self._update_ranks_all(ctx.guild)
         await ctx.send(embed=discord_common.embed_success('Roles updated successfully.'))
 
     @roleupdate.command(brief='Enable or disable auto role updates',
