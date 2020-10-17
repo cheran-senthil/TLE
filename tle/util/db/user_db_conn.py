@@ -760,7 +760,6 @@ class UserDbConn:
         self.conn.commit()
 
     def update_status(self, guild_id: str, active_ids: list):
-        # TODO: Deal with the whole status thing.
         placeholders = ', '.join(['?'] * len(active_ids))
         if not active_ids: return 0
         active_query = '''
