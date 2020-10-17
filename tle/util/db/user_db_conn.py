@@ -769,7 +769,7 @@ class UserDbConn:
             WHERE user_id IN ({})
             AND guild_id = ?
         '''.format(placeholders)
-        rc = self.conn.execute(active_query, (active_ids, guild_id)).rowcount
+        rc = self.conn.execute(active_query, (*active_ids, guild_id)).rowcount
         self.conn.commit()
         return rc
 
