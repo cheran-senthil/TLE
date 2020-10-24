@@ -79,7 +79,8 @@ Fill in appropriate variables in new "environment" file.
 #### Environment Variables
 
 **BOT_TOKEN**: the Discord Bot Token for your bot.  
-**LOGGING_COG_CHANNEL_ID**: the [Discord Channel ID](https://support.discord.com/hc/en-us/articles/206346498-Where-can-I-find-my-User-Server-Message-ID-) of a Discord Channel where you want error messages sent to.
+**LOGGING_COG_CHANNEL_ID**: the [Discord Channel ID](https://support.discord.com/hc/en-us/articles/206346498-Where-can-I-find-my-User-Server-Message-ID-) of a Discord Channel where you want error messages sent to.  
+**ALLOW_DUEL_SELF_REGISTER**: boolean value indicating if self registration for duels is enabled.
 
 To start TLE just run:
 

@@ -1,5 +1,6 @@
-import asyncio
 import argparse
+import asyncio
+import distutils.util
 import logging
 import os
 from logging.handlers import TimedRotatingFileHandler
@@ -11,9 +12,8 @@ from discord.ext import commands
 from matplotlib import pyplot as plt
 
 from tle import constants
-from tle.util import font_downloader
 from tle.util import codeforces_common as cf_common
-from tle.util import discord_common
+from tle.util import discord_common, font_downloader
 
 
 def setup():
@@ -51,6 +51,10 @@ def main():
     if not token:
         logging.error('Token required')
         return
+
+    allow_self_register = environ.get('ALLOW_DUEL_SELF_REGISTER')
+    if allow_self_register:
+        constants.ALLOW_DUEL_SELF_REGISTER = bool(distutils.util.strtobool(allow_self_register))
 
     setup()
 
