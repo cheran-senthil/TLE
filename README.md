@@ -76,6 +76,11 @@ cp environment.template environment
 
 Fill in appropriate variables in new "environment" file.
 
+#### Environment Variables
+
+**BOT_TOKEN**: the Discord Bot Token for your bot.  
+**LOGGING_COG_CHANNEL_ID**: the ID of a Discord Channel where you want error messages sent to.
+
 To start TLE just run:
 
 ```bash
