@@ -225,7 +225,7 @@ class Graphs(commands.Cog):
             else:
                 message = f'None of the given users {handles_str} are rated'
             raise GraphCogError(message)
-        
+
         def max_prefix(user):
             max_rate = 0
             res = []
@@ -237,11 +237,12 @@ class Graphs(commands.Cog):
                     max_rate = data.newRating
                     res.append(data)
             return(res)
-        
+
         if peak:
             resp = [max_prefix(user) for user in resp]
-                
+
         plt.clf()
+        plt.axes().set_prop_cycle(gc.rating_color_cycler)
         _plot_rating(resp)
         current_ratings = [rating_changes[-1].newRating if rating_changes else 'Unrated' for rating_changes in resp]
         labels = [gc.StrWrap(f'{handle} ({rating})') for handle, rating in zip(handles, current_ratings)]

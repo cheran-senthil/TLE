@@ -9,6 +9,13 @@ matplotlib.use('agg') # Explicitly set the backend to avoid issues
 from tle import constants
 from matplotlib import pyplot as plt
 from matplotlib import rcParams
+from cycler import cycler
+
+rating_color_cycler = cycler('color', ['#5d4dff',
+                                       '#009ccc',
+                                       '#00ba6a',
+                                       '#b99d27',
+                                       '#cb2aff'])
 
 fontprop = matplotlib.font_manager.FontProperties(fname=constants.NOTO_SANS_CJK_REGULAR_FONT_PATH)
 
