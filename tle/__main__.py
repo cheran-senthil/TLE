@@ -3,6 +3,7 @@ import asyncio
 import distutils.util
 import logging
 import os
+import discord
 from logging.handlers import TimedRotatingFileHandler
 from os import environ
 from pathlib import Path
@@ -57,8 +58,9 @@ def main():
         constants.ALLOW_DUEL_SELF_REGISTER = bool(distutils.util.strtobool(allow_self_register))
 
     setup()
-
-    bot = commands.Bot(command_prefix=commands.when_mentioned_or(';'))
+    
+    intents = discord.Intents.all()
+    bot = commands.Bot(command_prefix=commands.when_mentioned_or(';'), intents=intents)
     cogs = [file.stem for file in Path('tle', 'cogs').glob('*.py')]
     for extension in cogs:
         bot.load_extension(f'tle.cogs.{extension}')
@@ -80,7 +82,6 @@ def main():
         asyncio.create_task(discord_common.presence(bot))
 
     bot.add_listener(discord_common.bot_error_handler, name='on_command_error')
-
     bot.run(token)
 
 
