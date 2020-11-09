@@ -59,7 +59,9 @@ def main():
 
     setup()
     
-    intents = discord.Intents.all()
+    intents = discord.Intents.default()
+    intents.members = True
+
     bot = commands.Bot(command_prefix=commands.when_mentioned_or(';'), intents=intents)
     cogs = [file.stem for file in Path('tle', 'cogs').glob('*.py')]
     for extension in cogs:
