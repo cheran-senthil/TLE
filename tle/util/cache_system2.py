@@ -17,6 +17,9 @@ logger = logging.getLogger(__name__)
 _CONTESTS_PER_BATCH_IN_CACHE_UPDATES = 100
 CONTEST_BLACKLIST = {1308, 1309, 1431, 1432}
 
+def _is_blacklisted(contest_id):
+    return contest_id in CONTEST_BLACKLIST
+
 class CacheError(commands.CommandError):
     pass
 
@@ -419,7 +422,7 @@ class RatingChangesCache:
 
         to_monitor = [contest for contest in self.cache_master.contest_cache.contests_by_phase['FINISHED'] 
                       if self.is_newly_finished_without_rating_changes(contest) and
-                        contest.id not in CONTEST_BLACKLIST]
+                      not _is_blacklisted(contest.id)]
                  
         cur_ids = {contest.id for contest in self.monitored_contests}
         new_ids = {contest.id for contest in to_monitor}
@@ -436,7 +439,7 @@ class RatingChangesCache:
     async def _monitor_task(self, _):
         self.monitored_contests = [contest for contest in self.monitored_contests if
                                    self.is_newly_finished_without_rating_changes(contest) and 
-                                   contest.id not in CONTEST_BLACKLIST]
+                                   not _is_blacklisted(contest.id)]
 
         if not self.monitored_contests:
             self.logger.info('Rated changes fetched for contests that were being monitored.')
@@ -534,7 +537,7 @@ class RanklistCache:
         contests_by_phase = self.cache_master.contest_cache.contests_by_phase
         running_contests = contests_by_phase['_RUNNING']
         finished_contests = [contest for contest in contests_by_phase['FINISHED'] if 
-                             contest.id not in CONTEST_BLACKLIST and 
+                             not _is_blacklisted(contest.id) and
                              self.cache_master.rating_changes_cache.is_newly_finished_without_rating_changes(contest)]
 
         to_monitor = running_contests + finished_contests
@@ -553,7 +556,7 @@ class RanklistCache:
     async def _monitor_task(self, _):
 
         self.monitored_contests = [contest for contest in self.monitored_contests if 
-                                    contest.id not in CONTEST_BLACKLIST and
+                                    not _is_blacklisted(contest.id) and
                                     (contest.phase != 'FINISHED' or self.cache_master.rating_changes_cache.is_newly_finished_without_rating_changes(contest))]
 
         if not self.monitored_contests:
