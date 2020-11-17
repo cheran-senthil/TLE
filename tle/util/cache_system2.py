@@ -15,6 +15,10 @@ from tle.util.ranklist import Ranklist
 
 logger = logging.getLogger(__name__)
 _CONTESTS_PER_BATCH_IN_CACHE_UPDATES = 100
+CONTEST_BLACKLIST = {1308, 1309, 1431, 1432}
+
+def _is_blacklisted(contest):
+    return contest.id in CONTEST_BLACKLIST
 
 class CacheError(commands.CommandError):
     pass
@@ -416,8 +420,13 @@ class RatingChangesCache:
         # A contest also has empty list if it is unrated. We assume that is the case if
         # _RATED_DELAY time has passed since the contest end.
 
-        to_monitor = [contest for contest in self.cache_master.contest_cache.contests_by_phase['FINISHED']
-                      if self.is_newly_finished_without_rating_changes(contest)]
+        to_monitor = [
+            contest for contest in
+            self.cache_master.contest_cache.contests_by_phase['FINISHED'] 
+            if self.is_newly_finished_without_rating_changes(contest)
+            and not _is_blacklisted(contest)
+            ]
+                 
         cur_ids = {contest.id for contest in self.monitored_contests}
         new_ids = {contest.id for contest in to_monitor}
         if new_ids != cur_ids:
@@ -431,8 +440,12 @@ class RatingChangesCache:
     @tasks.task_spec(name='RatingChangesCacheUpdate.MonitorNewlyFinishedContests',
                      waiter=tasks.Waiter.fixed_delay(_RELOAD_DELAY))
     async def _monitor_task(self, _):
-        self.monitored_contests = [contest for contest in self.monitored_contests
-                                   if self.is_newly_finished_without_rating_changes(contest)]
+        self.monitored_contests = [
+            contest for contest in self.monitored_contests
+            if self.is_newly_finished_without_rating_changes(contest)
+            and not _is_blacklisted(contest)
+        ]
+
         if not self.monitored_contests:
             self.logger.info('Rated changes fetched for contests that were being monitored.')
             await self._monitor_task.stop()
@@ -528,8 +541,15 @@ class RanklistCache:
     async def _update_task(self, _):
         contests_by_phase = self.cache_master.contest_cache.contests_by_phase
         running_contests = contests_by_phase['_RUNNING']
-        check = self.cache_master.rating_changes_cache.is_newly_finished_without_rating_changes
-        to_monitor = running_contests + list(filter(check, contests_by_phase['FINISHED']))
+
+        rating_cache = self.cache_master.rating_changes_cache
+        finished_contests = [
+            contest for contest in contests_by_phase['FINISHED']
+            if not _is_blacklisted(contest)
+            and rating_cache.is_newly_finished_without_rating_changes(contest)
+        ]
+
+        to_monitor = running_contests + finished_contests
         cur_ids = {contest.id for contest in self.monitored_contests}
         new_ids = {contest.id for contest in to_monitor}
         if new_ids != cur_ids:
@@ -543,9 +563,14 @@ class RanklistCache:
     @tasks.task_spec(name='RanklistCacheUpdate.MonitorActiveContests',
                      waiter=tasks.Waiter.fixed_delay(_RELOAD_DELAY))
     async def _monitor_task(self, _):
-        check = self.cache_master.rating_changes_cache.is_newly_finished_without_rating_changes
-        self.monitored_contests = [contest for contest in self.monitored_contests
-                                   if contest.phase != 'FINISHED' or check(contest)]
+        cache = self.cache_master.rating_changes_cache
+        self.monitored_contests = [
+            contest for contest in self.monitored_contests
+            if not _is_blacklisted(contest) and (
+                contest.phase != 'FINISHED'
+                or cache.is_newly_finished_without_rating_changes(contest))
+        ]
+
         if not self.monitored_contests:
             self.ranklist_by_contest = {}
             self.logger.info('No more active contests for which to monitor ranklists.')
