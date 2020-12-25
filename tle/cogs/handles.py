@@ -444,6 +444,8 @@ class Handles(commands.Cog):
             if score > 0:
                 handle = cf_common.user_db.get_handle(user_id, ctx.guild.id)
                 user = cf_common.user_db.fetch_cf_user(handle)
+                if user is None:
+                    continue
                 discord_handle = member.display_name
                 rating = user.rating
                 rankings.append((index, discord_handle, handle, rating, score))
