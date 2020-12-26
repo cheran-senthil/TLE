@@ -272,6 +272,9 @@ class Codeforces(commands.Cog):
 
         member = member or ctx.author
         data = cf_common.user_db.gitlog(member.id)
+        if not data:
+            raise CodeforcesCogError(f'{member.mention} has no gitgud history.')
+
         pages = [make_page(chunk) for chunk in paginator.chunkify(data, 7)]
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
