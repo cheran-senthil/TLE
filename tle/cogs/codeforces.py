@@ -159,16 +159,21 @@ class Codeforces(commands.Cog):
         else:
             submissions.sort(key=lambda sub: sub.creationTimeSeconds, reverse=True)
 
-        msg = '\n'.join(
-            f'[{sub.problem.name}]({sub.problem.url})\N{EN SPACE}'
-            f'[{sub.problem.rating if sub.problem.rating else "?"}]\N{EN SPACE}'
-            f'({cf_common.days_ago(sub.creationTimeSeconds)})'
-            for sub in submissions[:10]
-        )
-        title = '{} solved problems by `{}`'.format('Hardest' if hardest else 'Recently',
-                                                    '`, `'.join(handles))
-        embed = discord_common.cf_color_embed(title=title, description=msg)
-        await ctx.send(embed=embed)
+        def make_line(sub):
+            line = (f'[{sub.problem.name}]({sub.problem.url})\N{EN SPACE}'
+                    f'[{sub.problem.rating if sub.problem.rating else "?"}]\N{EN SPACE}'
+                    f'({cf_common.days_ago(sub.creationTimeSeconds)})')
+            return line
+
+        def make_page(chunk):
+            title = '{} solved problems by `{}`'.format('Hardest' if hardest else 'Recently',
+                                                        '`, `'.join(handles))
+            hist_str = '\n'.join(make_line(sub) for sub in chunk)
+            embed = discord_common.cf_color_embed(description=hist_str)
+            return title, embed
+
+        pages = [make_page(chunk) for chunk in paginator.chunkify(submissions[:100], 10)]
+        paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
     @commands.command(brief='Create a mashup', usage='[handles] [+tags]')
     async def mashup(self, ctx, *args):
