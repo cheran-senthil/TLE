@@ -442,16 +442,20 @@ class Codeforces(commands.Cog):
         return round((left + right) / 2)
 
     @commands.command(brief='Calculate team rating', usage='[handles]')
-    async def teamrate(self, ctx, *handles: str):
+    async def teamrate(self, ctx, *args: str):
         """Provides the combined rating of the entire team.
         If +server is provided as the only handle, will display the rating of the entire server.
         Supports multipliers. e.g: ;teamrate gamegame*1000"""
 
+        (is_entire_server, peak), handles = cf_common.filter_flags(args, ['+server', '+peak'])
         handles = handles or ('!' + str(ctx.author),)
-        is_entire_server = (handles == ('+server',))
+
+        def rating(user):
+            return user.maxRating if peak else user.rating
+
         if is_entire_server:
             res = cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)
-            ratings = [cf_user.rating for user_id, cf_user in res if cf_user.rating is not None]
+            ratings = [(rating(user), 1) for user_id, user in res if user.rating is not None]
             user_str = '+server'
         else:
             def normalize(x):
@@ -484,7 +488,8 @@ class Codeforces(commands.Cog):
                     raise CodeforcesCogError('How can you have nonpositive members in team?')
 
             user_str = ', '.join(user_strs)
-            ratings = [(user.rating, handle_counts[cf_to_original[user.handle.lower()]]) for user in users if user.rating]
+            ratings = [(rating(user), handle_counts[cf_to_original[user.handle.lower()]])
+                       for user in users if user.rating]
 
         if len(ratings) == 0:
             raise CodeforcesCogError("No CF usernames with ratings passed in.")
