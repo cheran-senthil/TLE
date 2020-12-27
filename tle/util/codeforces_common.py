@@ -263,6 +263,9 @@ def filter_flags(args, params):
             rest.append(arg)
     return flags, rest
 
+def negate_flags(*args):
+    return [not x for x in args]
+
 def parse_date(arg):
     try:
         if len(arg) == 8:

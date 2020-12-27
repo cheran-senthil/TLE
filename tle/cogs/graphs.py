@@ -103,7 +103,7 @@ def _get_extremes(contest, problemset, submissions):
     return min_unsolved, max_solved
 
 
-def _plot_extreme(handle, rating, packed_contest_subs_problemset, solved, unsolved, nolegend=False):
+def _plot_extreme(handle, rating, packed_contest_subs_problemset, solved, unsolved, legend):
     extremes = [
         (dt.datetime.fromtimestamp(contest.end_time), _get_extremes(contest, problemset, subs))
         for contest, problemset, subs in packed_contest_subs_problemset
@@ -169,7 +169,7 @@ def _plot_extreme(handle, rating, packed_contest_subs_problemset, solved, unsolv
                         s=32, marker='X',
                         color=unsolvedcolor)
 
-    if not nolegend:
+    if legend:
         plt.legend(title=f'{handle}: {rating}', title_fontsize=plt.rcParams['legend.fontsize'],
                    loc='upper left').set_zorder(20)
     gc.plot_rating_bg(cf.RATED_RANKS)
@@ -271,6 +271,7 @@ class Graphs(commands.Cog):
         contest that was rated for the given user.
         """
         (solved, unsolved, nolegend), args = cf_common.filter_flags(args, ['+solved', '+unsolved', '+nolegend'])
+        (legend,) = cf_common.negate_flags(nolegend)
         if not solved and not unsolved:
             solved = unsolved = True
 
@@ -294,7 +295,7 @@ class Graphs(commands.Cog):
         ]
 
         rating = max(ratingchanges, key=lambda change: change.ratingUpdateTimeSeconds).newRating
-        _plot_extreme(handle, rating, packed_contest_subs_problemset, solved, unsolved, nolegend)
+        _plot_extreme(handle, rating, packed_contest_subs_problemset, solved, unsolved, legend)
 
         discord_file = gc.get_current_figure_as_file()
         embed = discord_common.cf_color_embed(title='Codeforces extremes graph')
@@ -479,6 +480,7 @@ class Graphs(commands.Cog):
         """Plot Codeforces rating overlaid on a scatter plot of problems solved.
         Also plots a running average of ratings of problems solved in practice."""
         (nolegend,), args = cf_common.filter_flags(args, ['+nolegend'])
+        (legend,) = cf_common.negate_flags(nolegend)
         filt = cf_common.SubFilter()
         args = filt.parse(args)
         handle, bin_size, point_size = None, 10, 3
@@ -523,7 +525,7 @@ class Graphs(commands.Cog):
             labels.append('Regular')
         if virtual:
             labels.append('Virtual')
-        if not nolegend:
+        if legend:
             plt.legend(labels, loc='upper left')
         _plot_average(practice, bin_size)
         _plot_rating(rating_resp, mark='')
