@@ -683,16 +683,23 @@ class Graphs(commands.Cog):
             ax.add_patch(rect)
 
         if users_to_mark:
-            xmin = min(point[0] for point in users_to_mark.values())
-            xmax = max(point[0] for point in users_to_mark.values())
             ymin = min(point[1] for point in users_to_mark.values())
             ymax = max(point[1] for point in users_to_mark.values())
-            xrng, yrng = xmax - xmin, ymax - ymin
+        else:
+            ymin, ymax = 0, 100
+
+        if users_to_mark and zoom:
+            xmin = min(point[0] for point in users_to_mark.values())
+            xmax = max(point[0] for point in users_to_mark.values())
+        else:
+            xmin, xmax = ratings[0], ratings[-1]
+
+        xrng, yrng = xmax - xmin, ymax - ymin
 
         # Mark users in plot
         for user, point in users_to_mark.items():
             astr = f'{user} ({round(point[1], 2)})' if exact else user
-            apos = ('left', 'top') if point[0] < xmin + xrng // 2 else ('right', 'bottom')
+            apos = ('left', 'top') if point[0] <= xmin + xrng // 2 else ('right', 'bottom')
             plt.annotate(astr,
                          xy=point,
                          xytext=(0, 0),
@@ -712,8 +719,12 @@ class Graphs(commands.Cog):
             plt.xlim(xmin - xmargin, xmax + xmargin)
             plt.ylim(ymin - ymargin, ymax + ymargin)
         else:
-            plt.xlim(ratings[0], ratings[-1])
-            plt.ylim(-1.5, 101.5)
+            plt.xlim(xmin, xmax)
+            ylim_lo, ylim_hi = -1.5, 101.5
+            if users_to_mark:
+                ylim_lo = min(ylim_lo, ymin - 8)
+                ylim_hi = max(ylim_hi, ymax + 8)
+            plt.ylim(ylim_lo, ylim_hi)
 
         # Draw tick lines
         linecolor = '#00000022'
