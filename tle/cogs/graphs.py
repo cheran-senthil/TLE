@@ -682,11 +682,12 @@ class Graphs(commands.Cog):
                                      facecolor=col)
             ax.add_patch(rect)
 
-        xmin = min(point[0] for point in users_to_mark.values())
-        xmax = max(point[0] for point in users_to_mark.values())
-        ymin = min(point[1] for point in users_to_mark.values())
-        ymax = max(point[1] for point in users_to_mark.values())
-        xrng, yrng = xmax - xmin, ymax - ymin
+        if users_to_mark:
+            xmin = min(point[0] for point in users_to_mark.values())
+            xmax = max(point[0] for point in users_to_mark.values())
+            ymin = min(point[1] for point in users_to_mark.values())
+            ymax = max(point[1] for point in users_to_mark.values())
+            xrng, yrng = xmax - xmin, ymax - ymin
 
         # Mark users in plot
         for user, point in users_to_mark.items():
