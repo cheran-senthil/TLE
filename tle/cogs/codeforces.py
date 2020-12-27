@@ -51,8 +51,7 @@ class Codeforces(commands.Cog):
         issue_time = datetime.datetime.now().timestamp()
         rc = cf_common.user_db.new_challenge(user_id, issue_time, problem, delta)
         if rc != 1:
-            await ctx.send('Your challenge has already been added to the database!')
-            return
+            raise CodeforcesCogError('Your challenge has already been added to the database!')
 
         title = f'{problem.index}. {problem.name}'
         desc = cf_common.cache2.contest_cache.get_contest(problem.contestId).name
@@ -80,8 +79,7 @@ class Codeforces(commands.Cog):
                     and abs(rating - prob.rating) <= 300]
 
         if not problems:
-            await ctx.send('Problems not found within the search parameters')
-            return
+            raise CodeforcesCogError('Problems not found within the search parameters')
 
         problems.sort(key=lambda problem: cf_common.cache2.contest_cache.get_contest(
             problem.contestId).startTimeSeconds, reverse=True)
@@ -193,8 +191,7 @@ class Codeforces(commands.Cog):
             problems = [prob for prob in problems if prob.tag_matches(tags)]
 
         if len(problems) < 4:
-            await ctx.send('Problems not found within the search parameters')
-            return
+            raise CodeforcesCogError('Problems not found within the search parameters')
 
         problems.sort(key=lambda problem: cf_common.cache2.contest_cache.get_contest(
             problem.contestId).startTimeSeconds)
@@ -240,8 +237,7 @@ class Codeforces(commands.Cog):
 
         problems = list(filter(check, problems))
         if not problems:
-            await ctx.send('No problem to assign')
-            return
+            raise CodeforcesCogError('No problem to assign')
 
         problems.sort(key=lambda problem: cf_common.cache2.contest_cache.get_contest(
             problem.contestId).startTimeSeconds)
@@ -282,16 +278,14 @@ class Codeforces(commands.Cog):
         user_id = ctx.message.author.id
         active = cf_common.user_db.check_challenge(user_id)
         if not active:
-            await ctx.send(f'You do not have an active challenge')
-            return
+            raise CodeforcesCogError(f'You do not have an active challenge')
 
         submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions if sub.verdict == 'OK'}
 
         challenge_id, issue_time, name, contestId, index, delta = active
         if not name in solved:
-            await ctx.send('You haven\'t completed your challenge.')
-            return
+            raise CodeforcesCogError('You haven\'t completed your challenge.')
 
         delta = _GITGUD_SCORE_DISTRIB[delta // 100 + 3]
         finish_time = int(datetime.datetime.now().timestamp())
@@ -309,8 +303,8 @@ class Codeforces(commands.Cog):
         user_id = ctx.message.author.id
         active = cf_common.user_db.check_challenge(user_id)
         if not active:
-            await ctx.send(f'You do not have an active challenge')
-            return
+            raise CodeforcesCogError(f'You do not have an active challenge')
+
         challenge_id, issue_time, name, contestId, index, delta = active
         finish_time = int(datetime.datetime.now().timestamp())
         if finish_time - issue_time < _GITGUD_NO_SKIP_TIME:
@@ -405,8 +399,7 @@ class Codeforces(commands.Cog):
         contest_unsolved_pairs.sort(key=lambda p: (p[2] - p[1], -p[0].startTimeSeconds))
 
         if not contest_unsolved_pairs:
-            await ctx.send(f'`{handle}` has no contests to fullsolve :confetti_ball:')
-            return
+            raise CodeforcesCogError(f'`{handle}` has no contests to fullsolve :confetti_ball:')
 
         def make_line(entry):
             contest, solved, total = entry
