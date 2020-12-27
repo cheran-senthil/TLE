@@ -691,7 +691,7 @@ class Graphs(commands.Cog):
         # Mark users in plot
         for user, point in users_to_mark.items():
             astr = f'{user} ({round(point[1], 2)})' if exact else user
-            apos = ('left', 'top') if point[1] < xmin + xrng // 2 else ('right', 'bottom')
+            apos = ('left', 'top') if point[0] < xmin + xrng // 2 else ('right', 'bottom')
             plt.annotate(astr,
                          xy=point,
                          xytext=(0, 0),
