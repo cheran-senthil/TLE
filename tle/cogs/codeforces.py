@@ -160,10 +160,10 @@ class Codeforces(commands.Cog):
             submissions.sort(key=lambda sub: sub.creationTimeSeconds, reverse=True)
 
         def make_line(sub):
-            line = (f'[{sub.problem.name}]({sub.problem.url})\N{EN SPACE}'
-                    f'[{sub.problem.rating if sub.problem.rating else "?"}]\N{EN SPACE}'
+            data = (f'[{sub.problem.name}]({sub.problem.url})',
+                    f'[{sub.problem.rating if sub.problem.rating else "?"}]',
                     f'({cf_common.days_ago(sub.creationTimeSeconds)})')
-            return line
+            return '\N{EN SPACE}'.join(data)
 
         def make_page(chunk):
             title = '{} solved problems by `{}`'.format('Hardest' if hardest else 'Recently',
