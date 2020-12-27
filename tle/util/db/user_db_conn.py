@@ -88,6 +88,7 @@ class UserDbConn:
             'organization        TEXT,'
             'contribution        INTEGER,'
             'rating              INTEGER,'
+            'maxRating           INTEGER,'
             'last_online_time    INTEGER,'
             'registration_time   INTEGER,'
             'friend_of_count     INTEGER,'
@@ -354,14 +355,14 @@ class UserDbConn:
     def cache_cf_user(self, user):
         query = ('INSERT OR REPLACE INTO cf_user_cache '
                  '(handle, first_name, last_name, country, city, organization, contribution, '
-                 '    rating, last_online_time, registration_time, friend_of_count, title_photo) '
-                 'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+                 '    rating, maxRating, last_online_time, registration_time, friend_of_count, title_photo) '
+                 'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
         with self.conn:
             return self.conn.execute(query, user).rowcount
 
     def fetch_cf_user(self, handle):
         query = ('SELECT handle, first_name, last_name, country, city, organization, contribution, '
-                 '    rating, last_online_time, registration_time, friend_of_count, title_photo '
+                 '    rating, maxRating, last_online_time, registration_time, friend_of_count, title_photo '
                  'FROM cf_user_cache '
                  'WHERE handle = ?')
         user = self.conn.execute(query, (handle,)).fetchone()
@@ -417,7 +418,7 @@ class UserDbConn:
 
     def get_cf_users_for_guild(self, guild_id):
         query = ('SELECT u.user_id, c.handle, c.first_name, c.last_name, c.country, c.city, '
-                 '    c.organization, c.contribution, c.rating, c.last_online_time, '
+                 '    c.organization, c.contribution, c.rating, c.maxRating, c.last_online_time, '
                  '    c.registration_time, c.friend_of_count, c.title_photo '
                  'FROM user_handle AS u '
                  'LEFT JOIN cf_user_cache AS c '
