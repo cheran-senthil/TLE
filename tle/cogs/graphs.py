@@ -271,7 +271,7 @@ class Graphs(commands.Cog):
         contest that was rated for the given user.
         """
         (solved, unsolved, nolegend), args = cf_common.filter_flags(args, ['+solved', '+unsolved', '+nolegend'])
-        (legend,) = cf_common.negate_flags(nolegend)
+        legend, = cf_common.negate_flags(nolegend)
         if not solved and not unsolved:
             solved = unsolved = True
 
@@ -480,7 +480,7 @@ class Graphs(commands.Cog):
         """Plot Codeforces rating overlaid on a scatter plot of problems solved.
         Also plots a running average of ratings of problems solved in practice."""
         (nolegend,), args = cf_common.filter_flags(args, ['+nolegend'])
-        (legend,) = cf_common.negate_flags(nolegend)
+        legend, = cf_common.negate_flags(nolegend)
         filt = cf_common.SubFilter()
         args = filt.parse(args)
         handle, bin_size, point_size = None, 10, 3
