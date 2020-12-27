@@ -441,7 +441,7 @@ class Codeforces(commands.Cog):
                 right = r
         return round((left + right) / 2)
 
-    @commands.command(brief='Calculate team rating', usage='[handles]')
+    @commands.command(brief='Calculate team rating', usage='[handles] [+peak]')
     async def teamrate(self, ctx, *args: str):
         """Provides the combined rating of the entire team.
         If +server is provided as the only handle, will display the rating of the entire server.
