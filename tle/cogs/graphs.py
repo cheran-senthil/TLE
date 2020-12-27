@@ -630,10 +630,10 @@ class Graphs(commands.Cog):
                                 binsize=100,
                                 title=title)
 
-    @plot.command(brief='Show percentile distribution on codeforces', usage='[+zoom] [+nomarker] [handles...]')
+    @plot.command(brief='Show percentile distribution on codeforces', usage='[+zoom] [+nomarker] [handles...] [+exact]')
     async def centile(self, ctx, *args: str):
         """Show percentile distribution of codeforces and mark given handles in the plot. If +zoom and handles are given, it zooms to the neighborhood of the handles."""
-        (zoom, nomarker), args = cf_common.filter_flags(args, ['+zoom', '+nomarker'])
+        (zoom, nomarker, exact), args = cf_common.filter_flags(args, ['+zoom', '+nomarker', '+exact'])
         # Prepare data
         intervals = [(rank.low, rank.high) for rank in cf.RATED_RANKS]
         colors = [rank.color_graph for rank in cf.RATED_RANKS]
@@ -683,14 +683,16 @@ class Graphs(commands.Cog):
             ax.add_patch(rect)
 
         # Mark users in plot
-        for user,point in users_to_mark.items():
-            x,y = point
-            plt.annotate(user,
+        for idx, (user, point) in enumerate(sorted([(user, point) for user, point in users_to_mark.items()],
+                                                   key=lambda k:k[1][0])):
+            astr = f'{user} ({round(point[1], 2)})' if exact else user
+            apos = ('left', 'top') if idx < len(infos) // 2 else ('right', 'bottom')
+            plt.annotate(astr,
                          xy=point,
                          xytext=(0, 0),
                          textcoords='offset points',
-                         ha='right',
-                         va='bottom')
+                         ha=apos[0],
+                         va=apos[1])
             plt.plot(*point,
                      marker='o',
                      markersize=5,
@@ -699,12 +701,12 @@ class Graphs(commands.Cog):
 
         # Set limits (before drawing tick lines)
         if users_to_mark and zoom:
-            xmargin = 50
-            ymargin = 5
             xmin = min(point[0] for point in users_to_mark.values())
             xmax = max(point[0] for point in users_to_mark.values())
             ymin = min(point[1] for point in users_to_mark.values())
             ymax = max(point[1] for point in users_to_mark.values())
+            xmargin = max(20, (xmax - xmin) * 0.1)
+            ymargin = max(0.5, (ymax - ymin) * 0.1)
             plt.xlim(xmin - xmargin, xmax + xmargin)
             plt.ylim(ymin - ymargin, ymax + ymargin)
         else:
