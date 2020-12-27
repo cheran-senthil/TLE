@@ -363,12 +363,20 @@ class Codeforces(commands.Cog):
 
         recommendations = list(recommendations)
         random.shuffle(recommendations)
-        contests = [cf_common.cache2.contest_cache.get_contest(contest_id) for contest_id in recommendations[:5]]
-        msg = '\n'.join(f'{i+1}. [{c.name}]({c.url}) {cf_common.pretty_time_format(c.durationSeconds)}'
-                        for i, c in enumerate(contests))
-        embed = discord_common.cf_color_embed(description=msg)
-        str_handles = '`, `'.join(handles)
-        await ctx.send(f'Recommended contest(s) for `{str_handles}`', embed=embed)
+        contests = [cf_common.cache2.contest_cache.get_contest(contest_id) for contest_id in recommendations[:25]]
+
+        def make_line(c):
+            return f'[{c.name}]({c.url}) {cf_common.pretty_time_format(c.durationSeconds)}'
+
+        def make_page(chunk):
+            str_handles = '`, `'.join(handles)
+            message = f'Recommended contest(s) for `{str_handles}`'
+            vc_str = '\n'.join(make_line(contest) for contest in chunk)
+            embed = discord_common.cf_color_embed(description=vc_str)
+            return message, embed
+
+        pages = [make_page(chunk) for chunk in paginator.chunkify(contests, 5)]
+        paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
     @commands.command(brief="Display unsolved rounds closest to completion", usage='[keywords]')
     async def fullsolve(self, ctx, *args: str):
