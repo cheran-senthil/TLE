@@ -682,11 +682,26 @@ class Graphs(commands.Cog):
                                      facecolor=col)
             ax.add_patch(rect)
 
+        # Set limits (before drawing tick lines)
+        if users_to_mark and zoom:
+            xmin = min(point[0] for point in users_to_mark.values())
+            xmax = max(point[0] for point in users_to_mark.values())
+            ymin = min(point[1] for point in users_to_mark.values())
+            ymax = max(point[1] for point in users_to_mark.values())
+            xrng = xmax - xmin
+            yrng = ymax - ymin
+            xmargin = max(20, xrng * 0.1)
+            ymargin = max(0.5, yrng * 0.1)
+            plt.xlim(xmin - xmargin, xmax + xmargin)
+            plt.ylim(ymin - ymargin, ymax + ymargin)
+        else:
+            plt.xlim(ratings[0], ratings[-1])
+            plt.ylim(-1.5, 101.5)
+
         # Mark users in plot
-        for idx, (user, point) in enumerate(sorted([(user, point) for user, point in users_to_mark.items()],
-                                                   key=lambda k:k[1][0])):
+        for user, point in users_to_mark.items():
             astr = f'{user} ({round(point[1], 2)})' if exact else user
-            apos = ('left', 'top') if idx < len(infos) // 2 else ('right', 'bottom')
+            apos = ('left', 'top') if point[1] < xmin + xrng // 2 else ('right', 'bottom')
             plt.annotate(astr,
                          xy=point,
                          xytext=(0, 0),
@@ -698,20 +713,6 @@ class Graphs(commands.Cog):
                      markersize=5,
                      color='red',
                      markeredgecolor='darkred')
-
-        # Set limits (before drawing tick lines)
-        if users_to_mark and zoom:
-            xmin = min(point[0] for point in users_to_mark.values())
-            xmax = max(point[0] for point in users_to_mark.values())
-            ymin = min(point[1] for point in users_to_mark.values())
-            ymax = max(point[1] for point in users_to_mark.values())
-            xmargin = max(20, (xmax - xmin) * 0.1)
-            ymargin = max(0.5, (ymax - ymin) * 0.1)
-            plt.xlim(xmin - xmargin, xmax + xmargin)
-            plt.ylim(ymin - ymargin, ymax + ymargin)
-        else:
-            plt.xlim(ratings[0], ratings[-1])
-            plt.ylim(-1.5, 101.5)
 
         # Draw tick lines
         linecolor = '#00000022'
