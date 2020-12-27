@@ -635,10 +635,10 @@ class Graphs(commands.Cog):
                                 binsize=100,
                                 title=title)
 
-    @plot.command(brief='Show percentile distribution on codeforces', usage='[+zoom] [+nomarker] [handles...]')
+    @plot.command(brief='Show percentile distribution on codeforces', usage='[+zoom] [+nomarker] [handles...] [+exact]')
     async def centile(self, ctx, *args: str):
         """Show percentile distribution of codeforces and mark given handles in the plot. If +zoom and handles are given, it zooms to the neighborhood of the handles."""
-        (zoom, nomarker), args = cf_common.filter_flags(args, ['+zoom', '+nomarker'])
+        (zoom, nomarker, exact), args = cf_common.filter_flags(args, ['+zoom', '+nomarker', '+exact'])
         # Prepare data
         intervals = [(rank.low, rank.high) for rank in cf.RATED_RANKS]
         colors = [rank.color_graph for rank in cf.RATED_RANKS]
@@ -687,34 +687,46 @@ class Graphs(commands.Cog):
                                      facecolor=col)
             ax.add_patch(rect)
 
+        if users_to_mark:
+            ymin = min(point[1] for point in users_to_mark.values())
+            ymax = max(point[1] for point in users_to_mark.values())
+            if zoom:
+                ymargin = max(0.5, (ymax - ymin) * 0.1)
+                ymin -= ymargin
+                ymax += ymargin
+            else:
+                ymin = min(-1.5, ymin - 8)
+                ymax = max(101.5, ymax + 8)
+        else:
+            ymin, ymax = -1.5, 101.5
+
+        if users_to_mark and zoom:
+            xmin = min(point[0] for point in users_to_mark.values())
+            xmax = max(point[0] for point in users_to_mark.values())
+            xmargin = max(20, (xmax - xmin) * 0.1)
+            xmin -= xmargin
+            xmax += xmargin
+        else:
+            xmin, xmax = ratings[0], ratings[-1]
+
+        plt.xlim(xmin, xmax)
+        plt.ylim(ymin, ymax)
+
         # Mark users in plot
-        for user,point in users_to_mark.items():
-            x,y = point
-            plt.annotate(user,
+        for user, point in users_to_mark.items():
+            astr = f'{user} ({round(point[1], 2)})' if exact else user
+            apos = ('left', 'top') if point[0] <= (xmax + xmin) // 2 else ('right', 'bottom')
+            plt.annotate(astr,
                          xy=point,
                          xytext=(0, 0),
                          textcoords='offset points',
-                         ha='right',
-                         va='bottom')
+                         ha=apos[0],
+                         va=apos[1])
             plt.plot(*point,
                      marker='o',
                      markersize=5,
                      color='red',
                      markeredgecolor='darkred')
-
-        # Set limits (before drawing tick lines)
-        if users_to_mark and zoom:
-            xmargin = 50
-            ymargin = 5
-            xmin = min(point[0] for point in users_to_mark.values())
-            xmax = max(point[0] for point in users_to_mark.values())
-            ymin = min(point[1] for point in users_to_mark.values())
-            ymax = max(point[1] for point in users_to_mark.values())
-            plt.xlim(xmin - xmargin, xmax + xmargin)
-            plt.ylim(ymin - ymargin, ymax + ymargin)
-        else:
-            plt.xlim(ratings[0], ratings[-1])
-            plt.ylim(-1.5, 101.5)
 
         # Draw tick lines
         linecolor = '#00000022'
