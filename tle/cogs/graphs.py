@@ -686,8 +686,7 @@ class Graphs(commands.Cog):
         xmax = max(point[0] for point in users_to_mark.values())
         ymin = min(point[1] for point in users_to_mark.values())
         ymax = max(point[1] for point in users_to_mark.values())
-        xrng = xmax - xmin
-        yrng = ymax - ymin
+        xrng, yrng = xmax - xmin, ymax - ymin
 
         # Mark users in plot
         for user, point in users_to_mark.items():
