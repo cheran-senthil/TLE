@@ -364,7 +364,7 @@ class UserDbConn:
         query = ('SELECT handle, first_name, last_name, country, city, organization, contribution, '
                  '    rating, maxRating, last_online_time, registration_time, friend_of_count, title_photo '
                  'FROM cf_user_cache '
-                 'WHERE handle = ?')
+                 'WHERE UPPER(handle) = UPPER(?)')
         user = self.conn.execute(query, (handle,)).fetchone()
         return cf.User._make(user) if user else None
 
@@ -399,7 +399,7 @@ class UserDbConn:
     def get_user_id(self, handle, guild_id):
         query = ('SELECT user_id '
                  'FROM user_handle '
-                 'WHERE handle = ? AND guild_id = ? AND active = 1')
+                 'WHERE UPPER(handle) = UPPER(?) AND guild_id = ? AND active = 1')
         res = self.conn.execute(query, (handle, guild_id)).fetchone()
         return int(res[0]) if res else None
 
