@@ -62,8 +62,8 @@ class Codeforces(commands.Cog):
     @commands.command(brief='Upsolve a problem')
     @cf_common.user_guard(group='gitgud')
     async def upsolve(self, ctx, choice: int = -1):
-        """Request an unsolved problem from a contest you participated in
-        delta  | -300 | -200 | -100 |  0  | +100 | +200 | +300
+        """Request an unsolved problem from a contest you participated in\\
+        delta  | -300 | -200 | -100 |  0  | +100 | +200 | +300\\
         points |   2  |   3  |   5  |  8  |  12  |  17  |  23
         """
         await self._validate_gitgud_status(ctx,delta=None)
@@ -219,8 +219,8 @@ class Codeforces(commands.Cog):
     @commands.command(brief='Challenge')
     @cf_common.user_guard(group='gitgud')
     async def gitgud(self, ctx, delta: int = 0):
-        """Request a problem for gitgud points.
-        delta  | -300 | -200 | -100 |  0  | +100 | +200 | +300
+        """Request a problem for gitgud points.\\
+        delta  | -300 | -200 | -100 |  0  | +100 | +200 | +300\\
         points |   2  |   3  |   5  |  8  |  12  |  17  |  23
         """
         await self._validate_gitgud_status(ctx, delta)

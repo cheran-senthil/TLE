@@ -1,7 +1,8 @@
 import asyncio
-import logging
 import functools
+import logging
 import random
+import re
 
 import discord
 from discord.ext import commands
@@ -15,7 +16,6 @@ logger = logging.getLogger(__name__)
 _CF_COLORS = (0xFFCA1F, 0x198BCC, 0xFF2020)
 _SUCCESS_GREEN = 0x28A745
 _ALERT_AMBER = 0xFFBF00
-
 
 def embed_neutral(desc, color=discord.Embed.Empty):
     return discord.Embed(description=str(desc), color=color)
@@ -129,3 +129,31 @@ async def presence(bot):
 
     presence_task.start()
 
+class TLEHelpCommand(commands.help.DefaultHelpCommand):
+    @staticmethod
+    def _reformat(doc):
+        return '\n\n'.join(
+            re.sub(r'(?<=[^\\])\n', ' ', paragraph)
+            for paragraph in doc.split('\n\n')).replace('\\', '')
+
+    def add_command_formatting(self, command):
+        """Copy of the default method, with added reformatting"""
+
+        if command.description:
+            self.paginator.add_line(command.description, empty=True)
+
+        signature = self.get_command_signature(command)
+        if command.aliases:
+            self.paginator.add_line(signature)
+            self.add_aliases_formatting(command.aliases)
+        else:
+            self.paginator.add_line(signature, empty=True)
+
+        if command.help:
+            try:
+                new_help = TLEHelpCommand._reformat(command.help)
+                self.paginator.add_line(new_help, empty=True)
+            except RuntimeError:
+                for line in command.help.splitlines():
+                    self.paginator.add_line(line)
+                self.paginator.add_line()
