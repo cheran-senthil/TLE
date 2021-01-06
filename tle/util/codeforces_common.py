@@ -1,15 +1,13 @@
-from collections import defaultdict
-import datetime
 import functools
-import itertools
 import json
 import logging
 import math
 import time
-
-import aiohttp
-import discord
+import datetime
+from collections import defaultdict
+import itertools
 from discord.ext import commands
+import discord
 
 from tle import constants
 from tle.util import cache_system2
@@ -33,6 +31,7 @@ _contest_id_to_writers_map = None
 _initialize_done = False
 
 active_groups = defaultdict(set)
+
 
 async def initialize(nodb):
     global cache2
