@@ -454,8 +454,9 @@ class Handles(commands.Cog):
     async def unmagic_all(self, ctx):
         handles = []
         rev_lookup = {}
-        for member in ctx.guild.members:
-            handle = cf_common.user_db.get_handle(member.id, ctx.guild.id)
+        for user_id, handle in cf_common.user_db.get_handles_for_guild(
+                ctx.guild.id):
+            member = ctx.guild.get_member(int(user_id))
             if handle:
                 handles.append(handle)
                 rev_lookup[handle] = member
@@ -469,22 +470,22 @@ class Handles(commands.Cog):
             while handles:
                 try:
                     await cf.user.info(handles=handles)
+                    n_same += len(handles)
                     break  # no failed handles
                 except cf.HandleNotFoundError as e:
                     handle = e.handle
                     member = rev_lookup[handle]
-                    redirected_handle = await cf_common.resolve_redirect(handle
-                                                                         )
+                    new_handle = await cf_common.resolve_redirect(handle)
 
-                    if not redirected_handle:
+                    if not new_handle:
                         self.logger.info(
                             f'Redirection detection failed for {handle}')
                         n_failed += 1
-                    elif redirected_handle == handle:
+                    elif new_handle == handle:
                         self.logger.info(f'No redirection for handle {handle}')
                         n_same += 1
                     else:
-                        user, = await cf.user.info(handles=[redirected_handle])
+                        user, = await cf.user.info(handles=[new_handle])
                         await self._set(ctx, member, user)
                         n_fixed += 1
                     handles.remove(handle)
