@@ -168,14 +168,14 @@ class ClientError(CodeforcesApiError):
 
 class HandleNotFoundError(TrueApiError):
     def __init__(self, comment, handle):
-        self.handle = handle
         super().__init__(comment, f'Handle `{handle}` not found on Codeforces')
+        self.handle = handle
 
 
 class HandleInvalidError(TrueApiError):
     def __init__(self, comment, handle):
-        self.handle = handle
         super().__init__(comment, f'`{handle}` is not a valid Codeforces handle')
+        self.handle = handle
 
 
 class CallLimitExceededError(TrueApiError):
@@ -400,3 +400,15 @@ class user:
                                                for member in submission['author']['members']]
             submission['author'] = make_from_dict(Party, submission['author'])
         return [make_from_dict(Submission, submission_dict) for submission_dict in resp]
+
+async def resolve_redirect(handle):
+    url = 'http://codeforces.com/profile/' + handle
+    async with _session.head(url, allow_redirects=True) as r:
+        if r.url.parts[:-1] != ('/', 'profile'):
+            # Ended up not on profile page, probably invalid handle
+            return None
+        if r.status != 200:
+            # Something went wrong
+            return None
+        # Return the handle in the final url
+        return r.url.parts[-1]
