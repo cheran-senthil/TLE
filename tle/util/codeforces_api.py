@@ -403,12 +403,13 @@ class user:
 
 async def resolve_redirect(handle):
     url = 'http://codeforces.com/profile/' + handle
-    async with _session.head(url, allow_redirects=True) as r:
-        if r.url.parts[:-1] != ('/', 'profile'):
-            # Ended up not on profile page, probably invalid handle
-            return None
-        if r.status != 200:
-            # Something went wrong
-            return None
-        # Return the handle in the final url
-        return r.url.parts[-1]
+    async with _session.head(url) as r:
+        if r.status == 200:
+            return handle
+        if r.status == 302:
+            redirected = r.headers.get('Location')
+            if '/profile/' not in redirected:
+                # Ended up not on profile page, probably invalid handle
+                return None
+            return redirected.split('/profile/')[-1]
+        raise CodeforcesApiError(f'Something went wrong trying to redirect {url}')

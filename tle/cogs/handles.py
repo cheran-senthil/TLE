@@ -432,9 +432,9 @@ class Handles(commands.Cog):
         await ctx.send(embed=embed)
 
     @handle.command(brief='Resolve redirect of a user\'s handle')
-    @commands.has_any_role('Admin', 'Moderator')
     async def unmagic(self, ctx):
-        """Remove Codeforces handle of a user."""
+        """Updates handle of the calling user if they have changed handles
+        (typically new year's magic)"""
         member = ctx.author
         handle = cf_common.user_db.get_handle(member.id, ctx.guild.id)
         redirected_handle = await cf.resolve_redirect(handle)
@@ -453,6 +453,8 @@ class Handles(commands.Cog):
     @handle.command(brief='Resolve handles needing redirection')
     @commands.has_any_role('Admin', 'Moderator')
     async def unmagic_all(self, ctx):
+        """Updates handles of all users that have changed handles
+        (typically new year's magic)"""
         handles = []
         rev_lookup = {}
         for user_id, handle in cf_common.user_db.get_handles_for_guild(
