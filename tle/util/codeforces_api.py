@@ -168,11 +168,13 @@ class ClientError(CodeforcesApiError):
 
 class HandleNotFoundError(TrueApiError):
     def __init__(self, comment, handle):
+        self.handle = handle
         super().__init__(comment, f'Handle `{handle}` not found on Codeforces')
 
 
 class HandleInvalidError(TrueApiError):
     def __init__(self, comment, handle):
+        self.handle = handle
         super().__init__(comment, f'`{handle}` is not a valid Codeforces handle')
 
 

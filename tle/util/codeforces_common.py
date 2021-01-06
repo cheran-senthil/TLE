@@ -1,13 +1,15 @@
+from collections import defaultdict
+import datetime
 import functools
+import itertools
 import json
 import logging
 import math
 import time
-import datetime
-from collections import defaultdict
-import itertools
-from discord.ext import commands
+
+import aiohttp
 import discord
+from discord.ext import commands
 
 from tle import constants
 from tle.util import cache_system2
@@ -32,12 +34,14 @@ _initialize_done = False
 
 active_groups = defaultdict(set)
 
+_session = None
 
 async def initialize(nodb):
     global cache2
     global user_db
     global event_sys
     global _contest_id_to_writers_map
+    global _session
     global _initialize_done
 
     if _initialize_done:
@@ -63,6 +67,8 @@ async def initialize(nodb):
         logger.info('Contest writers loaded from JSON file')
     except FileNotFoundError:
         logger.warning('JSON file containing contest writers not found')
+
+    _session = aiohttp.ClientSession()
 
     _initialize_done = True
 
@@ -380,3 +386,15 @@ class SubFilter:
         rating_changes = [change for change in rating_changes
                     if self.dlo <= change.ratingUpdateTimeSeconds < self.dhi]
         return rating_changes
+
+async def resolve_redirect(handle):
+    url = 'http://codeforces.com/profile/' + handle
+    async with _session.head(url, allow_redirects=True) as r:
+        if r.url.parts[:-1] != ('/', 'profile'):
+            # Ended up not on profile page, probably invalid handle
+            return None
+        if r.status != 200:
+            # Something went wrong
+            return None
+        # Return the handle in the final url
+        return r.url.parts[-1]

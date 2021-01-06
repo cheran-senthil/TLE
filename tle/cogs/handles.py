@@ -342,8 +342,10 @@ class Handles(commands.Cog):
     async def set(self, ctx, member: discord.Member, handle: str):
         """Set Codeforces handle of a user."""
         # CF API returns correct handle ignoring case, update to it
-        users = await cf.user.info(handles=[handle])
-        await self._set(ctx, member, users[0])
+        user, = await cf.user.info(handles=[handle])
+        await self._set(ctx, member, user)
+        embed = _make_profile_embed(member, user, mode='set')
+        await ctx.send(embed=embed)
 
     async def _set(self, ctx, member, user):
         handle = user.handle
@@ -362,8 +364,6 @@ class Handles(commands.Cog):
             role_to_assign = roles[0]
         await self.update_member_rank_role(member, role_to_assign,
                                            reason='New handle set for user')
-        embed = _make_profile_embed(member, user, mode='set')
-        await ctx.send(embed=embed)
 
     @handle.command(brief='Identify yourself', usage='[handle]')
     @cf_common.user_guard(group='handle',
@@ -391,8 +391,10 @@ class Handles(commands.Cog):
 
         subs = await cf.user.status(handle=handle, count=5)
         if any(sub.problem.name == problem.name and sub.verdict == 'COMPILATION_ERROR' for sub in subs):
-            users = await cf.user.info(handles=[handle])
+            user, = await cf.user.info(handles=[handle])
             await self._set(ctx, ctx.author, users[0])
+            embed = _make_profile_embed(ctx.author, user, mode='set')
+            await ctx.send(embed=embed)
         else:
             await ctx.send(f'Sorry `{invoker}`, can you try again?')
 
@@ -428,6 +430,70 @@ class Handles(commands.Cog):
                                            reason='Handle removed for user')
         embed = discord_common.embed_success(f'Removed handle for {member.mention}')
         await ctx.send(embed=embed)
+
+    @handle.command(brief='Resolve redirect of a user\'s handle')
+    @commands.has_any_role('Admin', 'Moderator')
+    async def unmagic(self, ctx, member: discord.Member):
+        """Remove Codeforces handle of a user."""
+        handle = cf_common.user_db.get_handle(member.id, ctx.guild.id)
+        redirected_handle = await cf_common.resolve_redirect(handle)
+
+        if not redirected_handle:
+            raise HandleCogError(f'Redirection detection failed for {handle}')
+        if redirected_handle == handle:
+            raise HandleCogError(f'No redirection for handle {handle}')
+
+        user, = await cf.user.info(handles=[redirected_handle])
+        await self._set(ctx, member, user)
+        embed = discord_common.embed_success(
+            f'Corrected {handle} -> {redirected_handle}')
+        await ctx.send(embed=embed)
+
+    @handle.command(brief='Resolve handles needing redirection')
+    @commands.has_any_role('Admin', 'Moderator')
+    async def unmagic_all(self, ctx):
+        handles = []
+        rev_lookup = {}
+        for member in ctx.guild.members:
+            handle = cf_common.user_db.get_handle(member.id, ctx.guild.id)
+            if handle:
+                handles.append(handle)
+                rev_lookup[handle] = member
+
+        n_fixed = 0
+        n_failed = 0
+        n_same = 0
+
+        chunks = paginator.chunkify(handles, cf.MAX_HANDLES_PER_QUERY)
+        for handles in chunks:
+            while handles:
+                try:
+                    await cf.user.info(handles=handles)
+                    break  # no failed handles
+                except cf.HandleNotFoundError as e:
+                    handle = e.handle
+                    member = rev_lookup[handle]
+                    redirected_handle = await cf_common.resolve_redirect(handle
+                                                                         )
+
+                    if not redirected_handle:
+                        self.logger.info(
+                            f'Redirection detection failed for {handle}')
+                        n_failed += 1
+                    elif redirected_handle == handle:
+                        self.logger.info(f'No redirection for handle {handle}')
+                        n_same += 1
+                    else:
+                        user, = await cf.user.info(handles=[redirected_handle])
+                        await self._set(ctx, member, user)
+                        n_fixed += 1
+                    handles.remove(handle)
+
+        embed = discord_common.embed_success(
+            f'{n_fixed} corrected, {n_failed} failed and {n_same} unchanged handles'
+        )
+        await ctx.send(embed=embed)
+
 
     @commands.command(brief="Show gudgitters", aliases=["gitgudders"])
     async def gudgitters(self, ctx):
