@@ -437,66 +437,80 @@ class Handles(commands.Cog):
         (typically new year's magic)"""
         member = ctx.author
         handle = cf_common.user_db.get_handle(member.id, ctx.guild.id)
-        redirected_handle = await cf.resolve_redirect(handle)
+        to_fix = await self._needs_fixing(ctx, [(member.id, handle)])
 
-        if not redirected_handle:
-            raise HandleCogError(f'Redirection detection failed for {handle}')
-        if redirected_handle == handle:
-            raise HandleCogError(f'No redirection for handle {handle}')
-
-        user, = await cf.user.info(handles=[redirected_handle])
-        await self._set(ctx, member, user)
-        embed = discord_common.embed_success(
-            f'Corrected {handle} -> {redirected_handle}')
-        await ctx.send(embed=embed)
+        summary_embed = await self._fix(ctx, to_fix)
+        await ctx.send(embed=summary_embed)
 
     @handle.command(brief='Resolve handles needing redirection')
     @commands.has_any_role('Admin', 'Moderator')
     async def unmagic_all(self, ctx):
         """Updates handles of all users that have changed handles
         (typically new year's magic)"""
+        to_fix = await self._needs_fixing(
+            ctx, cf_common.user_db.get_handles_for_guild(ctx.guild.id))
+
+        embed = discord_common.embed_neutral(f'Users to fix: {len(to_fix)}')
+        await ctx.send(embed=embed)
+
+        summary_embed = await self._fix(ctx, to_fix)
+        await ctx.send(embed=summary_embed)
+
+    async def _needs_fixing(self, ctx, user_id_and_handles):
         handles = []
         rev_lookup = {}
-        for user_id, handle in cf_common.user_db.get_handles_for_guild(
-                ctx.guild.id):
+        for user_id, handle in user_id_and_handles:
             member = ctx.guild.get_member(user_id)
             handles.append(handle)
             rev_lookup[handle] = member
 
-        n_fixed = 0
-        n_failed = 0
-        n_same = 0
-
+        to_fix = []
         chunks = paginator.chunkify(handles, cf.MAX_HANDLES_PER_QUERY)
-        for handles in chunks:
-            while handles:
+        for handle_chunk in chunks:
+            while handle_chunk:
                 try:
-                    await cf.user.info(handles=handles)
-                    n_same += len(handles)
-                    break  # no failed handles
+                    users = await cf.user.info(handles=handle_chunk)
+                    lower_map = {h.lower(): h for h in handle_chunk}
+
+                    # Users could still have changed capitalization
+                    def needs_case_fix(user):
+                        return (not user.handle in handle_chunk
+                                and user.handle.lower() in lower_map)
+
+                    for user in users:
+                        if needs_case_fix(user):
+                            handle = lower_map[user.handle.lower()]
+                            to_fix.append((rev_lookup[handle], handle))
+                    break
                 except cf.HandleNotFoundError as e:
-                    handle = e.handle
-                    member = rev_lookup[handle]
-                    new_handle = await cf.resolve_redirect(handle)
+                    # Handle not found
+                    to_fix.append((rev_lookup[e.handle], e.handle))
+                    handle_chunk.remove(e.handle)
+        return to_fix
 
-                    if not new_handle:
-                        self.logger.info(
-                            f'Redirection detection failed for {handle}')
-                        n_failed += 1
-                    elif new_handle == handle:
-                        self.logger.info(f'No redirection for handle {handle}')
-                        n_same += 1
-                    else:
-                        user, = await cf.user.info(handles=[new_handle])
-                        await self._set(ctx, member, user)
-                        n_fixed += 1
-                    handles.remove(handle)
+    async def _fix(self, ctx, to_fix):
+        fixed = []
+        failed = []
+        for member, handle in to_fix:
+            new_handle = await cf.resolve_redirect(handle)
+            if not new_handle:
+                failed.append(handle)
+            else:
+                user, = await cf.user.info(handles=[new_handle])
+                await self._set(ctx, member, user)
+                fixed.append((handle, user.handle))
 
-        embed = discord_common.embed_success(
-            f'{n_fixed} corrected, {n_failed} failed and {n_same} unchanged handles'
-        )
-        await ctx.send(embed=embed)
-
+        # Return summary embed
+        lines = []
+        if not fixed and not failed:
+            return discord_common.embed_success('No handles updated')
+        if fixed:
+            lines.append('**Fixed**')
+            lines += (f'{old} -> {new}' for old, new in fixed)
+        if failed:
+            lines.append('**Failed**')
+            lines += (f'{handle}' for handle in failed)
+        return discord_common.embed_success('\n'.join(lines))
 
     @commands.command(brief="Show gudgitters", aliases=["gitgudders"])
     async def gudgitters(self, ctx):
