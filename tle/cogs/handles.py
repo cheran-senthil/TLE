@@ -473,17 +473,13 @@ class Handles(commands.Cog):
                     lower_map = {h.lower(): h for h in handle_chunk}
 
                     # Users could still have changed capitalization
-                    def needs_case_fix(user):
-                        return (not user.handle in handle_chunk
-                                and user.handle.lower() in lower_map)
-
-                    for user in users:
-                        if needs_case_fix(user):
+                    for handle, user in zip(handle_chunk, users):
+                        assert handle.lower() == user.handle.lower()
+                        if handle != user.handle:
                             handle = lower_map[user.handle.lower()]
                             to_fix.append((rev_lookup[handle], handle))
                     break
                 except cf.HandleNotFoundError as e:
-                    # Handle not found
                     to_fix.append((rev_lookup[e.handle], e.handle))
                     handle_chunk.remove(e.handle)
         return to_fix
@@ -509,7 +505,7 @@ class Handles(commands.Cog):
             lines += (f'{old} -> {new}' for old, new in fixed)
         if failed:
             lines.append('**Failed**')
-            lines += (f'{handle}' for handle in failed)
+            lines += failed
         return discord_common.embed_success('\n'.join(lines))
 
     @commands.command(brief="Show gudgitters", aliases=["gitgudders"])
