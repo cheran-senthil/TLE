@@ -470,13 +470,11 @@ class Handles(commands.Cog):
             while handle_chunk:
                 try:
                     users = await cf.user.info(handles=handle_chunk)
-                    lower_map = {h.lower(): h for h in handle_chunk}
 
                     # Users could still have changed capitalization
                     for handle, user in zip(handle_chunk, users):
                         assert handle.lower() == user.handle.lower()
                         if handle != user.handle:
-                            handle = lower_map[user.handle.lower()]
                             to_fix.append((rev_lookup[handle], handle))
                     break
                 except cf.HandleNotFoundError as e:
