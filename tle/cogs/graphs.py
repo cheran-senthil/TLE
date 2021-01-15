@@ -613,177 +613,165 @@ class Graphs(commands.Cog):
                                 binsize=100,
                                 title='Rating distribution of server members')
 
-    @plot.command(brief='Show Codeforces rating distribution, possibly for a subset of countries', usage='[+normal] [+log] [+all] [contest_cutoff=5] [countries..]')
-    # async def cfdistrib(self, ctx, mode: str = 'log', activity = 'active', contest_cutoff: int = 5, *args: str):
-    async def cfdistrib(self, ctx, *args: str):
-        """Plots rating distribution of either active or all users on Codeforces, in either normal or log scale.
-        If [countries..] are present, only users from these countries are considered.       
-        Default mode is log if for all countries, and normal if countries are present.
-        Default activity is active (competed in last 90 days).
-        Default contest cutoff is 5 (competed at least five times overall).
-        If any countries are present, only users from these countries shall be plotted.
-        """
+@plot.command(brief='Show Codeforces rating distribution, possibly for a subset of countries', usage='[+normal] [+log] [+all] [contest_cutoff=5] [countries..]')
+async def cfdistrib(self, ctx, *args: str):
 
-        (isnormal, islog, isall), args = cf_common.filter_flags(args, ['+normal', '+log', '+all'])
+    (isnormal, islog, isall), args = cf_common.filter_flags(args, ['+normal', '+log', '+all'])
 
-        activity = 'all' if isall else 'active'
+    activity = 'all' if isall else 'active'
 
-        if isnormal and islog:
-            raise GraphCogError('Chart type can`t be both normal and log')
+    if isnormal and islog:
+        raise GraphCogError('Chart type can`t be both normal and log')
 
-        countries = set()
-        contest_cutoff = 5
+    countries = set()
+    contest_cutoff = 5
 
-        for arg in args:
-            if arg[:15] == 'contest_cutoff=':
-                contest_cutoff = int(arg[15:])
-            else:
-                countries.add(arg)
-
-        # Read the default mode
-        if isnormal or countries:
-            mode = 'normal'
-
-        elif islog or not countries:
-            mode = 'log'
-
-        time_cutoff = int(time.time()) - CONTEST_ACTIVE_TIME_CUTOFF if activity == 'active' else 0
-        handles = cf_common.cache2.rating_changes_cache.get_users_with_more_than_n_contests(time_cutoff, contest_cutoff)
-        
-        if countries:
-            users = await cf_common.resolve_handles(ctx,
-                                                    self.converter,
-                                                    handles,
-                                                    mincnt=0,
-                                                    maxcnt=100000)
-
-            infos = await cf.user.info(handles=list(set(handles)))
-            handles = [user.handle for user in infos if user.country in countries]
-
-        if not handles:
-            raise GraphCogError('No Codeforces users meet the specified criteria')
-
-        ratings = [cf_common.cache2.rating_changes_cache.get_current_rating(handle) for handle in handles]
-        title = f'Rating distribution of {activity} Codeforces users ({mode} scale), with percentile data'
-        await self._rating_hist(ctx,
-                                ratings,
-                                mode,
-                                binsize=100,
-                                title=title)
-
-    @plot.command(brief='Show percentile distribution on codeforces', usage='[+zoom] [+nomarker] [handles...] [+exact]')
-    async def centile(self, ctx, *args: str):
-        """Show percentile distribution of codeforces and mark given handles in the plot. If +zoom and handles are given, it zooms to the neighborhood of the handles."""
-        (zoom, nomarker, exact), args = cf_common.filter_flags(args, ['+zoom', '+nomarker', '+exact'])
-        # Prepare data
-        intervals = [(rank.low, rank.high) for rank in cf.RATED_RANKS]
-        colors = [rank.color_graph for rank in cf.RATED_RANKS]
-
-        ratings = cf_common.cache2.rating_changes_cache.get_all_ratings()
-        ratings = np.array(sorted(ratings))
-        n = len(ratings)
-        perc = 100*np.arange(n)/n
-
-        users_to_mark = {}
-        if not nomarker:
-            handles = args or ('!' + str(ctx.author),)
-            handles = await cf_common.resolve_handles(ctx,
-                                                      self.converter,
-                                                      handles,
-                                                      mincnt=0,
-                                                      maxcnt=50)
-            infos = await cf.user.info(handles=list(set(handles)))
-
-            for info in infos:
-                if info.rating is None:
-                    raise GraphCogError(f'User `{info.handle}` is not rated')
-                ix = bisect.bisect_left(ratings, info.rating)
-                cent = 100*ix/len(ratings)
-                users_to_mark[info.handle] = info.rating,cent
-
-        # Plot
-        plt.clf()
-        fig,ax = plt.subplots(1)
-        ax.plot(ratings, perc, color='#00000099')
-
-        plt.xlabel('Rating')
-        plt.ylabel('Percentile')
-
-        for pos in ['right','top','bottom','left']:
-            ax.spines[pos].set_visible(False)
-        ax.tick_params(axis='both', which='both',length=0)
-
-        # Color intervals by rank
-        for interval,color in zip(intervals,colors):
-            alpha = '99'
-            l,r = interval
-            col = color + alpha
-            rect = patches.Rectangle((l,-50), r-l, 200,
-                                     edgecolor='none',
-                                     facecolor=col)
-            ax.add_patch(rect)
-
-        if users_to_mark:
-            ymin = min(point[1] for point in users_to_mark.values())
-            ymax = max(point[1] for point in users_to_mark.values())
-            if zoom:
-                ymargin = max(0.5, (ymax - ymin) * 0.1)
-                ymin -= ymargin
-                ymax += ymargin
-            else:
-                ymin = min(-1.5, ymin - 8)
-                ymax = max(101.5, ymax + 8)
+    for arg in args:
+        if arg[:15] == 'contest_cutoff=':
+            contest_cutoff = int(arg[15:])
         else:
-            ymin, ymax = -1.5, 101.5
+            countries.add(arg)
 
-        if users_to_mark and zoom:
-            xmin = min(point[0] for point in users_to_mark.values())
-            xmax = max(point[0] for point in users_to_mark.values())
-            xmargin = max(20, (xmax - xmin) * 0.1)
-            xmin -= xmargin
-            xmax += xmargin
+    # Read the default mode
+    if isnormal or countries:
+        mode = 'normal'
+
+    elif islog or not countries:
+        mode = 'log'
+
+    time_cutoff = int(time.time()) - CONTEST_ACTIVE_TIME_CUTOFF if activity == 'active' else 0
+    handles = cf_common.cache2.rating_changes_cache.get_users_with_more_than_n_contests(time_cutoff, contest_cutoff)
+
+    if countries:
+        users = await cf_common.resolve_handles(ctx,
+                                                self.converter,
+                                                handles,
+                                                mincnt=0,
+                                                maxcnt=100000)
+
+        infos = await cf.user.info(handles=list(set(handles)))
+        handles = [user.handle for user in infos if user.country in countries]
+
+    if not handles:
+        raise GraphCogError('No Codeforces users meet the specified criteria')
+
+    ratings = [cf_common.cache2.rating_changes_cache.get_current_rating(handle) for handle in handles]
+    title = f'Rating distribution of {activity} Codeforces users ({mode} scale), with percentile data'
+    await self._rating_hist(ctx, ratings, mode, binsize=100, title=title)
+
+@plot.command(brief='Show percentile distribution on codeforces', usage='[+zoom] [+nomarker] [handles...] [+exact]')
+async def centile(self, ctx, *args: str):
+    """Show percentile distribution of codeforces and mark given handles in the plot. If +zoom and handles are given, it zooms to the neighborhood of the handles."""
+    (zoom, nomarker, exact), args = cf_common.filter_flags(args, ['+zoom', '+nomarker', '+exact'])
+    # Prepare data
+    intervals = [(rank.low, rank.high) for rank in cf.RATED_RANKS]
+    colors = [rank.color_graph for rank in cf.RATED_RANKS]
+
+    ratings = cf_common.cache2.rating_changes_cache.get_all_ratings()
+    ratings = np.array(sorted(ratings))
+    n = len(ratings)
+    perc = 100*np.arange(n)/n
+
+    users_to_mark = {}
+    if not nomarker:
+        handles = args or ('!' + str(ctx.author),)
+        handles = await cf_common.resolve_handles(ctx,
+                                                  self.converter,
+                                                  handles,
+                                                  mincnt=0,
+                                                  maxcnt=50)
+        infos = await cf.user.info(handles=list(set(handles)))
+
+        for info in infos:
+            if info.rating is None:
+                raise GraphCogError(f'User `{info.handle}` is not rated')
+            ix = bisect.bisect_left(ratings, info.rating)
+            cent = 100*ix/len(ratings)
+            users_to_mark[info.handle] = info.rating,cent
+
+    # Plot
+    plt.clf()
+    fig,ax = plt.subplots(1)
+    ax.plot(ratings, perc, color='#00000099')
+
+    plt.xlabel('Rating')
+    plt.ylabel('Percentile')
+
+    for pos in ['right','top','bottom','left']:
+        ax.spines[pos].set_visible(False)
+    ax.tick_params(axis='both', which='both',length=0)
+
+    # Color intervals by rank
+    for interval,color in zip(intervals,colors):
+        alpha = '99'
+        l,r = interval
+        col = color + alpha
+        rect = patches.Rectangle((l,-50), r-l, 200,
+                                 edgecolor='none',
+                                 facecolor=col)
+        ax.add_patch(rect)
+
+    if users_to_mark:
+        ymin = min(point[1] for point in users_to_mark.values())
+        ymax = max(point[1] for point in users_to_mark.values())
+        if zoom:
+            ymargin = max(0.5, (ymax - ymin) * 0.1)
+            ymin -= ymargin
+            ymax += ymargin
         else:
-            xmin, xmax = ratings[0], ratings[-1]
+            ymin = min(-1.5, ymin - 8)
+            ymax = max(101.5, ymax + 8)
+    else:
+        ymin, ymax = -1.5, 101.5
 
-        plt.xlim(xmin, xmax)
-        plt.ylim(ymin, ymax)
+    if users_to_mark and zoom:
+        xmin = min(point[0] for point in users_to_mark.values())
+        xmax = max(point[0] for point in users_to_mark.values())
+        xmargin = max(20, (xmax - xmin) * 0.1)
+        xmin -= xmargin
+        xmax += xmargin
+    else:
+        xmin, xmax = ratings[0], ratings[-1]
 
-        # Mark users in plot
-        for user, point in users_to_mark.items():
-            astr = f'{user} ({round(point[1], 2)})' if exact else user
-            apos = ('left', 'top') if point[0] <= (xmax + xmin) // 2 else ('right', 'bottom')
-            plt.annotate(astr,
-                         xy=point,
-                         xytext=(0, 0),
-                         textcoords='offset points',
-                         ha=apos[0],
-                         va=apos[1])
-            plt.plot(*point,
-                     marker='o',
-                     markersize=5,
-                     color='red',
-                     markeredgecolor='darkred')
+    plt.xlim(xmin, xmax)
+    plt.ylim(ymin, ymax)
 
-        # Draw tick lines
-        linecolor = '#00000022'
-        inf = 10000
-        def horz_line(y):
-            l = mlines.Line2D([-inf,inf], [y,y], color=linecolor)
-            ax.add_line(l)
-        def vert_line(x):
-            l = mlines.Line2D([x,x], [-inf,inf], color=linecolor)
-            ax.add_line(l)
-        for y in ax.get_yticks():
-            horz_line(y)
-        for x in ax.get_xticks():
-            vert_line(x)
+    # Mark users in plot
+    for user, point in users_to_mark.items():
+        astr = f'{user} ({round(point[1], 2)})' if exact else user
+        apos = ('left', 'top') if point[0] <= (xmax + xmin) // 2 else ('right', 'bottom')
+        plt.annotate(astr,
+                     xy=point,
+                     xytext=(0, 0),
+                     textcoords='offset points',
+                     ha=apos[0],
+                     va=apos[1])
+        plt.plot(*point,
+                 marker='o',
+                 markersize=5,
+                 color='red',
+                 markeredgecolor='darkred')
 
-        # Discord stuff
-        discord_file = gc.get_current_figure_as_file()
-        embed = discord_common.cf_color_embed(title=f'Rating/percentile relationship')
-        discord_common.attach_image(embed, discord_file)
-        discord_common.set_author_footer(embed, ctx.author)
-        await ctx.send(embed=embed, file=discord_file)
+    # Draw tick lines
+    linecolor = '#00000022'
+    inf = 10000
+    def horz_line(y):
+        l = mlines.Line2D([-inf,inf], [y,y], color=linecolor)
+        ax.add_line(l)
+    def vert_line(x):
+        l = mlines.Line2D([x,x], [-inf,inf], color=linecolor)
+        ax.add_line(l)
+    for y in ax.get_yticks():
+        horz_line(y)
+    for x in ax.get_xticks():
+        vert_line(x)
+
+    # Discord stuff
+    discord_file = gc.get_current_figure_as_file()
+    embed = discord_common.cf_color_embed(title=f'Rating/percentile relationship')
+    discord_common.attach_image(embed, discord_file)
+    discord_common.set_author_footer(embed, ctx.author)
+    await ctx.send(embed=embed, file=discord_file)
 
     @plot.command(brief='Plot histogram of gudgiting')
     async def howgud(self, ctx, *members: discord.Member):
