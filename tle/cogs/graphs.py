@@ -613,22 +613,57 @@ class Graphs(commands.Cog):
                                 binsize=100,
                                 title='Rating distribution of server members')
 
-    @plot.command(brief='Show Codeforces rating distribution', usage='[normal/log] [active/all] [contest_cutoff=5]')
-    async def cfdistrib(self, ctx, mode: str = 'log', activity = 'active', contest_cutoff: int = 5):
+    @plot.command(brief='Show Codeforces rating distribution, possibly for a subset of countries', usage='[+normal] [+log] [+all] [contest_cutoff=5] [countries..]')
+    # async def cfdistrib(self, ctx, mode: str = 'log', activity = 'active', contest_cutoff: int = 5, *args: str):
+    async def cfdistrib(self, ctx, *args: str):
         """Plots rating distribution of either active or all users on Codeforces, in either normal or log scale.
-        Default mode is log, default activity is active (competed in last 90 days)
+        Default mode is log if for all countries, and normal if countries are present
+        Default activity is active (competed in last 90 days)
         Default contest cutoff is 5 (competed at least five times overall)
+        If any countries are present, only users from these countries shall be plotted
         """
-        if activity not in ['active', 'all']:
-            raise GraphCogError('Activity should be either `active` or `all`')
+
+        (isnormal, islog, isall), args = cf_common.filter_flags(args, ['+normal', '+log', '+all'])
+
+        activity = 'all' if isall else 'active'
+
+        if isnormal and islog:
+            raise GraphCogError('Chart type can`t be both normal and log')
+
+        countries = set()
+        contest_cutoff = 5
+
+        for arg in args:
+            if arg[:15] == 'contest_cutoff=':
+                contest_cutoff = int(arg[15:])
+            else:
+                countries.add(arg)
+
+        # Read the default mode
+        if isnormal or countries:
+            mode = 'normal'
+
+        elif islog or not countries:
+            mode = 'log'
 
         time_cutoff = int(time.time()) - CONTEST_ACTIVE_TIME_CUTOFF if activity == 'active' else 0
         handles = cf_common.cache2.rating_changes_cache.get_users_with_more_than_n_contests(time_cutoff, contest_cutoff)
+        
+        if countries:
+            users = await cf_common.resolve_handles(ctx,
+                                                    self.converter,
+                                                    handles,
+                                                    mincnt=0,
+                                                    maxcnt=100000)
+
+            infos = await cf.user.info(handles=list(set(handles)))
+            handles = [user.handle for user in infos if user.country in countries]
+
         if not handles:
             raise GraphCogError('No Codeforces users meet the specified criteria')
 
         ratings = [cf_common.cache2.rating_changes_cache.get_current_rating(handle) for handle in handles]
-        title = f'Rating distribution of {activity} Codeforces users ({mode} scale)'
+        title = f'Rating distribution of {activity} Codeforces users ({mode} scale), with percentile data'
         await self._rating_hist(ctx,
                                 ratings,
                                 mode,
