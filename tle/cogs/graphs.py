@@ -615,6 +615,13 @@ class Graphs(commands.Cog):
 
 @plot.command(brief='Show Codeforces rating distribution, possibly for a subset of countries', usage='[+normal] [+log] [+all] [contest_cutoff=5] [countries..]')
 async def cfdistrib(self, ctx, *args: str):
+    """Plots rating distribution of either active or all users on Codeforces, in either normal or log scale.
+    If [countries..] are present, only shows users from those countries
+    Default mode is log if for all countries, and normal if countries are present
+    Default activity is active (competed in last 90 days)
+    Default contest cutoff is 5 (competed at least five times overall)
+    If any countries are present, only users from these countries shall be plotted
+    """
 
     (isnormal, islog, isall), args = cf_common.filter_flags(args, ['+normal', '+log', '+all'])
 
