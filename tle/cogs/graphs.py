@@ -634,6 +634,9 @@ class Graphs(commands.Cog):
         countries = set()
         contest_cutoff = 5
 
+        if len(args) > 10:
+            raise GraphCogError('Too many arguments')
+
         for arg in args:
             if arg[:15] == 'contest_cutoff=':
                 contest_cutoff = int(arg[15:])
@@ -651,13 +654,9 @@ class Graphs(commands.Cog):
         handles = cf_common.cache2.rating_changes_cache.get_users_with_more_than_n_contests(time_cutoff, contest_cutoff)
 
         if countries:
-            users = await cf_common.resolve_handles(ctx,
-                                                    self.converter,
-                                                    handles,
-                                                    mincnt=0,
-                                                    maxcnt=100000)
-
+            # Query the CF API with all users
             infos = await cf.user.info(handles=list(set(handles)))
+            # Only keep the users in the relevant countries
             handles = [user.handle for user in infos if user.country in countries]
 
         if not handles:
