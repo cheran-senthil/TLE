@@ -49,8 +49,8 @@ def rating2rank(rating):
 # Data classes
 
 class User(namedtuple('User', 'handle firstName lastName country city organization contribution '
-                              'rating lastOnlineTimeSeconds registrationTimeSeconds friendOfCount '
-                              'titlePhoto')):
+                              'rating maxRating lastOnlineTimeSeconds registrationTimeSeconds '
+                              'friendOfCount titlePhoto')):
     __slots__ = ()
 
     @property
@@ -169,11 +169,13 @@ class ClientError(CodeforcesApiError):
 class HandleNotFoundError(TrueApiError):
     def __init__(self, comment, handle):
         super().__init__(comment, f'Handle `{handle}` not found on Codeforces')
+        self.handle = handle
 
 
 class HandleInvalidError(TrueApiError):
     def __init__(self, comment, handle):
         super().__init__(comment, f'`{handle}` is not a valid Codeforces handle')
+        self.handle = handle
 
 
 class CallLimitExceededError(TrueApiError):
@@ -398,3 +400,16 @@ class user:
                                                for member in submission['author']['members']]
             submission['author'] = make_from_dict(Party, submission['author'])
         return [make_from_dict(Submission, submission_dict) for submission_dict in resp]
+
+async def resolve_redirect(handle):
+    url = 'http://codeforces.com/profile/' + handle
+    async with _session.head(url) as r:
+        if r.status == 200:
+            return handle
+        if r.status == 302:
+            redirected = r.headers.get('Location')
+            if '/profile/' not in redirected:
+                # Ended up not on profile page, probably invalid handle
+                return None
+            return redirected.split('/profile/')[-1]
+        raise CodeforcesApiError(f'Something went wrong trying to redirect {url}')

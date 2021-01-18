@@ -59,7 +59,7 @@ async def initialize(nodb):
     try:
         with open(constants.CONTEST_WRITERS_JSON_FILE_PATH) as f:
             data = json.load(f)
-        _contest_id_to_writers_map = {contest['id']: contest['writers'] for contest in data}
+        _contest_id_to_writers_map = {contest['id']: [s.lower() for s in contest['writers']] for contest in data}
         logger.info('Contest writers loaded from JSON file')
     except FileNotFoundError:
         logger.warning('JSON file containing contest writers not found')
@@ -95,7 +95,7 @@ def is_contest_writer(contest_id, handle):
     if _contest_id_to_writers_map is None:
         return False
     writers = _contest_id_to_writers_map.get(contest_id)
-    return writers and handle in writers
+    return writers and handle.lower() in writers
 
 
 _NONSTANDARD_CONTEST_INDICATORS = [
@@ -262,6 +262,9 @@ def filter_flags(args, params):
         except ValueError:
             rest.append(arg)
     return flags, rest
+
+def negate_flags(*args):
+    return [not x for x in args]
 
 def parse_date(arg):
     try:

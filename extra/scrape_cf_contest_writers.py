@@ -8,7 +8,7 @@ import urllib.request
 
 from lxml import html
 
-URL = 'https://codeforces.com/contests/page/{}'
+URL = 'https://codeforces.com/contests/page/{}?complete=true'
 JSONFILE = 'contest_writers.json'
 
 def get_page(pagenum):

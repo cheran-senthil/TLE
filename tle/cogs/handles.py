@@ -342,8 +342,10 @@ class Handles(commands.Cog):
     async def set(self, ctx, member: discord.Member, handle: str):
         """Set Codeforces handle of a user."""
         # CF API returns correct handle ignoring case, update to it
-        users = await cf.user.info(handles=[handle])
-        await self._set(ctx, member, users[0])
+        user, = await cf.user.info(handles=[handle])
+        await self._set(ctx, member, user)
+        embed = _make_profile_embed(member, user, mode='set')
+        await ctx.send(embed=embed)
 
     async def _set(self, ctx, member, user):
         handle = user.handle
@@ -362,8 +364,6 @@ class Handles(commands.Cog):
             role_to_assign = roles[0]
         await self.update_member_rank_role(member, role_to_assign,
                                            reason='New handle set for user')
-        embed = _make_profile_embed(member, user, mode='set')
-        await ctx.send(embed=embed)
 
     @handle.command(brief='Identify yourself', usage='[handle]')
     @cf_common.user_guard(group='handle',
@@ -391,8 +391,10 @@ class Handles(commands.Cog):
 
         subs = await cf.user.status(handle=handle, count=5)
         if any(sub.problem.name == problem.name and sub.verdict == 'COMPILATION_ERROR' for sub in subs):
-            users = await cf.user.info(handles=[handle])
-            await self._set(ctx, ctx.author, users[0])
+            user, = await cf.user.info(handles=[handle])
+            await self._set(ctx, ctx.author, user)
+            embed = _make_profile_embed(ctx.author, user, mode='set')
+            await ctx.send(embed=embed)
         else:
             await ctx.send(f'Sorry `{invoker}`, can you try again?')
 
@@ -413,7 +415,7 @@ class Handles(commands.Cog):
         if not user_id:
             raise HandleCogError(f'Discord username for `{handle}` not found in database')
         user = cf_common.user_db.fetch_cf_user(handle)
-        member = ctx.guild.get_member(int(user_id))
+        member = ctx.guild.get_member(user_id)
         embed = _make_profile_embed(member, user, mode='get')
         await ctx.send(embed=embed)
 
@@ -428,6 +430,81 @@ class Handles(commands.Cog):
                                            reason='Handle removed for user')
         embed = discord_common.embed_success(f'Removed handle for {member.mention}')
         await ctx.send(embed=embed)
+
+    @handle.command(brief='Resolve redirect of a user\'s handle')
+    async def unmagic(self, ctx):
+        """Updates handle of the calling user if they have changed handles
+        (typically new year's magic)"""
+        member = ctx.author
+        handle = cf_common.user_db.get_handle(member.id, ctx.guild.id)
+        to_fix = await self._needs_fixing(ctx, [(member.id, handle)])
+
+        summary_embed = await self._fix(ctx, to_fix)
+        await ctx.send(embed=summary_embed)
+
+    @handle.command(brief='Resolve handles needing redirection')
+    @commands.has_any_role('Admin', 'Moderator')
+    async def unmagic_all(self, ctx):
+        """Updates handles of all users that have changed handles
+        (typically new year's magic)"""
+        to_fix = await self._needs_fixing(
+            ctx, cf_common.user_db.get_handles_for_guild(ctx.guild.id))
+
+        embed = discord_common.embed_neutral(f'Users to fix: {len(to_fix)}')
+        await ctx.send(embed=embed)
+
+        summary_embed = await self._fix(ctx, to_fix)
+        await ctx.send(embed=summary_embed)
+
+    async def _needs_fixing(self, ctx, user_id_and_handles):
+        handles = []
+        rev_lookup = {}
+        for user_id, handle in user_id_and_handles:
+            member = ctx.guild.get_member(user_id)
+            handles.append(handle)
+            rev_lookup[handle] = member
+
+        to_fix = []
+        chunks = paginator.chunkify(handles, cf.MAX_HANDLES_PER_QUERY)
+        for handle_chunk in chunks:
+            while handle_chunk:
+                try:
+                    users = await cf.user.info(handles=handle_chunk)
+
+                    # Users could still have changed capitalization
+                    for handle, user in zip(handle_chunk, users):
+                        assert handle.lower() == user.handle.lower()
+                        if handle != user.handle:
+                            to_fix.append((rev_lookup[handle], handle))
+                    break
+                except cf.HandleNotFoundError as e:
+                    to_fix.append((rev_lookup[e.handle], e.handle))
+                    handle_chunk.remove(e.handle)
+        return to_fix
+
+    async def _fix(self, ctx, to_fix):
+        fixed = []
+        failed = []
+        for member, handle in to_fix:
+            new_handle = await cf.resolve_redirect(handle)
+            if not new_handle:
+                failed.append(handle)
+            else:
+                user, = await cf.user.info(handles=[new_handle])
+                await self._set(ctx, member, user)
+                fixed.append((handle, user.handle))
+
+        # Return summary embed
+        lines = []
+        if not fixed and not failed:
+            return discord_common.embed_success('No handles updated')
+        if fixed:
+            lines.append('**Fixed**')
+            lines += (f'{old} -> {new}' for old, new in fixed)
+        if failed:
+            lines.append('**Failed**')
+            lines += failed
+        return discord_common.embed_success('\n'.join(lines))
 
     @commands.command(brief="Show gudgitters", aliases=["gitgudders"])
     async def gudgitters(self, ctx):
@@ -444,6 +521,8 @@ class Handles(commands.Cog):
             if score > 0:
                 handle = cf_common.user_db.get_handle(user_id, ctx.guild.id)
                 user = cf_common.user_db.fetch_cf_user(handle)
+                if user is None:
+                    continue
                 discord_handle = member.display_name
                 rating = user.rating
                 rankings.append((index, discord_handle, handle, rating, score))
@@ -534,7 +613,7 @@ class Handles(commands.Cog):
         await self._update_ranks(guild, res)
 
     async def _update_ranks(self, guild, res):
-        member_handles = [(guild.get_member(int(user_id)), handle) for user_id, handle in res]
+        member_handles = [(guild.get_member(user_id), handle) for user_id, handle in res]
         member_handles = [(member, handle) for member, handle in member_handles if member is not None]
         if not member_handles:
             raise HandleCogError('Handles not set for any user')
@@ -562,7 +641,7 @@ class Handles(commands.Cog):
         of this guild.
         """
         user_id_handle_pairs = cf_common.user_db.get_handles_for_guild(guild.id)
-        member_handle_pairs = [(guild.get_member(int(user_id)), handle)
+        member_handle_pairs = [(guild.get_member(user_id), handle)
                                for user_id, handle in user_id_handle_pairs]
         def ispurg(member):
             # TODO: temporary code, todo properly later
