@@ -41,7 +41,8 @@ class Logging(commands.Cog, logging.Handler):
             try:
                 msg = self.format(record)
                 try:
-                    await channel.send(embed=discord_common.embed_failed_command(record))
+                    await channel.send(
+                        embed=discord_common.embed_failed_command(record))
                 except AttributeError:
                     pass
                 discord_msg_char_limit = 2000
