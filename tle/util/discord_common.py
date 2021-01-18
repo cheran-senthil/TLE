@@ -28,6 +28,11 @@ def embed_success(desc):
 def embed_alert(desc):
     return discord.Embed(description=str(desc), color=_ALERT_AMBER)
 
+def embed_failed_command(record):
+    return discord.Embed().add_field(name='Original Command:',
+			value=record.message_content,inline=False).add_field(name='Jump Link:',
+			value=record.jump_url,inline=False)
+
 def random_cf_color():
     return random.choice(_CF_COLORS)
 
@@ -80,7 +85,7 @@ async def bot_error_handler(ctx, exception):
         await ctx.send(embed=embed_alert(exception))
     else:
         exc_info = type(exception), exception, exception.__traceback__
-        logger.exception('Ignoring exception in command {}:'.format(ctx.command), exc_info=exc_info)
+        logger.exception('Ignoring exception in command {}:'.format(ctx.command), exc_info=exc_info, extra={"message_content": ctx.message.content, "jump_url":ctx.message.jump_url})
 
 
 def once(func):
