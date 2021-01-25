@@ -36,6 +36,7 @@ _PRETTY_HANDLES_PER_PAGE = 10
 _TOP_DELTAS_COUNT = 10
 _MAX_RATING_CHANGES_PER_EMBED = 15
 _UPDATE_HANDLE_STATUS_INTERVAL = 6 * 60 * 60  # 6 hours
+_PURGATORY_LOWER_BOUND = 2000
 
 
 class HandleCogError(commands.CommandError):
@@ -321,17 +322,19 @@ class Handles(commands.Cog):
         await ctx.send_help(ctx.command)
 
     @staticmethod
-    async def update_member_rank_role(member, role_to_assign, *, reason):
+    async def update_member_rank_role(member, role_to_assign, reason, role_names_to_remove = None):
         """Sets the `member` to only have the rank role of `role_to_assign`. All other rank roles
         on the member, if any, will be removed. If `role_to_assign` is None all existing rank roles
         on the member will be removed.
         """
-        role_names_to_remove = {rank.title for rank in cf.RATED_RANKS}
+
+        if role_names_to_remove is None:
+            role_names_to_remove = {rank.title for rank in cf.RATED_RANKS}
+
         if role_to_assign is not None:
             role_names_to_remove.discard(role_to_assign.name)
-            if role_to_assign.name not in ['Newbie', 'Pupil', 'Specialist', 'Expert']:
-                role_names_to_remove.add('Purgatory')
         to_remove = [role for role in member.roles if role.name in role_names_to_remove]
+
         if to_remove:
             await member.remove_roles(*to_remove, reason=reason)
         if role_to_assign is not None and role_to_assign not in member.roles:
@@ -362,8 +365,14 @@ class Handles(commands.Cog):
             if not roles:
                 raise HandleCogError(f'Role for rank `{user.rank.title}` not present in the server')
             role_to_assign = roles[0]
+
         await self.update_member_rank_role(member, role_to_assign,
                                            reason='New handle set for user')
+        if _PURGATORY_LOWER_BOUND <= user.maxRating:
+            await self.update_member_rank_role(member, None,
+                                        reason='New handle set for user',
+                                        role_names_to_remove='Purgatory')
+
 
     @handle.command(brief='Identify yourself', usage='[handle]')
     @cf_common.user_guard(group='handle',
@@ -634,6 +643,10 @@ class Handles(commands.Cog):
             role_to_assign = None if user.rank == cf.UNRATED_RANK else rank2role[user.rank.title]
             await self.update_member_rank_role(member, role_to_assign,
                                                reason='Codeforces rank update')
+            if _PURGATORY_LOWER_BOUND <= user.maxRating:
+                await self.update_member_rank_role(member, None,
+                                               reason='Codeforces rank update',
+                                               role_names_to_remove='Purgatory')
 
     @staticmethod
     def _make_rankup_embeds(guild, contest, change_by_handle):
