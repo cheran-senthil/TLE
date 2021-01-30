@@ -23,6 +23,7 @@ The features of the bot are split into a number of cogs, each handling their own
 - **CacheControl** Commands related to data caching.
 
 ## Installation
+> If you want to run the bot inside a docker container follow these [instructions](/Docker.md)
 
 Clone the repository
 
