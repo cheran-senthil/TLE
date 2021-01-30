@@ -3,8 +3,8 @@ USER root
 RUN apt-get update
 RUN apt-get -y install git
 
-COPY ./environment.template /TLE/environment
 COPY . /TLE
+COPY ./environment.template /TLE/environment
 
 RUN apt-get install -y libcairo2-dev
 RUN apt-get install -y libgirepository1.0-dev 
