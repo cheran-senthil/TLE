@@ -1,4 +1,8 @@
 # How to run the bot inside a docker container
+## Motivation
+Docker is a service that helps in creating isolation in the local environment. for example if your machine runs on Windows with Python 2, you won't have to worry about running the bot that has been developped on Linuix with Python 3.7  or 3.8
+
+The introduced `Dockerfile` uses `Ubuntu 18.04` and `Python3.8` to run the bot in isolated environment
 ### Clone the repository
 
 ```console
