@@ -29,25 +29,18 @@ def embed_alert(desc):
     return discord.Embed(description=str(desc), color=_ALERT_AMBER)
 
 
-def embed_failed_command(record):
-    return discord.Embed().add_field(name='Original Command:',
-                                     value=record.message_content,
-                                     inline=False).add_field(
-                                         name='Jump Link:',
-                                         value=record.jump_url,
-                                         inline=False)
-
-
 def random_cf_color():
     return random.choice(_CF_COLORS)
+
 
 def cf_color_embed(**kwargs):
     return discord.Embed(**kwargs, color=random_cf_color())
 
+
 def set_same_cf_color(embeds):
     color = random_cf_color()
     for embed in embeds:
-        embed.color=color
+        embed.color = color
 
 
 def attach_image(embed, img_file):
@@ -92,16 +85,17 @@ async def bot_error_handler(ctx, exception):
         exc_info = type(exception), exception, exception.__traceback__
         logger.exception('Ignoring exception in command {}:'.format(
             ctx.command),
-                         exc_info=exc_info,
-                         extra={
-                             "message_content": ctx.message.content,
-                             "jump_url": ctx.message.jump_url
-                         })
+            exc_info=exc_info,
+            extra={
+            "message_content": ctx.message.content,
+            "jump_url": ctx.message.jump_url
+        })
 
 
 def once(func):
     """Decorator that wraps the given async function such that it is executed only once."""
     first = True
+
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
         nonlocal first
@@ -132,7 +126,7 @@ async def presence(bot):
     await asyncio.sleep(60)
 
     @tasks.task(name='OrzUpdate',
-               waiter=tasks.Waiter.fixed_delay(5*60))
+                waiter=tasks.Waiter.fixed_delay(5*60))
     async def presence_task(_):
         while True:
             target = random.choice([

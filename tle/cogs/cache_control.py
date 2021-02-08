@@ -83,9 +83,6 @@ class CacheControl(commands.Cog):
             count = await cf_common.cache2.problemset_cache.update_for_contest(contest_id)
         await ctx.send(f'Done, fetched {count} problems')
 
-    async def cog_command_error(self, ctx, error):
-        pass
-
 
 def setup(bot):
     bot.add_cog(CacheControl(bot))
