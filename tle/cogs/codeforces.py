@@ -135,6 +135,64 @@ class Codeforces(commands.Cog):
         await ctx.send(f'Recommended problem for `{handle}`', embed=embed)
 
     @commands.command(brief='List solved problems',
+                      usage='[handle]')
+    async def rating(self, ctx, handle=None):
+        """
+        """
+        handle = handle or '!' + str(ctx.author)
+        handle, = await cf_common.resolve_handles(ctx, self.converter, (handle,))
+        ratingchanges = await cf.user.rating(handle=handle)
+        if not ratingchanges:
+            raise GraphCogError(f'User {handle} is not rated')
+
+        contest_ids = [change.contestId for change in ratingchanges]
+        subs_by_contest_id = {contest_id: [] for contest_id in contest_ids}
+        for sub in await cf.user.status(handle=handle):
+            if sub.contestId in subs_by_contest_id:
+                subs_by_contest_id[sub.contestId].append(sub)
+
+        packed_contest_subs_problemset = [
+            (cf_common.cache2.contest_cache.get_contest(contest_id),
+             cf_common.cache2.problemset_cache.get_problemset(contest_id),
+             subs_by_contest_id[contest_id])
+            for contest_id in contest_ids
+        ]
+
+        def elo_prob(player, opponent):
+            return (1 + 10**((opponent - player) / 400))**-1
+
+        def elo_delta(player, opponent, win):
+            return 120 * (win - elo_prob(player, opponent))
+
+        tag_rating = defaultdict(lambda:1500)
+        for contest, problemset, subs in packed_contest_subs_problemset:
+            ac = {problem.index:False for problem in problemset}
+            for sub in subs:
+                if sub.verdict == 'OK' and sub.author.participantType == 'CONTESTANT':
+                    ac[sub.problem.index] = True
+
+            problemset.sort(key=lambda problem:problem.index)
+            for problem in problemset:
+                if not problem.rating:
+                    continue
+                for tag in problem.tags:
+                    tag_rating[tag] += elo_delta(tag_rating[tag], problem.rating, 1 if ac[problem.index] else 0)
+
+        def make_line(entry):
+            tag, rating = entry
+            return f'{tag}: {round(rating)}'
+
+        def make_page(chunk):
+            message = f'tag rating {ctx.author.display_name}'
+            string = '\n'.join(make_line(entry) for entry in chunk)
+            embed = discord_common.cf_color_embed(description=string)
+            return message, embed
+
+        ratings = sorted(list(tag_rating.items()), key=lambda x: -x[1])
+        pages = [make_page(chunk) for chunk in paginator.chunkify(ratings, 7)]
+        paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
+
+    @commands.command(brief='List solved problems',
                       usage='[handles] [+hardest] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [r>=rating] [r<=rating] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy] [c+marker..] [i+index..]')
     async def stalk(self, ctx, *args):
         """Print problems solved by user sorted by time (default) or rating.

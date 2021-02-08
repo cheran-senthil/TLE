@@ -5,6 +5,7 @@ import time
 import itertools
 import math
 from typing import List
+from collections import defaultdict
 
 import discord
 import numpy as np
@@ -206,6 +207,93 @@ class Graphs(commands.Cog):
         use a server member's name instead by prefixing it with '!',
         for name with spaces use "!name with spaces" (with quotes)."""
         await ctx.send_help('plot')
+
+    @plot.command(brief='List solved problems',
+                      usage='[tag] [handle]')
+    async def tag(self, ctx, rtag=None, handle=None):
+        """
+        """
+        if not rtag:
+            raise GraphCogError(f'provide tag nub')
+
+        handle = handle or '!' + str(ctx.author)
+        handle, = await cf_common.resolve_handles(ctx, self.converter, (handle,))
+        ratingchanges = await cf.user.rating(handle=handle)
+        if not ratingchanges:
+            raise GraphCogError(f'User {handle} is not rated')
+
+        contest_ids = [change.contestId for change in ratingchanges]
+        subs_by_contest_id = {contest_id: [] for contest_id in contest_ids}
+        for sub in await cf.user.status(handle=handle):
+            if sub.contestId in subs_by_contest_id:
+                subs_by_contest_id[sub.contestId].append(sub)
+
+        packed_contest_subs_problemset = [
+            (cf_common.cache2.contest_cache.get_contest(contest_id),
+             cf_common.cache2.problemset_cache.get_problemset(contest_id),
+             subs_by_contest_id[contest_id])
+            for contest_id in contest_ids
+        ]
+
+        def elo_prob(player, opponent):
+            return (1 + 10**((opponent - player) / 400))**-1
+
+        def elo_delta(player, opponent, win):
+            return 120 * (win - elo_prob(player, opponent))
+
+        tag_rating = defaultdict(lambda:1500)
+        times, ratings = [], []
+        for contest, problemset, subs in packed_contest_subs_problemset:
+            ac = {problem.index:False for problem in problemset}
+            for sub in subs:
+                if sub.verdict == 'OK' and sub.author.participantType == 'CONTESTANT':
+                    ac[sub.problem.index] = True
+
+            problemset.sort(key=lambda problem:problem.index)
+            changed = set()
+            for problem in problemset:
+                if not problem.rating:
+                    continue
+                for tag in problem.tags:
+                    tag_rating[tag] += elo_delta(tag_rating[tag], problem.rating, 1 if ac[problem.index] else 0)
+                    changed.add(tag)
+
+            for tag in changed:
+                if tag == rtag:
+                    times.append(dt.datetime.fromtimestamp(contest.end_time))
+                    ratings.append(tag_rating[tag])
+
+        if not ratings:
+            raise GraphCogError(f'User {handle} is not rated')
+
+        plt.clf()
+        plt.plot(times,
+                 ratings,
+                 linestyle='-',
+                 marker='o',
+                 markersize=3,
+                 markerfacecolor='white',
+                 markeredgewidth=0.5)
+
+        gc.plot_rating_bg(cf.RATED_RANKS)
+        plt.gcf().autofmt_xdate()
+        labels = [gc.StrWrap(f'{handle} ({ratings[-1]})')]
+        plt.legend(labels, loc='upper left')
+
+        zoom = False
+        if not zoom:
+            min_rating = 1100
+            max_rating = 1800
+            for rating in ratings:
+                min_rating = min(min_rating, rating)
+                max_rating = max(max_rating, rating)
+            plt.ylim(min_rating - 100, max_rating + 200)
+
+        discord_file = gc.get_current_figure_as_file()
+        embed = discord_common.cf_color_embed(title='Tag rating graph on Codeforces')
+        discord_common.attach_image(embed, discord_file)
+        discord_common.set_author_footer(embed, ctx.author)
+        await ctx.send(embed=embed, file=discord_file)
 
     @plot.command(brief='Plot Codeforces rating graph', usage='[+zoom] [+peak] [handles...] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy]')
     async def rating(self, ctx, *args: str):
