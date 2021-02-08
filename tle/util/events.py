@@ -3,8 +3,8 @@ import logging
 
 from discord.ext import commands
 
-
 # Event types
+
 
 class Event:
     """Base class for events."""
@@ -24,6 +24,7 @@ class RatingChangesUpdate(Event):
 
 # Event errors
 
+
 class EventError(commands.CommandError):
     pass
 
@@ -36,9 +37,9 @@ class ListenerNotRegistered(EventError):
 
 # Event system
 
+
 class EventSystem:
     """Rudimentary event system."""
-
     def __init__(self):
         self.listeners_by_event = {}
         self.futures_by_event = {}
@@ -72,6 +73,7 @@ class EventSystem:
 
 
 # Listener
+
 
 def _ensure_coroutine_func(func):
     if not asyncio.iscoroutinefunction(func):
@@ -141,14 +143,15 @@ class ListenerSpec:
             async def wrapper(event):
                 return await self.func(instance, event)
 
-            listeners[self.name] = Listener(self.name, self.event_cls, wrapper,
+            listeners[self.name] = Listener(self.name,
+                                            self.event_cls,
+                                            wrapper,
                                             with_lock=self.with_lock)
         return listeners[self.name]
 
 
 def listener(*, name, event_cls, with_lock=False):
     """Returns a decorator that creates a `Listener` with the given options."""
-
     def decorator(func):
         return Listener(name, event_cls, func, with_lock=with_lock)
 
@@ -157,7 +160,6 @@ def listener(*, name, event_cls, with_lock=False):
 
 def listener_spec(*, name, event_cls, with_lock=False):
     """Returns a decorator that creates a `ListenerSpec` with the given options."""
-
     def decorator(func):
         return ListenerSpec(name, event_cls, func, with_lock=with_lock)
 

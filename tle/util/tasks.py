@@ -47,7 +47,6 @@ class Waiter:
         """Returns a waiter that always waits for the given time (in seconds) and returns the
         time waited.
         """
-
         async def wait_func():
             await asyncio.sleep(delay)
             return delay
@@ -59,7 +58,6 @@ class Waiter:
         """Returns a waiter that waits for the given event and returns the result of that
         event.
         """
-
         async def wait_func():
             return await cf_common.event_sys.wait_for(event_cls)
 
@@ -86,7 +84,6 @@ class Task:
     The return value of `waiter` is passed to `func` in the next call. An optional coroutine
     function `exception_handler` may be provided to which exceptions will be reported.
     """
-
     def __init__(self, name, func, waiter, exception_handler=None, *, instance=None):
         """`instance`, if present, is passed as the first argument to `func`."""
         _ensure_coroutine_func(func)
@@ -102,7 +99,6 @@ class Task:
         """Returns a decorator that sets the decorated coroutine function as the waiter for this
         Task.
         """
-
         def decorator(func):
             self._waiter = Waiter(func, run_first=run_first)
             return func
@@ -113,7 +109,6 @@ class Task:
         """Returns a decorator that sets the decorated coroutine function as the exception handler
         for this Task.
         """
-
         def decorator(func):
             self._exception_handler = ExceptionHandler(func)
             return func
@@ -145,7 +140,8 @@ class Task:
         if self.running:
             self.logger.info(f'Stopping task `{self.name}`.')
             self.asyncio_task.cancel()
-            await asyncio.sleep(0)  # To ensure cancellation if called from within the task itself.
+            await asyncio.sleep(
+                0)  # To ensure cancellation if called from within the task itself.
 
     async def _task(self):
         arg = None
@@ -164,7 +160,8 @@ class Task:
         except asyncio.CancelledError:
             raise
         except Exception as ex:
-            self.logger.warning(f'Exception in task `{self.name}`, ignoring.', exc_info=True)
+            self.logger.warning(f'Exception in task `{self.name}`, ignoring.',
+                                exc_info=True)
             if self._exception_handler is not None:
                 await self._exception_handler.handle(ex, self.instance)
 
@@ -173,7 +170,6 @@ class TaskSpec:
     """A descriptor intended to be an interface between an instance and its tasks. It creates
     the expected task when `__get__` is called from an instance for the first time. No two task
     specs in the same class should have the same name."""
-
     def __init__(self, name, func, waiter=None, exception_handler=None):
         _ensure_coroutine_func(func)
         self.name = name
@@ -185,9 +181,10 @@ class TaskSpec:
         """Returns a decorator that sets the decorated coroutine function as the waiter for this
         TaskSpec.
         """
-
         def decorator(func):
-            self._waiter = Waiter(func, run_first=run_first, needs_instance=needs_instance)
+            self._waiter = Waiter(func,
+                                  run_first=run_first,
+                                  needs_instance=needs_instance)
             return func
 
         return decorator
@@ -196,9 +193,9 @@ class TaskSpec:
         """Returns a decorator that sets the decorated coroutine function as the exception handler
         for this TaskSpec.
         """
-
         def decorator(func):
-            self._exception_handler = ExceptionHandler(func, needs_instance=needs_instance)
+            self._exception_handler = ExceptionHandler(func,
+                                                       needs_instance=needs_instance)
             return func
 
         return decorator
@@ -211,14 +208,16 @@ class TaskSpec:
         except AttributeError:
             tasks = instance.___tasks___ = {}
         if self.name not in tasks:
-            tasks[self.name] = Task(self.name, self.func, self._waiter, self._exception_handler,
+            tasks[self.name] = Task(self.name,
+                                    self.func,
+                                    self._waiter,
+                                    self._exception_handler,
                                     instance=instance)
         return tasks[self.name]
 
 
 def task(*, name, waiter=None, exception_handler=None):
     """Returns a decorator that creates a `Task` with the given options."""
-
     def decorator(func):
         return Task(name, func, waiter, exception_handler, instance=None)
 
@@ -227,7 +226,6 @@ def task(*, name, waiter=None, exception_handler=None):
 
 def task_spec(*, name, waiter=None, exception_handler=None):
     """Returns a decorator that creates a `TaskSpec` descriptor with the given options."""
-
     def decorator(func):
         return TaskSpec(name, func, waiter, exception_handler)
 

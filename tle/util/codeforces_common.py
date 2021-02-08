@@ -59,7 +59,10 @@ async def initialize(nodb):
     try:
         with open(constants.CONTEST_WRITERS_JSON_FILE_PATH) as f:
             data = json.load(f)
-        _contest_id_to_writers_map = {contest['id']: [s.lower() for s in contest['writers']] for contest in data}
+        _contest_id_to_writers_map = {
+            contest['id']: [s.lower() for s in contest['writers']]
+            for contest in data
+        }
         logger.info('Contest writers loaded from JSON file')
     except FileNotFoundError:
         logger.warning('JSON file containing contest writers not found')
@@ -100,18 +103,21 @@ def is_contest_writer(contest_id, handle):
 
 _NONSTANDARD_CONTEST_INDICATORS = [
     'wild', 'fools', 'unrated', 'surprise', 'unknown', 'friday', 'q#', 'testing',
-    'marathon', 'kotlin', 'onsite', 'experimental', 'abbyy']
+    'marathon', 'kotlin', 'onsite', 'experimental', 'abbyy'
+]
 
 
 def is_nonstandard_contest(contest):
-    return any(string in contest.name.lower() for string in _NONSTANDARD_CONTEST_INDICATORS)
+    return any(string in contest.name.lower()
+               for string in _NONSTANDARD_CONTEST_INDICATORS)
+
 
 def is_nonstandard_problem(problem):
-    return (is_nonstandard_contest(cache2.contest_cache.get_contest(problem.contestId)) or
-            problem.tag_matches(['*special']))
+    return (is_nonstandard_contest(cache2.contest_cache.get_contest(problem.contestId))
+            or problem.tag_matches(['*special']))
 
 
-async def get_visited_contests(handles : [str]):
+async def get_visited_contests(handles: [str]):
     """ Returns a set of contest ids of contests that any of the given handles
         has at least one non-CE submission.
     """
@@ -130,11 +136,12 @@ async def get_visited_contests(handles : [str]):
             pass
     return set(contest_ids)
 
+
 # These are special rated-for-all contests which have a combined ranklist for onsite and online
 # participants. The onsite participants have their submissions marked as out of competition. Just
 # Codeforces things.
 _RATED_FOR_ONSITE_CONTEST_IDS = [
-    86,   # Yandex.Algorithm 2011 Round 2 https://codeforces.com/contest/86
+    86,  # Yandex.Algorithm 2011 Round 2 https://codeforces.com/contest/86
     173,  # Croc Champ 2012 - Round 1 https://codeforces.com/contest/173
     335,  # MemSQL start[c]up Round 2 - online version https://codeforces.com/contest/335
 ]
@@ -174,8 +181,10 @@ class HandleIsVjudgeError(ResolveHandleError):
 class FilterError(commands.CommandError):
     pass
 
+
 class ParamParseError(FilterError):
     pass
+
 
 def time_format(seconds):
     seconds = int(seconds)
@@ -185,7 +194,11 @@ def time_format(seconds):
     return days, hours, minutes, seconds
 
 
-def pretty_time_format(seconds, *, shorten=False, only_most_significant=False, always_seconds=False):
+def pretty_time_format(seconds,
+                       *,
+                       shorten=False,
+                       only_most_significant=False,
+                       always_seconds=False):
     days, hours, minutes, seconds = time_format(seconds)
     timespec = [
         (days, 'day', 'days'),
@@ -206,14 +219,21 @@ def pretty_time_format(seconds, *, shorten=False, only_most_significant=False, a
 
 
 def days_ago(t):
-    days = (time.time() - t)/(60*60*24)
+    days = (time.time() - t) / (60 * 60 * 24)
     if days < 1:
         return 'today'
     if days < 2:
         return 'yesterday'
     return f'{math.floor(days)} days ago'
 
-async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5, default_to_all_server=False):
+
+async def resolve_handles(ctx,
+                          converter,
+                          handles,
+                          *,
+                          mincnt=1,
+                          maxcnt=5,
+                          default_to_all_server=False):
     """Convert an iterable of strings to CF handles. A string beginning with ! indicates Discord username,
      otherwise it is a raw CF handle to be left unchanged."""
     handles = set(handles)
@@ -221,8 +241,10 @@ async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5, defaul
         handles.add('+server')
     if '+server' in handles:
         handles.remove('+server')
-        guild_handles = {handle for discord_id, handle
-                            in user_db.get_handles_for_guild(ctx.guild.id)}
+        guild_handles = {
+            handle
+            for discord_id, handle in user_db.get_handles_for_guild(ctx.guild.id)
+        }
         handles.update(guild_handles)
     if len(handles) < mincnt or (maxcnt and maxcnt < len(handles)):
         raise HandleCountOutOfBoundsError(mincnt, maxcnt)
@@ -243,6 +265,7 @@ async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5, defaul
         resolved_handles.append(handle)
     return resolved_handles
 
+
 def members_to_handles(members: [discord.Member], guild_id):
     handles = []
     for member in members:
@@ -251,6 +274,7 @@ def members_to_handles(members: [discord.Member], guild_id):
             raise HandleNotRegisteredError(member)
         handles.append(handle)
     return handles
+
 
 def filter_flags(args, params):
     args = list(args)
@@ -263,8 +287,10 @@ def filter_flags(args, params):
             rest.append(arg)
     return flags, rest
 
+
 def negate_flags(*args):
     return [not x for x in args]
+
 
 def parse_date(arg):
     try:
@@ -279,6 +305,7 @@ def parse_date(arg):
         return time.mktime(datetime.datetime.strptime(arg, fmt).timetuple())
     except ValueError:
         raise ParamParseError(f'{arg} is an invalid date argument')
+
 
 class SubFilter:
     def __init__(self, rated=True):
@@ -300,7 +327,7 @@ class SubFilter:
                 self.team = True
             elif arg == '+contest':
                 self.types.append('CONTESTANT')
-            elif arg =='+outof':
+            elif arg == '+outof':
                 self.types.append('OUT_OF_COMPETITION')
             elif arg == '+virtual':
                 self.types.append('VIRTUAL')
@@ -329,7 +356,9 @@ class SubFilter:
             else:
                 rest.append(arg)
 
-        self.types = self.types or ['CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL', 'PRACTICE']
+        self.types = self.types or [
+            'CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL', 'PRACTICE'
+        ]
         return rest
 
     @staticmethod
@@ -361,11 +390,13 @@ class SubFilter:
             type_ok = submission.author.participantType in self.types
             date_ok = self.dlo <= submission.creationTimeSeconds < self.dhi
             tag_ok = not self.tags or problem.tag_matches(self.tags)
-            index_ok = not self.indices or any(index.lower() == problem.index.lower() for index in self.indices)
+            index_ok = not self.indices or any(index.lower() == problem.index.lower()
+                                               for index in self.indices)
             contest_ok = not self.contests or (contest and contest.matches(self.contests))
             team_ok = self.team or len(submission.author.members) == 1
             if self.rated:
-                problem_ok = contest and contest.id < cf.GYM_ID_THRESHOLD and not is_nonstandard_problem(problem)
+                problem_ok = contest and contest.id < cf.GYM_ID_THRESHOLD and not is_nonstandard_problem(
+                    problem)
                 rating_ok = problem.rating and self.rlo <= problem.rating <= self.rhi
             else:
                 # acmsguru and gym allowed
@@ -377,6 +408,8 @@ class SubFilter:
         return filtered_subs
 
     def filter_rating_changes(self, rating_changes):
-        rating_changes = [change for change in rating_changes
-                    if self.dlo <= change.ratingUpdateTimeSeconds < self.dhi]
+        rating_changes = [
+            change for change in rating_changes
+            if self.dlo <= change.ratingUpdateTimeSeconds < self.dhi
+        ]
         return rating_changes

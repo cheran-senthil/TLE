@@ -24,19 +24,16 @@ def git_history():
         env['LANGUAGE'] = 'C'
         env['LANG'] = 'C'
         env['LC_ALL'] = 'C'
-        out = subprocess.Popen(cmd, stdout = subprocess.PIPE, env=env).communicate()[0]
+        out = subprocess.Popen(cmd, stdout=subprocess.PIPE, env=env).communicate()[0]
         return out
+
     try:
         out = _minimal_ext_cmd(['git', 'rev-parse', '--abbrev-ref', 'HEAD'])
         branch = out.strip().decode('ascii')
         out = _minimal_ext_cmd(['git', 'log', '--oneline', '-5'])
         history = out.strip().decode('ascii')
-        return (
-            'Branch:\n' +
-            textwrap.indent(branch, '  ') +
-            '\nCommits:\n' +
-            textwrap.indent(history, '  ')
-        )
+        return ('Branch:\n' + textwrap.indent(branch, '  ') + '\nCommits:\n' +
+                textwrap.indent(history, '  '))
     except OSError:
         return "Fetching git info failed"
 
@@ -75,7 +72,7 @@ class Meta(commands.Cog):
         end = time.perf_counter()
         duration = (end - start) * 1000
         await message.edit(content=f'REST API latency: {int(duration)}ms\n'
-                                   f'Gateway API latency: {int(self.bot.latency * 1000)}ms')
+                           f'Gateway API latency: {int(self.bot.latency * 1000)}ms')
 
     @meta.command(brief='Get git information')
     async def git(self, ctx):
@@ -92,8 +89,10 @@ class Meta(commands.Cog):
     @commands.has_role('Admin')
     async def guilds(self, ctx):
         "Replies with info on the bot's guilds"
-        msg = [f'Guild ID: {guild.id} | Name: {guild.name} | Owner: {guild.owner.id} | Icon: {guild.icon_url}'
-                for guild in self.bot.guilds]
+        msg = [
+            f'Guild ID: {guild.id} | Name: {guild.name} | Owner: {guild.owner.id} | Icon: {guild.icon_url}'
+            for guild in self.bot.guilds
+        ]
         await ctx.send('```' + '\n'.join(msg) + '```')
 
 

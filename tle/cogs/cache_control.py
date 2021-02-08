@@ -21,7 +21,6 @@ def timed_command(coro):
 
 class CacheControl(commands.Cog):
     """Cog to manually trigger update of cached data. Intended for dev/admin use."""
-
     def __init__(self, bot):
         self.bot = bot
 

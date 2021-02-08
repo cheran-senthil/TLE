@@ -18,13 +18,15 @@ class ContestNotRatedError(RanklistError):
 
 class HandleNotPresentError(RanklistError):
     def __init__(self, contest, handle):
-        super().__init__(contest, f'Handle `{handle}`` not present in standings of `{contest.name}`')
+        super().__init__(
+            contest, f'Handle `{handle}`` not present in standings of `{contest.name}`')
         self.handle = handle
 
 
 class DeltasNotPresentError(RanklistError):
     def __init__(self, contest):
-        super().__init__(contest, f'Rating changes for `{contest.name}` not calculated or set.')
+        super().__init__(contest,
+                         f'Rating changes for `{contest.name}` not calculated or set.')
 
 
 class Ranklist:
@@ -60,7 +62,8 @@ class Ranklist:
         standings = [(id_, row.points, row.penalty, current_rating[id_])
                      for id_, row in self.standing_by_id.items() if id_ in current_rating]
         if standings:
-            self.delta_by_handle = CodeforcesRatingCalculator(standings).calculate_rating_changes()
+            self.delta_by_handle = CodeforcesRatingCalculator(
+                standings).calculate_rating_changes()
         self.deltas_status = 'Predicted'
 
     def get_delta(self, handle):

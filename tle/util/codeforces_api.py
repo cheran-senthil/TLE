@@ -17,24 +17,22 @@ PROFILE_BASE_URL = 'https://codeforces.com/profile/'
 ACMSGURU_BASE_URL = 'https://codeforces.com/problemsets/acmsguru/'
 GYM_ID_THRESHOLD = 100000
 DEFAULT_RATING = 1500
-MAX_HANDLES_PER_QUERY = 300 # To avoid sending too large requests.
+MAX_HANDLES_PER_QUERY = 300  # To avoid sending too large requests.
 
 logger = logging.getLogger(__name__)
 
 Rank = namedtuple('Rank', 'low high title title_abbr color_graph color_embed')
 
-RATED_RANKS = (
-    Rank(-10 ** 9, 1200, 'Newbie', 'N', '#CCCCCC', 0x808080),
-    Rank(1200, 1400, 'Pupil', 'P', '#77FF77', 0x008000),
-    Rank(1400, 1600, 'Specialist', 'S', '#77DDBB', 0x03a89e),
-    Rank(1600, 1900, 'Expert', 'E', '#AAAAFF', 0x0000ff),
-    Rank(1900, 2100, 'Candidate Master', 'CM', '#FF88FF', 0xaa00aa),
-    Rank(2100, 2300, 'Master', 'M', '#FFCC88', 0xff8c00),
-    Rank(2300, 2400, 'International Master', 'IM', '#FFBB55', 0xf57500),
-    Rank(2400, 2600, 'Grandmaster', 'GM', '#FF7777', 0xff3030),
-    Rank(2600, 3000, 'International Grandmaster', 'IGM', '#FF3333', 0xff0000),
-    Rank(3000, 10 ** 9, 'Legendary Grandmaster', 'LGM', '#AA0000', 0xcc0000)
-)
+RATED_RANKS = (Rank(-10**9, 1200, 'Newbie', 'N', '#CCCCCC',
+                    0x808080), Rank(1200, 1400, 'Pupil', 'P', '#77FF77', 0x008000),
+               Rank(1400, 1600, 'Specialist', 'S', '#77DDBB',
+                    0x03a89e), Rank(1600, 1900, 'Expert', 'E', '#AAAAFF', 0x0000ff),
+               Rank(1900, 2100, 'Candidate Master', 'CM', '#FF88FF',
+                    0xaa00aa), Rank(2100, 2300, 'Master', 'M', '#FFCC88', 0xff8c00),
+               Rank(2300, 2400, 'International Master', 'IM', '#FFBB55',
+                    0xf57500), Rank(2400, 2600, 'Grandmaster', 'GM', '#FF7777', 0xff3030),
+               Rank(2600, 3000, 'International Grandmaster', 'IGM', '#FF3333', 0xff0000),
+               Rank(3000, 10**9, 'Legendary Grandmaster', 'LGM', '#AA0000', 0xcc0000))
 UNRATED_RANK = Rank(None, None, 'Unrated', None, None, None)
 
 
@@ -48,9 +46,12 @@ def rating2rank(rating):
 
 # Data classes
 
-class User(namedtuple('User', 'handle firstName lastName country city organization contribution '
-                              'rating maxRating lastOnlineTimeSeconds registrationTimeSeconds '
-                              'friendOfCount titlePhoto')):
+
+class User(
+        namedtuple(
+            'User', 'handle firstName lastName country city organization contribution '
+            'rating maxRating lastOnlineTimeSeconds registrationTimeSeconds '
+            'friendOfCount titlePhoto')):
     __slots__ = ()
 
     @property
@@ -66,11 +67,14 @@ class User(namedtuple('User', 'handle firstName lastName country city organizati
         return f'{PROFILE_BASE_URL}{self.handle}'
 
 
-RatingChange = namedtuple('RatingChange',
-                          'contestId contestName handle rank ratingUpdateTimeSeconds oldRating newRating')
+RatingChange = namedtuple(
+    'RatingChange',
+    'contestId contestName handle rank ratingUpdateTimeSeconds oldRating newRating')
 
 
-class Contest(namedtuple('Contest', 'id name startTimeSeconds durationSeconds type phase preparedBy')):
+class Contest(
+        namedtuple('Contest',
+                   'id name startTimeSeconds durationSeconds type phase preparedBy')):
     __slots__ = ()
     PHASES = 'BEFORE CODING PENDING_SYSTEM_TEST SYSTEM_TEST FINISHED'.split()
 
@@ -89,18 +93,25 @@ class Contest(namedtuple('Contest', 'id name startTimeSeconds durationSeconds ty
     def matches(self, markers):
         def strfilt(s):
             return ''.join(x for x in s.lower() if x.isalnum())
+
         return any(strfilt(marker) in strfilt(self.name) for marker in markers)
 
-class Party(namedtuple('Party', ('contestId members participantType teamId teamName ghost room '
-                                 'startTimeSeconds'))):
+
+class Party(
+        namedtuple('Party',
+                   ('contestId members participantType teamId teamName ghost room '
+                    'startTimeSeconds'))):
     __slots__ = ()
-    PARTICIPANT_TYPES = ('CONTESTANT', 'PRACTICE', 'VIRTUAL', 'MANAGER', 'OUT_OF_COMPETITION')
+    PARTICIPANT_TYPES = ('CONTESTANT', 'PRACTICE', 'VIRTUAL', 'MANAGER',
+                         'OUT_OF_COMPETITION')
 
 
 Member = namedtuple('Member', 'handle')
 
 
-class Problem(namedtuple('Problem', 'contestId problemsetName index name type points rating tags')):
+class Problem(
+        namedtuple('Problem',
+                   'contestId problemsetName index name type points rating tags')):
     __slots__ = ()
 
     @property
@@ -131,13 +142,15 @@ class Problem(namedtuple('Problem', 'contestId problemsetName index name type po
 
 ProblemStatistics = namedtuple('ProblemStatistics', 'contestId index solvedCount')
 
-Submission = namedtuple('Submissions',
-                        'id contestId problem author programmingLanguage verdict creationTimeSeconds relativeTimeSeconds')
+Submission = namedtuple(
+    'Submissions',
+    'id contestId problem author programmingLanguage verdict creationTimeSeconds relativeTimeSeconds'
+)
 
 RanklistRow = namedtuple('RanklistRow', 'party rank points penalty problemResults')
 
-ProblemResult = namedtuple('ProblemResult',
-                           'points penalty rejectedAttemptCount type bestSubmissionTimeSeconds')
+ProblemResult = namedtuple(
+    'ProblemResult', 'points penalty rejectedAttemptCount type bestSubmissionTimeSeconds')
 
 
 def make_from_dict(namedtuple_cls, dict_):
@@ -146,6 +159,7 @@ def make_from_dict(namedtuple_cls, dict_):
 
 
 # Error classes
+
 
 class CodeforcesApiError(commands.CommandError):
     """Base class for all API related errors."""
@@ -185,12 +199,14 @@ class CallLimitExceededError(TrueApiError):
 
 class ContestNotFoundError(TrueApiError):
     def __init__(self, comment, contest_id):
-        super().__init__(comment, f'Contest with ID `{contest_id}` not found on Codeforces')
+        super().__init__(comment,
+                         f'Contest with ID `{contest_id}` not found on Codeforces')
 
 
 class RatingChangesUnavailableError(TrueApiError):
     def __init__(self, comment, contest_id):
-        super().__init__(comment, f'Rating changes unavailable for contest with ID `{contest_id}`')
+        super().__init__(
+            comment, f'Rating changes unavailable for contest with ID `{contest_id}`')
 
 
 # Codeforces API query methods
@@ -212,7 +228,7 @@ def _bool_to_str(value):
 def cf_ratelimit(f):
     tries = 3
     per_second = 5
-    last = deque([0]*per_second)
+    last = deque([0] * per_second)
 
     @functools.wraps(f)
     async def wrapped(*args, **kwargs):
@@ -239,6 +255,7 @@ def cf_ratelimit(f):
                 else:
                     logger.info(f'Aborting.')
                     raise e
+
     return wrapped
 
 
@@ -290,7 +307,12 @@ class contest:
         return [make_from_dict(RatingChange, change_dict) for change_dict in resp]
 
     @staticmethod
-    async def standings(*, contest_id, from_=None, count=None, handles=None, room=None,
+    async def standings(*,
+                        contest_id,
+                        from_=None,
+                        count=None,
+                        handles=None,
+                        room=None,
                         show_unofficial=None):
         params = {'contestId': contest_id}
         if from_ is not None:
@@ -310,13 +332,18 @@ class contest:
                 raise ContestNotFoundError(e.comment, contest_id)
             raise
         contest_ = make_from_dict(Contest, resp['contest'])
-        problems = [make_from_dict(Problem, problem_dict) for problem_dict in resp['problems']]
+        problems = [
+            make_from_dict(Problem, problem_dict) for problem_dict in resp['problems']
+        ]
         for row in resp['rows']:
-            row['party']['members'] = [make_from_dict(Member, member)
-                                       for member in row['party']['members']]
+            row['party']['members'] = [
+                make_from_dict(Member, member) for member in row['party']['members']
+            ]
             row['party'] = make_from_dict(Party, row['party'])
-            row['problemResults'] = [make_from_dict(ProblemResult, problem_result)
-                                     for problem_result in row['problemResults']]
+            row['problemResults'] = [
+                make_from_dict(ProblemResult, problem_result)
+                for problem_result in row['problemResults']
+            ]
         ranklist = [make_from_dict(RanklistRow, row_dict) for row_dict in resp['rows']]
         return contest_, problems, ranklist
 
@@ -330,9 +357,13 @@ class problemset:
         if problemset_name is not None:
             params['problemsetName'] = problemset_name
         resp = await _query_api('problemset.problems', params)
-        problems = [make_from_dict(Problem, problem_dict) for problem_dict in resp['problems']]
-        problemstats = [make_from_dict(ProblemStatistics, problemstat_dict) for problemstat_dict in
-                        resp['problemStatistics']]
+        problems = [
+            make_from_dict(Problem, problem_dict) for problem_dict in resp['problems']
+        ]
+        problemstats = [
+            make_from_dict(ProblemStatistics, problemstat_dict)
+            for problemstat_dict in resp['problemStatistics']
+        ]
         return problems, problemstats
 
 
@@ -342,7 +373,7 @@ class user:
         chunks = chunkify(handles, MAX_HANDLES_PER_QUERY)
         if len(chunks) > 1:
             logger.warning(f'cf.info request with {len(handles)} handles,'
-            f'will be chunkified into {len(chunks)} requests.')
+                           f'will be chunkified into {len(chunks)} requests.')
 
         result = []
         for chunk in chunks:
@@ -369,7 +400,9 @@ class user:
             if 'should contain' in e.comment:
                 raise HandleInvalidError(e.comment, handle)
             raise
-        return [make_from_dict(RatingChange, ratingchange_dict) for ratingchange_dict in resp]
+        return [
+            make_from_dict(RatingChange, ratingchange_dict) for ratingchange_dict in resp
+        ]
 
     @staticmethod
     async def ratedList(*, activeOnly=None):
@@ -396,10 +429,13 @@ class user:
             raise
         for submission in resp:
             submission['problem'] = make_from_dict(Problem, submission['problem'])
-            submission['author']['members'] = [make_from_dict(Member, member)
-                                               for member in submission['author']['members']]
+            submission['author']['members'] = [
+                make_from_dict(Member, member)
+                for member in submission['author']['members']
+            ]
             submission['author'] = make_from_dict(Party, submission['author'])
         return [make_from_dict(Submission, submission_dict) for submission_dict in resp]
+
 
 async def resolve_redirect(handle):
     url = 'http://codeforces.com/profile/' + handle
