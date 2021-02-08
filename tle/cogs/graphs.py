@@ -209,7 +209,7 @@ class Graphs(commands.Cog):
         await ctx.send_help('plot')
 
     @plot.command(brief='List solved problems',
-                      usage='[tag] [handle]')
+                  usage='[tag] [handle]')
     async def tag(self, ctx, rtag=None, handle=None):
         """
         """
