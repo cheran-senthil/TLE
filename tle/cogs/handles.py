@@ -558,6 +558,46 @@ class Handles(commands.Cog):
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=_PAGINATE_WAIT_TIME,
                            set_pagenum_footers=True)
 
+    @handle.command(brief="purge")
+    async def purge(self, ctx, dry = 1):
+        """purge"""
+        users = [member for member in ctx.guild.members
+                 if 'Purgatory' in {role.name for role in member.roles}
+                 and len(member.roles) == 2 and cf_common.user_db.get_handle(member.id, ctx.guild.id) is None]
+
+        if dry:
+            print([user.name for user in users])
+        else:
+            for user in users:
+                await ctx.guild.kick(user, reason='unidentified')
+                await asyncio.sleep(2)
+
+    @handle.command(brief="illegals")
+    async def illegals(self, ctx):
+        """illegals"""
+        res = cf_common.user_db.get_handles_for_guild(ctx.guild.id)
+        lst = []
+        for user_id, handle in res:
+            member = ctx.guild.get_member(int(user_id))
+            if member is None:
+                continue
+            if 'Purgatory' not in {role.name for role in member.roles}:
+                lst.append(handle)
+
+        users = await cf.user.info(handles=lst)
+        ill = []
+        for user in users:
+            if not user.maxRating or user.maxRating < 1900:
+                disp = ctx.guild.get_member(int(cf_common.user_db.get_user_id(user.handle, ctx.guild.id))).display_name
+                ill.append((disp, user.handle, user.maxRating or 0))
+
+        ill.sort(key=lambda r: r[2], reverse=True)
+        st = ''
+        for disp, hand, rat in ill:
+            st += f'{disp}, {hand}, {rat}\n'
+
+        await ctx.send('```\n' + st + '```')
+
     @handle.command(brief="Show handles, but prettier")
     async def pretty(self, ctx, page_no: int = None):
         """Show members of the server who have registered their handles and their Codeforces
