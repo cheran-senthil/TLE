@@ -194,9 +194,7 @@ def _plot_average(practice, bin_size, label: str = ''):
 
         sub_timestamps = [sub_time.timestamp() for sub_time in sub_times]
         mean_sub_timestamps = _running_mean(sub_timestamps, bin_size)
-        mean_sub_times = [
-            dt.datetime.fromtimestamp(timestamp) for timestamp in mean_sub_timestamps
-        ]
+        mean_sub_times = [dt.datetime.fromtimestamp(ts) for ts in mean_sub_timestamps]
         mean_ratings = _running_mean(ratings, bin_size)
 
         plt.plot(mean_sub_times,
@@ -291,9 +289,9 @@ class Graphs(commands.Cog):
         """Plots pairs of lowest rated unsolved problem and highest rated solved problem for every
         contest that was rated for the given user.
         """
-        (solved, unsolved,
-         nolegend), args = cf_common.filter_flags(args,
-                                                  ['+solved', '+unsolved', '+nolegend'])
+        flags, args = cf_common.filter_flags(args, ['+solved', '+unsolved', '+nolegend'])
+        solved, unsolved, nolegend = flags
+
         legend, = cf_common.negate_flags(nolegend)
         if not solved and not unsolved:
             solved = unsolved = True
@@ -459,9 +457,9 @@ class Graphs(commands.Cog):
                 for handle, times in zip(handles, all_times)
             ]
 
+            tomorrow = dt.datetime.today() + dt.timedelta(days=1)
             dlo = min(itertools.chain.from_iterable(all_times)).date()
-            dhi = min(dt.datetime.today() + dt.timedelta(days=1),
-                      dt.datetime.fromtimestamp(filt.dhi)).date()
+            dhi = min(tomorrow, dt.datetime.fromtimestamp(filt.dhi)).date()
             phase_cnt = math.ceil((dhi - dlo) / phase_time)
             plt.hist(all_times,
                      range=(dhi - phase_cnt * phase_time, dhi),
@@ -631,7 +629,7 @@ class Graphs(commands.Cog):
             cent.append(round(100 * csum / users))
 
         x = [k * binsize for k in range(bins)]
-        label = [f'{r} ({c})' for r, c in zip(x, cent)]
+        labels = [f'{r} ({c})' for r, c in zip(x, cent)]
 
         l, r = 0, bins - 1
         while not height[l]:
@@ -640,7 +638,7 @@ class Graphs(commands.Cog):
             r -= 1
         x = x[l:r + 1]
         cent = cent[l:r + 1]
-        label = label[l:r + 1]
+        labels = labels[l:r + 1]
         colors = colors[l:r + 1]
         height = height[l:r + 1]
 
@@ -654,7 +652,7 @@ class Graphs(commands.Cog):
                 binsize * 0.9,
                 color=colors,
                 linewidth=0,
-                tick_label=label,
+                tick_label=labels,
                 log=(mode == 'log'))
         plt.xlabel('Rating')
         plt.ylabel('Number of users')
@@ -699,8 +697,8 @@ class Graphs(commands.Cog):
         if activity not in ['active', 'all']:
             raise GraphCogError('Activity should be either `active` or `all`')
 
-        time_cutoff = int(
-            time.time()) - CONTEST_ACTIVE_TIME_CUTOFF if activity == 'active' else 0
+        time_cutoff = (int(time.time()) -
+                       CONTEST_ACTIVE_TIME_CUTOFF if activity == 'active' else 0)
         handles = cf_common.cache2.rating_changes_cache.get_users_with_more_than_n_contests(
             time_cutoff, contest_cutoff)
         if not handles:
@@ -717,8 +715,8 @@ class Graphs(commands.Cog):
                   usage='[+zoom] [+nomarker] [handles...] [+exact]')
     async def centile(self, ctx, *args: str):
         """Show percentile distribution of codeforces and mark given handles in the plot. If +zoom and handles are given, it zooms to the neighborhood of the handles."""
-        (zoom, nomarker,
-         exact), args = cf_common.filter_flags(args, ['+zoom', '+nomarker', '+exact'])
+        flags, args = cf_common.filter_flags(args, ['+zoom', '+nomarker', '+exact'])
+        zoom, nomarker, exact = flags
         # Prepare data
         intervals = [(rank.low, rank.high) for rank in cf.RATED_RANKS]
         colors = [rank.color_graph for rank in cf.RATED_RANKS]
@@ -866,10 +864,10 @@ class Graphs(commands.Cog):
     @plot.command(brief='Plot distribution of server members by country')
     async def country(self, ctx, *countries):
         """Plots distribution of server members by countries. When no countries are specified, plots
-         a bar graph of all members by country. When one or more countries are specified, plots a
-         swarmplot of members by country and rating. Only members with registered handles and
-         countries set on Codeforces are considered.
-         """
+        a bar graph of all members by country. When one or more countries are specified, plots a
+        swarmplot of members by country and rating. Only members with registered handles and
+        countries set on Codeforces are considered.
+        """
         max_countries = 8
         if len(countries) > max_countries:
             raise GraphCogError(f'At most {max_countries} countries may be specified.')

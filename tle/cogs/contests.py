@@ -42,11 +42,10 @@ def _contest_start_time_format(contest, tz):
 
 
 def _contest_duration_format(contest):
-    duration_days, duration_hrs, duration_mins, _ = cf_common.time_format(
-        contest.durationSeconds)
-    duration = f'{duration_hrs}h {duration_mins}m'
-    if duration_days > 0:
-        duration = f'{duration_days}d ' + duration
+    days, hrs, mins, _ = cf_common.time_format(contest.durationSeconds)
+    duration = f'{hrs}h {mins}m'
+    if days > 0:
+        duration = f'{days}d ' + duration
     return duration
 
 
@@ -364,10 +363,9 @@ class Contests(commands.Cog):
 
     @staticmethod
     def _get_icpc_standings_table(problem_indices, handle_standings, deltas=None):
-        header_style = '{:>} {:<}    {:^}  {:^}  ' + '  '.join(
-            ['{:^}'] * len(problem_indices))
-        body_style = '{:>} {:<}    {:>}  {:>}  ' + '  '.join(
-            ['{:<}'] * len(problem_indices))
+        n_problems = len(problem_indices)
+        header_style = '{:>} {:<}    {:^}  {:^}  ' + '  '.join(['{:^}'] * n_problems)
+        body_style = '{:>} {:<}    {:>}  {:>}  ' + '  '.join(['{:<}'] * n_problems)
         header = ['#', 'Handle', '=', '-'] + problem_indices
         if deltas:
             header_style += '  {:^}'
@@ -567,10 +565,9 @@ class Contests(commands.Cog):
         if not members:
             raise ContestCogError('Missing members')
         contest = cf_common.cache2.contest_cache.get_contest(contest_id)
-        try:
-            (await cf.contest.ratingChanges(contest_id=contest_id
-                                            ))[_MIN_RATED_CONTESTANTS_FOR_RATED_VC - 1]
-        except (cf.RatingChangesUnavailableError, IndexError):
+
+        n_rated_contestants = len(await cf.contest.ratingChanges(contest_id=contest_id))
+        if n_rated_contestants < _MIN_RATED_CONTESTANTS_FOR_RATED_VC:
             error = (
                 f'`{contest.name}` was not rated for at least {_MIN_RATED_CONTESTANTS_FOR_RATED_VC} contestants'
                 ' or the ratings changes are not published yet.')
@@ -604,8 +601,8 @@ class Contests(commands.Cog):
                                               description=msg,
                                               url=contest.url)
         await ctx.send(embed=embed)
-        embed = discord_common.embed_alert(
-            f'You have {int(finish_time - start_time) // 60} minutes to complete the vc!')
+        mins = int(finish_time - start_time) // 60
+        embed = discord_common.embed_alert(f'You have {mins} minutes to complete the vc!')
         embed.set_footer(text='GL & HF')
         await ctx.send(embed=embed)
 
@@ -773,14 +770,14 @@ class Contests(commands.Cog):
 
     @commands.command(brief='Show vc ratings')
     async def vcratings(self, ctx):
-        users = [
-            (await self.member_converter.convert(ctx, str(member_id)), handle,
-             cf_common.user_db.get_vc_rating(member_id, default_if_not_exist=False))
-            for member_id, handle in cf_common.user_db.get_handles_for_guild(ctx.guild.id)
-        ]
-        # Filter only rated users. (Those who entered at least one rated vc.)
-        users = [(member, handle, rating) for member, handle, rating in users
-                 if rating is not None]
+        # Get only rated users (those who entered at least one rated vc).
+        users = []
+        for member_id, handle in cf_common.user_db.get_handles_for_guild(ctx.guild.id):
+            vc_rating = cf_common.user_db.get_vc_rating(member_id,
+                                                        default_if_not_exist=False)
+            if vc_rating is not None:
+                member = await self.member_converter.convert(ctx, str(member_id))
+                users.append((member, handle, vc_rating))
         users.sort(key=lambda user: -user[2])
 
         _PER_PAGE = 10

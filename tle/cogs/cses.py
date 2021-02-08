@@ -103,18 +103,21 @@ class CSES(commands.Cog):
 
     @commands.command(brief='Shows compiled CSES leaderboard', usage='[handles...]')
     async def cses(self, ctx, *handles: str):
-        """Shows compiled CSES leaderboard. If handles are given, leaderboard will contain only those indicated handles, otherwise leaderboard will contain overall top ten."""
+        """Shows compiled CSES leaderboard. If handles are given, leaderboard
+        will contain only those indicated handles, otherwise leaderboard will
+        contain overall top ten."""
         if not handles:
             await ctx.send('```\n'
-                           'Fastest\n' + self.fastest + '\n\n' + 'Shortest\n' +
-                           self.shortest + '\n' + '```')
+                           f'Fastest\n{self.fastest}\n\n'
+                           f'Shortest\n{self.shortest}\n'
+                           '```')
         elif len(handles) > 10:
             await ctx.send('```Please indicate at most 10 users```')
         else:
             handles = set(handles)
             await ctx.send('```\n'
-                           'Fastest\n' + self.fastest_individual(handles) + '\n\n' +
-                           'Shortest\n' + self.shortest_individual(handles) + '\n' +
+                           f'Fastest\n{self.fastest_individual(handles)}\n\n'
+                           f'Shortest\n{self.shortest_individual(handles)}\n'
                            '```')
 
     @commands.command(brief='Force update the CSES leaderboard')

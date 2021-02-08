@@ -230,7 +230,7 @@ class ProblemCache:
         }
 
         def keep(problem):
-            return (contest_map[problem.contestId] and problem.has_metadata())
+            return contest_map[problem.contestId] and problem.has_metadata()
 
         filtered_problems = list(filter(keep, problems))
         problem_by_name = {
@@ -309,8 +309,7 @@ class ProblemsetCache:
         # We assume it is possible for problems in the same contest to get assigned rating at
         # different times.
         new_contest_ids = []
-        contests_to_refetch = [
-        ]  # List of (id, set of saved rated problem indices) pairs.
+        contests_to_refetch = []  # List of (id, set of saved rated problem indices).
         if force_fetch:
             new_contest_ids = [contest.id for contest in contests]
         else:

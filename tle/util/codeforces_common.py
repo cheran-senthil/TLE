@@ -395,15 +395,16 @@ class SubFilter:
             contest_ok = not self.contests or (contest and contest.matches(self.contests))
             team_ok = self.team or len(submission.author.members) == 1
             if self.rated:
-                problem_ok = contest and contest.id < cf.GYM_ID_THRESHOLD and not is_nonstandard_problem(
-                    problem)
+                problem_ok = (contest and contest.id < cf.GYM_ID_THRESHOLD
+                              and not is_nonstandard_problem(problem))
                 rating_ok = problem.rating and self.rlo <= problem.rating <= self.rhi
             else:
                 # acmsguru and gym allowed
                 problem_ok = (not contest or contest.id >= cf.GYM_ID_THRESHOLD
                               or not is_nonstandard_problem(problem))
                 rating_ok = True
-            if type_ok and date_ok and rating_ok and tag_ok and team_ok and problem_ok and contest_ok and index_ok:
+            if (type_ok and date_ok and rating_ok and tag_ok and team_ok and problem_ok
+                    and contest_ok and index_ok):
                 filtered_subs.append(submission)
         return filtered_subs
 

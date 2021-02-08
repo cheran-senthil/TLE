@@ -92,5 +92,3 @@ class Table:
         max_colsize = [max(s[i] for s in sizes) for i in range(self.style.ncols)]
         self.style.set_colwidths(max_colsize)
         return '\n'.join(row.layout(self.style) for row in self.rows)
-
-    __str__ = __repr__

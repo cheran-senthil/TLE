@@ -737,8 +737,8 @@ class Handles(commands.Cog):
 
         rank_changes_str = rank_changes_str or ['No rank changes']
 
-        embed_heading = discord.Embed(title=contest.name, url=contest.url, description="")
-        embed_heading.set_author(name="Rank updates")
+        embed_heading = discord.Embed(title=contest.name, url=contest.url, description='')
+        embed_heading.set_author(name='Rank updates')
         embeds = [embed_heading]
 
         for rank_changes_chunk in paginator.chunkify(rank_changes_str,

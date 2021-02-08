@@ -25,19 +25,18 @@ _ELO_CONSTANT = 60
 
 DuelRank = namedtuple('Rank', 'low high title title_abbr color_graph color_embed')
 
-DUEL_RANKS = (DuelRank(-10**9, 1300, 'Newbie', 'N', '#CCCCCC',
-                       0x808080), DuelRank(1300, 1400, 'Pupil', 'P', '#77FF77', 0x008000),
-              DuelRank(1400, 1500, 'Specialist', 'S', '#77DDBB',
-                       0x03a89e), DuelRank(1500, 1600, 'Expert', 'E', '#AAAAFF',
-                                           0x0000ff),
-              DuelRank(1600, 1700, 'Candidate Master', 'CM', '#FF88FF',
-                       0xaa00aa), DuelRank(1700, 1800, 'Master', 'M', '#FFCC88',
-                                           0xff8c00),
-              DuelRank(1800, 1900, 'International Master', 'IM', '#FFBB55', 0xf57500),
-              DuelRank(1900, 2000, 'Grandmaster', 'GM', '#FF7777', 0xff3030),
-              DuelRank(2000, 2100, 'International Grandmaster', 'IGM', '#FF3333',
-                       0xff0000),
-              DuelRank(2100, 10**9, 'Legendary Grandmaster', 'LGM', '#AA0000', 0xcc0000))
+DUEL_RANKS = (
+    DuelRank(-10 ** 9, 1300, 'Newbie', 'N', '#CCCCCC', 0x808080),
+    DuelRank(1300, 1400, 'Pupil', 'P', '#77FF77', 0x008000),
+    DuelRank(1400, 1500, 'Specialist', 'S', '#77DDBB', 0x03a89e),
+    DuelRank(1500, 1600, 'Expert', 'E', '#AAAAFF', 0x0000ff),
+    DuelRank(1600, 1700, 'Candidate Master', 'CM', '#FF88FF', 0xaa00aa),
+    DuelRank(1700, 1800, 'Master', 'M', '#FFCC88', 0xff8c00),
+    DuelRank(1800, 1900, 'International Master', 'IM', '#FFBB55', 0xf57500),
+    DuelRank(1900, 2000, 'Grandmaster', 'GM', '#FF7777', 0xff3030),
+    DuelRank(2000, 2100, 'International Grandmaster', 'IGM', '#FF3333', 0xff0000),
+    DuelRank(2100, 10 ** 9, 'Legendary Grandmaster', 'LGM', '#AA0000', 0xcc0000)
+)  # yapf: disable
 
 
 def rating2rank(rating):

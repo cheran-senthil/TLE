@@ -24,6 +24,10 @@ class CodeforcesCogError(commands.CommandError):
     pass
 
 
+def _start_time_for_problem(problem):
+    return cf_common.cache2.contest_cache.get_contest(problem.contestId).startTimeSeconds
+
+
 class Codeforces(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -86,9 +90,7 @@ class Codeforces(commands.Cog):
         if not problems:
             raise CodeforcesCogError('Problems not found within the search parameters')
 
-        problems.sort(key=lambda problem: cf_common.cache2.contest_cache.get_contest(
-            problem.contestId).startTimeSeconds,
-                      reverse=True)
+        problems.sort(key=_start_time_for_problem, reverse=True)
 
         if choice > 0 and choice <= len(problems):
             problem = problems[choice - 1]
@@ -127,8 +129,7 @@ class Codeforces(commands.Cog):
         if not problems:
             raise CodeforcesCogError('Problems not found within the search parameters')
 
-        problems.sort(key=lambda problem: cf_common.cache2.contest_cache.get_contest(
-            problem.contestId).startTimeSeconds)
+        problems.sort(key=_start_time_for_problem)
 
         choice = max([random.randrange(len(problems)) for _ in range(2)])
         problem = problems[choice]
@@ -218,8 +219,7 @@ class Codeforces(commands.Cog):
         if len(problems) < 4:
             raise CodeforcesCogError('Problems not found within the search parameters')
 
-        problems.sort(key=lambda problem: cf_common.cache2.contest_cache.get_contest(
-            problem.contestId).startTimeSeconds)
+        problems.sort(key=_start_time_for_problem)
 
         choices = []
         for i in range(4):
@@ -267,8 +267,7 @@ class Codeforces(commands.Cog):
         if not problems:
             raise CodeforcesCogError('No problem to assign')
 
-        problems.sort(key=lambda problem: cf_common.cache2.contest_cache.get_contest(
-            problem.contestId).startTimeSeconds)
+        problems.sort(key=_start_time_for_problem)
 
         choice = max(random.randrange(len(problems)) for _ in range(2))
         await self._gitgud(ctx, handle, problems[choice], delta)
@@ -376,16 +375,20 @@ class Codeforces(commands.Cog):
 
         if not markers:
             divr = sum(user.effective_rating for user in info) / len(handles)
-            div1_indicators = ['div1', 'global', 'avito', 'goodbye', 'hello']
-            markers = ['div3'
-                       ] if divr < 1600 else ['div2'] if divr < 2100 else div1_indicators
+            if divr < 1600:
+                markers = ['div3']
+            elif divr < 2100:
+                markers = ['div2']
+            else:
+                markers = ['div1', 'global', 'avito', 'goodbye', 'hello']
 
-        recommendations = {
-            contest.id
-            for contest in contests if contest.matches(markers)
-            and not cf_common.is_nonstandard_contest(contest) and not any(
-                cf_common.is_contest_writer(contest.id, handle) for handle in handles)
-        }
+        def bad_contest(contest):
+            return (not contest.matches(markers)
+                    or cf_common.is_nonstandard_contest(contest)
+                    or any(cf_common.is_contest_writer(contest.id, h) for h in handles))
+
+        # TODO why extract the id just to look the contest up later?
+        recommendations = {contest.id for contest in contests if not bad_contest(contest)}
 
         # Discard contests in which user has non-CE submissions.
         visited_contests = await cf_common.get_visited_contests(handles)
@@ -428,9 +431,10 @@ class Codeforces(commands.Cog):
         tags = [x for x in args if x[0] == '+']
 
         problem_to_contests = cf_common.cache2.problemset_cache.problem_to_contests
+        get_contests_in_phase = cf_common.cache2.contest_cache.get_contests_in_phase
         contests = [
-            contest for contest in cf_common.cache2.contest_cache.get_contests_in_phase(
-                'FINISHED') if (not tags or contest.matches(tags))
+            contest for contest in get_contests_in_phase('FINISHED')
+            if (not tags or contest.matches(tags))
             and not cf_common.is_nonstandard_contest(contest)
         ]
 
@@ -509,8 +513,8 @@ class Codeforces(commands.Cog):
         If +server is provided as the only handle, will display the rating of the entire server.
         Supports multipliers. e.g: ;teamrate gamegame*1000"""
 
-        (is_entire_server,
-         peak), handles = cf_common.filter_flags(args, ['+server', '+peak'])
+        flags, handles = cf_common.filter_flags(args, ['+server', '+peak'])
+        is_entire_server, peak = flags
         handles = handles or ('!' + str(ctx.author), )
 
         def rating(user):

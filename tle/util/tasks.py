@@ -140,8 +140,8 @@ class Task:
         if self.running:
             self.logger.info(f'Stopping task `{self.name}`.')
             self.asyncio_task.cancel()
-            await asyncio.sleep(
-                0)  # To ensure cancellation if called from within the task itself.
+            # To ensure cancellation if called from within the task itself.
+            await asyncio.sleep(0)
 
     async def _task(self):
         arg = None
