@@ -38,14 +38,69 @@ def nice_sub_type(types):
                 'PRACTICE':'Practice: {}'}
     return [nice_map[t] for t in types]
 
-def _plot_rating(resp, mark='o'):
+NM = 1
+MONTH = 2629743
+YEAR = MONTH*(NM)+1
+
+def func(x):
+    return math.log(x)
+
+def least_squares(x, y):
+    d = YEAR-x[0]
+    x = [xi + d for xi in x]
+    n = len(x)
+    p = n * sum(yi * func(xi) for xi, yi in zip(x, y))
+    q = sum(func(xi) for xi in x)
+    r = sum(yi for yi in y)
+    s = n * sum(func(xi)**2 for xi in x)
+    t = sum(func(xi) for xi in x)**2
+    b = (p-q*r)/(s-t)
+    u = sum(yi for yi in y)
+    v = b * sum(func(xi) for xi in x)
+    a = (u-v)/n
+    return a, b
+
+def predict(a, b, t):
+    return [a + b * func(x + YEAR - t[0]) for x in t]
+
+def cost(p, y):
+    return sum((yi - pi)**2 for yi, pi in zip(y, p))
+
+def _plot_rating(resp, mark='o', t=0, d=0):
 
     for rating_changes in resp:
-        ratings, times = [], []
+        ratings, times, rtimes = [], [], []
         for rating_change in rating_changes:
             ratings.append(rating_change.newRating)
+            rtimes.append(rating_change.ratingUpdateTimeSeconds)
             times.append(dt.datetime.fromtimestamp(rating_change.ratingUpdateTimeSeconds))
 
+        global NM
+        global YEAR
+        rtimes = rtimes[t:]
+        times = times[t:]
+        ratings = ratings[t:]
+
+        if d != 0:
+            rtimes = rtimes[:-d]
+            times = times[:-d]
+            ratings = ratings[:-d]
+
+        best = 10**18
+        bnm = 0
+        for i in range(5000):
+            NM = i
+            YEAR = MONTH*(NM)+1
+            ac, bc = least_squares(rtimes, ratings)
+            pred = predict(ac, bc, rtimes)
+            pcost = cost(pred, ratings)
+            if pcost < best:
+                bnm = i
+                best = pcost
+                a, b = ac, bc
+
+        NM = bnm
+        YEAR = MONTH*(NM)+1
         plt.plot(times,
                  ratings,
                  linestyle='-',
@@ -53,6 +108,20 @@ def _plot_rating(resp, mark='o'):
                  markersize=3,
                  markerfacecolor='white',
                  markeredgewidth=0.5)
+
+        # for i in range(NM):
+        #     rtimes.insert(0, rtimes[0] - MONTH)
+        #     times.insert(0, dt.datetime.fromtimestamp(rtimes[0]))
+
+        for i in range(24):
+            rtimes.append(rtimes[-1] + MONTH)
+            times.append(dt.datetime.fromtimestamp(rtimes[-1]))
+
+        pred = [a + b * func(x + YEAR - rtimes[0]) for x in rtimes]
+
+        plt.plot(times,
+                 pred,
+                 linestyle='-')
 
     gc.plot_rating_bg(cf.RATED_RANKS)
     plt.gcf().autofmt_xdate()
@@ -210,7 +279,17 @@ class Graphs(commands.Cog):
     @plot.command(brief='Plot Codeforces rating graph', usage='[+zoom] [+peak] [handles...] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy]')
     async def rating(self, ctx, *args: str):
         """Plots Codeforces rating graph for the handles provided."""
+        t, d = 0, 0
+        rest = []
+        for arg in args:
+            if arg[0:2] == 't=':
+                t = int(arg[2:])
+            elif arg[0:2] == 'd=':
+                d = int(arg[2:])
+            else:
+                rest.append(arg)
 
+        args = rest
         (zoom, peak), args = cf_common.filter_flags(args, ['+zoom' , '+peak'])
         filt = cf_common.SubFilter()
         args = filt.parse(args)
@@ -244,7 +323,7 @@ class Graphs(commands.Cog):
 
         plt.clf()
         plt.axes().set_prop_cycle(gc.rating_color_cycler)
-        _plot_rating(resp)
+        _plot_rating(resp, t=t, d=d)
         current_ratings = [rating_changes[-1].newRating if rating_changes else 'Unrated' for rating_changes in resp]
         labels = [gc.StrWrap(f'{handle} ({rating})') for handle, rating in zip(handles, current_ratings)]
         plt.legend(labels, loc='upper left')
