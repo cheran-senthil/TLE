@@ -1,0 +1,16 @@
+name: 'yapf formatting check'
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  format-check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pip install yapf
+      - run: yapf --diff --recursive tle
