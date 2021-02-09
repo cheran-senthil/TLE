@@ -3,7 +3,6 @@ import logging
 import time
 import functools
 from collections import namedtuple, deque
-from tle.util.paginator import chunkify
 
 import aiohttp
 
@@ -242,13 +241,13 @@ def cf_ratelimit(f):
 
 
 @cf_ratelimit
-async def _query_api(path, params=None):
+async def _query_api(path, data=None):
     url = API_BASE_URL + path
     try:
-        logger.info(f'Querying CF API at {url} with {params}')
+        logger.info(f'Querying CF API at {url} with {data}')
         # Explicitly state encoding (though aiohttp accepts gzip by default)
         headers = {'Accept-Encoding': 'gzip'}
-        async with _session.post(url, params=params, headers=headers) as resp:
+        async with _session.post(url, data=data, headers=headers) as resp:
             try:
                 respjson = await resp.json()
             except aiohttp.ContentTypeError:
@@ -356,10 +355,10 @@ def user_info_chunkify(handles):
 class user:
     @staticmethod
     async def info(*, handles):
-        chunks = user_info_chunkify(handles)
-        #if len(chunks) > 1:
-        #    logger.warning(f'cf.info request with {len(handles)} handles,'
-        #    f'will be chunkified into {len(chunks)} requests.')
+        chunks = list(user_info_chunkify(handles))
+        if len(chunks) > 1:
+            logger.warning(f'cf.info request with {len(handles)} handles,'
+            f'will be chunkified into {len(chunks)} requests.')
 
         result = []
         for chunk in chunks:
