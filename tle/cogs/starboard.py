@@ -68,7 +68,9 @@ class Starboard(commands.Cog):
             if file.url.lower().endswith(('png', 'jpeg', 'jpg', 'gif', 'webp')):
                 embed.set_image(url=file.url)
             else:
-                embed.add_field(name='Attachment', value=f'[{file.filename}]({file.url})', inline=False)
+                embed.add_field(name='Attachment',
+                                value=f'[{file.filename}]({file.url})',
+                                inline=False)
 
         embed.set_footer(text=str(message.author), icon_url=message.author.avatar_url)
         return embed
@@ -81,8 +83,8 @@ class Starboard(commands.Cog):
 
         channel = self.bot.get_channel(payload.channel_id)
         message = await channel.fetch_message(payload.message_id)
-        if (message.type != discord.MessageType.default or
-                len(message.content) == 0 and len(message.attachments) == 0):
+        if (message.type != discord.MessageType.default
+                or len(message.content) == 0 and len(message.attachments) == 0):
             raise StarboardCogError('Cannot starboard this message')
 
         reaction_count = sum(reaction.count for reaction in message.reactions
@@ -99,11 +101,11 @@ class Starboard(commands.Cog):
                 return
             embed = self.prepare_embed(message)
             starboard_message = await starboard_channel.send(embed=embed)
-            cf_common.user_db.add_starboard_message(message.id, starboard_message.id, guild.id)
+            cf_common.user_db.add_starboard_message(message.id, starboard_message.id,
+                                                    guild.id)
             self.logger.info(f'Added message {message.id} to starboard')
 
-    @commands.group(brief='Starboard commands',
-                    invoke_without_command=True)
+    @commands.group(brief='Starboard commands', invoke_without_command=True)
     async def starboard(self, ctx):
         """Group for commands involving the starboard."""
         await ctx.send_help(ctx.command)
@@ -114,8 +116,9 @@ class Starboard(commands.Cog):
         """Set the current channel as starboard."""
         res = cf_common.user_db.get_starboard(ctx.guild.id)
         if res is not None:
-            raise StarboardCogError('The starboard channel is already set. Use `clear` before '
-                                    'attempting to set a different channel as starboard.')
+            raise StarboardCogError(
+                'The starboard channel is already set. Use `clear` before '
+                'attempting to set a different channel as starboard.')
         cf_common.user_db.set_starboard(ctx.guild.id, ctx.channel.id)
         await ctx.send(embed=discord_common.embed_success('Starboard channel set'))
 
@@ -132,7 +135,8 @@ class Starboard(commands.Cog):
     @commands.has_role('Admin')
     async def remove(self, ctx, original_message_id: int):
         """Remove a particular message from the starboard database."""
-        rc = cf_common.user_db.remove_starboard_message(original_msg_id=original_message_id)
+        rc = cf_common.user_db.remove_starboard_message(
+            original_msg_id=original_message_id)
         if rc:
             await ctx.send(embed=discord_common.embed_success('Successfully removed'))
         else:

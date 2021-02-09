@@ -36,7 +36,8 @@ class Logging(commands.Cog, logging.Handler):
             if channel is None:
                 # Channel no longer exists.
                 root_logger.removeHandler(self)
-                self.logger.warning('Logging channel not available, disabling Discord log handler.')
+                self.logger.warning(
+                    'Logging channel not available, disabling Discord log handler.')
                 break
             try:
                 msg = self.format(record)
@@ -57,12 +58,15 @@ class Logging(commands.Cog, logging.Handler):
 def setup(bot):
     logging_cog_channel_id = os.environ.get('LOGGING_COG_CHANNEL_ID')
     if logging_cog_channel_id is None:
-        logger.info('Skipping installation of logging cog as logging channel is not provided.')
+        logger.info(
+            'Skipping installation of logging cog as logging channel is not provided.')
         return
 
     logging_cog = Logging(bot, int(logging_cog_channel_id))
     logging_cog.setLevel(logging.WARNING)
-    logging_cog.setFormatter(logging.Formatter(fmt='{asctime}:{levelname}:{name}:{message}',
-                                               style='{', datefmt='%d-%m-%Y %H:%M:%S'))
+    logging_cog.setFormatter(
+        logging.Formatter(fmt='{asctime}:{levelname}:{name}:{message}',
+                          style='{',
+                          datefmt='%d-%m-%Y %H:%M:%S'))
     root_logger.addHandler(logging_cog)
     bot.add_cog(logging_cog)

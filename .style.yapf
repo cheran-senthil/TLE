@@ -1,0 +1,5 @@
+[style]
+based_on_style: pep8
+indent_dictionary_value: true
+indent_width: 4
+column_limit: 90

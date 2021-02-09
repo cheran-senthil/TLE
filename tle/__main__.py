@@ -23,11 +23,17 @@ def setup():
         os.makedirs(path, exist_ok=True)
 
     # logging to console and file on daily interval
-    logging.basicConfig(format='{asctime}:{levelname}:{name}:{message}', style='{',
-                        datefmt='%d-%m-%Y %H:%M:%S', level=logging.INFO,
-                        handlers=[logging.StreamHandler(),
-                                  TimedRotatingFileHandler(constants.LOG_FILE_PATH, when='D',
-                                                           backupCount=3, utc=True)])
+    logging.basicConfig(format='{asctime}:{levelname}:{name}:{message}',
+                        style='{',
+                        datefmt='%d-%m-%Y %H:%M:%S',
+                        level=logging.INFO,
+                        handlers=[
+                            logging.StreamHandler(),
+                            TimedRotatingFileHandler(constants.LOG_FILE_PATH,
+                                                     when='D',
+                                                     backupCount=3,
+                                                     utc=True)
+                        ])
 
     # matplotlib and seaborn
     plt.rcParams['figure.figsize'] = 7.0, 3.5
@@ -55,10 +61,11 @@ def main():
 
     allow_self_register = environ.get('ALLOW_DUEL_SELF_REGISTER')
     if allow_self_register:
-        constants.ALLOW_DUEL_SELF_REGISTER = bool(distutils.util.strtobool(allow_self_register))
+        constants.ALLOW_DUEL_SELF_REGISTER = bool(
+            distutils.util.strtobool(allow_self_register))
 
     setup()
-    
+
     intents = discord.Intents.default()
     intents.members = True
 

@@ -1,4 +1,5 @@
-"""This script scrapes contests and their writers from Codeforces and saves
+"""
+This script scrapes contests and their writers from Codeforces and saves
 them to a JSON file. This exists because there is no way to do this through
 the official API :(
 """
@@ -26,7 +27,6 @@ def get_contests(doc):
         writers = writers.text_content().split()
         contests.append({'id': contest_id, 'writers': writers})
     return contests
-
 
 print('Fetching page 1')
 page1 = get_page(1)

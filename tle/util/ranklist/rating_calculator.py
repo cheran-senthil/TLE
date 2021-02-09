@@ -29,8 +29,10 @@ class Contestant:
 class CodeforcesRatingCalculator:
     def __init__(self, standings):
         """Calculate Codeforces rating changes and seeds given contest and user information."""
-        self.contestants = [Contestant(handle, points, penalty, rating)
-                            for handle, points, penalty, rating in standings]
+        self.contestants = [
+            Contestant(handle, points, penalty, rating)
+            for handle, points, penalty, rating in standings
+        ]
         self._precalc_seed()
         self._reassign_ranks()
         self._process()
@@ -77,7 +79,7 @@ class CodeforcesRatingCalculator:
         """Process and assign approximate delta for each contestant."""
         for a in self.contestants:
             a.seed = self.get_seed(a.rating, a)
-            mid_rank = (a.rank * a.seed) ** 0.5
+            mid_rank = (a.rank * a.seed)**0.5
             a.need_rating = self._rank_to_rating(mid_rank, a)
             a.delta = intdiv(a.need_rating - a.rating, 2)
 
@@ -102,7 +104,7 @@ class CodeforcesRatingCalculator:
         for contestant in contestants:
             contestant.delta += correction
 
-        zero_sum_count = min(4 * round(n ** 0.5), n)
+        zero_sum_count = min(4 * round(n**0.5), n)
         delta_sum = -sum(contestants[i].delta for i in range(zero_sum_count))
         correction = min(0, max(-10, intdiv(delta_sum, zero_sum_count)))
         for contestant in contestants:
