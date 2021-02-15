@@ -392,7 +392,7 @@ class user:
         params = {}
         if activeOnly is not None:
             params['activeOnly'] = _bool_to_str(activeOnly)
-        resp = await _query_api('user.ratedList', params=params)
+        resp = await _query_api('user.ratedList', params)
         return [make_from_dict(User, user_dict) for user_dict in resp]
 
     @staticmethod
