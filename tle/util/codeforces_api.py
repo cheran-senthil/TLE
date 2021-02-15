@@ -417,7 +417,28 @@ class user:
             submission['author'] = make_from_dict(Party, submission['author'])
         return [make_from_dict(Submission, submission_dict) for submission_dict in resp]
 
-async def resolve_redirect(handle):
+
+async def _needs_fixing(handles):
+    to_fix = []
+    chunks = user_info_chunkify(handles)
+    for handle_chunk in chunks:
+        while handle_chunk:
+            try:
+                cf_users = await user.info(handles=handle_chunk)
+
+                # Users could still have changed capitalization
+                for handle, cf_user in zip(handle_chunk, cf_users):
+                    assert handle.lower() == cf_user.handle.lower()
+                    if handle != cf_user.handle:
+                        to_fix.append(handle)
+                break
+            except HandleNotFoundError as e:
+                to_fix.append(e.handle)
+                handle_chunk.remove(e.handle)
+    return to_fix
+
+
+async def _resolve_redirect(handle):
     url = 'http://codeforces.com/profile/' + handle
     async with _session.head(url) as r:
         if r.status == 200:
@@ -428,4 +449,24 @@ async def resolve_redirect(handle):
                 # Ended up not on profile page, probably invalid handle
                 return None
             return redirected.split('/profile/')[-1]
-        raise CodeforcesApiError(f'Something went wrong trying to redirect {url}')
+        raise CodeforcesApiError(
+            f'Something went wrong trying to redirect {url}')
+
+
+async def _resolve_handle_mapping(handles_to_fix):
+    redirections = {}
+    failed = []
+    for handle in handles_to_fix:
+        new_handle = await _resolve_redirect(handle)
+        if not new_handle:
+            redirections[handle] = None
+        else:
+            cf_user, = await user.info(handles=[new_handle])
+            redirections[handle] = cf_user
+    return redirections
+
+
+async def resolve_redirects(handles):
+    handles_to_fix = await _needs_fixing(handles)
+    handle_mapping = await _resolve_handle_mapping(handles_to_fix)
+    return handle_mapping
