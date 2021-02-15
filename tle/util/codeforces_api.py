@@ -3,7 +3,6 @@ import logging
 import time
 import functools
 from collections import namedtuple, deque
-from tle.util.paginator import chunkify
 
 import aiohttp
 
@@ -17,7 +16,6 @@ PROFILE_BASE_URL = 'https://codeforces.com/profile/'
 ACMSGURU_BASE_URL = 'https://codeforces.com/problemsets/acmsguru/'
 GYM_ID_THRESHOLD = 100000
 DEFAULT_RATING = 1500
-MAX_HANDLES_PER_QUERY = 300 # To avoid sending too large requests.
 
 logger = logging.getLogger(__name__)
 
@@ -243,13 +241,13 @@ def cf_ratelimit(f):
 
 
 @cf_ratelimit
-async def _query_api(path, params=None):
+async def _query_api(path, data=None):
     url = API_BASE_URL + path
     try:
-        logger.info(f'Querying CF API at {url} with {params}')
+        logger.info(f'Querying CF API at {url} with {data}')
         # Explicitly state encoding (though aiohttp accepts gzip by default)
         headers = {'Accept-Encoding': 'gzip'}
-        async with _session.get(url, params=params, headers=headers) as resp:
+        async with _session.post(url, data=data, headers=headers) as resp:
             try:
                 respjson = await resp.json()
             except aiohttp.ContentTypeError:
@@ -335,11 +333,29 @@ class problemset:
                         resp['problemStatistics']]
         return problems, problemstats
 
+def user_info_chunkify(handles):
+    """
+    Querying user.info using POST requests is limited to 10000 handles or 2**16
+    bytes, so requests might need to be split into chunks
+    """
+    SIZE_LIMIT = 2**16
+    HANDLE_LIMIT = 10000
+    chunk = []
+    size = 0
+    for handle in handles:
+        if size + len(handle) > SIZE_LIMIT or len(chunk) == HANDLE_LIMIT:
+            yield chunk
+            chunk = []
+            size = 0
+        chunk.append(handle)
+        size += len(handle) + 1
+    if chunk:
+        yield chunk
 
 class user:
     @staticmethod
     async def info(*, handles):
-        chunks = chunkify(handles, MAX_HANDLES_PER_QUERY)
+        chunks = list(user_info_chunkify(handles))
         if len(chunks) > 1:
             logger.warning(f'cf.info request with {len(handles)} handles,'
             f'will be chunkified into {len(chunks)} requests.')

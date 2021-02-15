@@ -465,7 +465,7 @@ class Handles(commands.Cog):
             rev_lookup[handle] = member
 
         to_fix = []
-        chunks = paginator.chunkify(handles, cf.MAX_HANDLES_PER_QUERY)
+        chunks = cf.user_info_chunkify(handles)
         for handle_chunk in chunks:
             while handle_chunk:
                 try:
