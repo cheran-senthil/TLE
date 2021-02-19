@@ -9,7 +9,7 @@ The introduced `Dockerfile` uses `Ubuntu 18.04` and `Python3.8` to run the bot i
 foo@bar:~$ git clone https://github.com/cheran-senthil/TLE
 ```
 
-### Building docker images
+### Building docker image
 
 
 - Build the image using the following command:
@@ -17,9 +17,10 @@ foo@bar:~$ git clone https://github.com/cheran-senthil/TLE
 foo@bar:~$ sudo docker build .
 ```
 
-### Running the container
+### Setting up Environment Variables
 
-Create a new file `environment`.
+
+- Navigate to `TLE` and Create a new file `environment` from `environment.template`.
 
 ```bash
 cp environment.template environment
@@ -28,7 +29,7 @@ cp environment.template environment
 Fill in appropriate variables in new "environment" file.
 
 
-- Navigate to `TLE` and open the file `environment`.
+- open the file `environment`.
 ```console
 export BOT_TOKEN="XXXXXXXXXXXXXXXXXXXXXXXX.XXXXXX.XXXXXXXXXXXXXXXXXXXXXXXXXXX"
 export LOGGING_COG_CHANNEL_ID="XXXXXXXXXXXXXXXXXX"
@@ -38,7 +39,23 @@ export ALLOW_DUEL_SELF_REGISTER="false"
 
 - Replace the value of `LOGGING_COG_CHANNEL_ID` with discord [channel id](https://support.discord.com/hc/en-us/articles/206346498-Where-can-I-find-my-User-Server-Message-ID-) that you want to use as a logging channel.
 
-- Get the id of the image you just built from `sudo docker images` and run it inside a container:
+### Running the container
+
+
+- Get the id of the image you just built from `sudo docker images` and run:
+
 ```console
 foo@bar:~$ sudo docker run -v ${PWD}:/TLE -it --net host image_id
+```
+
+PS: use `-d` flag to run in backgroud. Then to kill backgroud container, Get the id of the container using `sudo docker ps` and run `sudo docker kill container_id`
+
+### Debugging/Running Commands inside the container
+
+To Run Commands inside the container
+
+- Get the id of the container you just run using `sudo docker ps` and run:
+
+```console
+foo@bar:~$ sudo docker exec -it container_id bash
 ```
