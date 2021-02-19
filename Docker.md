@@ -45,10 +45,10 @@ export ALLOW_DUEL_SELF_REGISTER="false"
 - Get the id of the image you just built from `sudo docker images` and run:
 
 ```console
-foo@bar:~$ sudo docker run -v ${PWD}:/TLE -it --net host image_id
+foo@bar:~$ sudo docker run -v ${PWD}:/TLE -it --net host <image_id>
 ```
 
-PS: use `-d` flag to run in backgroud. Then to kill backgroud container, Get the id of the container using `sudo docker ps` and run `sudo docker kill container_id`
+PS: use `-d` flag to run in backgroud. Then to kill backgroud container, Get the id of the container using `sudo docker ps` and run `sudo docker kill <container_id>`
 
 ### Debugging/Running Commands inside the container
 
@@ -57,5 +57,5 @@ To Run Commands inside the container
 - Get the id of the container you just run using `sudo docker ps` and run:
 
 ```console
-foo@bar:~$ sudo docker exec -it container_id bash
+foo@bar:~$ sudo docker exec -it <container_id> bash
 ```
