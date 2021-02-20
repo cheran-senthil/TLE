@@ -437,62 +437,39 @@ class Handles(commands.Cog):
         (typically new year's magic)"""
         member = ctx.author
         handle = cf_common.user_db.get_handle(member.id, ctx.guild.id)
-        to_fix = await self._needs_fixing(ctx, [(member.id, handle)])
-
-        summary_embed = await self._fix(ctx, to_fix)
-        await ctx.send(embed=summary_embed)
+        await self._unmagic_handles(ctx, [handle], {handle: member})
 
     @handle.command(brief='Resolve handles needing redirection')
     @commands.has_any_role('Admin', 'Moderator')
     async def unmagic_all(self, ctx):
         """Updates handles of all users that have changed handles
         (typically new year's magic)"""
-        to_fix = await self._needs_fixing(
-            ctx, cf_common.user_db.get_handles_for_guild(ctx.guild.id))
+        user_id_and_handles = cf_common.user_db.get_handles_for_guild(ctx.guild.id)
 
-        embed = discord_common.embed_neutral(f'Users to fix: {len(to_fix)}')
-        await ctx.send(embed=embed)
-
-        summary_embed = await self._fix(ctx, to_fix)
-        await ctx.send(embed=summary_embed)
-
-    async def _needs_fixing(self, ctx, user_id_and_handles):
         handles = []
         rev_lookup = {}
         for user_id, handle in user_id_and_handles:
             member = ctx.guild.get_member(user_id)
             handles.append(handle)
             rev_lookup[handle] = member
+        await self._unmagic_handles(ctx, handles, rev_lookup)
 
-        to_fix = []
-        chunks = cf.user_info_chunkify(handles)
-        for handle_chunk in chunks:
-            while handle_chunk:
-                try:
-                    users = await cf.user.info(handles=handle_chunk)
+    async def _unmagic_handles(self, ctx, handles, rev_lookup):
+        handle_cf_user_mapping = await cf.resolve_redirects(handles)
+        mapping = {(rev_lookup[handle], handle): cf_user
+                   for handle, cf_user in handle_cf_user_mapping.items()}
+        summary_embed = await self._fix_and_report(ctx, mapping)
+        await ctx.send(embed=summary_embed)
 
-                    # Users could still have changed capitalization
-                    for handle, user in zip(handle_chunk, users):
-                        assert handle.lower() == user.handle.lower()
-                        if handle != user.handle:
-                            to_fix.append((rev_lookup[handle], handle))
-                    break
-                except cf.HandleNotFoundError as e:
-                    to_fix.append((rev_lookup[e.handle], e.handle))
-                    handle_chunk.remove(e.handle)
-        return to_fix
-
-    async def _fix(self, ctx, to_fix):
+    async def _fix_and_report(self, ctx, redirections):
         fixed = []
         failed = []
-        for member, handle in to_fix:
-            new_handle = await cf.resolve_redirect(handle)
-            if not new_handle:
+        for (member, handle), cf_user in redirections.items():
+            if not cf_user:
                 failed.append(handle)
             else:
-                user, = await cf.user.info(handles=[new_handle])
-                await self._set(ctx, member, user)
-                fixed.append((handle, user.handle))
+                await self._set(ctx, member, cf_user)
+                fixed.append((handle, cf_user.handle))
 
         # Return summary embed
         lines = []
