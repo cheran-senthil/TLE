@@ -82,14 +82,13 @@ async def bot_error_handler(ctx, exception):
     elif isinstance(exception, (cf.CodeforcesApiError, commands.UserInputError)):
         await ctx.send(embed=embed_alert(exception))
     else:
+        msg = 'Ignoring exception in command {}:'.format(ctx.command)
         exc_info = type(exception), exception, exception.__traceback__
-        logger.exception('Ignoring exception in command {}:'.format(
-            ctx.command),
-            exc_info=exc_info,
-            extra={
+        extra = {
             "message_content": ctx.message.content,
             "jump_url": ctx.message.jump_url
-        })
+        }
+        logger.exception(msg, exc_info=exc_info, extra=extra)
 
 
 def once(func):
