@@ -42,10 +42,9 @@ class Logging(commands.Cog, logging.Handler):
                 msg = self.format(record)
                 # Not all errors have jump urls.
                 try:
-                    await channel.send('```Original Command: {}```'.format(
-                        record.message_content))
-                    await channel.send('```Jump Url: {}```'.format(
-                        record.jump_url))
+                    await channel.send(
+                        '```Original Command: {}\nJump Url: {}```'.format(
+                            record.message_content, record.jump_url))
                 except AttributeError:
                     pass
                 discord_msg_char_limit = 2000
