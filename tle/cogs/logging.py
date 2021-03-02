@@ -40,10 +40,10 @@ class Logging(commands.Cog, logging.Handler):
                 break
             try:
                 msg = self.format(record)
-                # Not all errors have jump urls.
+                # Not all errors will have message_contents or jump urls.
                 try:
                     await channel.send(
-                        '```Original Command: {}\nJump Url: {}```'.format(
+                        'Original Command: {}\nJump Url: {}'.format(
                             record.message_content, record.jump_url))
                 except AttributeError:
                     pass

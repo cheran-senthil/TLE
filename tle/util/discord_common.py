@@ -40,7 +40,7 @@ def cf_color_embed(**kwargs):
 def set_same_cf_color(embeds):
     color = random_cf_color()
     for embed in embeds:
-        embed.color = color
+        embed.color= color
 
 
 def attach_image(embed, img_file):
@@ -125,7 +125,7 @@ async def presence(bot):
     await asyncio.sleep(60)
 
     @tasks.task(name='OrzUpdate',
-                waiter=tasks.Waiter.fixed_delay(5*60))
+               waiter=tasks.Waiter.fixed_delay(5*60))
     async def presence_task(_):
         while True:
             target = random.choice([
