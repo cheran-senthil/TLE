@@ -24,7 +24,7 @@ class Logging(commands.Cog, logging.Handler):
     async def on_ready(self):
         self.task = asyncio.create_task(self._log_task())
         width = 79
-        stars, msg = f'`{"*" * width}`', f'`***{"Bot running":^{width - 6}}***`'
+        stars, msg = f'{"*" * width}', f'***{"Bot running":^{width - 6}}***'
         self.logger.log(level=100, msg=stars)
         self.logger.log(level=100, msg=msg)
         self.logger.log(level=100, msg=stars)
@@ -40,7 +40,20 @@ class Logging(commands.Cog, logging.Handler):
                 break
             try:
                 msg = self.format(record)
-                await channel.send(msg)
+                # Not all errors will have message_contents or jump urls.
+                try:
+                    await channel.send(
+                        'Original Command: {}\nJump Url: {}'.format(
+                            record.message_content, record.jump_url))
+                except AttributeError:
+                    pass
+                discord_msg_char_limit = 2000
+                char_limit = discord_msg_char_limit - 2 * len('```')
+                too_long = len(msg) > char_limit
+                msg = msg[:char_limit]
+                await channel.send('```{}```'.format(msg))
+                if too_long:
+                    await channel.send('`Check logs for full stack trace`')
             except:
                 self.handleError(record)
 

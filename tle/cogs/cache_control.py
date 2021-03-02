@@ -83,19 +83,6 @@ class CacheControl(commands.Cog):
             count = await cf_common.cache2.problemset_cache.update_for_contest(contest_id)
         await ctx.send(f'Done, fetched {count} problems')
 
-    async def cog_command_error(self, ctx, error):
-        if isinstance(error, commands.CommandInvokeError):
-            error = error.__cause__
-        lines = traceback.format_exception(type(error), error, error.__traceback__)
-        msg = '\n'.join(lines)
-        discord_msg_char_limit = 2000
-        char_limit = discord_msg_char_limit - 2 * len('```')
-        too_long = len(msg) > char_limit
-        msg = msg[:char_limit]
-        await ctx.send(f'```{msg}```')
-        if too_long:
-            await ctx.send('Check logs for full stack trace')
-
 
 def setup(bot):
     bot.add_cog(CacheControl(bot))

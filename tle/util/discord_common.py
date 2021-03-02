@@ -28,11 +28,14 @@ def embed_success(desc):
 def embed_alert(desc):
     return discord.Embed(description=str(desc), color=_ALERT_AMBER)
 
+
 def random_cf_color():
     return random.choice(_CF_COLORS)
 
+
 def cf_color_embed(**kwargs):
     return discord.Embed(**kwargs, color=random_cf_color())
+
 
 def set_same_cf_color(embeds):
     color = random_cf_color()
@@ -79,13 +82,19 @@ async def bot_error_handler(ctx, exception):
     elif isinstance(exception, (cf.CodeforcesApiError, commands.UserInputError)):
         await ctx.send(embed=embed_alert(exception))
     else:
+        msg = 'Ignoring exception in command {}:'.format(ctx.command)
         exc_info = type(exception), exception, exception.__traceback__
-        logger.exception('Ignoring exception in command {}:'.format(ctx.command), exc_info=exc_info)
+        extra = {
+            "message_content": ctx.message.content,
+            "jump_url": ctx.message.jump_url
+        }
+        logger.exception(msg, exc_info=exc_info, extra=extra)
 
 
 def once(func):
     """Decorator that wraps the given async function such that it is executed only once."""
     first = True
+
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
         nonlocal first
@@ -128,4 +137,3 @@ async def presence(bot):
             await asyncio.sleep(10 * 60)
 
     presence_task.start()
-
