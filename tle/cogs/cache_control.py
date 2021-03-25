@@ -4,6 +4,7 @@ import traceback
 
 from discord.ext import commands
 
+from tle import constants
 from tle.util import codeforces_common as cf_common
 
 
@@ -27,24 +28,24 @@ class CacheControl(commands.Cog):
 
     @commands.group(brief='Commands to force reload of cache',
                     invoke_without_command=True)
-    @commands.has_role('Admin')
+    @commands.has_role(constants.TLE_ADMIN)
     async def cache(self, ctx):
         await ctx.send_help('cache')
 
     @cache.command()
-    @commands.has_role('Admin')
+    @commands.has_role(constants.TLE_ADMIN)
     @timed_command
     async def contests(self, ctx):
         await cf_common.cache2.contest_cache.reload_now()
 
     @cache.command()
-    @commands.has_role('Admin')
+    @commands.has_role(constants.TLE_ADMIN)
     @timed_command
     async def problems(self, ctx):
         await cf_common.cache2.problem_cache.reload_now()
 
     @cache.command(usage='[missing|all|contest_id]')
-    @commands.has_role('Admin')
+    @commands.has_role(constants.TLE_ADMIN)
     @timed_command
     async def ratingchanges(self, ctx, contest_id='missing'):
         """Defaults to 'missing'. Mode 'all' clears existing cached changes.
@@ -66,7 +67,7 @@ class CacheControl(commands.Cog):
         await ctx.send(f'Done, fetched {count} changes and recached handle ratings')
 
     @cache.command(usage='contest_id|all')
-    @commands.has_role('Admin')
+    @commands.has_role(constants.TLE_ADMIN)
     @timed_command
     async def problemsets(self, ctx, contest_id):
         """Mode 'all' clears all existing cached problems. Mode 'contest_id'
