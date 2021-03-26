@@ -4,6 +4,7 @@ import logging
 import discord
 from discord.ext import commands
 
+from tle import constants
 from tle.util import codeforces_common as cf_common
 from tle.util import discord_common
 
@@ -109,7 +110,7 @@ class Starboard(commands.Cog):
         await ctx.send_help(ctx.command)
 
     @starboard.command(brief='Set starboard to current channel')
-    @commands.has_role('Admin')
+    @commands.has_role(constants.TLE_ADMIN)
     async def here(self, ctx):
         """Set the current channel as starboard."""
         res = cf_common.user_db.get_starboard(ctx.guild.id)
@@ -120,7 +121,7 @@ class Starboard(commands.Cog):
         await ctx.send(embed=discord_common.embed_success('Starboard channel set'))
 
     @starboard.command(brief='Clear starboard settings')
-    @commands.has_role('Admin')
+    @commands.has_role(constants.TLE_ADMIN)
     async def clear(self, ctx):
         """Stop tracking starboard messages and remove the currently set starboard channel
         from settings."""
@@ -129,7 +130,7 @@ class Starboard(commands.Cog):
         await ctx.send(embed=discord_common.embed_success('Starboard channel cleared'))
 
     @starboard.command(brief='Remove a message from starboard')
-    @commands.has_role('Admin')
+    @commands.has_role(constants.TLE_ADMIN)
     async def remove(self, ctx, original_message_id: int):
         """Remove a particular message from the starboard database."""
         rc = cf_common.user_db.remove_starboard_message(original_msg_id=original_message_id)

@@ -24,3 +24,6 @@ ALL_DIRS = (attrib_value for attrib_name, attrib_value in list(globals().items()
             if attrib_name.endswith('DIR'))
 
 ALLOW_DUEL_SELF_REGISTER = False
+
+TLE_ADMIN = os.environ.get('TLE_ADMIN', 'Admin')
+TLE_MODERATOR = os.environ.get('TLE_MODERATOR', 'Moderator')
