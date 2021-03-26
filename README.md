@@ -107,6 +107,7 @@ To start TLE just run:
   - Grandmaster
   - International Grandmaster
   - Legendary Grandmaster
+- One of the bot's commands require problemsets to be cached. Run `;cache problemsets all` at the very first time the bot is used. The command may take around 10 minutes to run.
 
 ## Usage
 
