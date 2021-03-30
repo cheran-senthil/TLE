@@ -386,7 +386,7 @@ class RatingChangesCache:
     async def fetch_all_contests(self):
         """Fetch rating changes for all contests. Intended for manual trigger."""
         self.cache_master.conn.clear_rating_changes()
-        return await fetch_missing_contests()
+        return await self.fetch_missing_contests()
 
     async def fetch_missing_contests(self):
         """Fetch rating changes for contests which are not saved in database. Intended for
