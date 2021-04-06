@@ -222,7 +222,7 @@ def _make_profile_embed(member, user, *, mode):
         embed = discord.Embed(description=desc, color=user.rank.color_embed)
         embed.add_field(name='Rating', value=user.rating, inline=True)
         embed.add_field(name='Rank', value=user.rank.title, inline=True)
-    embed.set_thumbnail(url=f'https:{user.titlePhoto}')
+    embed.set_thumbnail(url=f'{user.titlePhoto}')
     return embed
 
 

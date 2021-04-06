@@ -385,7 +385,7 @@ class Dueling(commands.Cog):
             embed.add_field(name='Slowest win',
                             value=duel_to_string(wins[-1]), inline=False)
 
-        embed.set_thumbnail(url=f'https:{user.titlePhoto}')
+        embed.set_thumbnail(url=f'{user.titlePhoto}')
         await ctx.send(embed=embed)
 
     def _paginate_duels(self, data, message, guild_id, show_id):
