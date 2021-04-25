@@ -20,6 +20,7 @@ from tle.util import graph_common as gc
 _DUEL_INVALIDATE_TIME = 2 * 60
 _DUEL_EXPIRY_TIME = 5 * 60
 _DUEL_RATING_DELTA = -400
+_DUEL_OFFICIAL_CUTOFF = 3500
 _DUEL_NO_DRAW_TIME = 10 * 60
 _ELO_CONSTANT = 60
 
@@ -162,7 +163,7 @@ class Dueling(commands.Cog):
         suggested_rating = max(
             round(lowest_rating, -2) + _DUEL_RATING_DELTA, 500)
         rating = round(rating, -2) if rating else suggested_rating
-        unofficial = rating > suggested_rating
+        unofficial = rating > _DUEL_OFFICIAL_CUTOFF #suggested_rating 
         dtype = DuelType.UNOFFICIAL if unofficial else DuelType.OFFICIAL
 
         solved = {
@@ -401,10 +402,22 @@ class Dueling(commands.Cog):
                                     Winner.CHALLENGEE else challengee, guild_id)
                 winner = get_cf_user(challenger if winner ==
                                      Winner.CHALLENGER else challengee, guild_id)
+                if (winner == None and loser == None):
+                    return f'{idstr if show_id else str()}[{name}]({problem.url}) [{problem.rating}] won by [unknown] vs [unknown] {when} in {duel_time}'
+                if (loser == None):
+                    return f'{idstr if show_id else str()}[{name}]({problem.url}) [{problem.rating}] won by [{winner.handle}]({winner.url}) vs [unknown] {when} in {duel_time}'
+                if (winner == None):
+                    return f'{idstr if show_id else str()}[{name}]({problem.url}) [{problem.rating}] won by [unknown] vs [{loser.handle}]({loser.url}) {when} in {duel_time}'
                 return f'{idstr if show_id else str()}[{name}]({problem.url}) [{problem.rating}] won by [{winner.handle}]({winner.url}) vs [{loser.handle}]({loser.url}) {when} in {duel_time}'
             else:
                 challenger = get_cf_user(challenger, guild_id)
                 challengee = get_cf_user(challengee, guild_id)
+                if (challenger == None and challengee == None):
+                    return f'{idstr if show_id else str()}[{name}]({problem.url}) [{problem.rating}] drawn by [unknown] vs [unknown] {when} after {duel_time}'
+                if (challenger == None):
+                    return f'{idstr if show_id else str()}[{name}]({problem.url}) [{problem.rating}] drawn by [unknown] vs [{challengee.handle}]({challengee.url}) {when} after {duel_time}'
+                if (challengee == None):
+                    return f'{idstr if show_id else str()}[{name}]({problem.url}) [{problem.rating}] drawn by [{challenger.handle}]({challenger.url}) vs [unknown] {when} after {duel_time}'
                 return f'{idstr if show_id else str()}[{name}]({problem.url}) [{problem.rating}] drawn by [{challenger.handle}]({challenger.url}) and [{challengee.handle}]({challengee.url}) {when} after {duel_time}'
 
         def make_page(chunk):
@@ -503,8 +516,12 @@ class Dueling(commands.Cog):
             t += table.Line()
             for index, (member, handle, rating) in enumerate(chunk):
                 rating_str = f'{rating} ({rating2rank(rating).title_abbr})'
-                t += table.Data(_PER_PAGE * page_num + index,
-                                f'{member.display_name}', handle, rating_str)
+
+                handlestr = 'Unknown'
+                if (handle is not None):
+                    handlestr = handle
+                t += table.Data(_PER_PAGE * page_num + index + 1,
+                                f'{member.display_name}', handlestr, rating_str)
 
             table_str = f'```\n{t}\n```'
             embed = discord_common.cf_color_embed(description=table_str)

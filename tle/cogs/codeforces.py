@@ -18,8 +18,9 @@ from tle.util import cache_system2
 
 
 _GITGUD_NO_SKIP_TIME = 3 * 60 * 60
-_GITGUD_SCORE_DISTRIB = (2, 3, 5, 8, 12, 17, 23)
-_GITGUD_MAX_ABS_DELTA_VALUE = 300
+_GITGUD_SCORE_DISTRIB = (2, 3, 5, 8, 12, 17, 23, 23, 23)
+_GITGUD_MAX_NEG_DELTA_VALUE = -300
+_GITGUD_MAX_POS_DELTA_VALUE = 500
 
 
 class CodeforcesCogError(commands.CommandError):
@@ -35,8 +36,8 @@ class Codeforces(commands.Cog):
         if delta is not None and delta % 100 != 0:
             raise CodeforcesCogError('Delta must be a multiple of 100.')
 
-        if delta is not None and abs(delta) > _GITGUD_MAX_ABS_DELTA_VALUE:
-            raise CodeforcesCogError(f'Delta must range from -{_GITGUD_MAX_ABS_DELTA_VALUE} to {_GITGUD_MAX_ABS_DELTA_VALUE}.')
+        if delta is not None and (delta < _GITGUD_MAX_NEG_DELTA_VALUE or delta > _GITGUD_MAX_POS_DELTA_VALUE):
+            raise CodeforcesCogError(f'Delta must range from {_GITGUD_MAX_NEG_DELTA_VALUE} to {_GITGUD_MAX_POS_DELTA_VALUE}.')
 
         user_id = ctx.message.author.id
         active = cf_common.user_db.check_challenge(user_id)
@@ -64,8 +65,8 @@ class Codeforces(commands.Cog):
     @cf_common.user_guard(group='gitgud')
     async def upsolve(self, ctx, choice: int = -1):
         """Request an unsolved problem from a contest you participated in
-        delta  | -300 | -200 | -100 |  0  | +100 | +200 | +300
-        points |   2  |   3  |   5  |  8  |  12  |  17  |  23
+        delta  | -300 | -200 | -100 |  0  | +100 | +200 | +300 | +400 | +500
+        points |   2  |   3  |   5  |  8  |  12  |  17  |  23  |  23  |  23
         """
         await self._validate_gitgud_status(ctx,delta=None)
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
@@ -77,7 +78,7 @@ class Codeforces(commands.Cog):
         solved = {sub.problem.name for sub in submissions if sub.verdict == 'OK'}
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
                     if prob.name not in solved and prob.contestId in contests
-                    and abs(rating - prob.rating) <= 300]
+                    and ((prob.rating - rating) >= _GITGUD_MAX_NEG_DELTA_VALUE and (prob.rating - rating) <= _GITGUD_MAX_POS_DELTA_VALUE)]
 
         if not problems:
             raise CodeforcesCogError('Problems not found within the search parameters')
@@ -89,24 +90,38 @@ class Codeforces(commands.Cog):
             problem = problems[choice - 1]
             await self._gitgud(ctx, handle, problem, problem.rating - rating)
         else:
-            msg = '\n'.join(f'{i + 1}: [{prob.name}]({prob.url}) [{prob.rating}]'
-                            for i, prob in enumerate(problems[:5]))
-            title = f'Select a problem to upsolve (1-{len(problems)}):'
-            embed = discord_common.cf_color_embed(title=title, description=msg)
-            await ctx.send(embed=embed)
+            problems = problems[:100]
+              
+            def make_line(i, prob):
+                data = (f'{i + 1}: [{prob.name}]({prob.url}) [{prob.rating}]')
+                return data
+
+            def make_page(chunk, pi, num):
+                title = f'Select a problem to upsolve (1-{num}):'
+                msg = '\n'.join(make_line(10*pi+i, prob) for i, prob in enumerate(chunk))
+                embed = discord_common.cf_color_embed(description=msg)
+                return title, embed
+                  
+            pages = [make_page(chunk, pi, len(problems)) for pi, chunk in enumerate(paginator.chunkify(problems, 10))]
+            paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)   
 
     @commands.command(brief='Recommend a problem',
-                      usage='[tags...] [rating]')
+                      usage='[tags...] [-tags...] [rating]')
     @cf_common.user_guard(group='gitgud')
     async def gimme(self, ctx, *args):
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         rating = round(cf_common.user_db.fetch_cf_user(handle).effective_rating, -2)
-        tags = []
+        tags  = []
+        notags= []
         for arg in args:
             if arg.isdigit():
                 rating = int(arg)
             else:
-                tags.append(arg)
+                if arg[0] == '-':
+                    notags.append(arg[1:])
+                else:
+                    tags.append(arg)
+                    
 
         submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions if sub.verdict == 'OK'}
@@ -116,6 +131,8 @@ class Codeforces(commands.Cog):
                     not cf_common.is_contest_writer(prob.contestId, handle)]
         if tags:
             problems = [prob for prob in problems if prob.tag_matches(tags)]
+        if notags:
+            problems = [prob for prob in problems if (prob.tag_matches_or(notags) == None)]
 
         if not problems:
             raise CodeforcesCogError('Problems not found within the search parameters')
@@ -174,14 +191,23 @@ class Codeforces(commands.Cog):
         pages = [make_page(chunk) for chunk in paginator.chunkify(submissions[:100], 10)]
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
-    @commands.command(brief='Create a mashup', usage='[handles] [+tags]')
+    @commands.command(brief='Create a mashup', usage='[handles] [+tags] [?[-]delta]')
     async def mashup(self, ctx, *args):
-        """Create a mashup contest using problems within +-100 of average rating of handles provided.
+        """Create a mashup contest using problems within -200 and +400 of average rating of handles provided.
         Add tags with "+" before them.
         """
-        handles = [arg for arg in args if arg[0] != '+']
+        delta = 100
+        handles = [arg for arg in args if arg[0] != '+' and arg[0]!='?']
         tags = [arg[1:] for arg in args if arg[0] == '+' and len(arg) > 1]
-
+        deltaStr = [arg[1:] for arg in args if arg[0] == '?' and len(arg) > 1]
+        if len(deltaStr) > 1:
+            raise CodeforcesCogError('Only one delta argument is allowed')
+        if len(deltaStr) == 1:
+            try:
+                delta += round(int(deltaStr[0]), -2)
+            except ValueError:
+                raise CodeforcesCogError('delta could not be interpreted as number')
+        
         handles = handles or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         resp = [await cf.user.status(handle=handle) for handle in handles]
@@ -189,8 +215,11 @@ class Codeforces(commands.Cog):
         solved = {sub.problem.name for sub in submissions}
         info = await cf.user.info(handles=handles)
         rating = int(round(sum(user.effective_rating for user in info) / len(handles), -2))
+        rating += delta
+        rating = max(800, rating)
+        rating = min(3500, rating)
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
-                    if abs(prob.rating - rating) <= 100 and prob.name not in solved
+                    if abs(prob.rating - rating) <= 300 and prob.name not in solved
                     and not any(cf_common.is_contest_writer(prob.contestId, handle) for handle in handles)
                     and not cf_common.is_nonstandard_problem(prob)]
         if tags:
@@ -211,7 +240,7 @@ class Codeforces(commands.Cog):
             choices.append(k)
             choices.sort()
 
-        problems = reversed([problems[k] for k in choices])
+        problems = sorted([problems[k] for k in choices], key=lambda problem: problem.rating)
         msg = '\n'.join(f'{"ABCD"[i]}: [{p.name}]({p.url}) [{p.rating}]' for i, p in enumerate(problems))
         str_handles = '`, `'.join(handles)
         embed = discord_common.cf_color_embed(description=msg)
@@ -221,8 +250,8 @@ class Codeforces(commands.Cog):
     @cf_common.user_guard(group='gitgud')
     async def gitgud(self, ctx, delta: int = 0):
         """Request a problem for gitgud points.
-        delta  | -300 | -200 | -100 |  0  | +100 | +200 | +300
-        points |   2  |   3  |   5  |  8  |  12  |  17  |  23
+        delta  | -300 | -200 | -100 |  0  | +100 | +200 | +300 | +400 | +500
+        points |   2  |   3  |   5  |  8  |  12  |  17  |  23  |  23  |  23
         """
         await self._validate_gitgud_status(ctx, delta)
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
@@ -266,8 +295,8 @@ class Codeforces(commands.Cog):
                 line += f'\N{EN SPACE}{time_str}\N{EN SPACE}[{points}]'
             return line
 
-        def make_page(chunk):
-            message = f'gitgud log for {member.display_name}'
+        def make_page(chunk,score):
+            message = f'Gitgud log for {member.display_name} (total score: {score})'
             log_str = '\n'.join(make_line(entry) for entry in chunk)
             embed = discord_common.cf_color_embed(description=log_str)
             return message, embed
@@ -276,8 +305,13 @@ class Codeforces(commands.Cog):
         data = cf_common.user_db.gitlog(member.id)
         if not data:
             raise CodeforcesCogError(f'{member.mention} has no gitgud history.')
+        score = 0
+        for entry in data:
+            issue, finish, name, contest, index, delta, status = entry
+            if finish:
+                score+=_GITGUD_SCORE_DISTRIB[delta // 100 + 3]
 
-        pages = [make_page(chunk) for chunk in paginator.chunkify(data, 7)]
+        pages = [make_page(chunk, score) for chunk in paginator.chunkify(data, 7)]
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
     @commands.command(brief='Report challenge completion')

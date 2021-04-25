@@ -287,6 +287,18 @@ class UserDbConn:
         if res is None: return None
         return c_id, issue_time, res[0], res[1], res[2], res[3]
 
+    def get_gudgitters_last(self, timestamp):
+        query = '''
+            SELECT user_id, rating_delta FROM challenge WHERE finish_time >= ? ORDER BY user_id
+        '''
+        return self.conn.execute(query, (timestamp,)).fetchall()
+        
+    def get_gudgitters_timerange(self, timestampStart, timestampEnd):
+        query = '''
+            SELECT user_id, rating_delta FROM challenge WHERE finish_time >= ? AND finish_time <= ? ORDER BY user_id
+        '''
+        return self.conn.execute(query, (timestampStart,timestampEnd)).fetchall()        
+
     def get_gudgitters(self):
         query = '''
             SELECT user_id, score FROM user_challenge

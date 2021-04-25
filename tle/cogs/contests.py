@@ -755,6 +755,66 @@ class Contests(commands.Cog):
     async def cog_command_error(self, ctx, error):
         pass
 
+    @commands.command(brief='Plot vc performance for a list of at most 5 users', usage='@user1 @user2 ..')
+    async def vcperformance(self, ctx, *members: discord.Member):
+        """Plots VC performance for at most 5 users."""
+        members = members or (ctx.author, )
+        if len(members) > 5:
+            raise ContestCogError('Cannot plot more than 5 VCers at once.')
+        plot_data = defaultdict(list)
+
+        min_rating = 1100
+        max_rating = 1800
+
+        for member in members:
+            rating_history = cf_common.user_db.get_vc_rating_history(member.id)
+            if not rating_history:
+                raise ContestCogError(f'{member.mention} has no vc history.')
+            ratingbefore = 1500
+            for vc_id, rating in rating_history:
+                vc = cf_common.user_db.get_rated_vc(vc_id)
+                perf = ratingbefore + (rating - ratingbefore)*4
+                date = dt.datetime.fromtimestamp(vc.finish_time)
+                plot_data[member.display_name].append((date, perf))
+                min_rating = min(min_rating, perf)
+                max_rating = max(max_rating, perf)
+                ratingbefore = rating
+
+        plt.clf()
+        # plot at least from mid gray to mid purple
+        for rating_data in plot_data.values():
+            x, y = zip(*rating_data)
+            plt.plot(x, y,
+                     linestyle='-',
+                     marker='o',
+                     markersize=4,
+                     markerfacecolor='white',
+                     markeredgewidth=0.5)
+
+        gc.plot_rating_bg(cf.RATED_RANKS)
+        plt.gcf().autofmt_xdate()
+
+        plt.ylim(min_rating - 100, max_rating + 200)
+        labels = [
+            gc.StrWrap('{} ({})'.format(
+                member_display_name,
+                ratingbefore))
+            for member_display_name, rating_data in plot_data.items()
+        ]
+        plt.legend(labels, loc='upper left', prop=gc.fontprop)
+
+        discord_file = gc.get_current_figure_as_file()
+        embed = discord_common.cf_color_embed(title='VC performance graph')
+        discord_common.attach_image(embed, discord_file)
+        discord_common.set_author_footer(embed, ctx.author)
+        await ctx.send(embed=embed, file=discord_file)
+
+    @discord_common.send_error_if(ContestCogError, rl.RanklistError,
+                                  cache_system2.CacheError, cf_common.ResolveHandleError)
+    async def cog_command_error(self, ctx, error):
+        pass
+
+
 
 def setup(bot):
     bot.add_cog(Contests(bot))

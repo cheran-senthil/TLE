@@ -8,6 +8,7 @@ import cairo
 import os
 import time
 import gi
+import datetime
 gi.require_version('Pango', '1.0')
 gi.require_version('PangoCairo', '1.0')
 from gi.repository import Pango, PangoCairo
@@ -28,6 +29,8 @@ from tle.util import tasks
 from tle.util import db
 from tle import constants
 
+from discord.ext import commands
+
 from PIL import Image, ImageFont, ImageDraw
 
 _HANDLES_PER_PAGE = 15
@@ -37,6 +40,13 @@ _PRETTY_HANDLES_PER_PAGE = 10
 _TOP_DELTAS_COUNT = 10
 _MAX_RATING_CHANGES_PER_EMBED = 15
 _UPDATE_HANDLE_STATUS_INTERVAL = 6 * 60 * 60  # 6 hours
+
+_GITGUD_SCORE_DISTRIB = (2, 3, 5, 8, 12, 17, 23, 23, 23)
+_GITGUD_MAX_NEG_DELTA_VALUE = -300
+_GITGUD_MAX_POS_DELTA_VALUE = 500
+
+_DIVISION_RATING_LOW  = (2100, 1600, -1000)
+_DIVISION_RATING_HIGH = (9999, 2099,  1599)
 
 
 class HandleCogError(commands.CommandError):
@@ -89,14 +99,14 @@ def get_gudgitters_image(rankings):
     ROW_COLORS = ((0.95, 0.95, 0.95), (0.9, 0.9, 0.9))
 
     WIDTH = 900
-    HEIGHT = 450
+    #HEIGHT = 900
     BORDER_MARGIN = 20
     COLUMN_MARGIN = 10
     HEADER_SPACING = 1.25
     WIDTH_RANK = 0.08*WIDTH
     WIDTH_NAME = 0.38*WIDTH
-    LINE_HEIGHT = (HEIGHT - 2*BORDER_MARGIN)/(10 + HEADER_SPACING)
-
+    LINE_HEIGHT = 40#(HEIGHT - 2*BORDER_MARGIN)/(20 + HEADER_SPACING)
+    HEIGHT = int((len(rankings) + HEADER_SPACING) * LINE_HEIGHT + 2*BORDER_MARGIN)
     # Cairo+Pango setup
     surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, WIDTH, HEIGHT)
     context = cairo.Context(surface)
@@ -149,7 +159,7 @@ def get_gudgitters_image(rankings):
     for i, (pos, name, handle, rating, score) in enumerate(rankings):
         color = rating_to_color(rating)
         draw_bg(y, i%2)
-        draw_row(str(pos), f'{name} ({rating if rating else "N/A"})', handle, str(score), color, y)
+        draw_row(str(pos+1), f'{name} ({rating if rating else "N/A"})', handle, str(score), color, y)
         if rating and rating >= 3000:  # nutella
             draw_row('', name[0], handle[0], '', BLACK, y)
         y += LINE_HEIGHT
@@ -250,11 +260,24 @@ def _make_pages(users, title):
     return pages
 
 
+def parse_date(arg):
+    try:
+        if len(arg) == 6:
+            fmt = '%m%Y'
+        # elif len(arg) == 4:
+            # fmt = '%Y'
+        else:
+            raise ValueError
+        return datetime.datetime.strptime(arg, fmt)
+    except ValueError:
+        raise HandleCogError(f'{arg} is an invalid date argument')
+
 class Handles(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.logger = logging.getLogger(self.__class__.__name__)
         self.font = ImageFont.truetype(constants.NOTO_SANS_CJK_BOLD_FONT_PATH, size=26) # font for ;handle pretty
+        self.converter = commands.MemberConverter()
 
     @commands.Cog.listener()
     @discord_common.once
@@ -484,6 +507,40 @@ class Handles(commands.Cog):
             lines += failed
         return discord_common.embed_success('\n'.join(lines))
 
+    @commands.command(brief="Show gudgitters of the last 30 days", aliases=["recentgitgudders"])
+    async def recentgudgitters(self, ctx):
+        """Show the list of users of gitgud with their scores."""
+        minimal_finish_time = int(datetime.datetime.now().timestamp())-30*24*60*60
+        results = cf_common.user_db.get_gudgitters_last(minimal_finish_time)
+        res = {}
+        for entry in results:
+            res[entry[0]] = 0
+        for entry in results:
+            res[entry[0]] += _GITGUD_SCORE_DISTRIB[(int(entry[1])+300)//100]
+        
+        rankings = []
+        index = 0
+        for user_id, score in sorted(res.items(), key=lambda item: item[1], reverse=True):
+            member = ctx.guild.get_member(int(user_id))
+            if member is None:
+                continue
+            if score > 0:
+                handle = cf_common.user_db.get_handle(user_id, ctx.guild.id)
+                user = cf_common.user_db.fetch_cf_user(handle)
+                if user is None:
+                    continue
+                discord_handle = member.display_name
+                rating = user.rating
+                rankings.append((index, discord_handle, handle, rating, score))
+                index += 1
+            if index == 20:
+                break
+
+        if not rankings:
+            raise HandleCogError('No one has completed a gitgud challenge, send ;gitgud to request and ;gotgud to mark it as complete')
+        discord_file = get_gudgitters_image(rankings)
+        await ctx.send(file=discord_file)
+
     @commands.command(brief="Show gudgitters", aliases=["gitgudders"])
     async def gudgitters(self, ctx):
         """Show the list of users of gitgud with their scores."""
@@ -505,7 +562,88 @@ class Handles(commands.Cog):
                 rating = user.rating
                 rankings.append((index, discord_handle, handle, rating, score))
                 index += 1
-            if index == 10:
+            if index == 20:
+                break
+
+        if not rankings:
+            raise HandleCogError('No one has completed a gitgud challenge, send ;gitgud to request and ;gotgud to mark it as complete')
+        discord_file = get_gudgitters_image(rankings)
+        await ctx.send(file=discord_file)
+
+    def filter_rating_changes(self, rating_changes):
+        rating_changes = [change for change in rating_changes
+                    if self.dlo <= change.ratingUpdateTimeSeconds < self.dhi]
+        return rating_changes
+
+    @commands.command(brief="Show gudgitters of the month", aliases=["monthlygitgudders"], usage="[div1|div2|div3] [d=mmyyyy]")
+    async def monthlygudgitters(self, ctx, *args):
+        """Show the list of users of gitgud with their scores."""
+        
+        # Calculate time range of given month (d=) or current month
+        now_time = datetime.datetime.now()
+        for arg in args:
+            if arg[0:2] == 'd=':
+                now_time = parse_date(arg[2:])
+        now_time = now_time.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        start_time = int(now_time.timestamp())
+        if now_time.month == 12:
+            now_time = now_time.replace(month=1,year=now_time.year+1)
+        else:
+            now_time = now_time.replace(month=now_time.month+1)
+        end_time = int(now_time.timestamp())
+        
+        division = None
+        for arg in args:
+            if arg[0:3] == 'div':
+                try:
+                    division = int(arg[3])
+                    if division < 1 or division > 3: 
+                        raise HandleCogError('Division number must be within range [1-3]')
+                except ValueError:
+                    raise HandleCogError(f'{arg} is an invalid div argument')
+       
+        # get gitgud of month and calculate scores
+        results = cf_common.user_db.get_gudgitters_timerange(start_time, end_time)
+        res = {}
+        for entry in results:
+            res[entry[0]] = 0
+        for entry in results:
+            res[entry[0]] += _GITGUD_SCORE_DISTRIB[(int(entry[1])+300)//100]
+        
+        rankings = []
+        index = 0
+        cache = cf_common.cache2.rating_changes_cache
+        for user_id, score in sorted(res.items(), key=lambda item: item[1], reverse=True):
+            member = ctx.guild.get_member(int(user_id))
+            if member is None:
+                continue
+            if score > 0:
+                handle = cf_common.user_db.get_handle(user_id, ctx.guild.id)
+                user = cf_common.user_db.fetch_cf_user(handle)
+                if user is None:
+                    continue
+                rating = user.rating
+                
+                #### Live checking of a rating is not working since we get rate limited
+                # check if user is in a certain division
+                #handle, = await cf_common.resolve_handles(ctx, self.converter, (handle,))
+                #rating_changes = await cf.user.rating(handle=handle)
+                #rating_changes = [change for change in rating_changes if change.ratingUpdateTimeSeconds < start_time]
+                #### Taking stuff from cache instead
+                rating_changes = cache.get_rating_changes_for_handle(handle)
+                rating_changes = [change for change in rating_changes if change.ratingUpdateTimeSeconds < start_time]
+                rating_changes.sort(key=lambda a: a.ratingUpdateTimeSeconds)
+                if division is not None:
+                    if len(rating_changes) < 6: 
+                        continue
+                    if rating_changes[-1] is None: continue
+                    if rating_changes[-1].newRating < _DIVISION_RATING_LOW[division-1] or rating_changes[-1].newRating > _DIVISION_RATING_HIGH[division-1]:
+                        continue
+                    rating = rating_changes[-1].newRating
+                discord_handle = member.display_name
+                rankings.append((index, discord_handle, handle, rating, score))
+                index += 1
+            if index == 20:
                 break
 
         if not rankings:

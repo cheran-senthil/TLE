@@ -57,6 +57,25 @@ def _plot_rating(resp, mark='o'):
     gc.plot_rating_bg(cf.RATED_RANKS)
     plt.gcf().autofmt_xdate()
 
+def _plot_perf(resp, mark='o'):
+
+    for rating_changes in resp:
+        ratings, times = [], []
+        for rating_change in rating_changes:
+            ratings.append(rating_change.oldRating)
+            times.append(dt.datetime.fromtimestamp(rating_change.ratingUpdateTimeSeconds))
+
+        plt.plot(times,
+                 ratings,
+                 linestyle='-',
+                 marker=mark,
+                 markersize=3,
+                 markerfacecolor='white',
+                 markeredgewidth=0.5)
+
+    gc.plot_rating_bg(cf.RATED_RANKS)
+    plt.gcf().autofmt_xdate()    
+
 def _classify_submissions(submissions):
     solved_by_type = {sub_type: [] for sub_type in cf.Party.PARTICIPANT_TYPES}
     for submission in submissions:
@@ -260,6 +279,54 @@ class Graphs(commands.Cog):
 
         discord_file = gc.get_current_figure_as_file()
         embed = discord_common.cf_color_embed(title='Rating graph on Codeforces')
+        discord_common.attach_image(embed, discord_file)
+        discord_common.set_author_footer(embed, ctx.author)
+        await ctx.send(embed=embed, file=discord_file)
+
+
+
+                    
+
+    @plot.command(brief='Plot Codeforces performance graph', usage='[+zoom] [handles...] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy]')
+    async def performance(self, ctx, *args: str):
+        """Plots Codeforces performance graph for the handles provided."""
+
+        (zoom, peak), args = cf_common.filter_flags(args, ['+zoom' , '+asdfgdsafefsdve'])
+        filt = cf_common.SubFilter()
+        args = filt.parse(args)
+        handles = args or ('!' + str(ctx.author),)
+        handles = await cf_common.resolve_handles(ctx, self.converter, handles)
+        resp = [await cf.user.rating(handle=handle) for handle in handles]
+        # extract last rating before corrections
+        current_ratings = [rating_changes[-1].newRating if rating_changes else 'Unrated' for rating_changes in resp]
+        resp = cf.user.correct_rating_changes(resp=resp)
+        resp = [filt.filter_rating_changes(rating_changes) for rating_changes in resp]
+        
+        if not any(resp):
+            handles_str = ', '.join(f'`{handle}`' for handle in handles)
+            if len(handles) == 1:
+                message = f'User {handles_str} is not rated'
+            else:
+                message = f'None of the given users {handles_str} are rated'
+            raise GraphCogError(message)
+
+        plt.clf()
+        plt.axes().set_prop_cycle(gc.rating_color_cycler)
+        _plot_perf(resp)
+        labels = [gc.StrWrap(f'{handle} ({rating})') for handle, rating in zip(handles, current_ratings)]
+        plt.legend(labels, loc='upper left')
+
+        if not zoom:
+            min_rating = 1100
+            max_rating = 1800
+            for rating_changes in resp:
+                for rating in rating_changes:
+                    min_rating = min(min_rating, rating.oldRating)
+                    max_rating = max(max_rating, rating.oldRating)
+            plt.ylim(min_rating - 100, max_rating + 200)
+
+        discord_file = gc.get_current_figure_as_file()
+        embed = discord_common.cf_color_embed(title='Performance graph on Codeforces')
         discord_common.attach_image(embed, discord_file)
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
@@ -755,8 +822,8 @@ class Graphs(commands.Cog):
         if len(members) > 5:
             raise GraphCogError('Please specify at most 5 gudgitters.')
 
-        # shift the [-300, 300] gitgud range to center the text
-        hist_bins = list(range(-300 - 50, 300 + 50 + 1, 100))
+        # shift the [-300, 500] gitgud range to center the text
+        hist_bins = list(range(-300 - 50, 500 + 50 + 1, 100))
         deltas = [[x[0] for x in cf_common.user_db.howgud(member.id)] for member in members]
         labels = [gc.StrWrap(f'{member.display_name}: {len(delta)}')
                   for member, delta in zip(members, deltas)]

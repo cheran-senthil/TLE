@@ -116,6 +116,18 @@ class Problem(namedtuple('Problem', 'contestId problemsetName index name type po
     def has_metadata(self):
         return self.contestId is not None and self.rating is not None
 
+    def tag_matches_or(self, query_tags):
+        """If any query tag is a substring of any problem tag, returns a list of matched tags."""
+        matches = set()
+        for query_tag in query_tags:
+            curmatch = [tag for tag in self.tags if query_tag in tag]
+            if not curmatch: 
+                continue
+            matches.update(curmatch)
+        if len(matches) == 0:
+            return None
+        return list(matches)
+
     def tag_matches(self, query_tags):
         """If every query tag is a substring of any problem tag, returns a list of matched tags."""
         matches = set()
@@ -373,6 +385,22 @@ class user:
                 raise
             result += [make_from_dict(User, user_dict) for user_dict in resp]
         return result
+    @staticmethod
+    def correct_rating_changes(*, resp):
+        adaptO = [1400, 900, 550, 300, 150, 100, 50]
+        adaptN = [900, 550, 300, 150, 100, 50, 0]
+        for r in resp:
+            if (len(r) > 0):
+                if (r[0].newRating < 1000):
+                    for ind in range(0,(min(7, len(r)))):
+                        r[ind] = RatingChange(r[ind].contestId, r[ind].contestName, r[ind].handle, r[ind].rank, r[ind].ratingUpdateTimeSeconds, r[ind].oldRating+adaptO[ind], r[ind].newRating+adaptN[ind])
+                else:
+                    r[0] = RatingChange(r[0].contestId, r[0].contestName, r[0].handle, r[0].rank, r[0].ratingUpdateTimeSeconds, r[0].oldRating+1500, r[0].newRating)
+        for r in resp:
+            for ind in range(0,len(r)):
+                r[ind] = RatingChange(r[ind].contestId, r[ind].contestName, r[ind].handle, r[ind].rank, r[ind].ratingUpdateTimeSeconds, r[ind].oldRating + 4*(r[ind].newRating-r[ind].oldRating), r[ind].newRating)
+        return resp
+
 
     @staticmethod
     async def rating(*, handle):
