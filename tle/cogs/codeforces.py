@@ -17,7 +17,7 @@ from tle.util import paginator
 from tle.util import cache_system2
 
 
-_GITGUD_NO_SKIP_TIME = 3 * 60 * 60
+_GITGUD_NO_SKIP_TIME = 2 * 60 * 60
 _GITGUD_SCORE_DISTRIB = (2, 3, 5, 8, 12, 17, 23, 23, 23)
 _GITGUD_MAX_NEG_DELTA_VALUE = -300
 _GITGUD_MAX_POS_DELTA_VALUE = 500
