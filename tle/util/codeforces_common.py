@@ -315,7 +315,7 @@ class SubFilter:
                 if len(arg) == 1:
                     raise ParamParseError('Problem tag cannot be empty.')
                 self.tags.append(arg[1:])
-            elif arg[0] == '-':
+            elif arg[0] == '~':
                 if len(arg) == 1:
                     raise ParamParseError('Problem tag cannot be empty.')
                 self.notags.append(arg[1:])
