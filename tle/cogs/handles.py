@@ -518,7 +518,7 @@ class Handles(commands.Cog):
         return discord_common.embed_success('\n'.join(lines))
 
     @commands.command(brief="Show gudgitters", aliases=["gitgudders"], usage="[div1|div2|div3]")
-    async def gudgitters(self, ctx):
+    async def gudgitters(self, ctx, *args):
         """Show the list of users of gitgud with their scores."""
         res = cf_common.user_db.get_gudgitters()
         res.sort(key=lambda r: r[1], reverse=True)
