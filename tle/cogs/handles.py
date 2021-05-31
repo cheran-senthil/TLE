@@ -546,10 +546,9 @@ class Handles(commands.Cog):
                     continue
                 discord_handle = member.display_name
                 rating = user.rating
-                rankings.append((index, discord_handle, handle, rating, score))
-                index += 1
-
+                
                 if division is not None:
+                    if rating is None: continue;
                     if rating < _DIVISION_RATING_LOW[division-1] or rating > _DIVISION_RATING_HIGH[division-1]:
                         continue
                 
