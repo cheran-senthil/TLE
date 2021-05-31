@@ -517,11 +517,21 @@ class Handles(commands.Cog):
             lines += failed
         return discord_common.embed_success('\n'.join(lines))
 
-    @commands.command(brief="Show gudgitters", aliases=["gitgudders"])
+    @commands.command(brief="Show gudgitters", aliases=["gitgudders"], usage="[div1|div2|div3]")
     async def gudgitters(self, ctx):
         """Show the list of users of gitgud with their scores."""
         res = cf_common.user_db.get_gudgitters()
         res.sort(key=lambda r: r[1], reverse=True)
+
+        division = None
+        for arg in args:
+            if arg[0:3] == 'div':
+                try:
+                    division = int(arg[3])
+                    if division < 1 or division > 3: 
+                        raise HandleCogError('Division number must be within range [1-3]')
+                except ValueError:
+                    raise HandleCogError(f'{arg} is an invalid div argument')
 
         rankings = []
         index = 0
@@ -536,6 +546,13 @@ class Handles(commands.Cog):
                     continue
                 discord_handle = member.display_name
                 rating = user.rating
+                rankings.append((index, discord_handle, handle, rating, score))
+                index += 1
+
+                if division is not None:
+                    if rating < _DIVISION_RATING_LOW[division-1] or rating > _DIVISION_RATING_HIGH[division-1]:
+                        continue
+                
                 rankings.append((index, discord_handle, handle, rating, score))
                 index += 1
             if index == 20:
