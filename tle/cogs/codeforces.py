@@ -117,7 +117,7 @@ class Codeforces(commands.Cog):
         tags  = []
         notags= []
         for arg in args:
-            if arg.isdigit():
+            if arg[0:3].isdigit():
                 ratings = arg.split("-")
                 srating = int(ratings[0])
                 if (len(ratings) > 1): 
