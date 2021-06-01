@@ -454,6 +454,16 @@ class Handles(commands.Cog):
                                            reason='Handle removed for user')
         embed = discord_common.embed_success(f'Removed handle for {member.mention}')
         await ctx.send(embed=embed)
+        
+    @handle.command(brief='Remove handle for a user')
+    @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
+    async def removeById(self, ctx, user_id):
+        """Remove Codeforces handle of a user by using its discord id. Useful if user is not a server member anymore."""
+        rc = cf_common.user_db.remove_handle(user_id, ctx.guild.id)
+        if not rc:
+            raise HandleCogError(f'Handle for {user_id} not found in database')
+        embed = discord_common.embed_success(f'Removed handle for {user_id}')
+        await ctx.send(embed=embed)        
 
     @handle.command(brief='Resolve redirect of a user\'s handle')
     async def unmagic(self, ctx):
@@ -507,45 +517,21 @@ class Handles(commands.Cog):
             lines += failed
         return discord_common.embed_success('\n'.join(lines))
 
-    @commands.command(brief="Show gudgitters of the last 30 days", aliases=["recentgitgudders"])
-    async def recentgudgitters(self, ctx):
-        """Show the list of users of gitgud with their scores."""
-        minimal_finish_time = int(datetime.datetime.now().timestamp())-30*24*60*60
-        results = cf_common.user_db.get_gudgitters_last(minimal_finish_time)
-        res = {}
-        for entry in results:
-            res[entry[0]] = 0
-        for entry in results:
-            res[entry[0]] += _GITGUD_SCORE_DISTRIB[(int(entry[1])+300)//100]
-        
-        rankings = []
-        index = 0
-        for user_id, score in sorted(res.items(), key=lambda item: item[1], reverse=True):
-            member = ctx.guild.get_member(int(user_id))
-            if member is None:
-                continue
-            if score > 0:
-                handle = cf_common.user_db.get_handle(user_id, ctx.guild.id)
-                user = cf_common.user_db.fetch_cf_user(handle)
-                if user is None:
-                    continue
-                discord_handle = member.display_name
-                rating = user.rating
-                rankings.append((index, discord_handle, handle, rating, score))
-                index += 1
-            if index == 20:
-                break
-
-        if not rankings:
-            raise HandleCogError('No one has completed a gitgud challenge, send ;gitgud to request and ;gotgud to mark it as complete')
-        discord_file = get_gudgitters_image(rankings)
-        await ctx.send(file=discord_file)
-
-    @commands.command(brief="Show gudgitters", aliases=["gitgudders"])
-    async def gudgitters(self, ctx):
+    @commands.command(brief="Show gudgitters", aliases=["gitgudders"], usage="[div1|div2|div3]")
+    async def gudgitters(self, ctx, *args):
         """Show the list of users of gitgud with their scores."""
         res = cf_common.user_db.get_gudgitters()
         res.sort(key=lambda r: r[1], reverse=True)
+
+        division = None
+        for arg in args:
+            if arg[0:3] == 'div':
+                try:
+                    division = int(arg[3])
+                    if division < 1 or division > 3: 
+                        raise HandleCogError('Division number must be within range [1-3]')
+                except ValueError:
+                    raise HandleCogError(f'{arg} is an invalid div argument')
 
         rankings = []
         index = 0
@@ -560,6 +546,12 @@ class Handles(commands.Cog):
                     continue
                 discord_handle = member.display_name
                 rating = user.rating
+                
+                if division is not None:
+                    if rating is None: continue;
+                    if rating < _DIVISION_RATING_LOW[division-1] or rating > _DIVISION_RATING_HIGH[division-1]:
+                        continue
+                
                 rankings.append((index, discord_handle, handle, rating, score))
                 index += 1
             if index == 20:
@@ -634,7 +626,7 @@ class Handles(commands.Cog):
                 rating_changes = [change for change in rating_changes if change.ratingUpdateTimeSeconds < start_time]
                 rating_changes.sort(key=lambda a: a.ratingUpdateTimeSeconds)
                 if division is not None:
-                    if len(rating_changes) < 6: 
+                    if len(rating_changes) < 1: 
                         continue
                     if rating_changes[-1] is None: continue
                     if rating_changes[-1].newRating < _DIVISION_RATING_LOW[division-1] or rating_changes[-1].newRating > _DIVISION_RATING_HIGH[division-1]:
@@ -798,8 +790,6 @@ class Handles(commands.Cog):
         top_increases_str = []
         for member, change in member_change_pairs[:_TOP_DELTAS_COUNT]:
             delta = change.newRating - change.oldRating
-            if delta <= 0:
-                break
             increase_str = (f'{member.mention} [{change.handle}]({cf.PROFILE_BASE_URL}{change.handle}): {change.oldRating} '
                             f'\N{HORIZONTAL BAR} **{delta:+}** \N{LONG RIGHTWARDS ARROW} '
                             f'{change.newRating}')
@@ -819,8 +809,8 @@ class Handles(commands.Cog):
             embeds.append(embed)
 
         top_rating_increases_embed = discord.Embed(description='\n'.join(
-            top_increases_str) or 'Nobody got a positive delta :(')
-        top_rating_increases_embed.set_author(name='Top rating increases')
+            top_increases_str) or 'Nobody got a delta :(')
+        top_rating_increases_embed.set_author(name='Top rating changes')
 
         embeds.append(top_rating_increases_embed)
         discord_common.set_same_cf_color(embeds)

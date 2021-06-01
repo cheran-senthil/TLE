@@ -72,6 +72,8 @@ class Codeforces(commands.Cog):
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         user = cf_common.user_db.fetch_cf_user(handle)
         rating = round(user.effective_rating, -2)
+        rating = max(1100, rating)
+        rating = min(3000, rating)
         resp = await cf.user.rating(handle=handle)
         contests = {change.contestId for change in resp}
         submissions = await cf.user.status(handle=handle)
@@ -123,10 +125,13 @@ class Codeforces(commands.Cog):
                 else:
                     erating = srating
             else:
-                if arg[0] == '-':
+                if arg[0] == '-' or arg[0] == '~':
                     notags.append(arg[1:])
                 else:
-                    tags.append(arg)
+                    if arg[0] == '+':
+                        tags.append(arg[1:])
+                    else:
+                        tags.append(arg)
                     
         submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions if sub.verdict == 'OK'}
@@ -262,6 +267,8 @@ class Codeforces(commands.Cog):
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         user = cf_common.user_db.fetch_cf_user(handle)
         rating = round(user.effective_rating, -2)
+        rating = max(1100, rating)
+        rating = min(3000, rating)
         submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions}
         noguds = cf_common.user_db.get_noguds(ctx.message.author.id)
