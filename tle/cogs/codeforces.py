@@ -106,28 +106,33 @@ class Codeforces(commands.Cog):
             paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)   
 
     @commands.command(brief='Recommend a problem',
-                      usage='[tags...] [-tags...] [rating]')
+                      usage='[tags...] [-tags...] [rating|rating1-rating2]')
     @cf_common.user_guard(group='gitgud')
     async def gimme(self, ctx, *args):
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
-        rating = round(cf_common.user_db.fetch_cf_user(handle).effective_rating, -2)
+        srating = round(cf_common.user_db.fetch_cf_user(handle).effective_rating, -2)
+        erating = srating 
         tags  = []
         notags= []
         for arg in args:
             if arg.isdigit():
-                rating = int(arg)
+                ratings = arg.split("-")
+                srating = int(ratings[0])
+                if (len(ratings) > 1): 
+                    erating = int(ratings[1])
+                else:
+                    erating = srating
             else:
                 if arg[0] == '-':
                     notags.append(arg[1:])
                 else:
                     tags.append(arg)
                     
-
         submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions if sub.verdict == 'OK'}
 
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
-                    if prob.rating == rating and prob.name not in solved and
+                    if prob.rating >= srating and prob.rating <= erating and prob.name not in solved and
                     not cf_common.is_contest_writer(prob.contestId, handle)]
         if tags:
             problems = [prob for prob in problems if prob.tag_matches(tags)]
@@ -311,7 +316,7 @@ class Codeforces(commands.Cog):
             if finish:
                 score+=_GITGUD_SCORE_DISTRIB[delta // 100 + 3]
 
-        pages = [make_page(chunk, score) for chunk in paginator.chunkify(data, 7)]
+        pages = [make_page(chunk, score) for chunk in paginator.chunkify(data, 10)]
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
     @commands.command(brief='Report challenge completion')
