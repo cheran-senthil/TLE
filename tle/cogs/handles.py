@@ -549,9 +549,8 @@ class Handles(commands.Cog):
                     continue
                 rating = user.rating
 
-                if member is None: 
-                    discord_handle = "Unknown"
-                else: 
+                discord_handle = ""
+                if member is not None: 
                     discord_handle = member.display_name
                 
                 
@@ -575,7 +574,7 @@ class Handles(commands.Cog):
                     if self.dlo <= change.ratingUpdateTimeSeconds < self.dhi]
         return rating_changes
 
-    @commands.command(brief="Show gudgitters of the month", aliases=["monthlygitgudders"], usage="[div1|div2|div3] [d=mmyyyy]")
+    @commands.command(brief="Show gudgitters of the month", aliases=["monthlygitgudders"], usage="[div1|div2|div3] [d=mmyyyy] [+all]")
     async def monthlygudgitters(self, ctx, *args):
         """Show the list of users of gitgud with their scores."""
         
@@ -593,6 +592,7 @@ class Handles(commands.Cog):
         end_time = int(now_time.timestamp())
         
         division = None
+        showall = False
         for arg in args:
             if arg[0:3] == 'div':
                 try:
@@ -601,6 +601,8 @@ class Handles(commands.Cog):
                         raise HandleCogError('Division number must be within range [1-3]')
                 except ValueError:
                     raise HandleCogError(f'{arg} is an invalid div argument')
+            if arg == "+all":
+                showall = True                    
        
         # get gitgud of month and calculate scores
         results = cf_common.user_db.get_gudgitters_timerange(start_time, end_time)
@@ -615,7 +617,7 @@ class Handles(commands.Cog):
         cache = cf_common.cache2.rating_changes_cache
         for user_id, score in sorted(res.items(), key=lambda item: item[1], reverse=True):
             member = ctx.guild.get_member(int(user_id))
-            if member is None:
+            if not showall and member is None:
                 continue
             if score > 0:
                 handle = cf_common.user_db.get_handle(user_id, ctx.guild.id)
@@ -624,11 +626,11 @@ class Handles(commands.Cog):
                     continue
                 rating = user.rating
                 
+                discord_handle = ""
+                if member is not None: 
+                    discord_handle = member.display_name                
+                
                 #### Live checking of a rating is not working since we get rate limited
-                # check if user is in a certain division
-                #handle, = await cf_common.resolve_handles(ctx, self.converter, (handle,))
-                #rating_changes = await cf.user.rating(handle=handle)
-                #rating_changes = [change for change in rating_changes if change.ratingUpdateTimeSeconds < start_time]
                 #### Taking stuff from cache instead
                 rating_changes = cache.get_rating_changes_for_handle(handle)
                 rating_changes = [change for change in rating_changes if change.ratingUpdateTimeSeconds < start_time]
@@ -640,7 +642,6 @@ class Handles(commands.Cog):
                     if rating_changes[-1].newRating < _DIVISION_RATING_LOW[division-1] or rating_changes[-1].newRating > _DIVISION_RATING_HIGH[division-1]:
                         continue
                     rating = rating_changes[-1].newRating
-                discord_handle = member.display_name
                 rankings.append((index, discord_handle, handle, rating, score))
                 index += 1
             if index == 20:
