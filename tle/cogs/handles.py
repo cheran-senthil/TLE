@@ -159,7 +159,7 @@ def get_gudgitters_image(rankings):
     for i, (pos, name, handle, rating, score) in enumerate(rankings):
         color = rating_to_color(rating)
         draw_bg(y, i%2)
-        draw_row(str(pos+1), f'{name} ({rating if rating else "N/A"})', handle, str(score), color, y)
+        draw_row(str(pos+1), f'{name}', f'{handle} ({rating if rating else "N/A"})' , str(score), color, y)
         if rating and rating >= 3000:  # nutella
             draw_row('', name[0], handle[0], '', BLACK, y)
         y += LINE_HEIGHT
@@ -517,13 +517,14 @@ class Handles(commands.Cog):
             lines += failed
         return discord_common.embed_success('\n'.join(lines))
 
-    @commands.command(brief="Show gudgitters", aliases=["gitgudders"], usage="[div1|div2|div3]")
+    @commands.command(brief="Show gudgitters", aliases=["gitgudders"], usage="[div1|div2|div3] [+all]")
     async def gudgitters(self, ctx, *args):
         """Show the list of users of gitgud with their scores."""
         res = cf_common.user_db.get_gudgitters()
         res.sort(key=lambda r: r[1], reverse=True)
-
+        
         division = None
+        showall = False
         for arg in args:
             if arg[0:3] == 'div':
                 try:
@@ -532,20 +533,27 @@ class Handles(commands.Cog):
                         raise HandleCogError('Division number must be within range [1-3]')
                 except ValueError:
                     raise HandleCogError(f'{arg} is an invalid div argument')
+            if arg == "+all":
+                showall = True
 
         rankings = []
         index = 0
         for user_id, score in res:
             member = ctx.guild.get_member(int(user_id))
-            if member is None:
+            if not showall and member is None:
                 continue
             if score > 0:
                 handle = cf_common.user_db.get_handle(user_id, ctx.guild.id)
                 user = cf_common.user_db.fetch_cf_user(handle)
                 if user is None:
                     continue
-                discord_handle = member.display_name
                 rating = user.rating
+
+                if member is None: 
+                    discord_handle = "Unknown"
+                else: 
+                    discord_handle = member.display_name
+                
                 
                 if division is not None:
                     if rating is None: continue;
