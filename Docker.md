@@ -12,7 +12,7 @@ foo@bar:~$ git clone https://github.com/cheran-senthil/TLE
 ### Building docker image
 
 
-- Build the image using the following command:
+- Navigate to `TLE` and Build the image using the following command:
 ```console
 foo@bar:~$ sudo docker build .
 ```
@@ -20,7 +20,7 @@ foo@bar:~$ sudo docker build .
 ### Setting up Environment Variables
 
 
-- Navigate to `TLE` and Create a new file `environment` from `environment.template`.
+- Create a new file `environment` from `environment.template`.
 
 ```bash
 cp environment.template environment
