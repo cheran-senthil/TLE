@@ -442,8 +442,9 @@ class Dueling(commands.Cog):
                     l += 1
             else:
                 d += 1
+        message = discord.utils.escape_mentions(f'`{member1.display_name}` ({w}/{d}/{l}) `{member2.display_name}`')
         pages = self._paginate_duels(
-            data, f'`{member1.display_name}` ({w}/{d}/{l}) `{member2.display_name}`', ctx.guild.id, False)
+            data, message, ctx.guild.id, False)
         paginator.paginate(self.bot, ctx.channel, pages,
                            wait_time=5 * 60, set_pagenum_footers=True)
 
@@ -451,8 +452,9 @@ class Dueling(commands.Cog):
     async def history(self, ctx, member: discord.Member = None):
         member = member or ctx.author
         data = cf_common.user_db.get_duels(member.id)
+        message = discord.utils.escape_mentions(f'dueling history of `{member.display_name}`')
         pages = self._paginate_duels(
-            data, f'dueling history of `{member.display_name}`', ctx.guild.id, False)
+            data, message, ctx.guild.id, False)
         paginator.paginate(self.bot, ctx.channel, pages,
                            wait_time=5 * 60, set_pagenum_footers=True)
 
