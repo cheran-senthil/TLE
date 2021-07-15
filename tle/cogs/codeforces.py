@@ -267,7 +267,7 @@ class Codeforces(commands.Cog):
             return line
 
         def make_page(chunk):
-            message = f'gitgud log for `{member.display_name}`'
+            message = discord.utils.escape_mentions(f'gitgud log for {member.display_name}')
             log_str = '\n'.join(make_line(entry) for entry in chunk)
             embed = discord_common.cf_color_embed(description=log_str)
             return message, embed
