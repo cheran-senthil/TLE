@@ -211,7 +211,7 @@ class Dueling(commands.Cog):
         duelid, challenger = active
         challenger = ctx.guild.get_member(challenger)
         cf_common.user_db.cancel_duel(duelid, Duel.DECLINED)
-        await ctx.send(f'{ctx.author.display_name} declined a challenge by {challenger.mention}.')
+        await ctx.send(f'`{ctx.author.display_name}` declined a challenge by {challenger.mention}.')
 
     @duel.command(brief='Withdraw a challenge')
     async def withdraw(self, ctx):
@@ -223,7 +223,7 @@ class Dueling(commands.Cog):
         duelid, challengee = active
         challengee = ctx.guild.get_member(challengee)
         cf_common.user_db.cancel_duel(duelid, Duel.WITHDRAWN)
-        await ctx.send(f'{ctx.author.mention} withdrew a challenge to {challengee.display_name}.')
+        await ctx.send(f'{ctx.author.mention} withdrew a challenge to `{challengee.display_name}`.')
 
     @duel.command(brief='Accept a duel')
     async def accept(self, ctx):
@@ -437,7 +437,7 @@ class Dueling(commands.Cog):
             else:
                 d += 1
         pages = self._paginate_duels(
-            data, f'{member1.display_name} ({w}/{d}/{l}) {member2.display_name}', ctx.guild.id, False)
+            data, f'`{member1.display_name}` ({w}/{d}/{l}) `{member2.display_name}`', ctx.guild.id, False)
         paginator.paginate(self.bot, ctx.channel, pages,
                            wait_time=5 * 60, set_pagenum_footers=True)
 
@@ -446,7 +446,7 @@ class Dueling(commands.Cog):
         member = member or ctx.author
         data = cf_common.user_db.get_duels(member.id)
         pages = self._paginate_duels(
-            data, f'dueling history of {member.display_name}', ctx.guild.id, False)
+            data, f'dueling history of `{member.display_name}`', ctx.guild.id, False)
         paginator.paginate(self.bot, ctx.channel, pages,
                            wait_time=5 * 60, set_pagenum_footers=True)
 
