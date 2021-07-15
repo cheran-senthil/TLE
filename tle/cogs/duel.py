@@ -113,7 +113,7 @@ class Dueling(commands.Cog):
         rc = cf_common.user_db.register_duelist(member.id)
         if rc == 0:
             raise DuelCogError(
-                f'{member.display_name} is already a registered duelist')
+                f'{member.mention} is already a registered duelist')
         await ctx.send(f'{member.mention} successfully registered as a duelist.')
 
     @duel.command(brief='Register yourself as a duelist')
@@ -126,7 +126,7 @@ class Dueling(commands.Cog):
         rc = cf_common.user_db.register_duelist(ctx.author.id)
         if rc == 0:
             raise DuelCogError(
-                f'{ctx.author.display_name} is already a registered duelist')
+                f'{ctx.author.mention} is already a registered duelist')
         await ctx.send(f'{ctx.author.mention} successfully registered as a duelist')
 
     @duel.command(brief='Challenge to a duel')
@@ -146,7 +146,7 @@ class Dueling(commands.Cog):
                 f'{ctx.author.mention}, you are not a registered duelist!')
         if not cf_common.user_db.is_duelist(challengee_id):
             raise DuelCogError(
-                f'{opponent.display_name} is not a registered duelist!')
+                f'{opponent.mention} is not a registered duelist!')
         if challenger_id == challengee_id:
             raise DuelCogError(
                 f'{ctx.author.mention}, you cannot challenge yourself!')
@@ -155,7 +155,7 @@ class Dueling(commands.Cog):
                 f'{ctx.author.mention}, you are currently in a duel!')
         if cf_common.user_db.check_duel_challenge(challengee_id):
             raise DuelCogError(
-                f'{opponent.display_name} is currently in a duel!')
+                f'{opponent.mention} is currently in a duel!')
 
         users = [cf_common.user_db.fetch_cf_user(handle) for handle in handles]
         lowest_rating = min(user.rating or 0 for user in users)
@@ -199,7 +199,9 @@ class Dueling(commands.Cog):
         await ctx.send(f'{ctx.author.mention} is challenging {opponent.mention} to {ostr} {rstr}duel!')
         await asyncio.sleep(_DUEL_EXPIRY_TIME)
         if cf_common.user_db.cancel_duel(duelid, Duel.EXPIRED):
-            await ctx.send(f'{ctx.author.mention}, your request to duel {opponent.display_name} has expired!')
+            message = f'{ctx.author.mention}, your request to duel {opponent.mention} has expired!'
+            embed = discord_common.embed_alert(message)
+            await ctx.send(embed=embed)
 
     @duel.command(brief='Decline a duel')
     async def decline(self, ctx):
@@ -211,7 +213,9 @@ class Dueling(commands.Cog):
         duelid, challenger = active
         challenger = ctx.guild.get_member(challenger)
         cf_common.user_db.cancel_duel(duelid, Duel.DECLINED)
-        await ctx.send(f'`{ctx.author.display_name}` declined a challenge by {challenger.mention}.')
+        message = f'`{ctx.author.mention}` declined a challenge by {challenger.mention}.'
+        embed = discord_common.embed_alert(message)
+        await ctx.send(embed=embed)
 
     @duel.command(brief='Withdraw a challenge')
     async def withdraw(self, ctx):
@@ -223,7 +227,9 @@ class Dueling(commands.Cog):
         duelid, challengee = active
         challengee = ctx.guild.get_member(challengee)
         cf_common.user_db.cancel_duel(duelid, Duel.WITHDRAWN)
-        await ctx.send(f'{ctx.author.mention} withdrew a challenge to `{challengee.display_name}`.')
+        message = f'{ctx.author.mention} withdrew a challenge to `{challengee.mention}`.'
+        embed = discord_common.embed_alert(message)
+        await ctx.send(embed=embed)
 
     @duel.command(brief='Accept a duel')
     async def accept(self, ctx):
@@ -346,7 +352,7 @@ class Dueling(commands.Cog):
         member = member or ctx.author
         if not cf_common.user_db.is_duelist(member.id):
             raise DuelCogError(
-                f'{member.display_name} is not a registered duelist.')
+                f'{member.mention} is not a registered duelist.')
 
         user = get_cf_user(member.id, ctx.guild.id)
         rating = cf_common.user_db.get_duel_rating(member.id)
@@ -413,7 +419,7 @@ class Dueling(commands.Cog):
             return message, embed
 
         if not data:
-            raise DuelCogError(f'There are no duels to show.')
+            raise DuelCogError('There are no duels to show.')
 
         return [make_page(chunk) for chunk in paginator.chunkify(data, 7)]
 
@@ -436,8 +442,9 @@ class Dueling(commands.Cog):
                     l += 1
             else:
                 d += 1
+        message = discord.utils.escape_mentions(f'`{member1.display_name}` ({w}/{d}/{l}) `{member2.display_name}`')
         pages = self._paginate_duels(
-            data, f'`{member1.display_name}` ({w}/{d}/{l}) `{member2.display_name}`', ctx.guild.id, False)
+            data, message, ctx.guild.id, False)
         paginator.paginate(self.bot, ctx.channel, pages,
                            wait_time=5 * 60, set_pagenum_footers=True)
 
@@ -445,8 +452,9 @@ class Dueling(commands.Cog):
     async def history(self, ctx, member: discord.Member = None):
         member = member or ctx.author
         data = cf_common.user_db.get_duels(member.id)
+        message = discord.utils.escape_mentions(f'dueling history of `{member.display_name}`')
         pages = self._paginate_duels(
-            data, f'dueling history of `{member.display_name}`', ctx.guild.id, False)
+            data, message, ctx.guild.id, False)
         paginator.paginate(self.bot, ctx.channel, pages,
                            wait_time=5 * 60, set_pagenum_footers=True)
 
@@ -547,7 +555,7 @@ class Dueling(commands.Cog):
         """Declare an ongoing duel invalid."""
         active = cf_common.user_db.check_duel_complete(member.id)
         if not active:
-            raise DuelCogError(f'{member.display_name} is not in a duel.')
+            raise DuelCogError(f'{member.mention} is not in a duel.')
 
         duelid, challenger_id, challengee_id, _, _, _, _, _ = active
         await self.invalidate_duel(ctx, duelid, challenger_id, challengee_id)
