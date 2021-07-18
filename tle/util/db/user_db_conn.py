@@ -475,11 +475,11 @@ class UserDbConn:
         self.conn.commit()
 
     def check_exists_starboard_message(self, original_msg_id):
-        query = ('SELECT COUNT(*) AS cnt '
+        query = ('SELECT 1 '
                  'FROM starboard_message '
                  'WHERE original_msg_id = ?')
         res = self.conn.execute(query, (original_msg_id,)).fetchone()
-        return res.cnt != 0
+        return res is not None
 
     def remove_starboard_message(self, *, original_msg_id=None, starboard_msg_id=None):
         assert (original_msg_id is None) ^ (starboard_msg_id is None)
