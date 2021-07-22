@@ -13,13 +13,16 @@ gi.require_version('PangoCairo', '1.0')
 from gi.repository import Pango, PangoCairo
 
 import discord
-import random
+import random, string
 from discord.ext import commands
 
 from tle import constants
 from tle.util import cache_system2
 from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
+from tle.util import clist_api as clist
+from tle.util.clist_api import _CLIST_RESOURCE_SHORT_FORMS, _SUPPORTED_CLIST_RESOURCES
+from tle.util import scaper
 from tle.util import discord_common
 from tle.util import events
 from tle.util import paginator
@@ -78,6 +81,10 @@ FONTS = [
     'Noto Sans CJK HK',
     'Noto Sans CJK KR',
 ]
+
+def randomword(length):
+    letters = string.ascii_lowercase
+    return ''.join(random.choice(letters) for i in range(length))
 
 def get_gudgitters_image(rankings):
     """return PIL image for rankings"""
@@ -341,12 +348,49 @@ class Handles(commands.Cog):
     @handle.command(brief='Set Codeforces handle of a user')
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
     async def set(self, ctx, member: discord.Member, handle: str):
-        """Set Codeforces handle of a user."""
+        """Set codeforces/codechef/atcoder/google handle of a user.
+
+        Some examples are given below
+        ;handle set @Benjamin Benq
+        ;handle set @Kamil cf:Errichto
+        ;handle set @Gennady codechef:gennady.korotkevich
+        ;handle set @Paramjeet cc:thesupremeone
+        ;handle set @Jatin atcoder:nagpaljatin1411
+        ;handle set @Alex ac:Um_nik
+        ;handle set @Priyansh google:Priyansh31dec
+        """
+        resource = 'codeforces.com'
+        if ':' in handle:
+            resource = handle[0: handle.index(':')]
+            handle = handle[handle.index(':')+1:]
+        if resource in _CLIST_RESOURCE_SHORT_FORMS:
+            resource = _CLIST_RESOURCE_SHORT_FORMS[resource]
+        if resource!='codeforces.com':
+            if resource=='all':
+                resource = None
+            if resource!=None and resource not in _SUPPORTED_CLIST_RESOURCES:
+                raise HandleCogError(f'The resource `{resource}` is not supported.')
+            users = await clist.account(handle=handle, resource=resource)
+            message = f'Following handles for `{member.mention}` have been linked\n'
+            for user in users:
+                if user['resource'] not in _SUPPORTED_CLIST_RESOURCES:
+                    continue
+                message += user['resource']+' : '+user['handle']+'\n'
+                await self._set_account_id(member.id, ctx.guild, user)
+            return await ctx.send(message)
         # CF API returns correct handle ignoring case, update to it
         user, = await cf.user.info(handles=[handle])
         await self._set(ctx, member, user)
         embed = _make_profile_embed(member, user, mode='set')
         await ctx.send(embed=embed)
+    
+    async def _set_account_id(self, member_id, guild, user):
+        try:
+            guild_id = guild.id
+            cf_common.user_db.set_account_id(member_id, guild_id, user['id'], user['resource'])
+        except db.UniqueConstraintFailed:
+            raise HandleCogError(f'The handle `{user["handle"]}` is already associated with another user.')
+        cf_common.user_db.cache_clist_user(user)
 
     async def _set(self, ctx, member, user):
         handle = user.handle
@@ -370,7 +414,55 @@ class Handles(commands.Cog):
     @cf_common.user_guard(group='handle',
                           get_exception=lambda: HandleCogError('Identification is already running for you'))
     async def identify(self, ctx, handle: str):
-        """Link a codeforces account to discord account by submitting a compile error to a random problem"""
+        """Link a codeforces/codechef/atcoder account to discord account
+        
+        Some examples are given below
+        ;handle identify Benq
+        ;handle identify cf:Errichto
+        ;handle identify codechef:gennady.korotkevich
+        ;handle identify cc:thesupremeone
+        ;handle identify atcoder:nagpaljatin1411
+        ;handle identify ac:Um_nik
+
+        For linking google handles, please contact a moderator  
+        """
+
+        invoker = str(ctx.author)
+        resource = 'codeforces.com'
+
+        if ':' in handle:
+            resource = handle[0: handle.index(':')]
+            handle = handle[handle.index(':')+1:]
+        if resource in _CLIST_RESOURCE_SHORT_FORMS:
+            resource = _CLIST_RESOURCE_SHORT_FORMS[resource]
+        
+        if resource!='codeforces.com':
+            if resource=='all':
+                return await ctx.send(f'Sorry `{invoker}`, all keyword can only be used with set command')
+            if resource=='codingcompetitions.withgoogle.com':
+                return await ctx.send(f'Sorry `{invoker}`, you can\'t identify handles of codingcompetitions.withgoogle.com, please ask a moderator to link your account.')                e
+            if resource not in _SUPPORTED_CLIST_RESOURCES:
+                raise HandleCogError(f'The resource `{resource}` is not supported.')
+            wait_msg = await ctx.channel.send('Fetching account details, please wait...')
+            users = await clist.account(handle, resource)
+            user = users[0]
+            token = randomword(8)
+            await wait_msg.delete()
+            field = "name" 
+            if resource=='atcoder.jp': field = 'affiliation'
+            wait_msg = await ctx.send(f'`{invoker}`, change your {field} to `{token}` on {resource} within 60 seconds')
+            await asyncio.sleep(60)
+            await wait_msg.delete()
+            wait_msg = await ctx.channel.send(f'Verifying {field} change...')
+            if scaper.assert_display_name(handle, token, resource, ctx.author.mention):
+                member = ctx.author
+                await self._set_account_id(member.id, ctx.guild, user)
+                await wait_msg.delete()
+                await ctx.send(f'Your handle is now linked, `{invoker}`')
+            else:
+                await wait_msg.delete()
+                await ctx.send(f'Sorry `{invoker}`, can you try again?')
+            return
         if cf_common.user_db.get_handle(ctx.author.id, ctx.guild.id):
             raise HandleCogError(f'{ctx.author.mention}, you cannot identify when your handle is '
                                  'already set. Ask an Admin or Moderator if you wish to change it')
