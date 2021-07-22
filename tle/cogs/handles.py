@@ -233,23 +233,25 @@ def _make_profile_embed(member, user, *, mode):
     return embed
 
 
-def _make_pages(users, title):
+def _make_pages(users, title, resource='codeforces.com'):
     chunks = paginator.chunkify(users, _HANDLES_PER_PAGE)
     pages = []
     done = 0
-
+    no_rating = resource=='codingcompetitions.withgoogle.com'
+    no_rating_suffix = resource!='codeforces.com'
     style = table.Style('{:>}  {:<}  {:<}  {:<}')
     for chunk in chunks:
         t = table.Table(style)
-        t += table.Header('#', 'Name', 'Handle', 'Rating')
+        t += table.Header('#', 'Name', 'Handle', 'Contests' if no_rating else 'Rating')
         t += table.Line()
-        for i, (member, handle, rating) in enumerate(chunk):
-            name = member.display_name
+        for i, (member, handle, rating, n_contests) in enumerate(chunk):
+            name = member.display_name if member else ""
             if len(name) > _NAME_MAX_LEN:
                 name = name[:_NAME_MAX_LEN - 1] + '…'
             rank = cf.rating2rank(rating)
             rating_str = 'N/A' if rating is None else str(rating)
-            t += table.Data(i + done, name, handle, f'{rating_str} ({rank.title_abbr})')
+            fourth = n_contests if no_rating else ((f'{rating_str}')+((f'({rank.title_abbr})') if not no_rating_suffix else ''))
+            t += table.Data(i + done, name, handle, fourth)
         table_str = '```\n'+str(t)+'\n```'
         embed = discord_common.cf_color_embed(description=table_str)
         pages.append((title, embed))
@@ -613,19 +615,39 @@ class Handles(commands.Cog):
         if you wish to display only members from those countries. Country data is
         sourced from codeforces profiles. e.g. ;handle list Croatia Slovenia
         """
-        countries = [country.title() for country in countries]
-        res = cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)
-        users = [(ctx.guild.get_member(user_id), cf_user.handle, cf_user.rating)
-                 for user_id, cf_user in res if not countries or cf_user.country in countries]
-        users = [(member, handle, rating) for member, handle, rating in users if member is not None]
+        resource = 'codeforces.com'
+        if len(countries)==1:
+            country = countries[0]
+            if country in _CLIST_RESOURCE_SHORT_FORMS:
+                resource = _CLIST_RESOURCE_SHORT_FORMS[country]
+                countries = []
+            elif country in _SUPPORTED_CLIST_RESOURCES:
+                resource = country
+                countries = []
+        if resource!='codeforces.com':
+            clist_users = cf_common.user_db.get_clist_users_for_guild(ctx.guild.id, resource=resource)
+            users = []
+            for user in clist_users:
+                handle = user['handle']
+                rating = int(user['rating']) if user['rating']!=None else None
+                member = ctx.guild.get_member(int(user['user_id']))
+                n_contests = user['n_contests']
+                users.append((member, handle, rating, n_contests))
+        else:
+            countries = [country.title() for country in countries]
+            res = cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)
+            users = [(ctx.guild.get_member(user_id), cf_user.handle, cf_user.rating)
+                    for user_id, cf_user in res if not countries or cf_user.country in countries]
+            users = [(member, handle, rating, 0) for member, handle, rating in users if member is not None]
         if not users:
             raise HandleCogError('No members with registered handles.')
 
         users.sort(key=lambda x: (1 if x[2] is None else -x[2], x[1]))  # Sorting by (-rating, handle)
-        title = 'Handles of server members'
+        title = 'Handles of server members ('+str(resource)+')'
+        
         if countries:
             title += ' from ' + ', '.join(f'`{country}`' for country in countries)
-        pages = _make_pages(users, title)
+        pages = _make_pages(users, title, resource)
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=_PAGINATE_WAIT_TIME,
                            set_pagenum_footers=True)
 
