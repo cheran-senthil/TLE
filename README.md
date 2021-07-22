@@ -23,6 +23,7 @@ The features of the bot are split into a number of cogs, each handling their own
 - **CacheControl** Commands related to data caching.
 
 ## Installation
+
 > If you want to run the bot inside a docker container follow these [instructions](/Docker.md)
 
 Clone the repository
@@ -84,6 +85,7 @@ Fill in appropriate variables in new "environment" file.
 - **ALLOW_DUEL_SELF_REGISTER**: boolean value indicating if self registration for duels is enabled.
 - **TLE_ADMIN**: the name of the role that can run admin commands of the bot. If this is not set, the role name will default to "Admin".
 - **TLE_MODERATOR**: the name of the role that can run moderator commands of the bot. If this is not set, the role name will default to "Moderator".
+- **CLIST_API_TOKEN**: Credential for accessing clist api, You can find your api key [here][https://clist.by/api/v2/doc/] after creating an account on clist.by. If this is not set, codechef/atcoder/google(kickstart) related commands won't work.
 
 To start TLE just run:
 
