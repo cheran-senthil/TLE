@@ -7,6 +7,7 @@ import discord
 from discord.ext import commands
 
 from tle.util import codeforces_api as cf
+from tle.util import clist_api as clist
 from tle.util import db
 from tle.util import tasks
 
@@ -80,6 +81,8 @@ async def bot_error_handler(ctx, exception):
     elif isinstance(exception, commands.DisabledCommand):
         await ctx.send(embed=embed_alert('Sorry, this command is temporarily disabled'))
     elif isinstance(exception, (cf.CodeforcesApiError, commands.UserInputError)):
+        await ctx.send(embed=embed_alert(exception))
+    elif isinstance(exception, (clist.ClistNotConfiguredError, clist.ClistApiError)):
         await ctx.send(embed=embed_alert(exception))
     else:
         msg = 'Ignoring exception in command {}:'.format(ctx.command)

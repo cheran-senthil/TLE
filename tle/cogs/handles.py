@@ -270,6 +270,7 @@ class Handles(commands.Cog):
     async def on_ready(self):
         cf_common.event_sys.add_listener(self._on_rating_changes)
         self._set_ex_users_inactive_task.start()
+        self._update_clist_users_cache.start()
 
     @commands.Cog.listener()
     async def on_member_remove(self, member):
@@ -329,7 +330,7 @@ class Handles(commands.Cog):
                      waiter=tasks.Waiter.fixed_delay(_UPDATE_CLIST_CACHE_INTERVAL))
     async def _update_clist_users_cache(self, _):
         account_ids = cf_common.user_db.get_all_account_ids()
-        clist_users = clist.fetch_user_info(resource=None, account_ids=account_ids)
+        clist_users = await clist.fetch_user_info(resource=None, account_ids=account_ids)
         if clist_users:
             for user in clist_users:
                 cf_common.user_db.cache_clist_user(user)
