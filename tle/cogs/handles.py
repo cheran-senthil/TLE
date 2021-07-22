@@ -40,7 +40,7 @@ _PRETTY_HANDLES_PER_PAGE = 10
 _TOP_DELTAS_COUNT = 10
 _MAX_RATING_CHANGES_PER_EMBED = 15
 _UPDATE_HANDLE_STATUS_INTERVAL = 6 * 60 * 60  # 6 hours
-
+_UPDATE_CLIST_CACHE_INTERVAL = 2 * 60 * 60 # 2 hours
 
 class HandleCogError(commands.CommandError):
     pass
@@ -324,6 +324,15 @@ class Handles(commands.Cog):
         await asyncio.gather(*(update_for_guild(guild) for guild in self.bot.guilds),
                              return_exceptions=True)
         self.logger.info(f'All guilds updated for contest {contest.id}.')
+
+    @tasks.task_spec(name='RefreshClistUserCache',
+                     waiter=tasks.Waiter.fixed_delay(_UPDATE_CLIST_CACHE_INTERVAL))
+    async def _update_clist_users_cache(self, _):
+        account_ids = cf_common.user_db.get_all_account_ids()
+        clist_users = clist.fetch_user_info(resource=None, account_ids=account_ids)
+        if clist_users:
+            for user in clist_users:
+                cf_common.user_db.cache_clist_user(user)
 
     @commands.group(brief='Commands that have to do with handles', invoke_without_command=True)
     async def handle(self, ctx):
