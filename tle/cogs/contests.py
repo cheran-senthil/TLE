@@ -593,7 +593,7 @@ class Contests(commands.Cog):
         return contest
 
     @commands.command(brief='Show ranklist for given handles and/or server members')
-    async def ranklist(self, ctx, contest_id: int, *handles: str):
+    async def ranklist(self, ctx, contest_id: str, *handles: str):
         """Shows ranklist for the contest with given contest id. If handles contains
         '+server', all server members are included. No handles defaults to '+server'.
         

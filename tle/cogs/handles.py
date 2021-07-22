@@ -370,8 +370,9 @@ class Handles(commands.Cog):
                 resource = None
             if resource!=None and resource not in _SUPPORTED_CLIST_RESOURCES:
                 raise HandleCogError(f'The resource `{resource}` is not supported.')
+            member_username = str(member)
             users = await clist.account(handle=handle, resource=resource)
-            message = f'Following handles for `{member.mention}` have been linked\n'
+            message = f'Following handles for `{member_username}` have been linked\n'
             for user in users:
                 if user['resource'] not in _SUPPORTED_CLIST_RESOURCES:
                     continue
@@ -440,7 +441,7 @@ class Handles(commands.Cog):
             if resource=='all':
                 return await ctx.send(f'Sorry `{invoker}`, all keyword can only be used with set command')
             if resource=='codingcompetitions.withgoogle.com':
-                return await ctx.send(f'Sorry `{invoker}`, you can\'t identify handles of codingcompetitions.withgoogle.com, please ask a moderator to link your account.')                e
+                return await ctx.send(f'Sorry `{invoker}`, you can\'t identify handles of codingcompetitions.withgoogle.com, please ask a moderator to link your account.')
             if resource not in _SUPPORTED_CLIST_RESOURCES:
                 raise HandleCogError(f'The resource `{resource}` is not supported.')
             wait_msg = await ctx.channel.send('Fetching account details, please wait...')

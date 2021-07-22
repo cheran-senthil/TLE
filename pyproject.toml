@@ -14,6 +14,7 @@ pycairo = "^1.19.1"
 PyGObject = "^3.34.0"
 aiocache = "^0.11.1"
 beautifulsoup4 = "^4.9.3"
+requests = "^2.26.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^3.0"
