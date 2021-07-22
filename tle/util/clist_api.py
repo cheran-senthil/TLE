@@ -103,3 +103,73 @@ async def account(handle, resource):
     if len(resp)==0:
         raise HandleNotFoundError(handle=handle, resource=resource) 
     return resp
+
+async def fetch_user_info(resource, account_ids=None, handles=None):
+    params = {'resource':resource, 'limit':1000}
+    if account_ids!=None:
+        ids = ""
+        for i in range(len(account_ids)):
+            ids += str(account_ids[i])
+            if i!=(len(account_ids)-1):
+                ids += ','
+        params['id__in']=ids
+    if handles!=None:
+        regex = '$|^'.join(handles)
+        params['handle__regex'] = '^'+regex+'$'
+    resp = await _query_clist_api('account', params)
+    if resp==None or 'objects' not in resp:
+        raise ClientError
+    else:
+        resp = resp['objects']
+    return resp
+
+async def statistics(account_id=None, contest_id=None, order_by=None, account_ids=None, resource=None):
+    params = {'limit':1000}
+    if account_id!=None: params['account_id'] = account_id
+    if contest_id!=None: params['contest_id'] = contest_id
+    if order_by!=None: params['order_by'] = order_by
+    if account_ids!=None:
+        ids = ""
+        for i in range(len(account_ids)):
+            ids += str(account_ids[i])
+            if i!=(len(account_ids)-1):
+                ids += ','
+        params['account_id__in']=ids
+    if resource!=None: params['resource'] = resource
+    results = []
+    offset = 0
+    while True:
+        params['offset'] = offset
+        resp = await _query_clist_api('statistics', params)
+        if resp==None or 'objects' not in resp:
+            if offset==0:
+                raise ClientError
+            else:
+                break
+        else:
+            objects = resp['objects']
+            results += objects
+            if(len(objects)<1000):
+                break
+        offset+=1000
+    return results
+
+async def contest(contest_id):
+    resp = await _query_clist_api('contest/'+str(contest_id), None)
+    return resp
+
+async def search_contest(regex=None, date_limits=None, resource=None):
+    params = {'limit':1000}
+    if resource!=None:
+        params['resource'] = resource
+    if regex!=None:
+        params['event__regex'] = regex
+    if date_limits!=None:
+        params['start__gte'] = date_limits[0]
+        params['start__lt'] = date_limits[1]
+    resp = await _query_clist_api('contest', data=params)
+    if resp==None or 'objects' not in resp:
+        raise ClientError
+    else:
+        resp = resp['objects']
+    return resp

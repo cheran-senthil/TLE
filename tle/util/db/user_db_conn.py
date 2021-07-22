@@ -485,6 +485,13 @@ class UserDbConn:
         account_id, resource, handle, name, rating, contests = user
         return {'id':account_id, 'resource':resource, 'handle':handle, 
                 'name':name, 'rating':rating, 'n_contests':contests}
+            
+    def get_account_id_from_handle(self, handle, resource):
+        query = ('SELECT account_id '
+                 'FROM clist_user_cache '
+                 'WHERE handle = ? AND resource = ?')
+        res = self.conn.execute(query, (handle, resource,)).fetchone()
+        return res[0] if res else None
 
     def get_user_id(self, handle, guild_id):
         query = ('SELECT user_id '
