@@ -95,6 +95,25 @@ class UserDbConn:
             'title_photo         TEXT'
             ')'
         )
+        self.conn.execute(
+            'CREATE TABLE IF NOT EXISTS clist_account_ids ('
+            'guild_id    TEXT,'
+            'user_id     TEXT,'
+            'resource    TEXT,'
+            'account_id  INTEGER,'
+            'PRIMARY KEY (user_id, guild_id, resource)'
+            ')'
+        )
+        self.conn.execute(
+            'CREATE TABLE IF NOT EXISTS clist_user_cache ('
+            'account_id  INTEGER PRIMARY KEY,'
+            'resource    TEXT,'
+            'handle      TEXT,'
+            'name        TEXT,'
+            'rating      INTEGER,'
+            'contests    INTEGER'
+            ')'
+        )
         # TODO: Make duel tables guild-aware.
         self.conn.execute('''
             CREATE TABLE IF NOT EXISTS duelist(
@@ -396,6 +415,77 @@ class UserDbConn:
         res = self.conn.execute(query, (user_id, guild_id)).fetchone()
         return res[0] if res else None
 
+    def set_account_id(self, user_id, guild_id, account_id, resource):
+        query = ('SELECT user_id '
+                 'FROM clist_account_ids '
+                 'WHERE guild_id = ? AND account_id = ?')
+        existing = self.conn.execute(query, (guild_id, account_id)).fetchone()
+        if existing and int(existing[0]) != user_id:
+            raise UniqueConstraintFailed
+
+        query = ('INSERT OR REPLACE INTO clist_account_ids '
+                 '(guild_id, account_id, user_id, resource) '
+                 'VALUES (?, ?, ?, ?)')
+        res = None
+        with self.conn:
+            res = self.conn.execute(query, (guild_id, account_id, user_id, resource)).rowcount
+        return res
+
+    def get_account_id(self, user_id, guild_id, resource):
+        query = ('SELECT account_id '
+                'FROM clist_account_ids '
+                'WHERE user_id = ? AND guild_id = ? AND resource = ?')
+        res = self.conn.execute(query, (user_id, guild_id, resource)).fetchone()
+        return res[0] if res else None
+    
+    def get_account_ids_for_user(self, user_id, guild_id):
+        query = ('SELECT account_id, resource '
+            'FROM clist_account_ids '
+            'WHERE user_id = ? AND guild_id = ?')
+        res = self.conn.execute(query, (user_id, guild_id)).fetchall()
+        ans = {}
+        for account_id, resource in res:
+            ans[resource] = account_id
+        return ans
+    
+    def get_account_ids_for_guild(self, guild_id, resource):
+        query = ('SELECT user_id, account_id '
+                 'FROM clist_account_ids '
+                 'WHERE guild_id = ? AND resource = ?')
+        res = self.conn.execute(query, (guild_id, resource)).fetchall()
+        return [(int(user_id), int(account_id)) for user_id, account_id in res]
+
+    def get_clist_users_for_guild(self, guild_id, resource):
+        query = ('SELECT u.user_id, c.account_id , c.resource, c.handle, c.name, c.rating, c.contests '
+                 'FROM clist_account_ids AS u '
+                 'LEFT JOIN clist_user_cache AS c '
+                 'ON u.account_id = c.account_id '
+                 'WHERE u.guild_id = ? AND u.resource = ? ')
+        res = self.conn.execute(query, (guild_id,resource,)).fetchall()
+        
+        return [{'user_id':user_id, 'id':account_id, 'resource':resource,
+                         'handle':handle, 'name':name, 'rating':rating, 'n_contests':contests} 
+                         for user_id, account_id, resource, handle, name, rating, contests in res]
+
+    def cache_clist_user(self, user):
+        query = ('INSERT OR REPLACE INTO clist_user_cache '
+                 '(account_id, resource, handle, name, rating, contests) '
+                 'VALUES (?, ?, ?, ?, ?, ?)')
+        with self.conn:
+            return self.conn.execute(query, (user['id'], user['resource'], user['handle'], 
+                                                user['name'], user['rating'], user['n_contests'])).rowcount
+
+    def fetch_clist_user(self, account_id):
+        query = ('SELECT account_id, resource, handle, name, rating, contests '
+                 'FROM clist_user_cache '
+                 'WHERE account_id = ?')
+        user = self.conn.execute(query, (account_id,)).fetchone()
+        if not user:
+            return None
+        account_id, resource, handle, name, rating, contests = user
+        return {'id':account_id, 'resource':resource, 'handle':handle, 
+                'name':name, 'rating':rating, 'n_contests':contests}
+
     def get_user_id(self, handle, guild_id):
         query = ('SELECT user_id '
                  'FROM user_handle '
@@ -404,10 +494,13 @@ class UserDbConn:
         return int(res[0]) if res else None
 
     def remove_handle(self, user_id, guild_id):
-        query = ('DELETE FROM user_handle '
+        query1 = ('DELETE FROM user_handle '
+                 'WHERE user_id = ? AND guild_id = ?')
+        query2 = ('DELETE FROM clist_account_ids '
                  'WHERE user_id = ? AND guild_id = ?')
         with self.conn:
-            return self.conn.execute(query, (user_id, guild_id)).rowcount
+            self.conn.execute(query1, (user_id, guild_id)).rowcount
+            self.conn.execute(query2, (user_id, guild_id)).rowcount
 
     def get_handles_for_guild(self, guild_id):
         query = ('SELECT user_id, handle '
