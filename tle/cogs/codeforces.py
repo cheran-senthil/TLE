@@ -259,7 +259,13 @@ class Codeforces(commands.Cog):
     @commands.command(brief='Challenge')
     @cf_common.user_guard(group='gitgud')
     async def gitgud(self, ctx, delta: int = 0):
-        """Request a problem for gitgud points.
+        """Gitgud: You can request a problem from the bots realtive to your current rating with ;gitgud <delta>.
+        After solving the problem you can claim gitgud points for it with ;gotgud
+        If you can't solve the problem for 2 hours you can skip it with ;nogud
+        The all-time ranklist can be found with ;gitgudders
+        A monthly ranklist is shown when you type ;monthlygitgudders
+        For help with each of the commands you can type ;help <command> (e.g. ;help gitgudders)
+        Point distribution:
         delta  | -300 | -200 | -100 |  0  | +100 | +200 | +300 | +400 | +500
         points |   2  |   3  |   5  |  8  |  12  |  17  |  23  |  23  |  23
         """
