@@ -342,7 +342,7 @@ class Graphs(commands.Cog):
         if not solved and not unsolved:
             solved = unsolved = True
         
-        dlo, dhi = 0, 10**10
+        dlo, dhi = datetime.datetime(2000, 1, 1), datetime.datetime(3000, 1, 1)
         for arg in args:
             if arg[0:2] == 'd<':
                 dhi = parse_date(arg[2:])
