@@ -357,14 +357,12 @@ class Graphs(commands.Cog):
         if not solved and not unsolved:
             solved = unsolved = True
         
-        dlo, dhi = datetime.datetime(2000, 1, 1), datetime.datetime(3000, 1, 1)
+        dlo, dhi = 0, 10**10
         for arg in args:
             if arg[0:2] == 'd<':
                 dhi = parse_date(arg[2:])
             elif arg[0:3] == 'd>=':
                 dlo = parse_date(arg[3:])            
-        tdlo = int(dlo.timestamp())
-        tdhi = int(dhi.timestamp())
 
         handles = args or ('!' + str(ctx.author),)
         handle, = await cf_common.resolve_handles(ctx, self.converter, handles)
@@ -372,7 +370,7 @@ class Graphs(commands.Cog):
         if not ratingchanges:
             raise GraphCogError(f'User {handle} is not rated')
 
-        contest_ids = [change.contestId for change in ratingchanges if change.ratingUpdateTimeSeconds>=tdlo and change.ratingUpdateTimeSeconds<=tdhi]
+        contest_ids = [change.contestId for change in ratingchanges if dlo <= change.ratingUpdateTimeSeconds < dhi]
 
         
         subs_by_contest_id = {contest_id: [] for contest_id in contest_ids}
