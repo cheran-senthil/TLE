@@ -348,8 +348,8 @@ class Graphs(commands.Cog):
                 dhi = min(dhi, parse_date(arg[2:]))
             elif arg[0:3] == 'd>=':
                 dlo = max(dlo, parse_date(arg[3:]))            
-        tdlo = int(dlo.timestamp)
-        tdhi = int(dhi.timestamp)
+        tdlo = int(dlo.timestamp())
+        tdhi = int(dhi.timestamp())
 
         handles = args or ('!' + str(ctx.author),)
         handle, = await cf_common.resolve_handles(ctx, self.converter, handles)
