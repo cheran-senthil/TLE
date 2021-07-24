@@ -125,5 +125,6 @@ class CSES(commands.Cog):
             await ctx.send('CSES leaderboards updated!')
 
 
-def setup(bot):
+#def setup(bot):
 #    bot.add_cog(CSES(bot))
+
