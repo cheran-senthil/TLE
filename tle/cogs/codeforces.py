@@ -78,7 +78,6 @@ class Codeforces(commands.Cog):
         delta  | -300 | -200 | -100 |  0  | +100 | +200 | +300 | +400 | +500
         points |   2  |   3  |   5  |  8  |  12  |  17  |  23  |  23  |  23
         """
-        await self._validate_gitgud_status(ctx,delta=None)
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         user = cf_common.user_db.fetch_cf_user(handle)
         rating = round(user.effective_rating, -2)
