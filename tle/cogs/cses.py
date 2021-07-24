@@ -126,4 +126,4 @@ class CSES(commands.Cog):
 
 
 def setup(bot):
-    bot.add_cog(CSES(bot))
+#    bot.add_cog(CSES(bot))
