@@ -29,6 +29,19 @@ pd.plotting.register_matplotlib_converters()
 # A user is considered active if the duration since his last contest is not more than this
 CONTEST_ACTIVE_TIME_CUTOFF = 90 * 24 * 60 * 60 # 90 days
 
+def parse_date(arg):
+    try:
+        if len(arg) == 8:
+            fmt = '%d%m%Y'
+        elif len(arg) == 6:
+            fmt = '%m%Y'
+        elif len(arg) == 4:
+            fmt = '%Y'
+        else:
+            raise ValueError
+        return time.mktime(datetime.datetime.strptime(arg, fmt).timetuple())
+    except ValueError:
+        raise ParamParseError(f'{arg} is an invalid date argument')
 
 class GraphCogError(commands.CommandError):
     pass
