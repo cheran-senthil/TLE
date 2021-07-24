@@ -64,7 +64,17 @@ class Codeforces(commands.Cog):
     @commands.command(brief='Upsolve a problem')
     @cf_common.user_guard(group='gitgud')
     async def upsolve(self, ctx, choice: int = -1):
-        """Request an unsolved problem from a contest you participated in
+        """Upsolve: The command ;upsolve lists all problems that you haven't solved in contests you participated and which are within the range -300 to +500 of your current rating
+        - Type ;upsolve for listing all available problems.
+        - Type ;upsolve <nr> for choosing the problem <nr> as gitgud problem (only possible if you have no active gitgud challenge)
+        - After solving the problem you can claim gitgud points for it with ;gotgud
+        - If you can't solve the problem for 2 hours you can skip it with ;nogud
+        - The all-time ranklist can be found with ;gitgudders
+        - A monthly ranklist is shown when you type ;monthlygitgudders
+        - Another way to gather gitgud points is ;gitgud (only works if you have no active gitgud-Challenge)
+        - For help with each of the commands you can type ;help <command> (e.g. ;help gitgudders)
+        
+        Point distribution:
         delta  | -300 | -200 | -100 |  0  | +100 | +200 | +300 | +400 | +500
         points |   2  |   3  |   5  |  8  |  12  |  17  |  23  |  23  |  23
         """
@@ -89,6 +99,7 @@ class Codeforces(commands.Cog):
             problem.contestId).startTimeSeconds, reverse=True)
 
         if choice > 0 and choice <= len(problems):
+            await self._validate_gitgud_status(ctx,delta=None)
             problem = problems[choice - 1]
             await self._gitgud(ctx, handle, problem, problem.rating - rating)
         else:
@@ -259,12 +270,14 @@ class Codeforces(commands.Cog):
     @commands.command(brief='Challenge')
     @cf_common.user_guard(group='gitgud')
     async def gitgud(self, ctx, delta: int = 0):
-        """Gitgud: You can request a problem from the bots relative to your current rating with ;gitgud <delta>.
-        After solving the problem you can claim gitgud points for it with ;gotgud
-        If you can't solve the problem for 2 hours you can skip it with ;nogud
-        The all-time ranklist can be found with ;gitgudders
-        A monthly ranklist is shown when you type ;monthlygitgudders
-        For help with each of the commands you can type ;help <command> (e.g. ;help gitgudders)
+        """Gitgud: You can request a problem from the bots relative to your current rating with ;gitgud <delta>
+        - After solving the problem you can claim gitgud points for it with ;gotgud
+        - If you can't solve the problem for 2 hours you can skip it with ;nogud
+        - The all-time ranklist can be found with ;gitgudders
+        - A monthly ranklist is shown when you type ;monthlygitgudders
+        - Another way to gather gitgud points is ;upsolve (only works if you have no active gitgud-Challenge)
+        - For help with each of the commands you can type ;help <command> (e.g. ;help gitgudders)
+        
         Point distribution:
         delta  | -300 | -200 | -100 |  0  | +100 | +200 | +300 | +400 | +500
         points |   2  |   3  |   5  |  8  |  12  |  17  |  23  |  23  |  23
