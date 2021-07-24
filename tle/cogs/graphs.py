@@ -345,9 +345,9 @@ class Graphs(commands.Cog):
         dlo, dhi = 0, 10**10
         for arg in args:
             if arg[0:2] == 'd<':
-                dhi = min(dhi, parse_date(arg[2:]))
+                dhi = parse_date(arg[2:])
             elif arg[0:3] == 'd>=':
-                dlo = max(dlo, parse_date(arg[3:]))            
+                dlo = parse_date(arg[3:])            
         tdlo = int(dlo.timestamp())
         tdhi = int(dhi.timestamp())
 
