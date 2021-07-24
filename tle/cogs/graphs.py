@@ -43,6 +43,19 @@ def parse_date(arg):
     except ValueError:
         raise ParamParseError(f'{arg} is an invalid date argument')
 
+def filter_date_flags(args):
+    args = list(args)
+    rest = []
+    dlo, dhi = 0, 10**10
+    for arg in args:
+        if arg[0:2] == 'd<':
+            dhi = parse_date(arg[2:])
+        elif arg[0:3] == 'd>=':
+            dlo = parse_date(arg[3:]) 
+        elif
+            rest.append(arg)
+    return dlo, dhi, rest
+
 class GraphCogError(commands.CommandError):
     pass
 
@@ -346,6 +359,9 @@ class Graphs(commands.Cog):
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
 
+
+
+
     @plot.command(brief='Plot Codeforces extremes graph',
                   usage='[handles] [+solved] [+unsolved] [+nolegend] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy]')
     async def extreme(self, ctx, *args: str):
@@ -357,12 +373,7 @@ class Graphs(commands.Cog):
         if not solved and not unsolved:
             solved = unsolved = True
         
-        dlo, dhi = 0, 10**10
-        for arg in args:
-            if arg[0:2] == 'd<':
-                dhi = parse_date(arg[2:])
-            elif arg[0:3] == 'd>=':
-                dlo = parse_date(arg[3:])            
+        dlo, dhi, args = filter_date_flags(args)            
 
         handles = args or ('!' + str(ctx.author),)
         handle, = await cf_common.resolve_handles(ctx, self.converter, handles)
