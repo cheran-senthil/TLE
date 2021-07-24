@@ -52,7 +52,7 @@ def filter_date_flags(args):
             dhi = parse_date(arg[2:])
         elif arg[0:3] == 'd>=':
             dlo = parse_date(arg[3:]) 
-        elif
+        else:
             rest.append(arg)
     return dlo, dhi, rest
 
