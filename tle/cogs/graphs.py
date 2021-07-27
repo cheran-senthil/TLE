@@ -29,33 +29,6 @@ pd.plotting.register_matplotlib_converters()
 # A user is considered active if the duration since his last contest is not more than this
 CONTEST_ACTIVE_TIME_CUTOFF = 90 * 24 * 60 * 60 # 90 days
 
-def parse_date(arg):
-    try:
-        if len(arg) == 8:
-            fmt = '%d%m%Y'
-        elif len(arg) == 6:
-            fmt = '%m%Y'
-        elif len(arg) == 4:
-            fmt = '%Y'
-        else:
-            raise ValueError
-        return time.mktime(datetime.datetime.strptime(arg, fmt).timetuple())
-    except ValueError:
-        raise ParamParseError(f'{arg} is an invalid date argument')
-
-def filter_date_flags(args):
-    args = list(args)
-    rest = []
-    dlo, dhi = 0, 10**10
-    for arg in args:
-        if arg[0:2] == 'd<':
-            dhi = parse_date(arg[2:])
-        elif arg[0:3] == 'd>=':
-            dlo = parse_date(arg[3:]) 
-        else:
-            rest.append(arg)
-    return dlo, dhi, rest
-
 class GraphCogError(commands.CommandError):
     pass
 
@@ -373,7 +346,8 @@ class Graphs(commands.Cog):
         if not solved and not unsolved:
             solved = unsolved = True
         
-        dlo, dhi, args = filter_date_flags(args)            
+        filt = cf_common.SubFilter()
+        args = filt.parse(args)
 
         handles = args or ('!' + str(ctx.author),)
         handle, = await cf_common.resolve_handles(ctx, self.converter, handles)
@@ -381,8 +355,8 @@ class Graphs(commands.Cog):
         if not ratingchanges:
             raise GraphCogError(f'User {handle} is not rated')
 
-        contest_ids = [change.contestId for change in ratingchanges if dlo <= change.ratingUpdateTimeSeconds < dhi]
-
+        ratingchanges = filt.filter_rating_changes(ratingchanges)
+        contest_ids = [change.contestId for change in ratingchanges]
         
         subs_by_contest_id = {contest_id: [] for contest_id in contest_ids}
         for sub in await cf.user.status(handle=handle):
