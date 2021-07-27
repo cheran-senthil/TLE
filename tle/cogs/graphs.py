@@ -293,10 +293,7 @@ class Graphs(commands.Cog):
             max_rate = 0
             res = []
             for data in user:
-                old_rating = data.oldRating
-                if old_rating == 0:
-                    old_rating = 1500
-                if data.newRating - old_rating >= 0 and data.newRating >= max_rate:
+                if data.newRating >= max_rate:
                     max_rate = data.newRating
                     res.append(data)
             return(res)
