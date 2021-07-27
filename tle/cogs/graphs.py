@@ -58,25 +58,6 @@ def _plot_rating(resp, mark='o'):
     gc.plot_rating_bg(cf.RATED_RANKS)
     plt.gcf().autofmt_xdate()
 
-def _plot_perf(resp, mark='o'):
-
-    for rating_changes in resp:
-        ratings, times = [], []
-        for rating_change in rating_changes:
-            ratings.append(rating_change.oldRating)
-            times.append(dt.datetime.fromtimestamp(rating_change.ratingUpdateTimeSeconds))
-
-        plt.plot(times,
-                 ratings,
-                 linestyle='-',
-                 marker=mark,
-                 markersize=3,
-                 markerfacecolor='white',
-                 markeredgewidth=0.5)
-
-    gc.plot_rating_bg(cf.RATED_RANKS)
-    plt.gcf().autofmt_xdate()    
-
 def _classify_submissions(submissions):
     solved_by_type = {sub_type: [] for sub_type in cf.Party.PARTICIPANT_TYPES}
     for submission in submissions:
@@ -288,11 +269,11 @@ class Graphs(commands.Cog):
 
                     
 
-    @plot.command(brief='Plot Codeforces performance graph', usage='[+zoom] [handles...] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy]')
+    @plot.command(brief='Plot Codeforces performance graph', usage='[+zoom] [+peak] [handles...] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy]')
     async def performance(self, ctx, *args: str):
         """Plots Codeforces performance graph for the handles provided."""
 
-        (zoom, peak), args = cf_common.filter_flags(args, ['+zoom' , '+asdfgdsafefsdve'])
+        (zoom, peak), args = cf_common.filter_flags(args, ['+zoom' , '+peak'])
         filt = cf_common.SubFilter()
         args = filt.parse(args)
         handles = args or ('!' + str(ctx.author),)
@@ -310,10 +291,25 @@ class Graphs(commands.Cog):
             else:
                 message = f'None of the given users {handles_str} are rated'
             raise GraphCogError(message)
+        
+        def max_prefix(user):
+            max_rate = 0
+            res = []
+            for data in user:
+                old_rating = data.oldRating
+                if old_rating == 0:
+                    old_rating = 1500
+                if data.newRating - old_rating >= 0 and data.newRating >= max_rate:
+                    max_rate = data.newRating
+                    res.append(data)
+            return(res)
 
+        if peak:
+            resp = [max_prefix(user) for user in resp]
+            
         plt.clf()
         plt.axes().set_prop_cycle(gc.rating_color_cycler)
-        _plot_perf(resp)
+        _plot_rating(resp)
         labels = [gc.StrWrap(f'{handle} ({rating})') for handle, rating in zip(handles, current_ratings)]
         plt.legend(labels, loc='upper left')
 
