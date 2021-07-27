@@ -266,9 +266,6 @@ class Graphs(commands.Cog):
         await ctx.send(embed=embed, file=discord_file)
 
 
-
-                    
-
     @plot.command(brief='Plot Codeforces performance graph', usage='[+zoom] [+peak] [handles...] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy]')
     async def performance(self, ctx, *args: str):
         """Plots Codeforces performance graph for the handles provided."""
@@ -318,8 +315,8 @@ class Graphs(commands.Cog):
             max_rating = 1800
             for rating_changes in resp:
                 for rating in rating_changes:
-                    min_rating = min(min_rating, rating.oldRating)
-                    max_rating = max(max_rating, rating.oldRating)
+                    min_rating = min(min_rating, rating.newRating)
+                    max_rating = max(max_rating, rating.newRating)
             plt.ylim(min_rating - 100, max_rating + 200)
 
         discord_file = gc.get_current_figure_as_file()
