@@ -13,3 +13,5 @@ RUN python3.8 -m poetry install
 COPY . .
 
 ENTRYPOINT ["/TLE/run.sh"]
+
+RUN chmod +x /TLE && /TLE/run.sh
