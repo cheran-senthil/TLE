@@ -1,8 +1,6 @@
 build:
   docker:
     worker: Dockerfile
-  run:
-    worker: ./run.sh
 setup:
   addons:
   - plan: heroku-postgresql
