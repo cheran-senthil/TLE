@@ -1,26 +1,28 @@
 # How to push docker-image and deploy on Heroku
 ## Reason to do it
-Deploying docker image via Heroku is a faster method and requires less effort in deploying the whole project on Heroku.
+Deploying docker image via Heroku is a faster method than deploying the whole project on Heroku and requires less effort.
 
-## Prerequisites
-- Already know how to deploy the bot on Discord. 
+## Prior Knowledge
+- Deploy the bot on Discord. 
 
 ## Create Environment file
-- Create a file `.env` from `environment.template` file.
+- Create a copy of file `environment.template` and name it `.env` file.
+- Replace `xxxxxxxxx.xxxxxxxxx` with your credentials.
 
 ## Build Docker Image
-Follow the steps written in `Docker.md` file or use the alternative method. 
+Follow the steps written in `Docker.md` file or use the alternative method listed below. 
 ```bash
 docker-compose up --build -d
 ```
  
-Now check if your docker image is working or not. To check the logs, do:
+To check if your docker image is running or not:
 ```bash 
 docker-compose logs -f
 ```
+this will print the log
 press `Ctrl+C` to get out of it
 
-Do, docker ps or docker images to get the name of docker image.
+run `docker ps` or docker images to get the name of docker image which will look like this.
 ```
 CONTAINER ID   IMAGE                   COMMAND   CREATED   STATUS    PORTS     NAMES
 123123         <docker-image name_1>              latest                    <docker-image name>
@@ -39,4 +41,5 @@ heroku create <heroku app-name>
  heroku container:release <docker-image name> -a <heroku app name> 
  ```
 
- - Go on heroku dashboard and switch on by going to Resources
+ - Go on heroku dashboard then open the Resources tab and turn the worker on.
+ 
