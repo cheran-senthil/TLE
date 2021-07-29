@@ -22,8 +22,8 @@ press `Ctrl+C` to get out of it
 
 Do, docker ps or docker images to get the name of docker image.
 ```
-CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
-123123         <docker-image name_1>   latest                <docker-image name>
+CONTAINER ID   IMAGE                   COMMAND   CREATED   STATUS    PORTS     NAMES
+123123         <docker-image name_1>              latest                    <docker-image name>
 ```
 - Open Heroku now and create an app or use heroku cli for it.
 ```bash
