@@ -1,6 +1,6 @@
 version: "3.8"
 
 services:
-  batch_api:
+  corona-discord-bot:
     build: ./
     env_file: .env
