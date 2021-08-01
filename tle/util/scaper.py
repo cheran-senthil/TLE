@@ -1,7 +1,7 @@
 from bs4 import BeautifulSoup
 import requests
 
-def assert_display_name(username, token, resource, mention):
+def assert_field(username, token, resource, mention):
     if resource=='codechef.com':
         response = requests.get("https://codechef.com/users/"+str(username))
         if response.status_code != 200:

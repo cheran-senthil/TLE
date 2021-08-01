@@ -14,7 +14,7 @@ from tle import constants
 from tle.util import codeforces_common as cf_common
 from tle.util import cache_system2
 from tle.util import codeforces_api as cf
-from tle.util import clist_api as clist
+from tle.util import clist_common as clist_common
 from tle.util import db
 from tle.util import discord_common
 from tle.util import events
@@ -32,32 +32,6 @@ _FINISHED_CONTESTS_LIMIT = 5
 _WATCHING_RATED_VC_WAIT_TIME = 5 * 60  # seconds
 _RATED_VC_EXTRA_TIME = 10 * 60  # seconds
 _MIN_RATED_CONTESTANTS_FOR_RATED_VC = 50
-
-_PATTERNS = {
-    'abc': 'atcoder.jp',
-    'arc': 'atcoder.jp',
-    'agc': 'atcoder.jp',
-    'kickstart': 'codingcompetitions.withgoogle.com',
-    'codejam': 'codingcompetitions.withgoogle.com',
-    'lunchtime': 'codechef.com',
-    'long': 'codechef.com',
-    'cookoff': 'codechef.com',
-    'starters': 'codechef.com'
-}
-
-def parse_date(arg):
-    try:
-        if len(arg) == 8:
-            fmt = '%d%m%Y'
-        elif len(arg) == 6:
-            fmt = '%m%Y'
-        elif len(arg) == 4:
-            fmt = '%Y'
-        else:
-            raise ValueError
-        return dt.datetime.strptime(arg, fmt)
-    except ValueError:
-        raise ContestCogError(f'{arg} is an invalid date argument')
 
 class ContestCogError(commands.CommandError):
     pass
@@ -401,7 +375,7 @@ class Contests(commands.Cog):
         num_chunks = len(handle_standings_chunks)
         delta_chunks = paginator.chunkify(deltas, _STANDINGS_PER_PAGE) if deltas else [None] * num_chunks
 
-        if contest.type == 'CF':
+        if contest.type == 'CF' or contest.type == 'CLIST':
             get_table = functools.partial(self._get_cf_or_ioi_standings_table, mode='cf')
         elif contest.type == 'ICPC':
             get_table = self._get_icpc_standings_table
@@ -453,57 +427,6 @@ class Contests(commands.Cog):
             msg = f'{start}{en}|{en}{duration}{en}|{en}Ended {since} ago'
             embed.add_field(name='When', value=msg, inline=False)
         return embed
-    
-    def _make_clist_standings_pages(self, standings):
-        if standings is None or len(standings)==0:
-            return "```No handles found inside ranklist```"
-        show_rating_changes = standings[0]['rating_change']!=None
-
-        pages = []
-        standings_chunks = paginator.chunkify(standings, _STANDINGS_PER_PAGE)
-        num_chunks = len(standings_chunks)
-
-        if not show_rating_changes:
-            header_style = '{:>} {:<}    {:^}  '
-            body_style   = '{:>} {:<}    {:<}  '
-            header = ['#', 'Name', 'Score']
-        else:
-            header_style = '{:>} {:<}    {:^}    {:<}    {:<}  '
-            body_style   = '{:>} {:<}    {:<}    {:<}    {:<}  '
-            header = ['#', 'Name', 'Score', 'Delta', 'New Rating']
-        
-        num_pages = 1
-        for standings_chunk in standings_chunks:
-            body = []
-            for standing in standings_chunk:
-                score = int(standing['score']) if standing['score'] else 0
-                if show_rating_changes:
-                    delta = int(standing['rating_change']) if standing['rating_change'] else ' '
-                    if delta!=' ':
-                        delta = '+'+str(delta) if delta>0 else str(delta)
-                    tokens = [int(standing['place']), standing['handle'], score, delta, standing['new_rating']]
-                else:
-                    tokens = [int(standing['place']), standing['handle'], score]
-                body.append(tokens)
-            t = table.Table(table.Style(header=header_style, body=body_style))
-            t += table.Header(*header)
-            t += table.Line('\N{EM DASH}')
-            for row in body:
-                t += table.Data(*row)
-            t += table.Line('\N{EM DASH}')
-            page_num_footer = f' # Page: {num_pages} / {num_chunks}' if num_chunks > 1 else ''
-
-            # We use yaml to get nice colors in the ranklist.
-            content = f'```yaml\n{t}\n{page_num_footer}```'
-            pages.append((content, None))
-            num_pages += 1
-        return pages
-    
-    @staticmethod
-    def _make_contest_embed_for_cranklist(contest):
-        embed = discord_common.cf_color_embed(title=contest['event'], url=contest['href'])
-        embed.add_field(name='Website', value=contest['resource'])
-        return embed
 
     @staticmethod
     def _make_contest_embed_for_vc_ranklist(ranklist, vc_start_time=None, vc_end_time=None):
@@ -519,79 +442,6 @@ class Contests(commands.Cog):
             embed.add_field(name='Tick tock', value=msg, inline=False)
         return embed
     
-    async def resolve_contest(self, contest_id, resource):
-        contest = None
-        if resource=='clist.by':
-            contest = await clist.contest(contest_id)
-        elif resource=='atcoder.jp':
-            prefix = contest_id[:3]
-            if prefix=='abc':
-                prefix = 'AtCoder Beginner Contest '
-            if prefix=='arc':
-                prefix = 'AtCoder Regular Contest '
-            if prefix=='agc':
-                prefix = 'AtCoder Grand Contest '
-            suffix = contest_id[3:]
-            try:
-                suffix = int(suffix)
-            except:
-                raise ContestCogError('Invalid contest_id provided.') 
-            contest_name = prefix+str(suffix)
-            contests = await clist.search_contest(regex=contest_name, resource=resource)
-            if contests==None or len(contests)==0:
-                raise ContestCogError('Contest not found.')
-            contest = contests[0] 
-        elif resource=='codechef.com':
-            contest_name = None
-            if 'lunchtime' in contest_id:
-                date = parse_date(contest_id[9:])
-                contest_name = str(date.strftime('%B'))+' Lunchtime '+str(date.strftime('%Y'))
-            elif 'cookoff' in contest_id:
-                date = parse_date(contest_id[7:])
-                contest_name = str(date.strftime('%B'))+' Cook-Off '+str(date.strftime('%Y'))
-            elif 'long' in contest_id:
-                date = parse_date(contest_id[4:])
-                contest_name = str(date.strftime('%B'))+' Challenge '+str(date.strftime('%Y'))
-            elif 'starters' in contest_id:
-                date = parse_date(contest_id[8:])
-                contest_name = str(date.strftime('%B'))+' CodeChef Starters '+str(date.strftime('%Y'))
-            contests = await clist.search_contest(regex=contest_name, resource=resource)
-            if contests==None or len(contests)==0:
-                raise ContestCogError('Contest not found.')
-            contest = contests[0] 
-        elif resource=='codingcompetitions.withgoogle.com':
-            year,round = None,None
-            contest_name = None
-            if 'kickstart' in contest_id:
-                year = contest_id[9:11]
-                round = contest_id[11:]
-                contest_name = 'Kick Start.*Round '+round
-            elif 'codejam' in contest_id:
-                year = contest_id[7:9]
-                round = contest_id[9:]
-                if round=='WF':
-                    round = 'Finals'
-                    contest_name = 'Code Jam.*Finals'
-                elif round=='QR':
-                    round = 'Qualification Round'
-                    contest_name = 'Code Jam.*Qualification Round'
-                else:
-                    contest_name = 'Code Jam.*Round '+round
-            if not round:
-                    raise ContestCogError('Invalid contest_id provided.') 
-            try:
-                year = int(year)
-            except:
-                raise ContestCogError('Invalid contest_id provided.') 
-            start = dt.datetime(int('20'+str(year)), 1, 1)
-            end = dt.datetime(int('20'+str(year+1)), 1, 1)
-            date_limit = (start.strftime('%Y-%m-%dT%H:%M:%S'), end.strftime('%Y-%m-%dT%H:%M:%S'))
-            contests = await clist.search_contest(regex=contest_name, resource=resource, date_limits=date_limit)
-            if contests==None or len(contests)==0:
-                raise ContestCogError('Contest not found.')
-            contest = contests[0]
-        return contest
-
     @commands.command(brief='Show ranklist for given handles and/or server members')
     async def ranklist(self, ctx, contest_id: str, *handles: str):
         """Shows ranklist for the contest with given contest id. If handles contains
@@ -624,69 +474,19 @@ class Contests(commands.Cog):
         To know clist contest_id visit https://clist.by.
         """
         wait_msg = await ctx.channel.send('Generating ranklist, please wait...')
-        resource = 'codeforces.com'
-        for pattern in _PATTERNS:
-            if pattern in contest_id:
-                resource = _PATTERNS[pattern]
-                break
-        if resource=='codeforces.com':
-            try:
-                contest_id = int(contest_id)
-                if contest_id<0:
-                    contest_id = -1*contest_id
-                    resource = 'clist.by'
-            except:
-                raise ContestCogError('Invalid contest_id provided.') 
-        if resource!='codeforces.com':
-            contest = await self.resolve_contest(contest_id=contest_id, resource=resource)
-            if contest is None:
-                raise ContestCogError('Contest not found.') 
-            contest_id = contest['id']
-            account_ids= await cf_common.resolve_handles(ctx, self.member_converter, handles, maxcnt=None, default_to_all_server=True, resource=contest['resource'])
-            standings_to_show = []
-            standings = await clist.statistics(contest_id=contest_id, account_ids=account_ids)
-            for standing in standings:
-                if not standing['place'] or not standing['handle']:
-                    continue
-                standings_to_show.append(standing)
-            standings_to_show.sort(key=lambda standing: int(standing['place']))
-            pages = self._make_clist_standings_pages(standings_to_show)
-            await wait_msg.delete()
-            await ctx.channel.send(embed=self._make_contest_embed_for_cranklist(contest))
-            return paginator.paginate(self.bot, ctx.channel, pages, wait_time=_STANDINGS_PAGINATE_WAIT_TIME)
-        handles = await cf_common.resolve_handles(ctx, self.member_converter, handles, maxcnt=None, default_to_all_server=True)
-        contest = cf_common.cache2.contest_cache.get_contest(contest_id)
-        ranklist = None
-        try:
-            ranklist = cf_common.cache2.ranklist_cache.get_ranklist(contest)
-        except cache_system2.RanklistNotMonitored:
-            if contest.phase == 'BEFORE':
-                raise ContestCogError(f'Contest `{contest.id} | {contest.name}` has not started')
-            ranklist = await cf_common.cache2.ranklist_cache.generate_ranklist(contest.id,
-                                                                            fetch_changes=True)
+        contest = await clist_common.get_contest(contest_id)
+        handles = await clist_common.resolve_handles(ctx, self.member_converter, handles, maxcnt=None, default_to_all_server=True, resource=contest.resource)
+        ranklist = await clist_common.get_ranklist(contest, handles)        
         await wait_msg.delete()
         await ctx.channel.send(embed=self._make_contest_embed_for_ranklist(ranklist))
-        await self._show_ranklist(channel=ctx.channel, contest_id=contest_id, handles=handles, ranklist=ranklist)
+        await self._show_ranklist(channel=ctx.channel, contest_id=contest_id, handles=handles, ranklist=ranklist, contest=contest)
 
-    async def _show_ranklist(self, channel, contest_id: int, handles: [str], ranklist, vc: bool = False, delete_after: float = None):
-        contest = cf_common.cache2.contest_cache.get_contest(contest_id)
+    async def _show_ranklist(self, channel, contest_id: int, handles, ranklist, vc: bool = False, delete_after: float = None, contest=None):
+        contest = contest or cf_common.cache2.contest_cache.get_contest(contest_id)
         if ranklist is None:
             raise ContestCogError('No ranklist to show')
 
-        handle_standings = []
-        for handle in handles:
-            try:
-                standing = ranklist.get_standing_row(handle)
-            except rl.HandleNotPresentError:
-                continue
-
-            # Database has correct handle ignoring case, update to it
-            # TODO: It will throw an exception if this row corresponds to a team. At present ranklist doesnt show teams.
-            # It should be fixed in https://github.com/cheran-senthil/TLE/issues/72
-            handle = standing.party.members[0].handle
-            if vc and standing.party.participantType != 'VIRTUAL':
-                continue
-            handle_standings.append((handle, standing))
+        handle_standings = ranklist.get_handle_standings(handles, vc=vc)
 
         if not handle_standings:
             error = f'None of the handles are present in the ranklist of `{contest.name}`'
@@ -700,7 +500,7 @@ class Contests(commands.Cog):
         if ranklist.is_rated:
             deltas = [ranklist.get_delta(handle) for handle, standing in handle_standings]
 
-        problem_indices = [problem.index for problem in ranklist.problems]
+        problem_indices = ranklist.get_problem_indexes()
         pages = self._make_standings_pages(contest, problem_indices, handle_standings, deltas)
         paginator.paginate(self.bot, channel, pages, wait_time=_STANDINGS_PAGINATE_WAIT_TIME, delete_after=delete_after)
 

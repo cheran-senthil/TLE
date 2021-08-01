@@ -21,7 +21,8 @@ from tle.util import cache_system2
 from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
 from tle.util import clist_api as clist
-from tle.util.clist_api import _CLIST_RESOURCE_SHORT_FORMS, _SUPPORTED_CLIST_RESOURCES
+from tle.util import clist_common as clist_common
+from tle.util.clist_common import _SUPPORTED_RESOURCES, Resources
 from tle.util import scaper
 from tle.util import discord_common
 from tle.util import events
@@ -233,12 +234,12 @@ def _make_profile_embed(member, user, *, mode):
     return embed
 
 
-def _make_pages(users, title, resource='codeforces.com'):
+def _make_pages(users, title, resource=Resources.CODEFORCES):
     chunks = paginator.chunkify(users, _HANDLES_PER_PAGE)
     pages = []
     done = 0
-    no_rating = resource=='codingcompetitions.withgoogle.com'
-    no_rating_suffix = resource!='codeforces.com'
+    no_rating = resource==Resources.GOOGLE
+    no_rating_suffix = resource!=Resources.CODEFORCES
     style = table.Style('{:>}  {:<}  {:<}  {:<}')
     for chunk in chunks:
         t = table.Table(style)
@@ -371,26 +372,17 @@ class Handles(commands.Cog):
         ;handle set @Alex ac:Um_nik
         ;handle set @Priyansh google:Priyansh31dec
         """
-        resource = 'codeforces.com'
-        if ':' in handle:
-            resource = handle[0: handle.index(':')]
-            handle = handle[handle.index(':')+1:]
-        if resource in _CLIST_RESOURCE_SHORT_FORMS:
-            resource = _CLIST_RESOURCE_SHORT_FORMS[resource]
-        if resource!='codeforces.com':
-            if resource=='all':
-                resource = None
-            if resource!=None and resource not in _SUPPORTED_CLIST_RESOURCES:
-                raise HandleCogError(f'The resource `{resource}` is not supported.')
+        resource, handle = clist_common.resource_from_handle_notation(handle)
+        if resource!=Resources.CODEFORCES:
             member_username = str(member)
             users = await clist.account(handle=handle, resource=resource)
-            message = f'Following handles for `{member_username}` have been linked\n'
+            embed = discord.Embed(description=f'Following handles for `{member_username}` have been linked')
             for user in users:
-                if user['resource'] not in _SUPPORTED_CLIST_RESOURCES:
+                if user.resource not in _SUPPORTED_RESOURCES:
                     continue
-                message += user['resource']+' : '+user['handle']+'\n'
+                embed.add_field(name=user.resource, value=user.handle, inline=True)
                 await self._set_account_id(member.id, ctx.guild, user)
-            return await ctx.send(message)
+            return await ctx.send(embed=embed)
         # CF API returns correct handle ignoring case, update to it
         user, = await cf.user.info(handles=[handle])
         await self._set(ctx, member, user)
@@ -400,7 +392,7 @@ class Handles(commands.Cog):
     async def _set_account_id(self, member_id, guild, user):
         try:
             guild_id = guild.id
-            cf_common.user_db.set_account_id(member_id, guild_id, user['id'], user['resource'])
+            cf_common.user_db.set_account_id(member_id, guild_id, user.id, user.resource)
         except db.UniqueConstraintFailed:
             raise HandleCogError(f'The handle `{user["handle"]}` is already associated with another user.')
         cf_common.user_db.cache_clist_user(user)
@@ -441,33 +433,24 @@ class Handles(commands.Cog):
         """
 
         invoker = str(ctx.author)
-        resource = 'codeforces.com'
+        resource, handle = clist_common.resource_from_handle_notation(handle)
+        if resource!=Resources.CODEFORCES:
+            if resource==None:
+                return await ctx.send(f'Sorry `{invoker}`, all keyword can only be used with set command.')
+            if resource==Resources.GOOGLE:
+                return await ctx.send(f'Sorry `{invoker}`, you can\'t identify handles of `{Resources.GOOGLE}`, please ask a moderator to link your account.')
 
-        if ':' in handle:
-            resource = handle[0: handle.index(':')]
-            handle = handle[handle.index(':')+1:]
-        if resource in _CLIST_RESOURCE_SHORT_FORMS:
-            resource = _CLIST_RESOURCE_SHORT_FORMS[resource]
-        
-        if resource!='codeforces.com':
-            if resource=='all':
-                return await ctx.send(f'Sorry `{invoker}`, all keyword can only be used with set command')
-            if resource=='codingcompetitions.withgoogle.com':
-                return await ctx.send(f'Sorry `{invoker}`, you can\'t identify handles of codingcompetitions.withgoogle.com, please ask a moderator to link your account.')
-            if resource not in _SUPPORTED_CLIST_RESOURCES:
-                raise HandleCogError(f'The resource `{resource}` is not supported.')
             wait_msg = await ctx.channel.send('Fetching account details, please wait...')
             users = await clist.account(handle, resource)
             user = users[0]
             token = randomword(8)
             await wait_msg.delete()
-            field = "name" 
-            if resource=='atcoder.jp': field = 'affiliation'
+            field = 'affiliation' if resource==Resources.ATCODER else 'name'
             wait_msg = await ctx.send(f'`{invoker}`, change your {field} to `{token}` on {resource} within 60 seconds')
             await asyncio.sleep(60)
             await wait_msg.delete()
             wait_msg = await ctx.channel.send(f'Verifying {field} change...')
-            if scaper.assert_display_name(handle, token, resource, ctx.author.mention):
+            if scaper.assert_field(handle, token, resource, ctx.author.mention):
                 member = ctx.author
                 await self._set_account_id(member.id, ctx.guild, user)
                 await wait_msg.delete()
@@ -625,24 +608,13 @@ class Handles(commands.Cog):
         if you wish to display only members from those countries. Country data is
         sourced from codeforces profiles. e.g. ;handle list Croatia Slovenia
         """
-        resource = 'codeforces.com'
-        if len(countries)==1:
-            country = countries[0]
-            if country in _CLIST_RESOURCE_SHORT_FORMS:
-                resource = _CLIST_RESOURCE_SHORT_FORMS[country]
-                countries = []
-            elif country in _SUPPORTED_CLIST_RESOURCES:
-                resource = country
-                countries = []
-        if resource!='codeforces.com':
+        resource = clist_common.detect_loose_resource(countries)
+        if resource!=Resources.CODEFORCES:
             clist_users = cf_common.user_db.get_clist_users_for_guild(ctx.guild.id, resource=resource)
             users = []
-            for user in clist_users:
-                handle = user['handle']
-                rating = int(user['rating']) if user['rating']!=None else None
-                member = ctx.guild.get_member(int(user['user_id']))
-                n_contests = user['n_contests']
-                users.append((member, handle, rating, n_contests))
+            for user_id, user in clist_users:
+                member = ctx.guild.get_member(user_id)
+                users.append((member, user.handle, user.rating, user.n_contests))
         else:
             countries = [country.title() for country in countries]
             res = cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)

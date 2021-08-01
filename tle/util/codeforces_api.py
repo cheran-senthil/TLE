@@ -75,6 +75,10 @@ class Contest(namedtuple('Contest', 'id name startTimeSeconds durationSeconds ty
     @property
     def end_time(self):
         return self.startTimeSeconds + self.durationSeconds
+    
+    @property
+    def resource(self):
+        return 'codeforces.com'
 
     @property
     def url(self):

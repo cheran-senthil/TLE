@@ -5,6 +5,7 @@ from collections import namedtuple
 from discord.ext import commands
 
 from tle.util import codeforces_api as cf
+from tle.util import clist_api as clist
 
 _DEFAULT_VC_RATING = 1500
 
@@ -456,24 +457,21 @@ class UserDbConn:
         return [(int(user_id), int(account_id)) for user_id, account_id in res]
 
     def get_clist_users_for_guild(self, guild_id, resource):
-        query = ('SELECT u.user_id, c.account_id , c.resource, c.handle, c.name, c.rating, c.contests '
+        query = ('SELECT u.user_id, c.account_id , c.handle, c.resource, c.name, c.rating, c.contests '
                  'FROM clist_account_ids AS u '
                  'LEFT JOIN clist_user_cache AS c '
                  'ON u.account_id = c.account_id '
                  'WHERE u.guild_id = ? AND u.resource = ? ')
         res = self.conn.execute(query, (guild_id,resource,)).fetchall()
-        
-        return [{'user_id':user_id, 'id':account_id, 'resource':resource,
-                         'handle':handle, 'name':name, 'rating':rating, 'n_contests':contests} 
-                         for user_id, account_id, resource, handle, name, rating, contests in res]
+        return [(int(t[0]), clist.User._make(t[1:])) for t in res]
 
     def cache_clist_user(self, user):
         query = ('INSERT OR REPLACE INTO clist_user_cache '
                  '(account_id, resource, handle, name, rating, contests) '
                  'VALUES (?, ?, ?, ?, ?, ?)')
         with self.conn:
-            return self.conn.execute(query, (user['id'], user['resource'], user['handle'], 
-                                                user['name'], user['rating'], user['n_contests'])).rowcount
+            return self.conn.execute(query, (user.id, user.resource, user.handle, 
+                                                user.name, user.rating, user.n_contests)).rowcount
 
     def fetch_clist_user(self, account_id):
         query = ('SELECT account_id, resource, handle, name, rating, contests '
