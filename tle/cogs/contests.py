@@ -313,7 +313,10 @@ class Contests(commands.Cog):
         assert mode in ('cf', 'ioi')
 
         def maybe_int(value):
-            return int(value) if mode == 'cf' else value
+            try:
+                return int(value)
+            except:
+                return value
 
         header_style = '{:>} {:<}    {:^}  ' + '  '.join(['{:^}'] * len(problem_indices))
         body_style = '{:>} {:<}    {:>}  ' + '  '.join(['{:>}'] * len(problem_indices))

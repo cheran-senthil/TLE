@@ -112,7 +112,7 @@ async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5, defaul
         clist_users = await clist.fetch_user_info(resource=resource, handles=list(unresolved_handles))
         if clist_users!=None:
             for user in clist_users:
-                account_ids.add(int(user['id']))
+                account_ids.add(int(user.id))
     return list(account_ids)
 
 async def resolve_contest(contest_id, resource):
