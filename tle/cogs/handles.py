@@ -635,13 +635,13 @@ class Handles(commands.Cog):
                 rating_changes = cache.get_rating_changes_for_handle(handle)
                 rating_changes = [change for change in rating_changes if change.ratingUpdateTimeSeconds < start_time]
                 rating_changes.sort(key=lambda a: a.ratingUpdateTimeSeconds)
+                if len(rating_changes) < 1: 
+                    continue
+                if rating_changes[-1] is None: continue
                 if division is not None:
-                    if len(rating_changes) < 1: 
-                        continue
-                    if rating_changes[-1] is None: continue
                     if rating_changes[-1].newRating < _DIVISION_RATING_LOW[division-1] or rating_changes[-1].newRating > _DIVISION_RATING_HIGH[division-1]:
                         continue
-                    rating = rating_changes[-1].newRating
+                rating = rating_changes[-1].newRating
                 rankings.append((index, discord_handle, handle, rating, score))
                 index += 1
             if index == 20:
