@@ -937,13 +937,14 @@ class Graphs(commands.Cog):
         await ctx.send(embed=embed, file=discord_file)
 
     @plot.command(brief='Show speed of solving problems by rating',
-                  usage='[handles...] [r>=rating] [r<=rating] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy]')
+                  usage='[handles...] [+contest] [+virtual] [+outof] [r>=rating] [r<=rating] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy]')
     async def speed(self, ctx, *args):
         """Plot average time spent on problems of particular rating during contest."""
 
         filt = cf_common.SubFilter()
         args = filt.parse(args)
-        filt.types = ['CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL']
+        if 'PRACTICE' in filt.types:
+            filt.types.remove('PRACTICE')  # can't estimate time for practice submissions
 
         handles = args or ['!' + str(ctx.author)]
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
