@@ -937,16 +937,24 @@ class Graphs(commands.Cog):
         await ctx.send(embed=embed, file=discord_file)
 
     @plot.command(brief='Show speed of solving problems by rating',
-                  usage='[handles...] [+contest] [+virtual] [+outof] [r>=rating] [r<=rating] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy]')
+                  usage='[handles...] [+contest] [+virtual] [+outof] [+scatter] [r>=rating] [r<=rating] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy] [s=3]')
     async def speed(self, ctx, *args):
         """Plot average time spent on problems of particular rating during contest."""
 
+        (add_scatter,), args = cf_common.filter_flags(args, ['+scatter'])
         filt = cf_common.SubFilter()
         args = filt.parse(args)
         if 'PRACTICE' in filt.types:
             filt.types.remove('PRACTICE')  # can't estimate time for practice submissions
 
-        handles = args or ['!' + str(ctx.author)]
+        handles, point_size = [], 3
+        for arg in args:
+            if arg[0:2] == 's=':
+                point_size = int(arg[2:])
+            else:
+                handles.append(arg)
+
+        handles = handles or ['!' + str(ctx.author)]
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         resp = [await cf.user.status(handle=handle) for handle in handles]
         all_solved_subs = [filt.filter_subs(submissions) for submissions in resp]
@@ -958,6 +966,8 @@ class Graphs(commands.Cog):
         max_time = 0  # for ylim
 
         for submissions in all_solved_subs:
+            scatter_points = []  # only matters if +scatter
+
             solved_by_contest = collections.defaultdict(lambda: [])
             for submission in submissions:
                 # [solve_time, problem rating, problem index] for each solved problem
@@ -982,17 +992,23 @@ class Graphs(commands.Cog):
                         time_to_solve += solved_subproblems.get(problem_index[0], 0)
                         solved_subproblems[problem_index[0]] = time_to_solve
 
-                    time_by_rating[rating].append(time_to_solve)
+                    time_by_rating[rating].append(time_to_solve / 60)  # in minutes
 
             for rating in time_by_rating.keys():
                 times = time_by_rating[rating]
                 time_by_rating[rating] = sum(times) / len(times)
+                if add_scatter:
+                    for t in times:
+                        scatter_points.append([rating, t])
+                        max_time = max(max_time, t)
 
             xs = sorted(time_by_rating.keys())
-            ys = [time_by_rating[rating] / 60 for rating in xs]  # in minutes
+            ys = [time_by_rating[rating] for rating in xs]
 
             max_time = max(max_time, max(ys, default=0))
             plt.plot(xs, ys)
+            if add_scatter:
+                plt.scatter(*zip(*scatter_points), s=point_size)
 
         labels = [gc.StrWrap(handle) for handle in handles]
         plt.legend(labels)
