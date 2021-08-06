@@ -89,8 +89,9 @@ class Starboard(commands.Cog):
         reaction_count = sum(reaction.count for reaction in message.reactions
                              if str(reaction) == _STAR)
         if reaction_count < _STAR_THRESHOLD:
+            self.logger.info(f'Reaction added by: {payload.user_id}')
             return
-
+        self.logger.info(f'Reaction added by: {payload.user_id}')
         lock = self.locks.get(payload.guild_id)
         if lock is None:
             self.locks[payload.guild_id] = lock = asyncio.Lock()
