@@ -89,9 +89,7 @@ class Starboard(commands.Cog):
         reaction_count = sum(reaction.count for reaction in message.reactions
                              if str(reaction) == _STAR)
         if reaction_count < _STAR_THRESHOLD:
-            self.logger.info(f'Reaction added by: {payload.user_id}')
             return
-        self.logger.info(f'Reaction added by: {payload.user_id}')
         lock = self.locks.get(payload.guild_id)
         if lock is None:
             self.locks[payload.guild_id] = lock = asyncio.Lock()
@@ -102,7 +100,7 @@ class Starboard(commands.Cog):
             embed = self.prepare_embed(message)
             starboard_message = await starboard_channel.send(embed=embed)
             cf_common.user_db.add_starboard_message(message.id, starboard_message.id, guild.id)
-            self.logger.info(f'Added message {message.id} to starboard')
+            self.logger.info(f'Added message {message.id} to starboard (Last reaction by {payload.user_id})')
 
     @commands.group(brief='Starboard commands',
                     invoke_without_command=True)
