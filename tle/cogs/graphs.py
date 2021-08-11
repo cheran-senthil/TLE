@@ -15,6 +15,7 @@ from matplotlib import pyplot as plt
 from matplotlib import patches as patches
 from matplotlib import lines as mlines
 from matplotlib import dates as mdates
+from matplotlib.ticker import MultipleLocator
 
 from tle import constants
 from tle.util import codeforces_api as cf
@@ -933,6 +934,96 @@ class Graphs(commands.Cog):
         embed = discord_common.cf_color_embed(title=title)
         discord_common.attach_image(embed, discord_file)
         discord_common.set_author_footer(embed, ctx.author)
+        await ctx.send(embed=embed, file=discord_file)
+
+    @plot.command(brief='Show speed of solving problems by rating',
+                  usage='[handles...] [+contest] [+virtual] [+outof] [+scatter] [r>=rating] [r<=rating] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy] [s=3]')
+    async def speed(self, ctx, *args):
+        """Plot average time spent on problems of particular rating during contest."""
+
+        (add_scatter,), args = cf_common.filter_flags(args, ['+scatter'])
+        filt = cf_common.SubFilter()
+        args = filt.parse(args)
+        if 'PRACTICE' in filt.types:
+            filt.types.remove('PRACTICE')  # can't estimate time for practice submissions
+
+        handles, point_size = [], 3
+        for arg in args:
+            if arg[0:2] == 's=':
+                point_size = int(arg[2:])
+            else:
+                handles.append(arg)
+
+        handles = handles or ['!' + str(ctx.author)]
+        handles = await cf_common.resolve_handles(ctx, self.converter, handles)
+        resp = [await cf.user.status(handle=handle) for handle in handles]
+        all_solved_subs = [filt.filter_subs(submissions) for submissions in resp]
+
+        plt.clf()
+        plt.xlabel('Rating')
+        plt.ylabel('Minutes spent')
+
+        max_time = 0  # for ylim
+
+        for submissions in all_solved_subs:
+            scatter_points = []  # only matters if +scatter
+
+            solved_by_contest = collections.defaultdict(lambda: [])
+            for submission in submissions:
+                # [solve_time, problem rating, problem index] for each solved problem
+                solved_by_contest[submission.contestId].append([
+                    submission.relativeTimeSeconds,
+                    submission.problem.rating,
+                    submission.problem.index
+                ])
+
+            time_by_rating = collections.defaultdict(lambda: [])
+            for events in solved_by_contest.values():
+                events.sort()
+                solved_subproblems = dict()
+                last_ac_time = 0
+
+                for (current_ac_time, rating, problem_index) in events:
+                    time_to_solve = current_ac_time - last_ac_time
+                    last_ac_time = current_ac_time
+
+                    # if there are subproblems, add total time for previous subproblems to current one
+                    if len(problem_index) == 2 and problem_index[1].isdigit():
+                        time_to_solve += solved_subproblems.get(problem_index[0], 0)
+                        solved_subproblems[problem_index[0]] = time_to_solve
+
+                    time_by_rating[rating].append(time_to_solve / 60)  # in minutes
+
+            for rating in time_by_rating.keys():
+                times = time_by_rating[rating]
+                time_by_rating[rating] = sum(times) / len(times)
+                if add_scatter:
+                    for t in times:
+                        scatter_points.append([rating, t])
+                        max_time = max(max_time, t)
+
+            xs = sorted(time_by_rating.keys())
+            ys = [time_by_rating[rating] for rating in xs]
+
+            max_time = max(max_time, max(ys, default=0))
+            plt.plot(xs, ys)
+            if add_scatter:
+                plt.scatter(*zip(*scatter_points), s=point_size)
+
+        labels = [gc.StrWrap(handle) for handle in handles]
+        plt.legend(labels)
+        plt.ylim(0, max_time + 5)
+
+        # make xticks divisible by 100
+        ticks = plt.gca().get_xticks()
+        base = ticks[1] - ticks[0]
+        plt.gca().get_xaxis().set_major_locator(MultipleLocator(base = max(base // 100 * 100, 100)))
+
+        discord_file = gc.get_current_figure_as_file()
+        embed = discord_common.cf_color_embed(title='Plot of average time spent on a problem')
+        discord_common.attach_image(embed, discord_file)
+        discord_common.set_author_footer(embed, ctx.author)
+
         await ctx.send(embed=embed, file=discord_file)
 
     @discord_common.send_error_if(GraphCogError, cf_common.ResolveHandleError,
