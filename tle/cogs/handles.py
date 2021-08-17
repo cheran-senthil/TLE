@@ -379,13 +379,10 @@ class Handles(commands.Cog):
             raise HandleCogError(f'The handle `{handle}` is already associated with another user.')
         cf_common.user_db.cache_cf_user(user)
 
-        if user.rank == cf.UNRATED_RANK:
-            role_to_assign = None
-        else:
-            roles = [role for role in ctx.guild.roles if role.name == user.rank.title]
-            if not roles:
-                raise HandleCogError(f'Role for rank `{user.rank.title}` not present in the server')
-            role_to_assign = roles[0]
+        roles = [role for role in ctx.guild.roles if role.name == user.rank.title]
+        if not roles:
+            raise HandleCogError(f'Role for rank `{user.rank.title}` not present in the server')
+        role_to_assign = roles[0]
         await self.update_member_rank_role(member, role_to_assign,
                                            reason='New handle set for user')
 
@@ -739,7 +736,7 @@ class Handles(commands.Cog):
         for user in users:
             cf_common.user_db.cache_cf_user(user)
 
-        required_roles = {user.rank.title for user in users if user.rank != cf.UNRATED_RANK}
+        required_roles = {user.rank.title for user in users}
         rank2role = {role.name: role for role in guild.roles if role.name in required_roles}
         missing_roles = required_roles - rank2role.keys()
         if missing_roles:
@@ -748,7 +745,7 @@ class Handles(commands.Cog):
             raise HandleCogError(f'Role{plural} for rank{plural} {roles_str} not present in the server')
 
         for member, user in zip(members, users):
-            role_to_assign = None if user.rank == cf.UNRATED_RANK else rank2role[user.rank.title]
+            role_to_assign = rank2role[user.rank.title]
             await self.update_member_rank_role(member, role_to_assign,
                                                reason='Codeforces rank update')
 
