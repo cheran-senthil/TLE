@@ -937,11 +937,11 @@ class Graphs(commands.Cog):
         await ctx.send(embed=embed, file=discord_file)
 
     @plot.command(brief='Show speed of solving problems by rating',
-                  usage='[handles...] [+contest] [+virtual] [+outof] [+scatter] [r>=rating] [r<=rating] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy] [s=3]')
+                  usage='[handles...] [+contest] [+virtual] [+outof] [+scatter] [+median] [r>=rating] [r<=rating] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy] [s=3]')
     async def speed(self, ctx, *args):
-        """Plot average time spent on problems of particular rating during contest."""
+        """Plot time spent on problems of particular rating during contest."""
 
-        (add_scatter,), args = cf_common.filter_flags(args, ['+scatter'])
+        (add_scatter, use_median), args = cf_common.filter_flags(args, ['+scatter', '+median'])
         filt = cf_common.SubFilter()
         args = filt.parse(args)
         if 'PRACTICE' in filt.types:
@@ -996,7 +996,11 @@ class Graphs(commands.Cog):
 
             for rating in time_by_rating.keys():
                 times = time_by_rating[rating]
-                time_by_rating[rating] = sum(times) / len(times)
+                if use_median:
+                    time_by_rating[rating] = np.median(times)
+                else:
+                    time_by_rating[rating] = sum(times) / len(times)
+
                 if add_scatter:
                     for t in times:
                         scatter_points.append([rating, t])
@@ -1018,9 +1022,9 @@ class Graphs(commands.Cog):
         ticks = plt.gca().get_xticks()
         base = ticks[1] - ticks[0]
         plt.gca().get_xaxis().set_major_locator(MultipleLocator(base = max(base // 100 * 100, 100)))
-
         discord_file = gc.get_current_figure_as_file()
-        embed = discord_common.cf_color_embed(title='Plot of average time spent on a problem')
+        title = f'Plot of {"median" if use_median else "average"} time spent on a problem'
+        embed = discord_common.cf_color_embed(title=title)
         discord_common.attach_image(embed, discord_file)
         discord_common.set_author_footer(embed, ctx.author)
 
