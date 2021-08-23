@@ -18,9 +18,9 @@ from tle.util import cache_system2
 
 
 _GITGUD_NO_SKIP_TIME = 2 * 60 * 60
-_GITGUD_SCORE_DISTRIB = (2, 3, 5, 8, 12, 17, 23, 23, 23)
+_GITGUD_SCORE_DISTRIB = (2, 3, 5, 8, 12, 17, 23, 23, 23, 23, 23)
 _GITGUD_MAX_NEG_DELTA_VALUE = -300
-_GITGUD_MAX_POS_DELTA_VALUE = 500
+_GITGUD_MAX_POS_DELTA_VALUE =  700
 
 
 class CodeforcesCogError(commands.CommandError):
@@ -59,6 +59,7 @@ class Codeforces(commands.Cog):
         desc = cf_common.cache2.contest_cache.get_contest(problem.contestId).name
         embed = discord.Embed(title=title, url=problem.url, description=desc)
         embed.add_field(name='Rating', value=problem.rating)
+        embed.add_field(name='Points', value=(_GITGUD_SCORE_DISTRIB(delta-_GITGUD_MAX_NEG_DELTA_VALUE)//100))
         await ctx.send(f'Challenge problem for `{handle}`', embed=embed)
 
     @commands.command(brief='Upsolve a problem')
@@ -75,8 +76,8 @@ class Codeforces(commands.Cog):
         - For help with each of the commands you can type ;help <command> (e.g. ;help gitgudders)
         
         Point distribution:
-        delta  | -300 | -200 | -100 |  0  | +100 | +200 | +300 | +400 | +500
-        points |   2  |   3  |   5  |  8  |  12  |  17  |  23  |  23  |  23
+        delta  | -300 | -200 | -100 |  0  | +100 | +200 | +300 | +400 | +500 | +600 | +700
+        points |   2  |   3  |   5  |  8  |  12  |  17  |  23  |  23  |  23  |  23  |  23
         """
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         user = cf_common.user_db.fetch_cf_user(handle)
@@ -160,7 +161,7 @@ class Codeforces(commands.Cog):
         problems.sort(key=lambda problem: cf_common.cache2.contest_cache.get_contest(
             problem.contestId).startTimeSeconds)
 
-        choice = max([random.randrange(len(problems)) for _ in range(2)])
+        choice = max([random.randrange(len(problems)) for _ in range(5)])
         problem = problems[choice]
 
         title = f'{problem.index}. {problem.name}'
@@ -278,8 +279,8 @@ class Codeforces(commands.Cog):
         - For help with each of the commands you can type ;help <command> (e.g. ;help gitgudders)
         
         Point distribution:
-        delta  | -300 | -200 | -100 |  0  | +100 | +200 | +300 | +400 | +500
-        points |   2  |   3  |   5  |  8  |  12  |  17  |  23  |  23  |  23
+        delta  | -300 | -200 | -100 |  0  | +100 | +200 | +300 | +400 | +500 | +600 | +700
+        points |   2  |   3  |   5  |  8  |  12  |  17  |  23  |  23  |  23  |  23  |  23
         """
         await self._validate_gitgud_status(ctx, delta)
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
@@ -290,11 +291,26 @@ class Codeforces(commands.Cog):
         submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions}
         noguds = cf_common.user_db.get_noguds(ctx.message.author.id)
-
+        
+        for arg in args:
+            if arg[0] == '-' or arg[0] == '~':
+                notags.append(arg[1:])
+            else:
+                if arg[0] == '+':
+                    tags.append(arg[1:])
+                else:
+                    tags.append(arg)
+                    
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
                     if (prob.rating == rating + delta and
                         prob.name not in solved and
                         prob.name not in noguds)]
+                        
+        if tags:
+            problems = [prob for prob in problems if prob.tag_matches(tags)]
+        if notags:
+            problems = [prob for prob in problems if (prob.tag_matches_or(notags) == None)]        
+                        
 
         def check(problem):
             return (not cf_common.is_nonstandard_problem(problem) and
@@ -307,7 +323,9 @@ class Codeforces(commands.Cog):
         problems.sort(key=lambda problem: cf_common.cache2.contest_cache.get_contest(
             problem.contestId).startTimeSeconds)
 
-        choice = max(random.randrange(len(problems)) for _ in range(2))
+        choice = max(random.randrange(len(problems)) for _ in range(5))
+        if tags or notags:
+            delta = max(delta - 200, _GITGUD_MAX_NEG_DELTA_VALUE)
         await self._gitgud(ctx, handle, problems[choice], delta)
 
     @commands.command(brief='Print user gitgud history')

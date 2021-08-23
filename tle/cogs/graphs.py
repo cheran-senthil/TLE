@@ -822,8 +822,8 @@ class Graphs(commands.Cog):
         if len(members) > 5:
             raise GraphCogError('Please specify at most 5 gudgitters.')
 
-        # shift the [-300, 500] gitgud range to center the text
-        hist_bins = list(range(-300 - 50, 500 + 50 + 1, 100))
+        # shift the [-300, 700] gitgud range to center the text
+        hist_bins = list(range(-300 - 50, 700 + 50 + 1, 100))
         deltas = [[x[0] for x in cf_common.user_db.howgud(member.id)] for member in members]
         labels = [gc.StrWrap(f'{member.display_name}: {len(delta)}')
                   for member, delta in zip(members, deltas)]
