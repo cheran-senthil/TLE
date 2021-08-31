@@ -293,6 +293,8 @@ class Codeforces(commands.Cog):
         solved = {sub.problem.name for sub in submissions}
         noguds = cf_common.user_db.get_noguds(ctx.message.author.id)
         delta = 0
+        tags  = []
+        notags= []
         
         for arg in args:
             if arg[0] == '-' or arg[0] == '~':
