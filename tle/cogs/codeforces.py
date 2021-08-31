@@ -267,11 +267,12 @@ class Codeforces(commands.Cog):
         embed = discord_common.cf_color_embed(description=msg)
         await ctx.send(f'Mashup contest for `{str_handles}`', embed=embed)
 
-    @commands.command(brief='Challenge')
+    @commands.command(brief='Challenge', 
+                      usage='[delta=0] [tags...] [-tags...])
     @cf_common.user_guard(group='gitgud')
-    async def gitgud(self, ctx, delta: int = 0):
+    async def gitgud(self, ctx, *args):
         """Gitgud: You can request a problem from the bots relative to your current rating with ;gitgud <delta>
-        - It is also possible to request problems with a certain tag now but you get less points for it: ;gitgud <delta> [tags...] [-tags...]
+        - It is also possible to request problems with a certain tag now but you get less points for it: ;gitgud <delta> [+tags...] [-tags...]
         - After solving the problem you can claim gitgud points for it with ;gotgud
         - If you can't solve the problem for 2 hours you can skip it with ;nogud
         - The all-time ranklist can be found with ;gitgudders
@@ -292,16 +293,29 @@ class Codeforces(commands.Cog):
         submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions}
         noguds = cf_common.user_db.get_noguds(ctx.message.author.id)
+        delta = 0
         
         for arg in args:
             if arg[0] == '-' or arg[0] == '~':
-                notags.append(arg[1:])
+                if arg[1:].isdigit():
+                    delta = int(arg)
+                else:
+                    notags.append(arg[1:])
             else:
                 if arg[0] == '+':
-                    tags.append(arg[1:])
+                    if arg[1:].isdigit():
+                        delta = int(arg)
+                    else:
+                        tags.append(arg[1:])
                 else:
-                    tags.append(arg)
-                    
+                    if arg.isdigit():
+                        delta = int(arg)
+                    else:
+                        tags.append(arg)
+
+        if delta % 100 != 0:
+            raise CodeforcesCogError('Delta must be a multiple of 100')
+        
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
                     if (prob.rating == rating + delta and
                         prob.name not in solved and
