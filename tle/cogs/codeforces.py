@@ -65,7 +65,7 @@ class Codeforces(commands.Cog):
     @commands.command(brief='Upsolve a problem')
     @cf_common.user_guard(group='gitgud')
     async def upsolve(self, ctx, choice: int = -1):
-        """Upsolve: The command ;upsolve lists all problems that you haven't solved in contests you participated and which are within the range -300 to +500 of your current rating
+        """Upsolve: The command ;upsolve lists all problems that you haven't solved in contests you participated and which are within the range -300 to +700 of your current rating
         - Type ;upsolve for listing all available problems.
         - Type ;upsolve <nr> for choosing the problem <nr> as gitgud problem (only possible if you have no active gitgud challenge)
         - After solving the problem you can claim gitgud points for it with ;gotgud
@@ -271,6 +271,7 @@ class Codeforces(commands.Cog):
     @cf_common.user_guard(group='gitgud')
     async def gitgud(self, ctx, delta: int = 0):
         """Gitgud: You can request a problem from the bots relative to your current rating with ;gitgud <delta>
+        - It is also possible to request problems with a certain tag now but you get less points for it: ;gitgud <delta> [tags...] [-tags...]
         - After solving the problem you can claim gitgud points for it with ;gotgud
         - If you can't solve the problem for 2 hours you can skip it with ;nogud
         - The all-time ranklist can be found with ;gitgudders
