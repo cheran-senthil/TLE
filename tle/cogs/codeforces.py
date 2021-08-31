@@ -284,7 +284,6 @@ class Codeforces(commands.Cog):
         delta  | -300 | -200 | -100 |  0  | +100 | +200 | +300 | +400 | +500 | +600 | +700
         points |   2  |   3  |   5  |  8  |  12  |  17  |  23  |  23  |  23  |  23  |  23
         """
-        await self._validate_gitgud_status(ctx, delta)
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         user = cf_common.user_db.fetch_cf_user(handle)
         rating = round(user.effective_rating, -2)
@@ -313,8 +312,7 @@ class Codeforces(commands.Cog):
                     else:
                         tags.append(arg)
 
-        if delta % 100 != 0:
-            raise CodeforcesCogError('Delta must be a multiple of 100')
+        await self._validate_gitgud_status(ctx, delta)
         
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
                     if (prob.rating == rating + delta and
