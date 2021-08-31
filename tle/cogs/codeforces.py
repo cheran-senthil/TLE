@@ -59,7 +59,7 @@ class Codeforces(commands.Cog):
         desc = cf_common.cache2.contest_cache.get_contest(problem.contestId).name
         embed = discord.Embed(title=title, url=problem.url, description=desc)
         embed.add_field(name='Rating', value=problem.rating)
-        embed.add_field(name='Points', value=(_GITGUD_SCORE_DISTRIB(delta-_GITGUD_MAX_NEG_DELTA_VALUE)//100))
+        embed.add_field(name='Points', value=(_GITGUD_SCORE_DISTRIB[delta-_GITGUD_MAX_NEG_DELTA_VALUE)//100])
         await ctx.send(f'Challenge problem for `{handle}`', embed=embed)
 
     @commands.command(brief='Upsolve a problem')
