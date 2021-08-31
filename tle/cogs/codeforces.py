@@ -268,7 +268,7 @@ class Codeforces(commands.Cog):
         await ctx.send(f'Mashup contest for `{str_handles}`', embed=embed)
 
     @commands.command(brief='Challenge', 
-                      usage='[delta=0] [tags...] [-tags...])
+                      usage='[delta=0] [+tags...] [-tags...]')
     @cf_common.user_guard(group='gitgud')
     async def gitgud(self, ctx, *args):
         """Gitgud: You can request a problem from the bots relative to your current rating with ;gitgud <delta>
