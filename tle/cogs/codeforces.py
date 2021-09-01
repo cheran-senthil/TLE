@@ -77,7 +77,7 @@ class Codeforces(commands.Cog):
         
         Point distribution:
         delta  | -300 | -200 | -100 |  0  | +100 | +200 | +300 | +400 | +500 | +600 | +700
-        points |   2  |   3  |   5  |  8  |  12  |  17  |  23  |  23  |  23  |  23  |  23
+        no tags|   2  |   3  |   5  |  8  |  12  |  17  |  23  |  23  |  23  |  23  |  23
         """
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         user = cf_common.user_db.fetch_cf_user(handle)
@@ -283,6 +283,7 @@ class Codeforces(commands.Cog):
         Point distribution:
         delta  | -300 | -200 | -100 |  0  | +100 | +200 | +300 | +400 | +500 | +600 | +700
         points |   2  |   3  |   5  |  8  |  12  |  17  |  23  |  23  |  23  |  23  |  23
+        tags   |   2  |   2  |   2  |  3  |   5  |   8  |  12  |  17  |  23  |  23  |  23
         """
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         user = cf_common.user_db.fetch_cf_user(handle)
