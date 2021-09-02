@@ -611,7 +611,7 @@ class Handles(commands.Cog):
             if len(entry) >= 2:
                 res[entry[0]] += _GITGUD_SCORE_DISTRIB[(int(entry[1])+300)//100]
             else:
-                raise HandleCogError(f'Tuple size {len(entry))} for entry {entry[0]}]}')
+                raise HandleCogError(f'Tuple size {len(entry)} for entry {entry[0]}')
         
         rankings = []
         index = 0
