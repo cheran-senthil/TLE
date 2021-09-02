@@ -41,9 +41,9 @@ _TOP_DELTAS_COUNT = 10
 _MAX_RATING_CHANGES_PER_EMBED = 15
 _UPDATE_HANDLE_STATUS_INTERVAL = 6 * 60 * 60  # 6 hours
 
-_GITGUD_SCORE_DISTRIB = (2, 3, 5, 8, 12, 17, 23, 23, 23)
+_GITGUD_SCORE_DISTRIB = (2, 3, 5, 8, 12, 17, 23, 23, 23, 23, 23)
 _GITGUD_MAX_NEG_DELTA_VALUE = -300
-_GITGUD_MAX_POS_DELTA_VALUE = 500
+_GITGUD_MAX_POS_DELTA_VALUE = 700
 
 _DIVISION_RATING_LOW  = (2100, 1600, -1000)
 _DIVISION_RATING_HIGH = (9999, 2099,  1599)
@@ -608,7 +608,10 @@ class Handles(commands.Cog):
         for entry in results:
             res[entry[0]] = 0
         for entry in results:
-            res[entry[0]] += _GITGUD_SCORE_DISTRIB[(int(entry[1])+300)//100]
+            if len(entry) >= 2:
+                res[entry[0]] += _GITGUD_SCORE_DISTRIB[(int(entry[1])+300)//100]
+            else:
+                raise HandleCogError(f'Tuple size {len(entry))} for entry {entry[0]}]}')
         
         rankings = []
         index = 0
