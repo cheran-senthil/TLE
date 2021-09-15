@@ -172,6 +172,9 @@ def _plot_extreme(handle, rating, packed_contest_subs_problemset, solved, unsolv
                         s=32, marker='X',
                         color=unsolvedcolor)
 
+    if not regular and not fullsolves and not nosolves:
+        raise GraphCogError(f'All categories empty. User has no Regular, Fullsolves or Nosolves')
+
     if legend:
         plt.legend(title=f'{handle}: {rating}', title_fontsize=plt.rcParams['legend.fontsize'],
                    loc='upper left').set_zorder(20)
