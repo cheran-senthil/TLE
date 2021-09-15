@@ -147,20 +147,21 @@ def _plot_extreme(handle, rating, packed_contest_subs_problemset, solved, unsolv
         plt.scatter(*args, **kwargs)
 
     plt.clf()
-    time_scatter, plot_min, plot_max = zip(*regular)
-    if unsolved:
-        scatter_outline(time_scatter, plot_min, zorder=10,
-                        s=14, marker='o', color=unsolvedcolor,
-                        label='Easiest unsolved')
-    if solved:
-        scatter_outline(time_scatter, plot_max, zorder=10,
-                        s=14, marker='o', color=solvedcolor,
-                        label='Hardest solved')
+    if regular:
+        time_scatter, plot_min, plot_max = zip(*regular)
+        if unsolved:
+            scatter_outline(time_scatter, plot_min, zorder=10,
+                            s=14, marker='o', color=unsolvedcolor,
+                            label='Easiest unsolved')
+        if solved:
+            scatter_outline(time_scatter, plot_max, zorder=10,
+                            s=14, marker='o', color=solvedcolor,
+                            label='Hardest solved')
 
-    ax = plt.gca()
-    if solved and unsolved:
-        for t, mn, mx in regular:
-            ax.add_line(mlines.Line2D((t, t), (mn, mx), color=linecolor))
+        ax = plt.gca()
+        if solved and unsolved:
+            for t, mn, mx in regular:
+                ax.add_line(mlines.Line2D((t, t), (mn, mx), color=linecolor))
 
     if fullsolves:
         scatter_outline(*zip(*fullsolves), zorder=15,
