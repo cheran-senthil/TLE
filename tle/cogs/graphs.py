@@ -166,16 +166,14 @@ def _plot_extreme(handle, rating, packed_contest_subs_problemset, solved, unsolv
     if fullsolves:
         scatter_outline(*zip(*fullsolves), zorder=15,
                         s=42, marker='*',
-                        color=solvedcolor,
-                        label='Fully solved')
+                        color=solvedcolor)
     if nosolves:
         scatter_outline(*zip(*nosolves), zorder=15,
                         s=32, marker='X',
-                        color=unsolvedcolor, 
-                        label='Nothing solved')
+                        color=unsolvedcolor)
 
     if not regular and not fullsolves and not nosolves:
-        raise GraphCogError(f'All categories empty. User has no Regular, Fullsolves or Nosolves\n{packed_contest_subs_problemset}')
+        raise GraphCogError(f'No plot extreme possible. User probably only participated in contests that have no problem ratings yet.')
 
     if legend:
         plt.legend(title=f'{handle}: {rating}', title_fontsize=plt.rcParams['legend.fontsize'],
