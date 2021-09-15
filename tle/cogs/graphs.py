@@ -175,7 +175,7 @@ def _plot_extreme(handle, rating, packed_contest_subs_problemset, solved, unsolv
                         label='Nothing solved')
 
     if not regular and not fullsolves and not nosolves:
-        raise GraphCogError(f'All categories empty. User has no Regular, Fullsolves or Nosolves\n{packed_contest_subs_problemset})
+        raise GraphCogError(f'All categories empty. User has no Regular, Fullsolves or Nosolves\n{packed_contest_subs_problemset}')
 
     if legend:
         plt.legend(title=f'{handle}: {rating}', title_fontsize=plt.rcParams['legend.fontsize'],
