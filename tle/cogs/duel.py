@@ -581,7 +581,7 @@ class Dueling(commands.Cog):
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
     async def _invalidateById(self, ctx, user_id):
         """Declare an ongoing duel invalid."""
-        active = cf_common.user_db.check_duel_complete(user_id)
+        active = cf_common.user_db.check_duel_complete(int(user_id))
         if not active:
             raise DuelCogError(f'{user_id} is not in a duel.')
 
