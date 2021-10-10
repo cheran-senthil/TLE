@@ -583,7 +583,7 @@ class Dueling(commands.Cog):
         """Declare an ongoing duel invalid."""
         active = cf_common.user_db.check_duel_complete(user_id)
         if not active:
-            raise DuelCogError(f'{member.mention} is not in a duel.')
+            raise DuelCogError(f'{user_id} is not in a duel.')
 
         duelid, challenger_id, challengee_id, _, _, _, _, _ = active
         await self.invalidate_duel(ctx, duelid, challenger_id, challengee_id)
