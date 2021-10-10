@@ -577,6 +577,17 @@ class Dueling(commands.Cog):
         duelid, challenger_id, challengee_id, _, _, _, _, _ = active
         await self.invalidate_duel(ctx, duelid, challenger_id, challengee_id)
 
+    @duel.command(brief='Invalidate a duel', usage='[duelist]')
+    @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
+    async def _invalidateById(self, ctx, user_id):
+        """Declare an ongoing duel invalid."""
+        active = cf_common.user_db.check_duel_complete(user_id)
+        if not active:
+            raise DuelCogError(f'{member.mention} is not in a duel.')
+
+        duelid, challenger_id, challengee_id, _, _, _, _, _ = active
+        await self.invalidate_duel(ctx, duelid, challenger_id, challengee_id)
+        
     @duel.command(brief='Plot rating', usage='[duelist]')
     async def rating(self, ctx, *members: discord.Member):
         """Plot duelist's rating."""
