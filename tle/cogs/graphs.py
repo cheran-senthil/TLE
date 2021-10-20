@@ -865,8 +865,9 @@ class Graphs(commands.Cog):
             plt.clf()
             fig = plt.figure(figsize=(15, 5))
             with sns.axes_style(rc={'xtick.bottom': True}):
-                sns.barplot(x=countries, y=counts)
-
+                g = sns.barplot(x=countries, y=counts)
+                g.set_yscale("log")            
+            
             # Show counts on top of bars.
             ax = plt.gca()
             for p in ax.patches:
