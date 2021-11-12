@@ -161,7 +161,7 @@ class Codeforces(commands.Cog):
         problems.sort(key=lambda problem: cf_common.cache2.contest_cache.get_contest(
             problem.contestId).startTimeSeconds)
 
-        choice = max([random.randrange(len(problems)) for _ in range(5)])
+        choice = max([random.randrange(len(problems)) for _ in range(3)])
         problem = problems[choice]
 
         title = f'{problem.index}. {problem.name}'

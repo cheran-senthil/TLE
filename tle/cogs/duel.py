@@ -75,6 +75,26 @@ def complete_duel(duelid, guild_id, win_status, winner, loser, finish_time, scor
     if rc == 0:
         raise DuelCogError('Hey! No cheating!')
 
+    # # Work in progress: Add gitgud entry for the winner
+    # # Step 1: Add entry to db
+    # issue_time = datetime.datetime.now().timestamp()
+    # rc = cf_common.user_db.new_challenge(user_id, issue_time, problem, delta)
+    # if rc != 1:
+        # raise CodeforcesCogError('Your challenge has already been added to the database!')
+    # # Step 2: Complete it immediately
+    # active = cf_common.user_db.check_challenge(user_id)
+    # submissions = await cf.user.status(handle=handle)
+    # solved = {sub.problem.name for sub in submissions if sub.verdict == 'OK'}
+
+    # challenge_id, issue_time, name, contestId, index, delta = active
+    # if not name in solved:
+        # raise CodeforcesCogError('You haven\'t completed your challenge.')
+
+    # delta = _GITGUD_SCORE_DISTRIB[delta // 100 + 3]
+    # finish_time = int(datetime.datetime.now().timestamp())
+    # rc = cf_common.user_db.complete_challenge(user_id, challenge_id, finish_time, delta)
+    
+    
     if dtype == DuelType.UNOFFICIAL:
         return None
 
@@ -189,7 +209,7 @@ class Dueling(commands.Cog):
         problems.sort(key=lambda problem: cf_common.cache2.contest_cache.get_contest(
             problem.contestId).startTimeSeconds)
 
-        choice = max(random.randrange(len(problems)) for _ in range(2))
+        choice = max(random.randrange(len(problems)) for _ in range(5))
         problem = problems[choice]
 
         issue_time = datetime.datetime.now().timestamp()
