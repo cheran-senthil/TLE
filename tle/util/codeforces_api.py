@@ -494,6 +494,7 @@ async def _resolve_handle_mapping(handles_to_fix):
         else:
             cf_user, = await user.info(handles=[new_handle])
             redirections[handle] = cf_user
+        time.sleep(1)
     return redirections
 
 
