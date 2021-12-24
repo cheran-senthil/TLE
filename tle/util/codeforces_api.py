@@ -351,7 +351,7 @@ def user_info_chunkify(handles):
     bytes, so requests might need to be split into chunks
     """
     SIZE_LIMIT = 2**16
-    HANDLE_LIMIT = 1000
+    HANDLE_LIMIT = 10000
     chunk = []
     size = 0
     for handle in handles:
@@ -465,6 +465,7 @@ async def _needs_fixing(handles):
             except HandleNotFoundError as e:
                 to_fix.append(e.handle)
                 handle_chunk.remove(e.handle)
+            time.sleep(1000)
     return to_fix
 
 
