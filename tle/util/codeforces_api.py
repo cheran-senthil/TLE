@@ -465,7 +465,7 @@ async def _needs_fixing(handles):
             except HandleNotFoundError as e:
                 to_fix.append(e.handle)
                 handle_chunk.remove(e.handle)
-            time.sleep(1000)
+            time.sleep(1)
     return to_fix
 
 
