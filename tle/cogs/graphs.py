@@ -40,7 +40,7 @@ def nice_sub_type(types):
     return [nice_map[t] for t in types]
 
 def _plot_rating(resp, mark='o'):
-
+    
     for rating_changes in resp:
         ratings, times = [], []
         for rating_change in rating_changes:
@@ -48,6 +48,27 @@ def _plot_rating(resp, mark='o'):
             times.append(dt.datetime.fromtimestamp(rating_change.ratingUpdateTimeSeconds))
 
         plt.plot(times,
+                 ratings,
+                 linestyle='-',
+                 marker=mark,
+                 markersize=3,
+                 markerfacecolor='white',
+                 markeredgewidth=0.5)
+
+    gc.plot_rating_bg(cf.RATED_RANKS)
+    plt.gcf().autofmt_xdate()
+
+def _plot_progress(resp, mark='o'):
+    
+    for rating_changes in resp:
+        ratings, indices = [], []
+        index = 1
+        for rating_change in rating_changes:
+            ratings.append(rating_change.newRating)
+            indices.append(index)
+            index += 1
+
+        plt.plot(indices,
                  ratings,
                  linestyle='-',
                  marker=mark,
@@ -249,6 +270,63 @@ class Graphs(commands.Cog):
         current_ratings = [rating_changes[-1].newRating if rating_changes else 'Unrated' for rating_changes in resp]
         labels = [gc.StrWrap(f'{handle} ({rating})') for handle, rating in zip(handles, current_ratings)]
         plt.legend(labels, loc='upper left')
+
+        if not zoom:
+            min_rating = 1100
+            max_rating = 1800
+            for rating_changes in resp:
+                for rating in rating_changes:
+                    min_rating = min(min_rating, rating.newRating)
+                    max_rating = max(max_rating, rating.newRating)
+            plt.ylim(min_rating - 100, max_rating + 200)
+
+        discord_file = gc.get_current_figure_as_file()
+        embed = discord_common.cf_color_embed(title='Rating graph on Codeforces')
+        discord_common.attach_image(embed, discord_file)
+        discord_common.set_author_footer(embed, ctx.author)
+        await ctx.send(embed=embed, file=discord_file)
+
+    @plot.command(brief='Plot Codeforces rating graph by contests', usage='[+zoom] [+peak] [handles...] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy]')
+    async def progress(self, ctx, *args: str):
+        """Plots Codeforces rating graph by contests for the handles provided."""
+
+        (zoom, peak), args = cf_common.filter_flags(args, ['+zoom' , '+peak'])
+        filt = cf_common.SubFilter()
+        args = filt.parse(args)
+        handles = args or ('!' + str(ctx.author),)
+        handles = await cf_common.resolve_handles(ctx, self.converter, handles)
+        resp = [await cf.user.rating(handle=handle) for handle in handles]
+        resp = [filt.filter_rating_changes(rating_changes) for rating_changes in resp]
+
+        if not any(resp):
+            handles_str = ', '.join(f'`{handle}`' for handle in handles)
+            if len(handles) == 1:
+                message = f'User {handles_str} is not rated'
+            else:
+                message = f'None of the given users {handles_str} are rated'
+            raise GraphCogError(message)
+
+        def max_prefix(user):
+            max_rate = 0
+            res = []
+            for data in user:
+                old_rating = data.oldRating
+                if old_rating == 0:
+                    old_rating = 1500
+                if data.newRating - old_rating >= 0 and data.newRating >= max_rate:
+                    max_rate = data.newRating
+                    res.append(data)
+            return(res)
+
+        if peak:
+            resp = [max_prefix(user) for user in resp]
+
+        plt.clf()
+        plt.axes().set_prop_cycle(gc.rating_color_cycler)
+        _plot_progress(resp)
+        current_ratings = [rating_changes[-1].newRating if rating_changes else 'Unrated' for rating_changes in resp]
+        labels = [gc.StrWrap(f'{handle} ({rating})') for handle, rating in zip(handles, current_ratings)]
+        plt.legend(labels, loc='bottom right')
 
         if not zoom:
             min_rating = 1100
