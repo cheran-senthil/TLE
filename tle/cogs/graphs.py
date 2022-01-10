@@ -329,7 +329,7 @@ class Graphs(commands.Cog):
             
         plt.clf()
         plt.axes().set_prop_cycle(gc.rating_color_cycler)
-        _plot_rating(resp)
+        _plot_rating_by_date(resp)
         labels = [gc.StrWrap(f'{handle} ({rating})') for handle, rating in zip(handles, current_ratings)]
         plt.legend(labels, loc='upper left')
 
