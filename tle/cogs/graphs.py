@@ -331,7 +331,7 @@ class Graphs(commands.Cog):
         plt.axes().set_prop_cycle(gc.rating_color_cycler)
         _plot_rating_by_date(resp)
         labels = [gc.StrWrap(f'{handle} ({rating})') for handle, rating in zip(handles, current_ratings)]
-        plt.legend(labels, loc='best')
+        plt.legend(labels, bbox_to_anchor=(0, 1, 1, 0), loc='lower left', mode='expand', ncol=2)
 
         if not zoom:
             min_rating = 1100
