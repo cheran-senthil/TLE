@@ -269,7 +269,7 @@ class Graphs(commands.Cog):
             _plot_rating_by_date(resp)
         current_ratings = [rating_changes[-1].newRating if rating_changes else 'Unrated' for rating_changes in resp]
         labels = [gc.StrWrap(f'{handle} ({rating})') for handle, rating in zip(handles, current_ratings)]
-        plt.legend(labels, loc='upper left')
+        plt.legend(labels, bbox_to_anchor=(0, 1, 1, 0), loc='lower left', mode='expand', ncol=2)
 
         if not zoom:
             min_rating = 1100
@@ -548,7 +548,7 @@ class Graphs(commands.Cog):
         if virtual:
             labels.append('Virtual')
         if legend:
-            plt.legend(labels, loc='upper left')
+            plt.legend(labels, bbox_to_anchor=(0, 1, 1, 0), loc='lower left', mode='expand', ncol=3)
         _plot_average(practice, bin_size)
         _plot_rating_by_date(rating_resp, mark='')
 
