@@ -618,7 +618,7 @@ class Graphs(commands.Cog):
         if virtual:
             labels.append('Virtual')
         if legend:
-            plt.legend(labels, , bbox_to_anchor=(0, 1, 1, 0), loc='lower left', mode='expand', ncol=3)
+            plt.legend(labels, bbox_to_anchor=(0, 1, 1, 0), loc='lower left', mode='expand', ncol=3)
         _plot_average(practice, bin_size)
         _plot_rating_by_date(rating_resp, mark='')
 
