@@ -550,7 +550,7 @@ class Graphs(commands.Cog):
         if legend:
             plt.legend(labels, loc='upper left')
         _plot_average(practice, bin_size)
-        _plot_rating(rating_resp, mark='')
+        _plot_rating_by_date(rating_resp, mark='')
 
         # zoom
         ymin, ymax = plt.gca().get_ylim()
