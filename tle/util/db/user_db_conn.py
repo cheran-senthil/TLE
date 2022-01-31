@@ -209,6 +209,12 @@ class UserDbConn:
             )
         ''')
 
+        self.conn.execute('''
+            CREATE TABLE IF NOT EXISTS training_settings (
+                guild_id TEXT PRIMARY KEY,
+                channel_id TEXT
+            )
+        ''')
 
     # Helper functions.
 
@@ -890,6 +896,20 @@ class UserDbConn:
                  'WHERE user_id = ? AND vc_id = ? ')
         with self.conn:
             return self.conn.execute(query, (user_id, vc_id)).rowcount
+
+    def set_training_channel(self, guild_id, channel_id):
+        query = ('INSERT OR REPLACE INTO training_settings '
+                 ' (guild_id, channel_id) VALUES (?, ?)'
+                 )
+        with self.conn:
+            self.conn.execute(query, (guild_id, channel_id))
+
+    def get_training_channel(self, guild_id):
+        query = ('SELECT channel_id '
+                 'FROM training_settings '
+                 'WHERE guild_id = ?')
+        channel_id = self.conn.execute(query, (guild_id,)).fetchone()
+        return int(channel_id[0]) if channel_id else None
 
     def close(self):
         self.conn.close()
