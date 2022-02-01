@@ -207,7 +207,7 @@ class Codeforces(commands.Cog):
         def make_page(chunk):
             
             title = '{} solved problems by {}'.format('Hardest' if hardest else 'Recently',
-                                                        '`, `'.join(handlesWithUrl))
+                                                        ', '.join(handlesWithUrl))
             hist_str = '\n'.join(make_line(sub) for sub in chunk)
             embed = discord_common.cf_color_embed(description=hist_str)
             return title, embed
