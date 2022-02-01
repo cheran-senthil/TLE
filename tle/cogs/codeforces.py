@@ -196,6 +196,8 @@ class Codeforces(commands.Cog):
         else:
             submissions.sort(key=lambda sub: sub.creationTimeSeconds, reverse=True)
 
+        handlesWithUrl = ['{} (https://www.codeforces.com/profile/{})'.format(handle,handle) for handle in handles]
+
         def make_line(sub):
             data = (f'[{sub.problem.name}]({sub.problem.url})',
                     f'[{sub.problem.rating if sub.problem.rating else "?"}]',
@@ -203,8 +205,8 @@ class Codeforces(commands.Cog):
             return '\N{EN SPACE}'.join(data)
 
         def make_page(chunk):
-            handlesWithUrl = ['{} (https://www.codeforces.com/profile/{})'.format(handle,handle) for handle in handles]
-            title = '{} solved problems by `{}`'.format('Hardest' if hardest else 'Recently',
+            
+            title = '{} solved problems by {}'.format('Hardest' if hardest else 'Recently',
                                                         '`, `'.join(handlesWithUrl))
             hist_str = '\n'.join(make_line(sub) for sub in chunk)
             embed = discord_common.cf_color_embed(description=hist_str)
