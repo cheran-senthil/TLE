@@ -14,6 +14,11 @@ class Gitgud(IntEnum):
     NOGUD = 2
     FORCED_NOGUD = 3
 
+class Training(IntEnum):
+    SOLVED = 0
+    ACTIVE = 1
+    SKIPPED = 2
+
 class Duel(IntEnum):
     PENDING = 0
     DECLINED = 1
@@ -31,6 +36,7 @@ class Winner(IntEnum):
 class DuelType(IntEnum):
     UNOFFICIAL = 0
     OFFICIAL = 1
+    
 class RatedVC(IntEnum):
     ONGOING = 0
     FINISHED = 1
@@ -213,6 +219,41 @@ class UserDbConn:
             CREATE TABLE IF NOT EXISTS training_settings (
                 guild_id TEXT PRIMARY KEY,
                 channel_id TEXT
+            )
+        ''')
+
+        self.conn.execute('''
+            CREATE TABLE IF NOT EXISTS "user_training" (
+                "user_id"	TEXT,
+                "active_training_id"	INTEGER,
+                PRIMARY KEY("user_id")
+            )
+        ''')
+
+        self.conn.execute('''
+            CREATE TABLE IF NOT EXISTS "training" (
+                "id"	INTEGER PRIMARY KEY AUTOINCREMENT,
+                "user_id" TEXT,
+                "active_training_problem_id"	INTEGER,
+                "score" INTEGER,
+                "lives" INTEGER,
+                "mode"  INTEGER
+                PRIMARY KEY("user_id")
+            )
+        ''')
+
+        self.conn.execute('''
+            CREATE TABLE IF NOT EXISTS "training_problems" (
+                "id"	INTEGER PRIMARY KEY AUTOINCREMENT,
+                "training_id"   INTEGER NOT NULL,
+                "issue_time"	REAL NOT NULL,
+                "finish_time"	REAL,
+                "problem_name"	TEXT NOT NULL,
+                "contest_id"	INTEGER NOT NULL,
+                "p_index"	INTEGER NOT NULL,
+                "rating"	INTEGER NOT NULL,
+                "status"	INTEGER NOT NULL,
+                PRIMARY KEY("training_id")
             )
         ''')
 
@@ -910,6 +951,52 @@ class UserDbConn:
                  'WHERE guild_id = ?')
         channel_id = self.conn.execute(query, (guild_id,)).fetchone()
         return int(channel_id[0]) if channel_id else None
+
+    # TODO: Build queries!
+    def new_training(self, user_id, issue_time, prob, delta):
+        query1 = '''
+            INSERT INTO challenge
+            (user_id, issue_time, problem_name, contest_id, p_index, rating_delta, status)
+            VALUES
+            (?, ?, ?, ?, ?, ?, 1)
+        '''
+        query2 = '''
+            INSERT OR IGNORE INTO user_challenge (user_id, score, num_completed, num_skipped)
+            VALUES (?, 0, 0, 0)
+        '''
+        query3 = '''
+            UPDATE user_challenge SET active_challenge_id = ?, issue_time = ?
+            WHERE user_id = ? AND active_challenge_id IS NULL
+        '''
+        cur = self.conn.cursor()
+        cur.execute(query1, (user_id, issue_time, prob.name, prob.contestId, prob.index, delta))
+        last_id, rc = cur.lastrowid, cur.rowcount
+        if rc != 1:
+            self.conn.rollback()
+            return 0
+        cur.execute(query2, (user_id,))
+        cur.execute(query3, (last_id, issue_time, user_id))
+        if cur.rowcount != 1:
+            self.conn.rollback()
+            return 0
+        self.conn.commit()
+        return 1
+    # TODO: Build queries!
+    def check_training(self, user_id):
+        query1 = '''
+            SELECT active_challenge_id, issue_time FROM user_challenge
+            WHERE user_id = ?
+        '''
+        res = self.conn.execute(query1, (user_id,)).fetchone()
+        if res is None: return None
+        c_id, issue_time = res
+        query2 = '''
+            SELECT problem_name, contest_id, p_index, rating_delta FROM challenge
+            WHERE id = ?
+        '''
+        res = self.conn.execute(query2, (c_id,)).fetchone()
+        if res is None: return None
+        return c_id, issue_time, res[0], res[1], res[2], res[3]
 
     def close(self):
         self.conn.close()
