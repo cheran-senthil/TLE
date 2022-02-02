@@ -15,6 +15,11 @@ class Gitgud(IntEnum):
     FORCED_NOGUD = 3
 
 class Training(IntEnum):
+    NOTSTARTED = 0
+    ACTIVE = 1
+    COMPLETED = 2
+
+class TrainingProblemStatus(IntEnum):
     SOLVED = 0
     ACTIVE = 1
     SKIPPED = 2
@@ -224,20 +229,12 @@ class UserDbConn:
 
         self.conn.execute('''
             CREATE TABLE IF NOT EXISTS "user_training" (
-                "user_id"	TEXT,
-                "active_training_id"	INTEGER,
-                PRIMARY KEY("user_id")
-            )
-        ''')
-
-        self.conn.execute('''
-            CREATE TABLE IF NOT EXISTS "training" (
                 "id"	INTEGER PRIMARY KEY AUTOINCREMENT,
                 "user_id" TEXT,
-                "active_training_problem_id"	INTEGER,
                 "score" INTEGER,
                 "lives" INTEGER,
-                "mode"  INTEGER
+                "mode"  INTEGER NOT NULL,
+                "status" INTEGER NOT NULL,
                 PRIMARY KEY("user_id")
             )
         ''')
@@ -953,50 +950,47 @@ class UserDbConn:
         return int(channel_id[0]) if channel_id else None
 
     # TODO: Build queries!
-    def new_training(self, user_id, issue_time, prob, delta):
+    def new_training(self, user_id, issue_time, prob, mode, lives):
         query1 = '''
-            INSERT INTO challenge
-            (user_id, issue_time, problem_name, contest_id, p_index, rating_delta, status)
+            INSERT INTO user_training
+            (user_id, score, lives, mode, status)
             VALUES
-            (?, ?, ?, ?, ?, ?, 1)
+            (?, 0, ?, ?, 1)
         '''
         query2 = '''
-            INSERT OR IGNORE INTO user_challenge (user_id, score, num_completed, num_skipped)
-            VALUES (?, 0, 0, 0)
-        '''
-        query3 = '''
-            UPDATE user_challenge SET active_challenge_id = ?, issue_time = ?
-            WHERE user_id = ? AND active_challenge_id IS NULL
+            INSERT INTO training_problems (training_id, issue_time, problem_name, contest_id, p_index, rating, status)
+            VALUES (?, ?, ?, ?, ?, ?, 1)
         '''
         cur = self.conn.cursor()
-        cur.execute(query1, (user_id, issue_time, prob.name, prob.contestId, prob.index, delta))
-        last_id, rc = cur.lastrowid, cur.rowcount
+        cur.execute(query1, (user_id, lives, mode))
+        training_id, rc = cur.lastrowid, cur.rowcount
         if rc != 1:
             self.conn.rollback()
             return 0
-        cur.execute(query2, (user_id,))
-        cur.execute(query3, (last_id, issue_time, user_id))
+        cur.execute(query2, (training_id, issue_time, prob.name, prob.contestId, prob.index, prob.rating))
         if cur.rowcount != 1:
             self.conn.rollback()
             return 0
         self.conn.commit()
         return 1
+
+
     # TODO: Build queries!
     def check_training(self, user_id):
         query1 = '''
-            SELECT active_challenge_id, issue_time FROM user_challenge
-            WHERE user_id = ?
+            SELECT id FROM user_training
+            WHERE user_id = ? AND mode = ?
         '''
-        res = self.conn.execute(query1, (user_id,)).fetchone()
+        res = self.conn.execute(query1, (user_id,Training.ACTIVE)).fetchone()
         if res is None: return None
-        c_id, issue_time = res
+        training_id = res
         query2 = '''
-            SELECT problem_name, contest_id, p_index, rating_delta FROM challenge
-            WHERE id = ?
+            SELECT issue_time, problem_name, contest_id, p_index, rating FROM challenge
+            WHERE training_id = ? AND mode = ?
         '''
-        res = self.conn.execute(query2, (c_id,)).fetchone()
+        res = self.conn.execute(query2, (training_id,TrainingProblemStatus.ACTIVE)).fetchone()
         if res is None: return None
-        return c_id, issue_time, res[0], res[1], res[2], res[3]
+        return training_id, res[0], res[1], res[2], res[3], res[4]
 
     def close(self):
         self.conn.close()

@@ -14,9 +14,10 @@ _TRAINING_MAX_RATING_VALUE = 3500
 
 class TrainingMode(IntEnum):
     NORMAL = 0
-    TIMED15 = 1
-    TIMED30 = 2
-    TIMED60 = 3
+    SURVIVAL = 1
+    TIMED15 = 2
+    TIMED30 = 3
+    TIMED60 = 4
 
 class TrainingCogError(commands.CommandError):
     pass
@@ -77,14 +78,14 @@ class Training(commands.Cog):
         if not training_channel_id or ctx.channel.id != training_channel_id:
             raise TrainingCogError('You must use this command in training channel.')
 
-    async def _assignTrainingProblem(self, ctx, handle, problem, rating, mode):
+    async def _assignTrainingProblem(self, ctx, handle, problem, mode):
         # The caller of this function is responsible for calling `_validate_training_status` first.
         user_id = ctx.author.id
 
         issue_time = datetime.datetime.now().timestamp()
-        rc = cf_common.user_db.new_training_challenge(user_id, issue_time, problem, rating)
+        rc = cf_common.user_db.new_training(user_id, issue_time, problem, mode, 100)
         if rc != 1:
-            raise TrainingCogError('Your challenge has already been added to the database!')
+            raise TrainingCogError('Your training has already been added to the database!')
 
         title = f'{problem.index}. {problem.name}'
         desc = cf_common.cache2.contest_cache.get_contest(problem.contestId).name
@@ -142,7 +143,7 @@ class Training(commands.Cog):
         problem = self._pickTrainingProblem(handle, rating)  
 
         #assign new problem
-        await self._assignTrainingProblem(ctx, handle, problem, rating)
+        await self._assignTrainingProblem(ctx, handle, problem, TrainingMode.NORMAL)
 
     @training.command(brief='Do this command if you have solved your current problem')
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)    
