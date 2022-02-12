@@ -292,7 +292,7 @@ class Graphs(commands.Cog):
         await ctx.send(embed=embed, file=discord_file)
 
 
-    @plot.command(brief='Plot Codeforces performance graph', usage='[+zoom] [+peak] [handles...] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy]')
+    @plot.command(brief='Plot Codeforces performance graph', aliases=['perf'], usage='[+zoom] [+peak] [handles...] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy]')
     async def performance(self, ctx, *args: str):
         """Plots Codeforces performance graph for the handles provided."""
 
