@@ -755,7 +755,7 @@ class Contests(commands.Cog):
     async def cog_command_error(self, ctx, error):
         pass
 
-    @commands.command(brief='Plot vc performance for a list of at most 5 users', usage='@user1 @user2 ..')
+    @commands.command(brief='Plot vc performance for a list of at most 5 users', aliases=['vcperf'], usage='@user1 @user2 ..')
     async def vcperformance(self, ctx, *members: discord.Member):
         """Plots VC performance for at most 5 users."""
         members = members or (ctx.author, )
