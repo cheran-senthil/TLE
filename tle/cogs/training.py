@@ -41,7 +41,7 @@ class Training(commands.Cog):
         """Group for commands pertaining trainings"""
         await ctx.send_help(ctx.command)
 
-    def _validateTrainingStatus(self, ctx, rating):
+    async def _validateTrainingStatus(self, ctx, rating):
         if rating is not None and rating % 100 != 0:
             raise TrainingCogError('Delta must be a multiple of 100.')
         if rating is not None and (rating < _TRAINING_MIN_RATING_VALUE or rating > _TRAINING_MAX_RATING_VALUE):
