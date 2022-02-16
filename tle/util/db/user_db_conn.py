@@ -983,7 +983,7 @@ class UserDbConn:
         training_id = res
         query2 = '''
             SELECT issue_time, problem_name, contest_id, p_index, rating FROM training_problems
-            WHERE training_id = ? AND mode = ?
+            WHERE training_id = ? AND status = ?
         '''
         res = self.conn.execute(query2, (training_id,TrainingProblemStatus.ACTIVE)).fetchone()
         if res is None: return None
