@@ -99,7 +99,7 @@ class Training(commands.Cog):
         user_id = ctx.author.id
 
         issue_time = datetime.datetime.now().timestamp()
-        rc = cf_common.user_db.new_training_problem(user_id, issue_time, problem, mode, 0, 0)
+        rc = cf_common.user_db.new_training_problem(user_id, issue_time, problem)
         if rc is None:
             raise TrainingCogError('You don\'t have an active training session!')
         if rc == 0:
