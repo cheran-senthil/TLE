@@ -215,7 +215,10 @@ class Training(commands.Cog):
         pass
 
     
-
+    @discord_common.send_error_if(TrainingCogError, cf_common.ResolveHandleError,
+                                  cf_common.FilterError)
+    async def cog_command_error(self, ctx, error):
+        pass
     
 
 def setup(bot):
