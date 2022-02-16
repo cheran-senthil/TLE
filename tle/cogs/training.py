@@ -133,11 +133,11 @@ class Training(commands.Cog):
         user_id = ctx.message.author.id
         #get AC submission time
         finish_time = int(datetime.datetime.now().timestamp())
-        rc = cf_common.user_db.complete_training_problem(user_id, training_id, finish_time, rating)
+        rc = cf_common.user_db.complete_training_problem(user_id, training_id, finish_time, 0, 1)
         if rc == 1:
             duration = cf_common.pretty_time_format(finish_time - issue_time)
             rating = min(rating + 100, 3500)
-            await ctx.send(f'Problem solved in {duration}. {handle} will be assigned a new problem with rating {rating}. (current lives: {lives})')
+            await ctx.send(f'Problem solved in {duration}. {handle} will be assigned a new problem with rating {rating}.') # (current lives: {lives})')
             return duration
         else: 
             TrainingCogError("You already completed your training problem!")
