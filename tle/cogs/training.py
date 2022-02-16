@@ -111,7 +111,7 @@ class Training(commands.Cog):
         embed.add_field(name='Rating', value=problem.rating)
         await ctx.send(f'Training problem for `{handle}`', embed=embed)
 
-    def _checkTrainingActive(self, ctx):
+    async def _checkTrainingActive(self, ctx):
         user_id = ctx.message.author.id
         active = cf_common.user_db.check_training(user_id)
         if not active:
@@ -123,17 +123,17 @@ class Training(commands.Cog):
         submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions if sub.verdict == 'OK'}
 
-        challenge_id, issue_time, name, contestId, index, delta = active
+        training_id, issue_time, name, contestId, index, rating = active
         if not name in solved:
             raise TrainingCogError('You haven\'t completed your challenge.')
         return handle
 
     async def _completeCurrentTrainingProblem(self, ctx, active, handle):
-        challenge_id, issue_time, name, contestId, index, rating = active
+        training_id, issue_time, name, contestId, index, rating = active
         user_id = ctx.message.author.id
         #get AC submission time
         finish_time = int(datetime.datetime.now().timestamp())
-        rc = cf_common.user_db.complete_training_problem(user_id, challenge_id, finish_time, rating)
+        rc = cf_common.user_db.complete_training_problem(user_id, training_id, finish_time, rating)
         if rc == 1:
             duration = cf_common.pretty_time_format(finish_time - issue_time)
             rating = min(rating + 100, 3500)
@@ -169,13 +169,13 @@ class Training(commands.Cog):
         self._checkIfCorrectChannel(ctx)
 
         ### check game running
-        active = self._checkTrainingActive(ctx)
+        active = await self._checkTrainingActive(ctx)
 
         ### check if solved
         handle = await self._checkIfSolved(ctx, active)
 
         ### check game state 
-        duration = await self._completeCurrentTrainingProblem(active, handle, ctx.message.author.id)
+        duration = await self._completeCurrentTrainingProblem(ctx, active, handle)
 
         ### Picking a new problem with a certain rating
         challenge_id, issue_time, name, contestId, index, rating = active
