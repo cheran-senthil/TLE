@@ -157,7 +157,7 @@ class Training(commands.Cog):
         await self._validateTrainingStatus(ctx, rating)
 
         ### Picking a new problem with a certain rating
-        problem = self._pickTrainingProblem(handle, rating)  
+        problem = await self._pickTrainingProblem(handle, rating)  
 
         #assign new problem
         await self._startTrainingAndAssignProblem(ctx, handle, problem, TrainingMode.NORMAL)
@@ -172,14 +172,14 @@ class Training(commands.Cog):
         active = self._checkTrainingActive(ctx)
 
         ### check if solved
-        handle = self._checkIfSolved(ctx, active)
+        handle = await self._checkIfSolved(ctx, active)
 
         ### check game state 
-        duration = self._completeCurrentTrainingProblem(active, handle, ctx.message.author.id)
+        duration = await self._completeCurrentTrainingProblem(active, handle, ctx.message.author.id)
 
         ### Picking a new problem with a certain rating
         challenge_id, issue_time, name, contestId, index, rating = active
-        problem = self._pickTrainingProblem(handle, rating)  
+        problem = await self._pickTrainingProblem(handle, rating)  
         await self._assignTrainingProblem(ctx, handle, problem, rating)
 
     @training.command(brief='Do this command if you want to skip your current problem. ') #This reduces your life by 1 (if not in Unlimited Mode).
