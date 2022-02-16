@@ -128,7 +128,7 @@ class Training(commands.Cog):
             raise TrainingCogError('You haven\'t completed your challenge.')
         return handle
 
-    async def _completeCurrentTrainingProblem(ctx, active, handle):
+    async def _completeCurrentTrainingProblem(self, ctx, active, handle):
         challenge_id, issue_time, name, contestId, index, rating = active
         user_id = ctx.message.author.id
         #get AC submission time
