@@ -51,7 +51,7 @@ class Training(commands.Cog):
         if active is not None:
             _, _, name, contest_id, index, _ = active
             url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
-            raise TrainingCogError(f'You have an active training {name} at {url}')        
+            raise TrainingCogError(f'You have an active training problem {name} at {url}')        
 
     async def _pickTrainingProblem(self, handle, rating):
         submissions = await cf.user.status(handle=handle)
@@ -78,13 +78,30 @@ class Training(commands.Cog):
         if not training_channel_id or ctx.channel.id != training_channel_id:
             raise TrainingCogError('You must use this command in training channel.')
 
+    async def _startTrainingAndAssignProblem(self, ctx, handle, problem, mode):
+        # The caller of this function is responsible for calling `_validate_training_status` first.
+        user_id = ctx.author.id
+
+        issue_time = datetime.datetime.now().timestamp()
+        rc = cf_common.user_db.new_training(user_id, issue_time, problem, mode, None, None)
+        if rc != 1:
+            raise TrainingCogError('Your training has already been added to the database!')
+
+        title = f'{problem.index}. {problem.name}'
+        desc = cf_common.cache2.contest_cache.get_contest(problem.contestId).name
+        embed = discord.Embed(title=title, url=problem.url, description=desc)
+        embed.add_field(name='Rating', value=problem.rating)
+        await ctx.send(f'Training problem for `{handle}`', embed=embed)
+
     async def _assignTrainingProblem(self, ctx, handle, problem, mode):
         # The caller of this function is responsible for calling `_validate_training_status` first.
         user_id = ctx.author.id
 
         issue_time = datetime.datetime.now().timestamp()
-        rc = cf_common.user_db.new_training(user_id, issue_time, problem, mode, 100)
-        if rc != 1:
+        rc = cf_common.user_db.new_training_problem(user_id, issue_time, problem, mode, None, None)
+        if rc is None:
+            raise TrainingCogError('You don\'t have an active training session!')
+        if rc == 0:
             raise TrainingCogError('Your training has already been added to the database!')
 
         title = f'{problem.index}. {problem.name}'
@@ -109,7 +126,6 @@ class Training(commands.Cog):
         if not name in solved:
             raise TrainingCogError('You haven\'t completed your challenge.')
         return handle
-
 
     async def _completeCurrentTrainingProblem(ctx, active, handle):
         challenge_id, issue_time, name, contestId, index, rating = active
@@ -143,7 +159,7 @@ class Training(commands.Cog):
         problem = self._pickTrainingProblem(handle, rating)  
 
         #assign new problem
-        await self._assignTrainingProblem(ctx, handle, problem, TrainingMode.NORMAL)
+        await self._startTrainingAndAssignProblem(ctx, handle, problem, TrainingMode.NORMAL)
 
     @training.command(brief='Do this command if you have solved your current problem')
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)    
@@ -160,13 +176,12 @@ class Training(commands.Cog):
         ### check game state 
         duration = self._completeCurrentTrainingProblem(active, handle, ctx.message.author.id)
 
-
         ### Picking a new problem with a certain rating
         challenge_id, issue_time, name, contestId, index, rating = active
         problem = self._pickTrainingProblem(handle, rating)  
         await self._assignTrainingProblem(ctx, handle, problem, rating)
 
-    @training.command(brief='Do this command if you want to skip your current problem. This reduces your life by 1.')
+    @training.command(brief='Do this command if you want to skip your current problem. ') #This reduces your life by 1 (if not in Unlimited Mode).
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)    
     async def skip(self, ctx):
         ### check if we are in the correct channel
@@ -190,8 +205,10 @@ class Training(commands.Cog):
         self._checkIfCorrectChannel(ctx)
 
         ### check game running
+        active = self._checkTrainingActive(ctx)
 
         ### check if solved
+
 
         ### end game and post results
         pass

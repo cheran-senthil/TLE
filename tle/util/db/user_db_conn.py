@@ -228,19 +228,19 @@ class UserDbConn:
         ''')
 
         self.conn.execute('''
-            CREATE TABLE IF NOT EXISTS "user_training" (
+            CREATE TABLE IF NOT EXISTS trainings (
                 "id"	INTEGER PRIMARY KEY AUTOINCREMENT,
                 "user_id" TEXT,
                 "score" INTEGER,
                 "lives" INTEGER,
+                "time_left"     REAL,
                 "mode"  INTEGER NOT NULL,
-                "status" INTEGER NOT NULL,
-                PRIMARY KEY("user_id")
+                "status" INTEGER NOT NULL
             )
         ''')
 
         self.conn.execute('''
-            CREATE TABLE IF NOT EXISTS "training_problems" (
+            CREATE TABLE IF NOT EXISTS training_problems (
                 "id"	INTEGER PRIMARY KEY AUTOINCREMENT,
                 "training_id"   INTEGER NOT NULL,
                 "issue_time"	REAL NOT NULL,
@@ -249,8 +249,7 @@ class UserDbConn:
                 "contest_id"	INTEGER NOT NULL,
                 "p_index"	INTEGER NOT NULL,
                 "rating"	INTEGER NOT NULL,
-                "status"	INTEGER NOT NULL,
-                PRIMARY KEY("training_id")
+                "status"	INTEGER NOT NULL
             )
         ''')
 
@@ -949,20 +948,19 @@ class UserDbConn:
         channel_id = self.conn.execute(query, (guild_id,)).fetchone()
         return int(channel_id[0]) if channel_id else None
 
-    # TODO: Build queries!
-    def new_training(self, user_id, issue_time, prob, mode, lives):
+    def new_training(self, user_id, issue_time, prob, mode, lives, time_left):
         query1 = '''
-            INSERT INTO user_training
-            (user_id, score, lives, mode, status)
+            INSERT INTO trainings
+            (user_id, score, lives, time_left, mode, status)
             VALUES
-            (?, 0, ?, ?, 1)
+            (?, 0, ?, ?, ?, 1)
         '''
         query2 = '''
             INSERT INTO training_problems (training_id, issue_time, problem_name, contest_id, p_index, rating, status)
             VALUES (?, ?, ?, ?, ?, ?, 1)
         '''
         cur = self.conn.cursor()
-        cur.execute(query1, (user_id, lives, mode))
+        cur.execute(query1, (user_id, lives, time_left, mode))
         training_id, rc = cur.lastrowid, cur.rowcount
         if rc != 1:
             self.conn.rollback()
@@ -975,22 +973,65 @@ class UserDbConn:
         return 1
 
 
-    # TODO: Build queries!
     def check_training(self, user_id):
         query1 = '''
-            SELECT id FROM user_training
-            WHERE user_id = ? AND mode = ?
+            SELECT id FROM trainings
+            WHERE user_id = ? AND status = ?
         '''
         res = self.conn.execute(query1, (user_id,Training.ACTIVE)).fetchone()
         if res is None: return None
         training_id = res
         query2 = '''
-            SELECT issue_time, problem_name, contest_id, p_index, rating FROM challenge
+            SELECT issue_time, problem_name, contest_id, p_index, rating FROM training_problems
             WHERE training_id = ? AND mode = ?
         '''
         res = self.conn.execute(query2, (training_id,TrainingProblemStatus.ACTIVE)).fetchone()
         if res is None: return None
         return training_id, res[0], res[1], res[2], res[3], res[4]
 
+    # maybe its better to have 1 command for "solved and new problem", "skip and new problem", "end game" to have a consistent state at all times (?)
+    def new_training_problem(self, user_id, issue_time, prob):
+        query1 = '''
+            SELECT id FROM trainings
+            WHERE user_id = ? AND status = ?
+        '''
+        query2 = '''
+            INSERT INTO training_problems (training_id, issue_time, problem_name, contest_id, p_index, rating, status)
+            VALUES (?, ?, ?, ?, ?, ?, 1)
+        '''
+        
+        res = self.conn.execute(query1, (user_id, Training.ACTIVE)).fetchone()
+        if res is None: return None
+        training_id = res
+        cur = self.conn.cursor()            
+        cur.execute(query2, (training_id, issue_time, prob.name, prob.contestId, prob.index, prob.rating))
+        if cur.rowcount != 1:
+            self.conn.rollback()
+            return 0
+        self.conn.commit()
+        return 1
+
+    def complete_training_problem(self, user_id, training_id, finish_time, lives, score):
+        query1 = f'''
+            UPDATE training_problems SET finish_time = ?, status = {TrainingProblemStatus.SOLVED}
+            WHERE training_id = ? AND status = {TrainingProblemStatus.ACTIVE}
+        '''
+        query2 = '''
+            UPDATE trainings SET score = score + ?, lives = ?
+            WHERE user_id = ? AND id = ?
+        '''
+        rc = self.conn.execute(query1, (finish_time, training_id)).rowcount
+        if rc != 1:
+            self.conn.rollback()
+            return 0
+        rc = self.conn.execute(query2, (score, lives, user_id, training_id)).rowcount
+        if rc != 1:
+            self.conn.rollback()
+            return 0
+        self.conn.commit()
+        return 1
+
     def close(self):
         self.conn.close()
+
+
