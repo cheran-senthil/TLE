@@ -4,7 +4,7 @@ import discord
 from discord.ext import commands
 import datetime
 from tle import constants
-from tle.util.db.user_db_conn import Duel, DuelType, Winner
+from tle.util.db.user_db_conn import Training, TrainingProblemStatus
 from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
 from tle.util import discord_common
@@ -25,6 +25,7 @@ class TrainingCogError(commands.CommandError):
 class Training(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.converter = commands.MemberConverter()
 
     @commands.command(brief='Set the training channel to the current channel')
     @commands.has_role(constants.TLE_ADMIN)
