@@ -224,7 +224,7 @@ class Training(commands.Cog):
         pass
 
     @training.command(brief='Set the training channel to the current channel')
-    @commands.has_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)  # OK
+    @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)  # OK
     async def set_channel(self, ctx):
         """ Sets the training channel to the current channel.
         """
