@@ -975,19 +975,19 @@ class UserDbConn:
 
     def check_training(self, user_id):
         query1 = '''
-            SELECT id FROM trainings
+            SELECT id, mode, score, lives FROM trainings
             WHERE user_id = ? AND status = ?
         '''
         res = self.conn.execute(query1, (user_id,Training.ACTIVE)).fetchone()
         if res is None: return None
-        training_id, = res
+        training_id,mode,score,lives = res
         query2 = '''
             SELECT issue_time, problem_name, contest_id, p_index, rating FROM training_problems
             WHERE training_id = ? AND status = ?
         '''
         res = self.conn.execute(query2, (training_id,TrainingProblemStatus.ACTIVE)).fetchone()
         if res is None: return None
-        return training_id, res[0], res[1], res[2], res[3], res[4]
+        return training_id, res[0], res[1], res[2], res[3], res[4], mode, score, lives
 
     # maybe its better to have 1 command for "solved and new problem", "skip and new problem", "end game" to have a consistent state at all times (?)
     def new_training_problem(self, user_id, issue_time, prob):
