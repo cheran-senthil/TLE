@@ -1002,7 +1002,7 @@ class UserDbConn:
         
         res = self.conn.execute(query1, (user_id, Training.ACTIVE)).fetchone()
         if res is None: return None
-        training_id = res
+        training_id, = res
         cur = self.conn.cursor()            
         cur.execute(query2, (training_id, issue_time, prob.name, prob.contestId, prob.index, prob.rating))
         if cur.rowcount != 1:
