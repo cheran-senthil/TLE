@@ -1050,6 +1050,18 @@ class UserDbConn:
             return 0
         self.conn.commit()
         return 1
+    
+    def finish_training(self, user_id, training_id):
+        query1 = f'''
+            UPDATE trainings SET status = {Training.COMPLETED}
+            WHERE user_id = ? AND id = ?
+        '''
+        rc = self.conn.execute(query1, (user_id, training_id)).rowcount
+        if rc != 1:
+            self.conn.rollback()
+            return 0
+        self.conn.commit()
+        return 1
 
     def close(self):
         self.conn.close()

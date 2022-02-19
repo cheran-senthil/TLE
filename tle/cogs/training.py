@@ -90,7 +90,7 @@ class Training(commands.Cog):
         desc = cf_common.cache2.contest_cache.get_contest(problem.contestId).name
         embed = discord.Embed(title=title, url=problem.url, description=desc)
         embed.add_field(name='Rating', value=problem.rating)
-        await ctx.send(f'Training problem for `{handle}`', embed=embed)
+        await ctx.send(f'New training problem for `{handle}`', embed=embed)
 
     async def _assignTrainingProblem(self, ctx, handle, problem, mode):
         # The caller of this function is responsible for calling `_validate_training_status` first.
@@ -147,7 +147,22 @@ class Training(commands.Cog):
             url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
             await ctx.send(f'Problem {name} at {url} skipped.')
         else: 
-            TrainingCogError("You already completed your training problem!")            
+            TrainingCogError("You already completed your training problem!")    
+
+    async def _finishCurrentTraining(self, ctx, active):
+        training_id, _, _, _, _, _, _, _, _ = active
+        user_id = ctx.message.author.id
+
+        rc = cf_common.user_db.finish_training(user_id, training_id)
+        if rc != 1:
+            TrainingCogError("You already ended your training!")    
+
+    async def _postTrainingStatistics(self, ctx, active, handle):
+        title = f'Training session of `{handle}` finished'
+        desc = 'You attempted 15 problems and solved 10 problems'
+        embed = discord.Embed(title=title, url=problem.url, description=desc)
+        embed.add_field(name='Highest Rating', value=1234)
+        await ctx.send('', embed=embed)        
 
     @training.command(brief='Start a training session')
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)   #TODO: Remove 
@@ -212,8 +227,8 @@ class Training(commands.Cog):
         active = await self._getActiveTraining(ctx)
         self._checkTrainingActive(ctx, active)
 
-        ### check game state 
-        duration = await self._skipCurrentTrainingProblem(ctx, active, handle)
+        ### skip problem
+        await self._skipCurrentTrainingProblem(ctx, active, handle)
 
         ### game logic here
         _, _, _, _, _, rating, _, _, _ = active
@@ -230,16 +245,18 @@ class Training(commands.Cog):
     async def end(self, ctx):
         ### check if we are in the correct channel
         self._checkIfCorrectChannel(ctx)
+        handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
 
         ### check game running
         active = await self._getActiveTraining(ctx)
         self._checkTrainingActive(ctx, active)
 
-        ### check if solved
+        ### skip current problem
+        await self._skipCurrentTrainingProblem(ctx, active, handle)
 
-
+        await self._finishCurrentTraining(ctx, active)
         ### end game and post results
-        pass
+        await self._postTrainingStatistics(ctx, active, handle)
 
     @training.command(brief='Set the training channel to the current channel')
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)  # OK
