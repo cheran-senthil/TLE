@@ -115,7 +115,7 @@ class Training(commands.Cog):
             raise TrainingCogError(f'You do not have an active training')
 
     async def _checkIfSolved(self, ctx, active, handle):
-        _, _, name, contest_id, index, _, _, _, _, _ = active
+        _, _, name, contest_id, index, _, _, _, _ = active
         submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions if sub.verdict == 'OK'}
 
