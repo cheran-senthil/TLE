@@ -119,9 +119,9 @@ class Training(commands.Cog):
         submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions if sub.verdict == 'OK'}
 
-        if not name in solved:
-            url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
-            raise TrainingCogError(f'You haven\'t completed your active training problem {name} at {url}')               
+        # if not name in solved:
+        #     url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
+        #     raise TrainingCogError(f'You haven\'t completed your active training problem {name} at {url}')               
 
     async def _completeCurrentTrainingProblem(self, ctx, active, handle):
         training_id, issue_time, name, contest_id, index, rating, mode, _, _ = active
@@ -138,7 +138,7 @@ class Training(commands.Cog):
             TrainingCogError("You already completed your training problem!")
 
     async def _skipCurrentTrainingProblem(self, ctx, active, handle):
-        training_id, issue_time, name, contest_id, index, rating, mode, _, _ = active
+        training_id, _, name, contest_id, index, rating, mode, _, _ = active
         user_id = ctx.message.author.id
 
         rc = cf_common.user_db.skip_training_problem(user_id, training_id, 0, 0)

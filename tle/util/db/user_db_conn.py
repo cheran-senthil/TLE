@@ -1040,7 +1040,7 @@ class UserDbConn:
             UPDATE trainings SET score = score + ?, lives = ?
             WHERE user_id = ? AND id = ?
         '''
-        rc = self.conn.execute(query1, (training_id)).rowcount
+        rc = self.conn.execute(query1, (training_id,)).rowcount
         if rc != 1:
             self.conn.rollback()
             return 0
