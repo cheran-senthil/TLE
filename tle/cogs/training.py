@@ -149,6 +149,16 @@ class Training(commands.Cog):
         else: 
             TrainingCogError("You already completed your training problem!")    
 
+    async def _showActiveTrainingProblem(self, ctx, active, handle):
+        _, _, name, contest_id, index, rating, _, _, _ = active
+        title = f'{index}. {name}'
+        desc = cf_common.cache2.contest_cache.get_contest(contest_id).name
+        url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
+        embed = discord.Embed(title=title, url=url, description=desc)
+        embed.add_field(name='Rating', value=rating)
+        await ctx.send(f'Current training problem of `{handle}`', embed=embed)
+
+
     async def _finishCurrentTraining(self, ctx, active):
         training_id, _, _, _, _, _, _, _, _ = active
         user_id = ctx.message.author.id
@@ -165,7 +175,6 @@ class Training(commands.Cog):
         await ctx.send('', embed=embed)        
 
     @training.command(brief='Start a training session')
-    @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)   #TODO: Remove 
     async def start(self, ctx, *args):
         ### check if we are in the correct channel
         self._checkIfCorrectChannel(ctx)
@@ -188,7 +197,6 @@ class Training(commands.Cog):
         await self._startTrainingAndAssignProblem(ctx, handle, problem, TrainingMode.NORMAL)
 
     @training.command(brief='Do this command if you have solved your current problem')
-    @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)   #TODO: Remove 
     async def solved(self, ctx):
         ### check if we are in the correct channel
         self._checkIfCorrectChannel(ctx)
@@ -216,8 +224,7 @@ class Training(commands.Cog):
         problem = await self._pickTrainingProblem(handle, rating)  
         await self._assignTrainingProblem(ctx, handle, problem, rating)
 
-    @training.command(brief='Do this command if you want to skip your current problem. ') #This reduces your life by 1 (if not in Unlimited Mode).
-    @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)  #TODO: Remove  
+    @training.command(brief='Do this command if you want to skip your current problem.') #This reduces your life by 1 (if not in Unlimited Mode).
     async def skip(self, ctx):
         ### check if we are in the correct channel
         self._checkIfCorrectChannel(ctx)
@@ -240,9 +247,8 @@ class Training(commands.Cog):
         problem = await self._pickTrainingProblem(handle, rating)  
         await self._assignTrainingProblem(ctx, handle, problem, rating)
 
-    @training.command(brief='Do this command if you want to end your training session.')
-    @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)    #TODO: Remove
-    async def end(self, ctx):
+    @training.command(brief='Do this command if you want to finish your training session.')
+    async def finish(self, ctx):
         ### check if we are in the correct channel
         self._checkIfCorrectChannel(ctx)
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
@@ -251,12 +257,23 @@ class Training(commands.Cog):
         active = await self._getActiveTraining(ctx)
         self._checkTrainingActive(ctx, active)
 
-        ### skip current problem
-        await self._skipCurrentTrainingProblem(ctx, active, handle)
-
+        ### invalidate active problem and finish training
         await self._finishCurrentTraining(ctx, active)
+
         ### end game and post results
         await self._postTrainingStatistics(ctx, active, handle)
+
+    @training.command(brief='Shows current status of your training session.')
+    async def status(self, ctx):
+        ### check if we are in the correct channel
+        self._checkIfCorrectChannel(ctx)
+        handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
+
+        ### check game running
+        active = await self._getActiveTraining(ctx)
+        self._checkTrainingActive(ctx, active)
+
+        await self._showActiveTrainingProblem(ctx, active, handle)
 
     @training.command(brief='Set the training channel to the current channel')
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)  # OK
@@ -267,7 +284,6 @@ class Training(commands.Cog):
         await ctx.send(embed=discord_common.embed_success('Training channel saved successfully'))
 
     @training.command(brief='Get the training channel')
-    @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)    #TODO: Remove
     async def get_channel(self, ctx):
         """ Gets the training channel.
         """

@@ -23,6 +23,7 @@ class TrainingProblemStatus(IntEnum):
     SOLVED = 0
     ACTIVE = 1
     SKIPPED = 2
+    INVALIDATED = 3
 
 class Duel(IntEnum):
     PENDING = 0
@@ -1053,10 +1054,18 @@ class UserDbConn:
     
     def finish_training(self, user_id, training_id):
         query1 = f'''
+            UPDATE training_problems SET status = {TrainingProblemStatus.INVALIDATED}
+            WHERE training_id = ? AND status = {TrainingProblemStatus.ACTIVE}
+        '''        
+        query2 = f'''
             UPDATE trainings SET status = {Training.COMPLETED}
             WHERE user_id = ? AND id = ?
         '''
-        rc = self.conn.execute(query1, (user_id, training_id)).rowcount
+        rc = self.conn.execute(query1, (training_id,)).rowcount
+        if rc != 1:
+            self.conn.rollback()
+            return 0        
+        rc = self.conn.execute(query2, (user_id, training_id)).rowcount
         if rc != 1:
             self.conn.rollback()
             return 0
