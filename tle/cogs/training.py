@@ -179,7 +179,7 @@ class Training(commands.Cog):
 
         ### check game running
         active = await self._getActiveTraining(ctx)
-        self._checkTrainingActive(ctx)
+        self._checkTrainingActive(ctx, active)
 
         ### check if solved
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
