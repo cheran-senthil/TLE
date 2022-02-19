@@ -115,11 +115,11 @@ class Training(commands.Cog):
             raise TrainingCogError(f'You do not have an active training')
 
     async def _checkIfSolved(self, ctx, active, handle):
+        _, _, name, contest_id, index, _, _, _, _, _ = active
         submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions if sub.verdict == 'OK'}
 
         if not name in solved:
-            _, _, name, contest_id, index, _, _, _, _, _ = active
             url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
             raise TrainingCogError(f'You haven\'t completed your active training problem {name} at {url}')               
 
@@ -225,7 +225,8 @@ class Training(commands.Cog):
         self._checkIfCorrectChannel(ctx)
 
         ### check game running
-        active = self._checkTrainingActive(ctx)
+        active = await self._getActiveTraining(ctx)
+        self._checkTrainingActive(ctx, active)
 
         ### check if solved
 
