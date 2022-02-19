@@ -128,7 +128,7 @@ class Training(commands.Cog):
         user_id = ctx.message.author.id
         #get AC submission time
         finish_time = int(datetime.datetime.now().timestamp())
-        rc = cf_common.user_db.complete_training_problem(user_id, training_id, finish_time, 0, 1)
+        rc = cf_common.user_db.solved_training_problem(user_id, training_id, finish_time, 0, 1)
         if rc == 1:
             duration = cf_common.pretty_time_format(finish_time - issue_time)
             url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
@@ -136,6 +136,17 @@ class Training(commands.Cog):
             return finish_time - issue_time
         else: 
             TrainingCogError("You already completed your training problem!")
+
+    async def _skipCurrentTrainingProblem(self, ctx, active, handle):
+        training_id, issue_time, name, contest_id, index, rating, mode, _, _ = active
+        user_id = ctx.message.author.id
+
+        rc = cf_common.user_db.skip_training_problem(user_id, training_id, 0, 0)
+        if rc == 1:
+            url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
+            await ctx.send(f'Problem {name} at {url} skipped.')
+        else: 
+            TrainingCogError("You already completed your training problem!")            
 
     @training.command(brief='Start a training session')
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)   #TODO: Remove 
@@ -177,7 +188,7 @@ class Training(commands.Cog):
         ### check game state 
         duration = await self._completeCurrentTrainingProblem(ctx, active, handle)
 
-        ### solve is valid, game logic here
+        ### game logic here
         rating = min(rating + 100, 3500)
 
         
@@ -195,13 +206,12 @@ class Training(commands.Cog):
 
         ### check game running
         active = await self._getActiveTraining(ctx)
-        self._checkTrainingActive(ctx)
+        self._checkTrainingActive(ctx, active)
 
-        
-        ### check if solved - maybe not
+        ### check game state 
+        duration = await self._skipCurrentTrainingProblem(ctx, active, handle)
 
-
-        ### solve is valid, game logic here
+        ### game logic here
         rating = max(rating - 100, 800)
 
         ### assign new problem        

@@ -1011,7 +1011,7 @@ class UserDbConn:
         self.conn.commit()
         return 1
 
-    def complete_training_problem(self, user_id, training_id, finish_time, lives, score):
+    def solved_training_problem(self, user_id, training_id, finish_time, lives, score):
         query1 = f'''
             UPDATE training_problems SET finish_time = ?, status = {TrainingProblemStatus.SOLVED}
             WHERE training_id = ? AND status = {TrainingProblemStatus.ACTIVE}
@@ -1021,6 +1021,26 @@ class UserDbConn:
             WHERE user_id = ? AND id = ?
         '''
         rc = self.conn.execute(query1, (finish_time, training_id)).rowcount
+        if rc != 1:
+            self.conn.rollback()
+            return 0
+        rc = self.conn.execute(query2, (score, lives, user_id, training_id)).rowcount
+        if rc != 1:
+            self.conn.rollback()
+            return 0
+        self.conn.commit()
+        return 1
+
+    def skip_training_problem(self, user_id, training_id, lives, score):
+        query1 = f'''
+            UPDATE training_problems SET status = {TrainingProblemStatus.SKIPPED}
+            WHERE training_id = ? AND status = {TrainingProblemStatus.ACTIVE}
+        '''
+        query2 = '''
+            UPDATE trainings SET score = score + ?, lives = ?
+            WHERE user_id = ? AND id = ?
+        '''
+        rc = self.conn.execute(query1, (training_id)).rowcount
         if rc != 1:
             self.conn.rollback()
             return 0
