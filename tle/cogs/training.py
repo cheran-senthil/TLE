@@ -48,7 +48,7 @@ class Training(commands.Cog):
             raise TrainingCogError(f'Start rating must range from {_TRAINING_MIN_RATING_VALUE} to {_TRAINING_MAX_RATING_VALUE}.')
         
         if active is not None:
-            _, _, name, contest_id, index, _ = active
+            _, _, name, contest_id, index, _, _ ,_ ,_ = active
             url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
             raise TrainingCogError(f'You have an active training problem {name} at {url}')        
 
@@ -119,6 +119,7 @@ class Training(commands.Cog):
         submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions if sub.verdict == 'OK'}
 
+        ### TODO: Add back after debugging
         # if not name in solved:
         #     url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
         #     raise TrainingCogError(f'You haven\'t completed your active training problem {name} at {url}')               
