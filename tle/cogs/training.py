@@ -190,6 +190,7 @@ class Training(commands.Cog):
         duration = await self._completeCurrentTrainingProblem(ctx, active, handle)
 
         ### game logic here
+        _, _, _, _, _, rating, _, _, _ = active
         rating = min(rating + 100, 3500)
 
         
