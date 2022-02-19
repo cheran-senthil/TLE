@@ -107,7 +107,7 @@ class Training(commands.Cog):
         desc = cf_common.cache2.contest_cache.get_contest(problem.contestId).name
         embed = discord.Embed(title=title, url=problem.url, description=desc)
         embed.add_field(name='Rating', value=problem.rating)
-        await ctx.send(f'Training problem for `{handle}`', embed=embed)
+        await ctx.send(f'New training problem for `{handle}`', embed=embed)
         #{handle} will be assigned a new problem with rating {rating}.') # (current lives: {lives})')        
 
     def _checkTrainingActive(self, ctx, active):
@@ -160,7 +160,7 @@ class Training(commands.Cog):
     async def _postTrainingStatistics(self, ctx, active, handle):
         title = f'Training session of `{handle}` finished'
         desc = 'You attempted 15 problems and solved 10 problems'
-        embed = discord.Embed(title=title, url=problem.url, description=desc)
+        embed = discord.Embed(title=title, description=desc)
         embed.add_field(name='Highest Rating', value=1234)
         await ctx.send('', embed=embed)        
 
