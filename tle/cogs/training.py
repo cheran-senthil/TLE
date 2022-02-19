@@ -191,7 +191,9 @@ class Training(commands.Cog):
 
         ### game logic here
         _, _, _, _, _, rating, _, _, _ = active
-        rating = min(rating + 100, 3500)
+        rating = rating + 100
+        rating = min(rating, 3500)
+        rating = max(rating, 800)
 
         
 
@@ -214,7 +216,10 @@ class Training(commands.Cog):
         duration = await self._skipCurrentTrainingProblem(ctx, active, handle)
 
         ### game logic here
-        rating = max(rating - 100, 800)
+        _, _, _, _, _, rating, _, _, _ = active
+        rating = rating - 100
+        rating = min(rating, 3500)
+        rating = max(rating, 800)
 
         ### assign new problem        
         problem = await self._pickTrainingProblem(handle, rating)  
