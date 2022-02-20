@@ -990,15 +990,14 @@ class UserDbConn:
         if res is None: return None
         return training_id, res[0], res[1], res[2], res[3], res[4], mode, score, lives
 
-    # maybe its better to have 1 command for "solved and new problem", "skip and new problem", "end game" to have a consistent state at all times (?)
     def new_training_problem(self, user_id, issue_time, prob):
         query1 = '''
             SELECT id FROM trainings
             WHERE user_id = ? AND status = ?
         '''
-        query2 = '''
+        query2 = f'''
             INSERT INTO training_problems (training_id, issue_time, problem_name, contest_id, p_index, rating, status)
-            VALUES (?, ?, ?, ?, ?, ?, 1)
+            VALUES (?, ?, ?, ?, ?, ?, {TrainingProblemStatus.ACTIVE})
         '''
         
         res = self.conn.execute(query1, (user_id, Training.ACTIVE)).fetchone()
@@ -1012,7 +1011,7 @@ class UserDbConn:
         self.conn.commit()
         return 1
 
-    def solved_training_problem(self, user_id, training_id, finish_time, lives, score):
+    def solved_and_assign_training_problem(self, user_id, training_id, issue_time, finish_time, lives, score, problem):
         query1 = f'''
             UPDATE training_problems SET finish_time = ?, status = {TrainingProblemStatus.SOLVED}
             WHERE training_id = ? AND status = {TrainingProblemStatus.ACTIVE}
@@ -1021,34 +1020,50 @@ class UserDbConn:
             UPDATE trainings SET score = score + ?, lives = ?
             WHERE user_id = ? AND id = ?
         '''
+        query3 = f'''
+            INSERT INTO training_problems (training_id, issue_time, problem_name, contest_id, p_index, rating, status)
+            VALUES (?, ?, ?, ?, ?, ?, {TrainingProblemStatus.ACTIVE})
+        '''
         rc = self.conn.execute(query1, (finish_time, training_id)).rowcount
         if rc != 1:
             self.conn.rollback()
-            return 0
+            return -1
         rc = self.conn.execute(query2, (score, lives, user_id, training_id)).rowcount
         if rc != 1:
             self.conn.rollback()
-            return 0
+            return -2
+        rc = self.conn.execute(query3, (training_id, issue_time, problem.name, problem.contestId, problem.index, problem.rating)).rowcount
+        if rc != 1:
+            self.conn.rollback()
+            return -3
         self.conn.commit()
         return 1
 
-    def skip_training_problem(self, user_id, training_id, lives, score):
+    def skip_and_assign_training_problem(self, user_id, training_id, issue_time, lives, score, problem):
         query1 = f'''
             UPDATE training_problems SET status = {TrainingProblemStatus.SKIPPED}
             WHERE training_id = ? AND status = {TrainingProblemStatus.ACTIVE}
         '''
         query2 = '''
-            UPDATE trainings SET score = score + ?, lives = ?
+            UPDATE trainings SET score = ?, lives = ?
             WHERE user_id = ? AND id = ?
         '''
+        query3 = f'''
+            INSERT INTO training_problems (training_id, issue_time, problem_name, contest_id, p_index, rating, status)
+            VALUES (?, ?, ?, ?, ?, ?, {TrainingProblemStatus.ACTIVE})
+        '''        
         rc = self.conn.execute(query1, (training_id,)).rowcount
         if rc != 1:
             self.conn.rollback()
-            return 0
+            return -1
         rc = self.conn.execute(query2, (score, lives, user_id, training_id)).rowcount
         if rc != 1:
             self.conn.rollback()
-            return 0
+            return -2
+        rc = self.conn.execute(query3, (training_id, issue_time, problem.name, problem.contestId, problem.index, problem.rating)).rowcount
+        if rc != 1:
+            self.conn.rollback()
+            return -3            
         self.conn.commit()
         return 1
     
