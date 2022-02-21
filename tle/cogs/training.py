@@ -143,7 +143,7 @@ class Training(commands.Cog):
         if rc != 1:
             raise TrainingCogError('Your training has already been added to the database!')
 
-        await self._postProblem(ctx, handle, problem.name, problem.index, problem.contest_id, problem.rating)
+        await self._postProblem(ctx, handle, problem.name, problem.index, problem.contestId, problem.rating)
 
     async def _completeCurrentTrainingProblem(self, ctx, active, handle, problem, finish_time, duration):
         # The caller of this function is responsible for calling `_checkTrainingActive` first.
@@ -155,7 +155,7 @@ class Training(commands.Cog):
         rc = cf_common.user_db.solved_and_assign_training_problem(user_id, training_id, issue_time, finish_time, 0, score+1, problem)
         if rc == 1:
             await self._postProblemFinished(ctx, handle, name, contest_id, index, duration)            
-            await self._postProblem(ctx, handle, problem.name, problem.index, problem.contest_id, problem.rating)            
+            await self._postProblem(ctx, handle, problem.name, problem.index, problem.contestId, problem.rating)            
         if rc == -1: 
             raise TrainingCogError("You already completed your training problem!")
         if rc == -2:
@@ -173,7 +173,7 @@ class Training(commands.Cog):
         rc = cf_common.user_db.skip_and_assign_training_problem(user_id, training_id, issue_time, 0, score, problem)
         if rc == 1:
             await self._postProblemSkipped(ctx, handle, name, contest_id, index)            
-            await self._postProblem(ctx, handle, problem.name, problem.index, problem.contest_id, problem.rating)            
+            await self._postProblem(ctx, handle, problem.name, problem.index, problem.contestId, problem.rating)            
         if rc == -1: 
             raise TrainingCogError("You already skipped your training problem!")
         if rc == -2:
