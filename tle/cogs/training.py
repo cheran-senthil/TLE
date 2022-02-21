@@ -102,7 +102,7 @@ class Training(commands.Cog):
     async def _checkIfSolved(self, ctx, active, handle):
         _, issue_time, name, contest_id, index, _, _, _, _ = active
         submissions = await cf.user.status(handle=handle)
-        ac = (sub for sub in submissions if sub.problem.name == name and sub.verdict == 'OK') 
+        ac = [sub for sub in submissions if sub.problem.name == name and sub.verdict == 'OK']
         #order by creation time increasing 
         ac.sort(key=lambda y: y[6])
 
