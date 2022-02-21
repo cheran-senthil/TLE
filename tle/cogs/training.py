@@ -117,13 +117,18 @@ class Training(commands.Cog):
         return finish_time
 
     async def _postProblemFinished(self, ctx, handle, name, contest_id, index, duration):
-        durationFormatted = cf_common.pretty_time_format(duration)
+        member = ctx.author
         url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
-        await ctx.send(f'`{handle}` solved training problem {name} at {url} in {durationFormatted}.')
+        durationFormatted = cf_common.pretty_time_format(duration)
+        title = f'{member.mention} solved training problem {name}'
+        desc  = f'Time taken: {durationFormatted}'
+        embed = discord.Embed(title=title, desc=desc, url=url, color=0x008000)
+        await ctx.send('Problem solved.', embed=embed)
 
     async def _postProblemSkipped(self, ctx, handle, name, contest_id, index):
+        member = ctx.author
         url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
-        title = f'`{handle}` skipped training problem {name}'
+        title = f'{member.mention} skipped training problem {name}'
         embed = discord.Embed(title=title, url=url, color=0xff3030)
         await ctx.send('Problem skipped.', embed=embed)
 
