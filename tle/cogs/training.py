@@ -143,7 +143,7 @@ class Training(commands.Cog):
         if rc != 1:
             raise TrainingCogError('Your training has already been added to the database!')
 
-        await self._postProblem(ctx, handle, problem)
+        await self._postProblem(ctx, handle, problem.name, problem.index, problem.contest_id, problem.rating)
 
     async def _completeCurrentTrainingProblem(self, ctx, active, handle, problem, finish_time, duration):
         # The caller of this function is responsible for calling `_checkTrainingActive` first.
