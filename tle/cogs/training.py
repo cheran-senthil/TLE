@@ -204,6 +204,7 @@ class Training(commands.Cog):
         await ctx.send('', embed=embed)        
 
     @training.command(brief='Start a training session')
+    @cf_common.user_guard(group='training')
     async def start(self, ctx, *args):
         ### check if we are in the correct channel
         self._checkIfCorrectChannel(ctx)
@@ -226,6 +227,7 @@ class Training(commands.Cog):
         await self._startTrainingAndAssignProblem(ctx, handle, problem, TrainingMode.NORMAL)
 
     @training.command(brief='Do this command if you have solved your current problem')
+    @cf_common.user_guard(group='training')
     async def solved(self, ctx):
         ### check if we are in the correct channel
         self._checkIfCorrectChannel(ctx)
@@ -252,6 +254,7 @@ class Training(commands.Cog):
         await self._completeCurrentTrainingProblem(ctx, active, handle, problem, finish_time, duration)       
 
     @training.command(brief='Do this command if you want to skip your current problem.') #This reduces your life by 1 (if not in Unlimited Mode).
+    @cf_common.user_guard(group='training')
     async def skip(self, ctx):
         ### check if we are in the correct channel
         self._checkIfCorrectChannel(ctx)
@@ -275,6 +278,7 @@ class Training(commands.Cog):
         await self._skipCurrentTrainingProblem(ctx, active, handle, problem)
 
     @training.command(brief='Do this command if you want to finish your training session.')
+    @cf_common.user_guard(group='training')
     async def finish(self, ctx):
         ### check if we are in the correct channel
         self._checkIfCorrectChannel(ctx)
