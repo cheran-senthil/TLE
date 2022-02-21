@@ -125,12 +125,14 @@ class Training(commands.Cog):
         url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
         await ctx.send(f'`{handle}` skipped training problem {name} at {url}.')
 
-    async def _postNewProblem(self, ctx, handle, problem):
-        title = f'{problem.index}. {problem.name}'
-        desc = cf_common.cache2.contest_cache.get_contest(problem.contestId).name
-        embed = discord.Embed(title=title, url=problem.url, description=desc)
-        embed.add_field(name='Rating', value=problem.rating)
-        await ctx.send(f'New training problem for `{handle}`', embed=embed)
+    async def _postProblem(self, ctx, handle, problemName, problemIndex, problemContestId, problemRating, new: bool = True):
+        title = f'{problemIndex}. {problemName}'
+        desc = cf_common.cache2.contest_cache.get_contest(problemContestId).name
+        url = f'{cf.CONTEST_BASE_URL}{problemContestId}/problem/{problemIndex}'
+        prefix = 'New' if new else 'Current'
+        embed = discord.Embed(title=title, url=url, description=desc)
+        embed.add_field(name='Rating', value=problemRating)
+        await ctx.send(f'{prefix} training problem for `{handle}`', embed=embed)
 
     async def _startTrainingAndAssignProblem(self, ctx, handle, problem, mode):
         # The caller of this function is responsible for calling `_validate_training_status` first.
@@ -141,18 +143,19 @@ class Training(commands.Cog):
         if rc != 1:
             raise TrainingCogError('Your training has already been added to the database!')
 
-        await self._postNewProblem(ctx, handle, problem)
+        await self._postProblem(ctx, handle, problem)
 
     async def _completeCurrentTrainingProblem(self, ctx, active, handle, problem, finish_time, duration):
-        # The caller of this function is responsible for calling `_validate_training_status` first.
+        # The caller of this function is responsible for calling `_checkTrainingActive` first.
         training_id, _, name, contest_id, index, _, _, score, _ = active
+        score = int(score)
         user_id = ctx.message.author.id
 
         issue_time = datetime.datetime.now().timestamp()
         rc = cf_common.user_db.solved_and_assign_training_problem(user_id, training_id, issue_time, finish_time, 0, score+1, problem)
         if rc == 1:
             await self._postProblemFinished(ctx, handle, name, contest_id, index, duration)            
-            await self._postNewProblem(ctx, handle, problem)            
+            await self._postProblem(ctx, handle, problem.name, problem.index, problem.contest_id, problem.rating)            
         if rc == -1: 
             raise TrainingCogError("You already completed your training problem!")
         if rc == -2:
@@ -161,15 +164,16 @@ class Training(commands.Cog):
             raise TrainingCogError('Your training problem has already been added to the database!')
 
     async def _skipCurrentTrainingProblem(self, ctx, active, handle, problem):
-        # The caller of this function is responsible for calling `_validate_training_status` first.
+        # The caller of this function is responsible for calling `_checkTrainingActive` first.
         training_id, _, name, contest_id, index, _, _, score, _ = active
+        score = int(score)
         user_id = ctx.message.author.id
 
         issue_time = datetime.datetime.now().timestamp()
         rc = cf_common.user_db.skip_and_assign_training_problem(user_id, training_id, issue_time, 0, score, problem)
         if rc == 1:
             await self._postProblemSkipped(ctx, handle, name, contest_id, index)            
-            await self._postNewProblem(ctx, handle, problem)            
+            await self._postProblem(ctx, handle, problem.name, problem.index, problem.contest_id, problem.rating)            
         if rc == -1: 
             raise TrainingCogError("You already skipped your training problem!")
         if rc == -2:
@@ -179,12 +183,7 @@ class Training(commands.Cog):
 
     async def _showActiveTrainingProblem(self, ctx, active, handle):
         _, _, name, contest_id, index, rating, _, _, _ = active
-        title = f'{index}. {name}'
-        desc = cf_common.cache2.contest_cache.get_contest(contest_id).name
-        url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
-        embed = discord.Embed(title=title, url=url, description=desc)
-        embed.add_field(name='Rating', value=rating)
-        await ctx.send(f'Current training problem of `{handle}`', embed=embed)
+        await self._postProblem(ctx, handle, name, index, contest_id, rating, False)  
 
 
     async def _finishCurrentTraining(self, ctx, active):
@@ -208,6 +207,8 @@ class Training(commands.Cog):
     async def start(self, ctx, *args):
         ### check if we are in the correct channel
         self._checkIfCorrectChannel(ctx)
+
+        ### get cf handle
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
 
         #extract args     TODO: own method
@@ -232,12 +233,14 @@ class Training(commands.Cog):
         ### check if we are in the correct channel
         self._checkIfCorrectChannel(ctx)
 
+        ### get cf handle
+        handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
+        
         ### check game running
         active = await self._getActiveTraining(ctx)
         self._checkTrainingActive(ctx, active)
 
         ### check if solved
-        handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         finish_time = await self._checkIfSolved(ctx, active, handle)
         
         ### game logic here    TODO: extract into method
@@ -258,6 +261,8 @@ class Training(commands.Cog):
     async def skip(self, ctx):
         ### check if we are in the correct channel
         self._checkIfCorrectChannel(ctx)
+
+        ### get cf handle
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
 
         ### check game running
