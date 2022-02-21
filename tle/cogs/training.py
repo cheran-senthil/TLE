@@ -123,7 +123,9 @@ class Training(commands.Cog):
 
     async def _postProblemSkipped(self, ctx, handle, name, contest_id, index):
         url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
-        await ctx.send(f'`{handle}` skipped training problem {name} at {url}.')
+        desc = f'`{handle}` skipped training problem {name} at {url}.'
+        embed = discord.Embed(description=desc, color=0xff303)
+        await ctx.send('Problem skipped.', embed=embed)
 
     async def _postProblem(self, ctx, handle, problemName, problemIndex, problemContestId, problemRating, new: bool = True):
         title = f'{problemIndex}. {problemName}'
