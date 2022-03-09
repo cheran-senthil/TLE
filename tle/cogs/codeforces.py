@@ -95,8 +95,7 @@ class Codeforces(commands.Cog):
         if not problems:
             raise CodeforcesCogError('Problems not found within the search parameters')
 
-        problems.sort(key=lambda problem: cf_common.cache2.contest_cache.get_contest(
-            problem.contestId).startTimeSeconds, reverse=True)
+        problems.sort(key=lambda problem.rating)
 
         if choice > 0 and choice <= len(problems):
             await self._validate_gitgud_status(ctx,delta=None)

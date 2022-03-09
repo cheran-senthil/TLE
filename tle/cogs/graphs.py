@@ -640,7 +640,7 @@ class Graphs(commands.Cog):
         assert ratings, 'Cannot histogram plot empty list of ratings'
 
         assert 100%binsize == 0 # because bins is semi-hardcoded
-        bins = 39*100//binsize
+        bins = 50*100//binsize
 
         colors = []
         low, high = 0, binsize * bins
