@@ -1018,7 +1018,7 @@ class UserDbConn:
         '''
         query2 = '''
             UPDATE trainings SET score = score + ?, lives = ?
-            WHERE user_id = ? AND id = ?
+            WHERE id = ?
         '''
         query3 = f'''
             INSERT INTO training_problems (training_id, issue_time, problem_name, contest_id, p_index, rating, status)
@@ -1028,7 +1028,7 @@ class UserDbConn:
         if rc != 1:
             self.conn.rollback()
             return -1
-        rc = self.conn.execute(query2, (score, lives, user_id, training_id)).rowcount
+        rc = self.conn.execute(query2, (score, lives, training_id)).rowcount
         if rc != 1:
             self.conn.rollback()
             return -2
