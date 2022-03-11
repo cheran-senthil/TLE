@@ -29,7 +29,7 @@ class TrainingCogError(commands.CommandError):
     pass
 
 class Game: 
-    def __init__(self, mode, score, lives, timeleft):
+    def __init__(self, mode, score = None, lives = None, timeleft = None):
         self.mode = int(mode)
         # existing game
         if score is not None:
@@ -435,7 +435,7 @@ class Training(commands.Cog):
         self._checkTrainingActive(ctx, active)
 
         ### invalidate active problem and finish training
-        gamestate = Game(active[6], active[7], active[8])
+        gamestate = Game(active[6], active[7], active[8], active[9])
         _, _, _, _, _, rating, _, _, _ ,_ = active
         success, newRating = gamestate.doFinish(rating)
 
