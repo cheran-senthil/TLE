@@ -23,34 +23,42 @@ class TrainingResult(IntEnum):
     SOLVED = 0,
     TOOSLOW = 1
     SKIPPED = 2
+    INVALIDATED = 3
 
 class TrainingCogError(commands.CommandError):
     pass
 
 class Game: 
-    def __init__(self, mode, lives, timeleft):
-        self.mode = mode
+    def __init__(self, mode, score, lives, timeleft):
+        self.mode = int(mode)
         # existing game
-        if lives is not None:
-            self.lives = lives
-            self.timeleft = timeleft if timeleft is not None else 0
+        if score is not None:
+            self.score = int(score)
+            self.lives = int(lives) if lives is not None else 0
+            self.timeleft = int(timeleft) if timeleft is not None else 0
+            self.alive = True if self.lives > 0 or mode == TrainingMode.NORMAL else False
             return
         #else we init a new game
-        if mode == TrainingMode.NORMAL:
-            self.lives = 0
-            self.timeleft = 0
-        if mode == TrainingMode.SURVIVAL:
-            self.lives = 3
-            self.timeleft = 0
-        if mode == TrainingMode.TIMED15:
-            self.lives = 3
-            self.timeleft = 15*60
-        if mode == TrainingMode.TIMED30:
-            self.lives = 3
-            self.timeleft = 30*60
-        if mode == TrainingMode.TIMED60:
-            self.lives = 3
-            self.timeleft = 60*60
+        self.timeleft = self._getTimeLeft()
+        self.lives = self._getLives()
+        self.alive = True
+        self.score = 0
+
+    def _getLives(self):
+        if self.mode == TrainingMode.NORMAL:
+            return 0
+        else:
+            return 3
+
+    def _getTime(self):
+        if self.mode == TrainingMode.NORMAL or self.mode == TrainingMode.SURVIVAL:
+            return 0
+        if self.mode == TrainingMode.TIMED15:
+            return 15*60
+        if self.mode == TrainingMode.TIMED30:
+            return 30*60
+        if self.mode == TrainingMode.TIMED60:
+            return 60*60
 
     def _newRating(self, success, rating):
         newRating = rating
@@ -63,20 +71,32 @@ class Game:
         return newRating
 
     def doSolved(self, rating, duration):
+        rating = int(rating)
         success = TrainingResult.SOLVED
         if (self.mode != TrainingMode.NORMAL or self.mode != TrainingMode.SURVIVAL) and duration > self.timeleft:
             success = TrainingResult.TOOSLOW
             self.lives -= 1
+            self.timeleft = self._getTime()
         else:
             self.score += 1
+            self.timeleft += max(0, min(self._getTime() - duration, 2*self._getTime()))
         newRating = self._newRating(success, rating)
+        if (self.lives == 0): self.alive = False
         return success, newRating
 
     def doSkip(self, rating, duration):
+        rating = int(rating)
         success = TrainingResult.SKIPPED
         self.lives -= 1
+        self.timeleft = self._getTime()
         newRating = self._newRating(success, rating)
+        if (self.lives == 0): self.alive = False
         return success, newRating
+
+    def doFinish(self, rating, duration):
+        success = TrainingResult.INVALIDATED
+        self.alive = False
+        return success, rating
         
 
 class Training(commands.Cog):
@@ -118,7 +138,6 @@ class Training(commands.Cog):
                 mode = TrainingMode.TIMED60
         return rating, mode
 
-
     def _validateTrainingStatus(self, ctx, rating, active):
         if rating is not None and rating % 100 != 0:
             raise TrainingCogError('Delta must be a multiple of 100.')
@@ -126,7 +145,7 @@ class Training(commands.Cog):
             raise TrainingCogError(f'Start rating must range from {_TRAINING_MIN_RATING_VALUE} to {_TRAINING_MAX_RATING_VALUE}.')
         
         if active is not None:
-            _, _, name, contest_id, index, _, _ ,_ ,_ = active
+            _, _, name, contest_id, index, _, _ ,_ ,_ ,_ = active
             url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
             raise TrainingCogError(f'You have an active training problem {name} at {url}')        
 
@@ -154,7 +173,7 @@ class Training(commands.Cog):
             raise TrainingCogError(f'You do not have an active training')
 
     async def _checkIfSolved(self, ctx, active, handle, submissions):
-        _, issue_time, name, contest_id, index, _, _, _, _ = active
+        _, issue_time, name, contest_id, index, _, _, _, _, _ = active
         ac = [sub for sub in submissions if sub.problem.name == name and sub.verdict == 'OK']
         #order by creation time increasing 
         ac.sort(key=lambda y: y[6])
@@ -169,21 +188,36 @@ class Training(commands.Cog):
         finish_time = int(datetime.datetime.now().timestamp())
         return finish_time
 
-    async def _postProblemFinished(self, ctx, handle, name, contest_id, index, duration, gamestate, success):
-        member = ctx.author
-        url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
-        durationFormatted = cf_common.pretty_time_format(duration)
-        title = f'{handle} solved training problem \"{name}\"'
-        desc  = f'Time taken: {durationFormatted}'
-        embed = discord.Embed(title=title, description=desc, url=url, color=0x008000)
-        await ctx.send('Problem solved.', embed=embed)
+    async def _postProblemFinished(self, ctx, handle, name, contest_id, index, duration, gamestate, success, timeleft):
+        if success == TrainingResult.SOLVED:
+            url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
+            durationFormatted = cf_common.pretty_time_format(duration)
+            title = f'{handle} solved training problem \"{name}\"'
+            desc  = f'Time taken: {durationFormatted}'
+            embed = discord.Embed(title=title, description=desc, url=url, color=0x008000)
+            await ctx.send('Problem solved.', embed=embed)
+        if success == TrainingResult.TOOSLOW:
+            url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
+            durationFormatted = cf_common.pretty_time_format(duration)
+            timeleftFormatted = cf_common.pretty_time_format(timeleft)
+            title = f'{handle} solved training problem \"{name}\" but was too slow.'
+            desc  = f'Time taken: {durationFormatted} (Timelimit: {timeleftFormatted})'
+            embed = discord.Embed(title=title, description=desc, url=url, color=0xf9c909)
+            await ctx.send('Problem solved but not fast enough.', embed=embed)
+        if success == TrainingResult.SKIPPED:
+            url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
+            title = f'{handle} skipped training problem \"{name}\"'
+            embed = discord.Embed(title=title, url=url, color=0xff3030)
+            await ctx.send('Problem skipped.', embed=embed)
 
-    async def _postProblemSkipped(self, ctx, handle, name, contest_id, index):
-        member = ctx.author
-        url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
-        title = f'{handle} skipped training problem \"{name}\"'
-        embed = discord.Embed(title=title, url=url, color=0xff3030)
-        await ctx.send('Problem skipped.', embed=embed)
+
+
+    # async def _postProblemSkipped(self, ctx, handle, name, contest_id, index):
+    #     member = ctx.author
+    #     url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
+    #     title = f'{handle} skipped training problem \"{name}\"'
+    #     embed = discord.Embed(title=title, url=url, color=0xff3030)
+    #     await ctx.send('Problem skipped.', embed=embed)
 
     async def _postProblem(self, ctx, handle, problemName, problemIndex, problemContestId, problemRating, new: bool = True):
         title = f'{problemIndex}. {problemName}'
@@ -205,53 +239,83 @@ class Training(commands.Cog):
 
         await self._postProblem(ctx, handle, problem.name, problem.index, problem.contestId, problem.rating)
 
-    async def _completeCurrentTrainingProblem(self, ctx, active, handle, problem, finish_time, duration, gamestate, success):
-        # The caller of this function is responsible for calling `_checkTrainingActive` first.
-        training_id, _, name, contest_id, index, _, _, score, _ = active
-        score = int(score)
-        user_id = ctx.message.author.id
+    def _getStatus(self, success):
+        if success == TrainingResult.SOLVED:
+            return TrainingProblemStatus.SOLVED
+        if success == TrainingResult.TOOSLOW:
+            return TrainingProblemStatus.SOLVED_TOO_SLOW
+        if success == TrainingResult.SKIPPED:
+            return TrainingProblemStatus.SKIPPED
+        if success == TrainingResult.INVALIDATED:
+            return TrainingProblemStatus.INVALIDATED
 
-        issue_time = datetime.datetime.now().timestamp()
-        rc = cf_common.user_db.solved_and_assign_training_problem(user_id, training_id, issue_time, finish_time, gamestate.lives, gamestate.score, problem)
+    async def _completeCurrentTrainingProblem(self, ctx, active, handle, finish_time, duration, gamestate, success):
+        training_id, _, name, contest_id, index, _, _, _, _ ,timeleft = active
+        status = self._getStatus(success)
+        rc = cf_common.user_db.end_current_training_problem(training_id, finish_time, status, gamestate.score, gamestate.lives, gamestate.timeleft)
         if rc == 1:
-            await self._postProblemFinished(ctx, handle, name, contest_id, index, duration, gamestate, success)            
-            await self._postProblem(ctx, handle, problem.name, problem.index, problem.contestId, problem.rating)            
+            await self._postProblemFinished(ctx, handle, name, contest_id, index, duration, gamestate, success, timeleft)            
         if rc == -1: 
             raise TrainingCogError("You already completed your training problem!")
         if rc == -2:
             raise TrainingCogError('You don\'t have an active training session!')
-        if rc == -3:
-            raise TrainingCogError('Your training problem has already been added to the database!')
 
-    async def _skipCurrentTrainingProblem(self, ctx, active, handle, problem):
-        # The caller of this function is responsible for calling `_checkTrainingActive` first.
-        training_id, _, name, contest_id, index, _, _, score, _ = active
-        score = int(score)
-        user_id = ctx.message.author.id
 
+#        user_id = ctx.message.author.id
+        #issue_time = datetime.datetime.now().timestamp()
+#        rc = cf_common.user_db.solved_and_assign_training_problem(user_id, training_id, issue_time, finish_time, gamestate.lives, gamestate.score, problem)
+#            await self._postProblem(ctx, handle, problem.name, problem.index, problem.contestId, problem.rating)            
+#        if rc == -3:
+#            raise TrainingCogError('Your training problem has already been added to the database!')
+
+
+    # async def _skipCurrentTrainingProblem(self, ctx, active, handle, problem):
+    #     # The caller of this function is responsible for calling `_checkTrainingActive` first.
+    #     training_id, _, name, contest_id, index, _, _, score, _ ,_ = active
+    #     score = int(score)
+    #     user_id = ctx.message.author.id
+
+    #     issue_time = datetime.datetime.now().timestamp()
+    #     rc = cf_common.user_db.skip_and_assign_training_problem(user_id, training_id, issue_time, 0, score, problem)
+    #     if rc == 1:
+    #         await self._postProblemSkipped(ctx, handle, name, contest_id, index)            
+    #         await self._postProblem(ctx, handle, problem.name, problem.index, problem.contestId, problem.rating)            
+    #     if rc == -1: 
+    #         raise TrainingCogError("You already skipped your training problem!")
+    #     if rc == -2:
+    #         raise TrainingCogError('You don\'t have an active training session!')
+    #     if rc == -3:
+    #         raise TrainingCogError('Your training problem has already been added to the database!')
+
+    async def _assignNewTrainingProblem(self, ctx, active, handle, problem):
+        training_id, _, _, _, _, _, _, _, _ ,_ = active
         issue_time = datetime.datetime.now().timestamp()
-        rc = cf_common.user_db.skip_and_assign_training_problem(user_id, training_id, issue_time, 0, score, problem)
+        rc = cf_common.user_db.assign_training_problem(training_id, issue_time, problem)
         if rc == 1:
-            await self._postProblemSkipped(ctx, handle, name, contest_id, index)            
             await self._postProblem(ctx, handle, problem.name, problem.index, problem.contestId, problem.rating)            
-        if rc == -1: 
-            raise TrainingCogError("You already skipped your training problem!")
-        if rc == -2:
-            raise TrainingCogError('You don\'t have an active training session!')
-        if rc == -3:
-            raise TrainingCogError('Your training problem has already been added to the database!')
+        if rc == -1:
+            raise TrainingCogError('Your training problem has already been added to the database!')       
 
     async def _showActiveTrainingProblem(self, ctx, active, handle):
-        _, _, name, contest_id, index, rating, _, _, _ = active
+        _, _, name, contest_id, index, rating, _, _, _ ,_ = active
         await self._postProblem(ctx, handle, name, index, contest_id, rating, False)  
 
     async def _finishCurrentTraining(self, ctx, active):
-        training_id, _, _, _, _, _, _, _, _ = active
-        user_id = ctx.message.author.id
+        training_id, _, _, _, _, _, _, _, _ ,_ = active
 
-        rc = cf_common.user_db.finish_training(user_id, training_id)
-        if rc != 1:
+        rc = cf_common.user_db.finish_training(training_id)
+        if rc == -1:
             raise TrainingCogError("You already ended your training!")    
+
+    async def _endTrainingIfDead(self, ctx, active, handle, gamestate):
+        if not gamestate.alive:
+            # show death message
+            await self._finishCurrentTraining(ctx, active)
+            ### end game and post results
+            await self._postTrainingStatistics(ctx, active, handle)
+            return True
+        return False
+
 
     ### TODO: Get data from DB
     async def _postTrainingStatistics(self, ctx, active, handle):
@@ -284,7 +348,7 @@ class Training(commands.Cog):
 
         ### Picking a new problem with a certain rating
         problem = await self._pickTrainingProblem(handle, rating, submissions)  
-        
+
         #assign new problem
         await self._startTrainingAndAssignProblem(ctx, handle, problem, gamestate)
 
@@ -309,17 +373,23 @@ class Training(commands.Cog):
         ### check if solved
         finish_time = await self._checkIfSolved(ctx, active, handle, submissions)
         
-        ### game logic here    TODO: extract into method
-        _, issue_time, _, _, _, rating, _, _, _ = active
-        gamestate = Game(active[6], active[7], active[8])
+        ### game logic here 
+        _, issue_time, _, _, _, rating, _, _, _ ,_ = active
+        gamestate = Game(active[6], active[7], active[8], active[9])
         duration = finish_time - issue_time
         success, newRating = gamestate.doSolved(rating, duration)
+
+        ### Complete old problem
+        await self._completeCurrentTrainingProblem(ctx, active, handle, finish_time, duration, gamestate, success)       
+
+        ### Check if game ends here
+        if await self._endTrainingIfDead(ctx, active, handle, gamestate): return
         
         ### Picking a new problem with a certain rating
-        problem = await self._pickTrainingProblem(handle, rating, submissions)  
+        problem = await self._pickTrainingProblem(handle, newRating, submissions)  
 
-        ### check game state 
-        await self._completeCurrentTrainingProblem(ctx, active, handle, problem, finish_time, duration)       
+        ### Assign new problem
+        await self._assignNewTrainingProblem(ctx, active, handle, problem)
 
     @training.command(brief='Do this command if you want to skip your current problem.') #This reduces your life by 1 (if not in Unlimited Mode).
     @cf_common.user_guard(group='training')
@@ -336,19 +406,22 @@ class Training(commands.Cog):
         active = await self._getActiveTraining(ctx)
         self._checkTrainingActive(ctx, active)
 
-        ### game logic here         TODO: extract into method
-        gamestate = Game(active[6], active[7], active[8])
-        _, _, _, _, _, rating, _, _, _ = active
-        rating = rating - 100
-        rating = min(rating, 3500)
-        rating = max(rating, 800)
+        ### game logic here
+        gamestate = Game(active[6], active[7], active[8], active[9])
+        _, _, _, _, _, rating, _, _, _ ,_ = active
+        success, newRating = gamestate.doSkip(rating)
+
+        ### Complete old problem
+        await self._completeCurrentTrainingProblem(ctx, active, handle, finish_time, duration, gamestate, success)       
+
+        ### Check if game ends here
+        if await self._endTrainingIfDead(ctx, active, handle, gamestate): return
 
         ### Picking a new problem with a certain rating
-        problem = await self._pickTrainingProblem(handle, rating, submissions)  
+        problem = await self._pickTrainingProblem(handle, newRating, submissions)  
 
-
-        ### skip problem
-        await self._skipCurrentTrainingProblem(ctx, active, handle, problem)
+        ### Assign new problem
+        await self._assignNewTrainingProblem(ctx, active, handle, problem)
 
     @training.command(brief='Do this command if you want to finish your training session.')
     @cf_common.user_guard(group='training')
@@ -363,10 +436,14 @@ class Training(commands.Cog):
 
         ### invalidate active problem and finish training
         gamestate = Game(active[6], active[7], active[8])
-        await self._finishCurrentTraining(ctx, active)
+        _, _, _, _, _, rating, _, _, _ ,_ = active
+        success, newRating = gamestate.doFinish(rating)
 
-        ### end game and post results
-        await self._postTrainingStatistics(ctx, active, handle)
+        ### Complete old problem
+        await self._completeCurrentTrainingProblem(ctx, active, handle, None, 0, gamestate, success)       
+
+        ### Check if game ends here // should trigger each time
+        if await self._endTrainingIfDead(ctx, active, handle, gamestate): return
 
     @training.command(brief='Shows current status of your training session.')
     async def status(self, ctx):
