@@ -79,7 +79,7 @@ class Game:
             self.timeleft = int(self._getBaseTime())
         else:
             self.score += 1
-            self.timeleft += int(max(0, min(self._getBaseTime() - duration, 2*self._getBaseTime())))
+            self.timeleft = int(min(self.timeleft - duration + self._getBaseTime(), 2*self._getBaseTime()))
         newRating = self._newRating(success, rating)
         if self.mode != TrainingMode.NORMAL:
             if (self.lives == 0): self.alive = False
