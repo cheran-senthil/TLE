@@ -991,20 +991,20 @@ class UserDbConn:
         if res is None: return None
         return training_id, res[0], res[1], res[2], res[3], res[4], mode, score, lives,time_left
 
-    def end_current_training_problem(self, training_id, finish_time, status, score, lives):
+    def end_current_training_problem(self, training_id, finish_time, status, score, lives, time_left):
         query1 = f'''
             UPDATE training_problems SET finish_time = ?, status = ?
             WHERE training_id = ? AND status = {TrainingProblemStatus.ACTIVE}
         '''
         query2 = '''
-            UPDATE trainings SET score = score + ?, lives = ?
+            UPDATE trainings SET score = score + ?, lives = ?, time_left = ?
             WHERE id = ?
         '''
         rc = self.conn.execute(query1, (finish_time, status, training_id)).rowcount
         if rc != 1:
             self.conn.rollback()
             return -1
-        rc = self.conn.execute(query2, (score, lives, training_id)).rowcount
+        rc = self.conn.execute(query2, (score, lives, time_left, training_id)).rowcount
         if rc != 1:
             self.conn.rollback()
             return -2
