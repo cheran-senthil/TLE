@@ -90,7 +90,7 @@ class Game:
         self.lives -= 1
         self.timeleft = self._getBaseTime()
         newRating = self._newRating(success, rating)
-        if (self.lives == 0): self.alive = False
+        if (self.lives <= 0): self.alive = False
         return success, newRating
 
     def doFinish(self, rating, duration):
@@ -259,33 +259,6 @@ class Training(commands.Cog):
             raise TrainingCogError("You already completed your training problem!")
         if rc == -2:
             raise TrainingCogError('You don\'t have an active training session!')
-
-
-#        user_id = ctx.message.author.id
-        #issue_time = datetime.datetime.now().timestamp()
-#        rc = cf_common.user_db.solved_and_assign_training_problem(user_id, training_id, issue_time, finish_time, gamestate.lives, gamestate.score, problem)
-#            await self._postProblem(ctx, handle, problem.name, problem.index, problem.contestId, problem.rating)            
-#        if rc == -3:
-#            raise TrainingCogError('Your training problem has already been added to the database!')
-
-
-    # async def _skipCurrentTrainingProblem(self, ctx, active, handle, problem):
-    #     # The caller of this function is responsible for calling `_checkTrainingActive` first.
-    #     training_id, _, name, contest_id, index, _, _, score, _ ,_ = active
-    #     score = int(score)
-    #     user_id = ctx.message.author.id
-
-    #     issue_time = datetime.datetime.now().timestamp()
-    #     rc = cf_common.user_db.skip_and_assign_training_problem(user_id, training_id, issue_time, 0, score, problem)
-    #     if rc == 1:
-    #         await self._postProblemSkipped(ctx, handle, name, contest_id, index)            
-    #         await self._postProblem(ctx, handle, problem.name, problem.index, problem.contestId, problem.rating)            
-    #     if rc == -1: 
-    #         raise TrainingCogError("You already skipped your training problem!")
-    #     if rc == -2:
-    #         raise TrainingCogError('You don\'t have an active training session!')
-    #     if rc == -3:
-    #         raise TrainingCogError('Your training problem has already been added to the database!')
 
     async def _assignNewTrainingProblem(self, ctx, active, handle, problem):
         training_id, _, _, _, _, _, _, _, _ ,_ = active
