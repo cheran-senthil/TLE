@@ -39,7 +39,7 @@ class Game:
             self.alive = True if self.lives > 0 or mode == TrainingMode.NORMAL else False
             return
         #else we init a new game
-        self.timeleft = self._getBaseTime()
+        self.timeleft = int(self._getBaseTime())
         self.lives = self._getBaseLives()
         self.alive = True
         self.score = int(0)
@@ -76,10 +76,10 @@ class Game:
         if self.mode != TrainingMode.NORMAL and self.mode != TrainingMode.SURVIVAL and duration > self.timeleft:
             success = TrainingResult.TOOSLOW
             self.lives -= 1
-            self.timeleft = self._getBaseTime()
+            self.timeleft = int(self._getBaseTime())
         else:
             self.score += 1
-            self.timeleft += max(0, min(self._getBaseTime() - duration, 2*self._getBaseTime()))
+            self.timeleft += int(max(0, min(self._getBaseTime() - duration, 2*self._getBaseTime())))
         newRating = self._newRating(success, rating)
         if self.mode != TrainingMode.NORMAL:
             if (self.lives == 0): self.alive = False
@@ -90,7 +90,7 @@ class Game:
         success = TrainingResult.SKIPPED
         if self.mode != TrainingMode.NORMAL:
             self.lives -= 1
-            self.timeleft = self._getBaseTime()
+            self.timeleft = int(self._getBaseTime())
             if (self.lives <= 0): self.alive = False
         newRating = self._newRating(success, rating)
         return success, newRating
@@ -212,7 +212,7 @@ class Training(commands.Cog):
             timeleftFormatted = cf_common.pretty_time_format(timeleft)
             title = f'{handle} solved training problem \"{name}\" but was too slow.'
             desc  = f'Time taken: {durationFormatted} (Timelimit: {timeleftFormatted})'
-            embed = discord.Embed(title=title, description=desc, url=url, color=0xf9c909)
+            embed = discord.Embed(title=title, description=desc, url=url, color=0x008000)
             embed.add_field(name='Score', value=gamestate.score)
             if gamestate.mode != TrainingMode.NORMAL:
                 embed.add_field(name='Lives left:', value=gamestate.lives)
@@ -226,15 +226,6 @@ class Training(commands.Cog):
                 embed.add_field(name='Lives left:', value=gamestate.lives)
             await ctx.send('Problem skipped.', embed=embed)
 
-
-
-    # async def _postProblemSkipped(self, ctx, handle, name, contest_id, index):
-    #     member = ctx.author
-    #     url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
-    #     title = f'{handle} skipped training problem \"{name}\"'
-    #     embed = discord.Embed(title=title, url=url, color=0xff3030)
-    #     await ctx.send('Problem skipped.', embed=embed)
-
     async def _postProblem(self, ctx, handle, problemName, problemIndex, problemContestId, problemRating, gamestate, new: bool = True):
         title = f'{problemIndex}. {problemName}'
         desc = cf_common.cache2.contest_cache.get_contest(problemContestId).name
@@ -243,16 +234,17 @@ class Training(commands.Cog):
         embed = discord.Embed(title=title, url=url, description=desc)
         embed.add_field(name='Rating', value=problemRating)
         if gamestate.mode != TrainingMode.NORMAL:
-                embed.add_field(name='Lives left:', value=gamestate.lives)
+            embed.add_field(name='Lives left:', value=gamestate.lives)
         ## TODO: this is bugged if we post it in "status"
         if gamestate.mode != TrainingMode.NORMAL and gamestate.mode != TrainingMode.SURVIVAL:
-                embed.add_field(name='Time left:', value=gamestate.timeleft)
+            embed.add_field(name='Time left:', value=gamestate.timeleft)
+        if not new:
+            embed.add_field(name='Score', value=gamestate.score)
         await ctx.send(f'{prefix} training problem for `{handle}`', embed=embed)
 
     async def _startTrainingAndAssignProblem(self, ctx, handle, problem, gamestate):
         # The caller of this function is responsible for calling `_validate_training_status` first.
         user_id = ctx.author.id
-
         issue_time = datetime.datetime.now().timestamp()
         rc = cf_common.user_db.new_training(user_id, issue_time, problem, gamestate.mode, gamestate.score, gamestate.lives, gamestate.timeleft)
         if rc != 1:
@@ -306,20 +298,28 @@ class Training(commands.Cog):
             # show death message
             await self._finishCurrentTraining(ctx, active)
             ### end game and post results
-            await self._postTrainingStatistics(ctx, active, handle)
+            await self._postTrainingStatistics(ctx, active, handle, gamestate)
             return True
         return False
 
 
     ### TODO: Get data from DB
-    async def _postTrainingStatistics(self, ctx, active, handle):
-        numProblems, numSolves, maxRating, longestStreak = 0,0,0,0
-        title = f'Training session of `{handle}` finished'
+    async def _postTrainingStatistics(self, ctx, active, handle, gamestate, finish = True):
+        training_id, _, name, contest_id, index, rating, _, _, _ ,_ = active
+        numProblems = 0#cf_common.user_db.train_get_num_problems(training_id) 
+        numSolves = 0#cf_common.user_db.train_get_num_solves(training_id) 
+        maxRating = 0#cf_common.user_db.train_get_max_rating(training_id) 
+        startRating = 0#cf_common.user_db.train_get_start_rating(training_id) 
+
+        title = f'Training session of `{handle}`'
+        if finish: title + ' finished'
         desc = f'You attempted {numProblems} problems and solved {numSolves} problems'
         embed = discord.Embed(title=title, description=desc)
+        embed.add_field(name='Start rating', value = startRating)
         embed.add_field(name='Highest Rating', value=maxRating)
-        embed.add_field(name='Longest streak', value=longestStreak)
-        await ctx.send('', embed=embed)        
+        await ctx.send('', embed=embed) 
+        if not finish:
+            await self._postProblem(ctx, handle, name, index, contest_id, rating, gamestate, False)       
 
     @training.command(  brief='Start a training session',
                         usage='[rating] [normal|survival|timed15|timed30|timed60]')
@@ -387,14 +387,14 @@ class Training(commands.Cog):
         duration = finish_time - issue_time
         success, newRating = gamestate.doSolved(rating, duration)
 
+        ### Picking a new problem with a certain rating
+        problem = await self._pickTrainingProblem(handle, newRating, submissions)  
+
         ### Complete old problem
         await self._completeCurrentTrainingProblem(ctx, active, handle, finish_time, duration, gamestate, success)       
 
         ### Check if game ends here
         if await self._endTrainingIfDead(ctx, active, handle, gamestate): return
-        
-        ### Picking a new problem with a certain rating
-        problem = await self._pickTrainingProblem(handle, newRating, submissions)  
 
         ### Assign new problem
         await self._assignNewTrainingProblem(ctx, active, handle, problem, gamestate)
@@ -421,14 +421,14 @@ class Training(commands.Cog):
         duration = finish_time - issue_time
         success, newRating = gamestate.doSkip(rating, duration)
 
+        ### Picking a new problem with a certain rating
+        problem = await self._pickTrainingProblem(handle, newRating, submissions)  
+
         ### Complete old problem
         await self._completeCurrentTrainingProblem(ctx, active, handle, finish_time, duration, gamestate, success)       
 
         ### Check if game ends here
         if await self._endTrainingIfDead(ctx, active, handle, gamestate): return
-
-        ### Picking a new problem with a certain rating
-        problem = await self._pickTrainingProblem(handle, newRating, submissions)  
 
         ### Assign new problem
         await self._assignNewTrainingProblem(ctx, active, handle, problem, gamestate)
@@ -469,8 +469,9 @@ class Training(commands.Cog):
         self._checkTrainingActive(ctx, active)
 
         gamestate = Game(active[6], active[7], active[8], active[9])
-
-        await self._showActiveTrainingProblem(ctx, active, handle, gamestate)
+        
+        await self._postTrainingStatistics(ctx, active, handle, gamestate, False)
+        #await self._showActiveTrainingProblem(ctx, active, handle, gamestate)
 
     @training.command(brief='Set the training channel to the current channel')
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)  # OK
