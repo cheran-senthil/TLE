@@ -317,7 +317,8 @@ class Training(commands.Cog):
             title += ' finished'
         embed = discord.Embed(title=title)
         embed.add_field(name='Score', value = gamestate.score, inline=True)
-        embed.add_field(name='Lives left', value = gamestate.lives, inline=True)
+        if not finish and gamestate.mode != TrainingMode.NORMAL: 
+            embed.add_field(name='Lives left', value = gamestate.lives, inline=True)
         # TODO: time will not reflect actual time remaining
         if not finish and gamestate.mode != TrainingMode.NORMAL: 
             timeLeftFormatted = cf_common.pretty_time_format(gamestate.timeleft)
