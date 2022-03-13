@@ -316,11 +316,17 @@ class Training(commands.Cog):
         if finish: 
             title += ' finished'
         embed = discord.Embed(title=title)
-        embed.add_field(name='Solves', value = numSolves)
-        embed.add_field(name='Slow solves', value = numSlowSolves)
-        embed.add_field(name='Skips', value=numSkips)
-        embed.add_field(name='Start rating', value = startRating)
-        embed.add_field(name='Highest Rating', value=maxRating)
+        embed.add_field(name='Score', value = gamestate.score, inline=True)
+        embed.add_field(name='Lives left', value = gamestate.lives, inline=True)
+        # TODO: time will not reflect actual time remaining
+        if not finish and gamestate.mode != TrainingMode.NORMAL: 
+            timeLeftFormatted = cf_common.pretty_time_format(gamestate.timeleft)
+            embed.add_field(name='Time left', value = timeLeftFormatted, inline=True)
+        embed.add_field(name='Solves', value = numSolves, inline=True)
+        embed.add_field(name='Slow solves', value = numSlowSolves, inline=True)
+        embed.add_field(name='Skips', value = numSkips, inline=True)
+        embed.add_field(name='Start rating', value = startRating, inline=True)
+        embed.add_field(name='Highest solve', value = maxRating, inline=True)
         await ctx.send('', embed=embed) 
         if not finish:
             await self._postProblem(ctx, handle, name, index, contest_id, rating, gamestate, False)       
