@@ -321,9 +321,12 @@ class Training(commands.Cog):
         embed.add_field(name='Longest streak', value=longestStreak)
         await ctx.send('', embed=embed)        
 
-    @training.command(brief='Start a training session')
+    @training.command(  brief='Start a training session',
+                        usage='[rating] [normal|survival|timed15|timed30|timed60]')
     @cf_common.user_guard(group='training')
     async def start(self, ctx, *args):
+        """ TODO: Detailed description
+        """
         ### check if we are in the correct channel
         self._checkIfCorrectChannel(ctx)
 
@@ -348,10 +351,14 @@ class Training(commands.Cog):
 
 
 
-    @training.command(brief='If you have solved your current problem it will assign a new one')
+    @training.command(brief='If you have solved your current problem it will assign a new one',
+                      usage='[+force]')
     @cf_common.user_guard(group='training')
     async def solved(self, ctx, *args):
-        #### debug helper:
+        """ TODO: Detailed description
+            +force: marks the problem as solved even if its not solved (DEBUG MODE only!!!)
+        """        
+        #### TODO: debug helper:
         skip = False
         for arg in args:
             if arg == "+force":
