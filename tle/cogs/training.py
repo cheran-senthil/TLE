@@ -176,7 +176,7 @@ class Training(commands.Cog):
 
     def _checkTrainingActive(self, ctx, active):
         if not active:
-            raise TrainingCogError(f'You do not have an active training')
+            raise TrainingCogError('You do not have an active training')
 
     async def _checkIfSolved(self, ctx, active, handle, submissions, skip):
         _, issue_time, name, contest_id, index, _, _, _, _, _ = active
@@ -191,7 +191,6 @@ class Training(commands.Cog):
         if len(ac) == 0:
             url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
             raise TrainingCogError(f'You haven\'t completed your active training problem {name} at {url}')               
-        ac = {sub for sub in submissions if sub.name == name and sub.verdict == 'OK'} 
         finish_time = int(ac[0].creationTimeSeconds)
         return finish_time        
 
