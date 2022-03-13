@@ -172,21 +172,22 @@ class Training(commands.Cog):
         if not active:
             raise TrainingCogError(f'You do not have an active training')
 
-    async def _checkIfSolved(self, ctx, active, handle, submissions):
+    async def _checkIfSolved(self, ctx, active, handle, submissions, skip):
         _, issue_time, name, contest_id, index, _, _, _, _, _ = active
         ac = [sub for sub in submissions if sub.problem.name == name and sub.verdict == 'OK']
         #order by creation time increasing 
         ac.sort(key=lambda y: y[6])
 
-        ### TODO: Add back after debugging
-        # if len(ac) == 0:
-        #     url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
-        #     raise TrainingCogError(f'You haven\'t completed your active training problem {name} at {url}')               
-        # ac = {sub for sub in submissions if sub.name == name and sub.verdict == 'OK'} 
-        # finish_time = int(ac[0].creationTimeSeconds)
-
-        finish_time = int(datetime.datetime.now().timestamp())
-        return finish_time
+        if skip:
+            finish_time = int(datetime.datetime.now().timestamp())
+            return finish_time
+        
+        if len(ac) == 0:
+            url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
+            raise TrainingCogError(f'You haven\'t completed your active training problem {name} at {url}')               
+        ac = {sub for sub in submissions if sub.name == name and sub.verdict == 'OK'} 
+        finish_time = int(ac[0].creationTimeSeconds)
+        return finish_time        
 
     async def _postProblemFinished(self, ctx, handle, name, contest_id, index, duration, gamestate, success, timeleft):
         if success == TrainingResult.SOLVED:
@@ -340,7 +341,14 @@ class Training(commands.Cog):
 
     @training.command(brief='Do this command if you have solved your current problem')
     @cf_common.user_guard(group='training')
-    async def solved(self, ctx):
+    async def solved(self, ctx, *args):
+        #### debug helper:
+        skip = False
+        for arg in args:
+            if arg == "+force":
+                skip = True
+
+
         ### check if we are in the correct channel
         self._checkIfCorrectChannel(ctx)
 
@@ -355,7 +363,7 @@ class Training(commands.Cog):
         
 
         ### check if solved
-        finish_time = await self._checkIfSolved(ctx, active, handle, submissions)
+        finish_time = await self._checkIfSolved(ctx, active, handle, submissions, skip)
         
         ### game logic here 
         _, issue_time, _, _, _, rating, _, _, _ ,_ = active
