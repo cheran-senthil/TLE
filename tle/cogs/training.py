@@ -312,7 +312,8 @@ class Training(commands.Cog):
         startRating = 0#cf_common.user_db.train_get_start_rating(training_id) 
 
         title = f'Training session of `{handle}`'
-        if finish: title + ' finished'
+        if finish: 
+            title += ' finished'
         desc = f'You attempted {numProblems} problems and solved {numSolves} problems'
         embed = discord.Embed(title=title, description=desc)
         embed.add_field(name='Start rating', value = startRating)
