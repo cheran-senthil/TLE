@@ -1044,7 +1044,7 @@ class UserDbConn:
         '''
         return self.conn.execute(query, (training_id,)).fetchone()[0]
 
-    def train_get_num_solves(self, training_id):
+    def train_get_num_skips(self, training_id):
         query = f'''
             SELECT COUNT(*) FROM training_problems 
             WHERE training_id = ? AND status == {TrainingProblemStatus.SKIPPED}
