@@ -396,7 +396,7 @@ class Training(commands.Cog):
         problem = await self._pickTrainingProblem(handle, newRating, submissions)  
 
         ### Assign new problem
-        await self._assignNewTrainingProblem(ctx, active, handle, problem)
+        await self._assignNewTrainingProblem(ctx, active, handle, problem, gamestate)
 
     @training.command(brief='If you want to skip your current problem you can get a new one.') #This reduces your life by 1 (if not in Unlimited Mode).
     @cf_common.user_guard(group='training')
@@ -430,7 +430,7 @@ class Training(commands.Cog):
         problem = await self._pickTrainingProblem(handle, newRating, submissions)  
 
         ### Assign new problem
-        await self._assignNewTrainingProblem(ctx, active, handle, problem)
+        await self._assignNewTrainingProblem(ctx, active, handle, problem, gamestate)
 
     @training.command(brief='End your training session.')
     @cf_common.user_guard(group='training')
