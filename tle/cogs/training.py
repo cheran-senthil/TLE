@@ -73,7 +73,7 @@ class Game:
     def doSolved(self, rating, duration):
         rating = int(rating)
         success = TrainingResult.SOLVED
-        if (self.mode != TrainingMode.NORMAL or self.mode != TrainingMode.SURVIVAL) and duration > self.timeleft:
+        if self.mode != TrainingMode.NORMAL and self.mode != TrainingMode.SURVIVAL and duration > self.timeleft:
             success = TrainingResult.TOOSLOW
             self.lives -= 1
             self.timeleft = self._getTimeLeft()
