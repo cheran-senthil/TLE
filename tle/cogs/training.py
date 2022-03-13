@@ -233,7 +233,7 @@ class Training(commands.Cog):
         user_id = ctx.author.id
 
         issue_time = datetime.datetime.now().timestamp()
-        rc = cf_common.user_db.new_training(user_id, issue_time, problem, gamestate.mode, gamestate.lives, gamestate.timeleft)
+        rc = cf_common.user_db.new_training(user_id, issue_time, problem, gamestate.mode, gamestate.score, gamestate.lives, gamestate.timeleft)
         if rc != 1:
             raise TrainingCogError('Your training has already been added to the database!')
 
