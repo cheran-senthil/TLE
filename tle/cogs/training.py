@@ -87,10 +87,11 @@ class Game:
     def doSkip(self, rating, duration):
         rating = int(rating)
         success = TrainingResult.SKIPPED
-        self.lives -= 1
-        self.timeleft = self._getBaseTime()
+        if self.mode != TrainingMode.NORMAL:
+            self.lives -= 1
+            self.timeleft = self._getBaseTime()
+            if (self.lives <= 0): self.alive = False
         newRating = self._newRating(success, rating)
-        if (self.lives <= 0): self.alive = False
         return success, newRating
 
     def doFinish(self, rating, duration):
@@ -125,6 +126,7 @@ class Training(commands.Cog):
     def _extractArgs(self, args):
         mode = TrainingMode.NORMAL
         rating = 800
+        unrecognizedArgs = []
         for arg in args:
             if arg.isdigit():
                 rating = int(arg)
@@ -136,6 +138,10 @@ class Training(commands.Cog):
                 mode = TrainingMode.TIMED30
             if arg == "timed60":
                 mode = TrainingMode.TIMED60
+            else:
+                unrecognizedArgs.append(arg)
+        if len(unrecognizedArgs) > 0:
+            raise TrainingCogError('Unrecognized arguments: {}'.format(' '.join(unrecognizedArgs)))
         return rating, mode
 
     def _validateTrainingStatus(self, ctx, rating, active):
@@ -339,7 +345,7 @@ class Training(commands.Cog):
 
 
 
-    @training.command(brief='Do this command if you have solved your current problem')
+    @training.command(brief='If you have solved your current problem it will assign a new one')
     @cf_common.user_guard(group='training')
     async def solved(self, ctx, *args):
         #### debug helper:
@@ -383,7 +389,7 @@ class Training(commands.Cog):
         ### Assign new problem
         await self._assignNewTrainingProblem(ctx, active, handle, problem)
 
-    @training.command(brief='Do this command if you want to skip your current problem.') #This reduces your life by 1 (if not in Unlimited Mode).
+    @training.command(brief='If you want to skip your current problem you can get a new one.') #This reduces your life by 1 (if not in Unlimited Mode).
     @cf_common.user_guard(group='training')
     async def skip(self, ctx):
         ### check if we are in the correct channel
@@ -417,7 +423,7 @@ class Training(commands.Cog):
         ### Assign new problem
         await self._assignNewTrainingProblem(ctx, active, handle, problem)
 
-    @training.command(brief='Do this command if you want to finish your training session.')
+    @training.command(brief='End your training session.')
     @cf_common.user_guard(group='training')
     async def finish(self, ctx):
         ### check if we are in the correct channel
