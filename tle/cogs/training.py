@@ -436,13 +436,16 @@ class Training(commands.Cog):
         active = await self._getActiveTraining(ctx)
         self._checkTrainingActive(ctx, active)
 
+
         ### invalidate active problem and finish training
+        _, issue_time, _, _, _, rating, _, _, _ ,_ = active
         gamestate = Game(active[6], active[7], active[8], active[9])
-        _, _, _, _, _, rating, _, _, _ ,_ = active
-        success, newRating = gamestate.doFinish(rating)
+        finish_time = datetime.datetime.now().timestamp()
+        duration = finish_time - issue_time
+        success, newRating = gamestate.doFinish(rating, duration)
 
         ### Complete old problem
-        await self._completeCurrentTrainingProblem(ctx, active, handle, None, 0, gamestate, success)       
+        await self._completeCurrentTrainingProblem(ctx, active, handle, finish_time, duration, gamestate, success)       
 
         ### Check if game ends here // should trigger each time
         if await self._endTrainingIfDead(ctx, active, handle, gamestate): return
