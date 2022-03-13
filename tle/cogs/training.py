@@ -306,16 +306,19 @@ class Training(commands.Cog):
     ### TODO: Get data from DB
     async def _postTrainingStatistics(self, ctx, active, handle, gamestate, finish = True):
         training_id, _, name, contest_id, index, rating, _, _, _ ,_ = active
-        numProblems = 0#cf_common.user_db.train_get_num_problems(training_id) 
-        numSolves = 0#cf_common.user_db.train_get_num_solves(training_id) 
-        maxRating = 0#cf_common.user_db.train_get_max_rating(training_id) 
-        startRating = 0#cf_common.user_db.train_get_start_rating(training_id) 
+        numSkips = cf_common.user_db.train_get_num_skips(training_id) 
+        numSolves = cf_common.user_db.train_get_num_solves(training_id) 
+        numSlowSolves = cf_common.user_db.train_get_num_slow_solves(training_id) 
+        maxRating = cf_common.user_db.train_get_max_rating(training_id) 
+        startRating = cf_common.user_db.train_get_start_rating(training_id) 
 
         title = f'Training session of `{handle}`'
         if finish: 
             title += ' finished'
-        desc = f'You attempted {numProblems} problems and solved {numSolves} problems'
-        embed = discord.Embed(title=title, description=desc)
+        embed = discord.Embed(title=title)
+        embed.add_field(name='Solves', value = numSolves)
+        embed.add_field(name='Slow solves', value = numSlowSolves)
+        embed.add_field(name='Skips', value=numSkips)
         embed.add_field(name='Start rating', value = startRating)
         embed.add_field(name='Highest Rating', value=maxRating)
         await ctx.send('', embed=embed) 

@@ -1037,6 +1037,41 @@ class UserDbConn:
         self.conn.commit()
         return 1
 
+    def train_get_num_solves(self, training_id):
+        query = f'''
+            SELECT COUNT(*) FROM training_problems 
+            WHERE training_id = ? AND status == {TrainingProblemStatus.SOLVED}
+        '''
+        return self.conn.execute(query, (training_id,)).fetchone()[0]
+
+    def train_get_num_solves(self, training_id):
+        query = f'''
+            SELECT COUNT(*) FROM training_problems 
+            WHERE training_id = ? AND status == {TrainingProblemStatus.SKIPPED}
+        '''
+        return self.conn.execute(query, (training_id,)).fetchone()[0]
+
+    def train_get_num_slow_solves(self, training_id):
+        query = f'''
+            SELECT COUNT(*) FROM training_problems 
+            WHERE training_id = ? AND status == {TrainingProblemStatus.SOLVED_TOO_SLOW}
+        '''
+        return self.conn.execute(query, (training_id,)).fetchone()[0]
+
+    def train_get_start_rating(self, training_id):
+        query = f'''
+            SELECT rating FROM training_problems 
+            WHERE training_id = ?
+        '''
+        return self.conn.execute(query, (training_id,)).fetchone()[0]
+
+    def train_get_max_rating(self, training_id):
+        query = f'''
+            SELECT MAX(rating) FROM training_problems 
+            WHERE training_id = ? AND status == {TrainingProblemStatus.SOLVED}
+        '''
+        return self.conn.execute(query, (training_id,)).fetchone()[0]
+
     def close(self):
         self.conn.close()
 
