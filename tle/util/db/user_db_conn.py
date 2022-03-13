@@ -951,15 +951,15 @@ class UserDbConn:
         return int(channel_id[0]) if channel_id else None
 
     def new_training(self, user_id, issue_time, prob, mode, lives, time_left):
-        query1 = '''
+        query1 = f'''
             INSERT INTO trainings
             (user_id, score, lives, time_left, mode, status)
             VALUES
-            (?, 0, ?, ?, ?, 1)
+            (?, 0, ?, ?, ?, {TrainingProblemStatus.ACTIVE})
         '''
-        query2 = '''
+        query2 = f'''
             INSERT INTO training_problems (training_id, issue_time, problem_name, contest_id, p_index, rating, status)
-            VALUES (?, ?, ?, ?, ?, ?, 1)
+            VALUES (?, ?, ?, ?, ?, ?, {Training.ACTIVE})
         '''
         cur = self.conn.cursor()
         cur.execute(query1, (user_id, lives, time_left, mode))
@@ -976,18 +976,18 @@ class UserDbConn:
 
 
     def check_training(self, user_id):
-        query1 = '''
+        query1 = f'''
             SELECT id, mode, score, lives, time_left FROM trainings
-            WHERE user_id = ? AND status = ?
+            WHERE user_id = ? AND status = {Training.ACTIVE}
         '''
-        res = self.conn.execute(query1, (user_id,Training.ACTIVE)).fetchone()
+        res = self.conn.execute(query1, (user_id,)).fetchone()
         if res is None: return None
         training_id,mode,score,lives,time_left = res
-        query2 = '''
+        query2 = f'''
             SELECT issue_time, problem_name, contest_id, p_index, rating FROM training_problems
-            WHERE training_id = ? AND status = ?
+            WHERE training_id = ? AND status = {TrainingProblemStatus.ACTIVE}
         '''
-        res = self.conn.execute(query2, (training_id,TrainingProblemStatus.ACTIVE)).fetchone()
+        res = self.conn.execute(query2, (training_id,)).fetchone()
         if res is None: return None
         return training_id, res[0], res[1], res[2], res[3], res[4], mode, score, lives,time_left
 
