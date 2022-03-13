@@ -81,7 +81,8 @@ class Game:
             self.score += 1
             self.timeleft += max(0, min(self._getBaseTime() - duration, 2*self._getBaseTime()))
         newRating = self._newRating(success, rating)
-        if (self.lives == 0): self.alive = False
+        if self.mode != TrainingMode.NORMAL:
+            if (self.lives == 0): self.alive = False
         return success, newRating
 
     def doSkip(self, rating, duration):
