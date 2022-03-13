@@ -201,10 +201,10 @@ class Training(commands.Cog):
             durationFormatted = cf_common.pretty_time_format(duration)
             title = f'{handle} solved training problem \"{name}\"'
             desc  = f'Time taken: {durationFormatted}'
+            embed = discord.Embed(title=title, description=desc, url=url, color=0x008000)
             embed.add_field(name='Score', value=gamestate.score)
             if gamestate.mode != TrainingMode.NORMAL:
                 embed.add_field(name='Lives left:', value=gamestate.lives)
-            embed = discord.Embed(title=title, description=desc, url=url, color=0x008000)
             await ctx.send('Problem solved.', embed=embed)
         if success == TrainingResult.TOOSLOW:
             url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
@@ -212,10 +212,10 @@ class Training(commands.Cog):
             timeleftFormatted = cf_common.pretty_time_format(timeleft)
             title = f'{handle} solved training problem \"{name}\" but was too slow.'
             desc  = f'Time taken: {durationFormatted} (Timelimit: {timeleftFormatted})'
+            embed = discord.Embed(title=title, description=desc, url=url, color=0xf9c909)
             embed.add_field(name='Score', value=gamestate.score)
             if gamestate.mode != TrainingMode.NORMAL:
                 embed.add_field(name='Lives left:', value=gamestate.lives)
-            embed = discord.Embed(title=title, description=desc, url=url, color=0xf9c909)
             await ctx.send('Problem solved but not fast enough.', embed=embed)
         if success == TrainingResult.SKIPPED:
             url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
@@ -244,6 +244,9 @@ class Training(commands.Cog):
         embed.add_field(name='Rating', value=problemRating)
         if gamestate.mode != TrainingMode.NORMAL:
                 embed.add_field(name='Lives left:', value=gamestate.lives)
+        ## TODO: this is bugged if we post it in "status"
+        if gamestate.mode != TrainingMode.NORMAL and gamestate.mode != TrainingMode.SURVIVAL:
+                embed.add_field(name='Time left:', value=gamestate.timeleft)
         await ctx.send(f'{prefix} training problem for `{handle}`', embed=embed)
 
     async def _startTrainingAndAssignProblem(self, ctx, handle, problem, gamestate):
