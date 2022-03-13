@@ -130,13 +130,13 @@ class Training(commands.Cog):
         for arg in args:
             if arg.isdigit():
                 rating = int(arg)
-            if arg == "survival":
+            elif arg == "survival":
                 mode = TrainingMode.SURVIVAL
-            if arg == "timed15":
+            elif arg == "timed15":
                 mode = TrainingMode.TIMED15
-            if arg == "timed30":
+            elif arg == "timed30":
                 mode = TrainingMode.TIMED30
-            if arg == "timed60":
+            elif arg == "timed60":
                 mode = TrainingMode.TIMED60
             else:
                 unrecognizedArgs.append(arg)
