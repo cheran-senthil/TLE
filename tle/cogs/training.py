@@ -407,9 +407,11 @@ class Training(commands.Cog):
         self._checkTrainingActive(ctx, active)
 
         ### game logic here
+        _, issue_time, _, _, _, rating, _, _, _ ,_ = active
         gamestate = Game(active[6], active[7], active[8], active[9])
-        _, _, _, _, _, rating, _, _, _ ,_ = active
-        success, newRating = gamestate.doSkip(rating)
+        finish_time = datetime.datetime.now().timestamp()
+        duration = finish_time - issue_time
+        success, newRating = gamestate.doSkip(rating, duration)
 
         ### Complete old problem
         await self._completeCurrentTrainingProblem(ctx, active, handle, finish_time, duration, gamestate, success)       
