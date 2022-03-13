@@ -42,7 +42,7 @@ class Game:
         self.timeleft = self._getTimeLeft()
         self.lives = self._getLives()
         self.alive = True
-        self.score = 0
+        self.score = int(0)
 
     def _getLives(self):
         if self.mode == TrainingMode.NORMAL:

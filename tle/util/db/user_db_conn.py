@@ -950,19 +950,19 @@ class UserDbConn:
         channel_id = self.conn.execute(query, (guild_id,)).fetchone()
         return int(channel_id[0]) if channel_id else None
 
-    def new_training(self, user_id, issue_time, score, prob, mode, lives, time_left):
+    def new_training(self, user_id, issue_time, prob, mode, score, lives, time_left):
         query1 = f'''
             INSERT INTO trainings
             (user_id, score, lives, time_left, mode, status)
             VALUES
-            (?, ?, ?, ?, ?, {Training.ACTIVE})
+            (?, 0, ?, ?, ?, {Training.ACTIVE})
         '''
         query2 = f'''
             INSERT INTO training_problems (training_id, issue_time, problem_name, contest_id, p_index, rating, status)
             VALUES (?, ?, ?, ?, ?, ?, {TrainingProblemStatus.ACTIVE})
         '''
         cur = self.conn.cursor()
-        cur.execute(query1, (user_id, score, lives, time_left, mode))
+        cur.execute(query1, (user_id, lives, time_left, mode))
         training_id, rc = cur.lastrowid, cur.rowcount
         if rc != 1:
             self.conn.rollback()
