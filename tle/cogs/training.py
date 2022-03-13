@@ -62,7 +62,7 @@ class Game:
 
     def _newRating(self, success, rating):
         newRating = rating
-        if success: 
+        if success == TrainingResult.SOLVED: 
             newRating += 100
         else:
             newRating -= 100
