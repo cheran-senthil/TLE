@@ -39,18 +39,18 @@ class Game:
             self.alive = True if self.lives > 0 or mode == TrainingMode.NORMAL else False
             return
         #else we init a new game
-        self.timeleft = self._getTimeLeft()
-        self.lives = self._getLives()
+        self.timeleft = self._getBaseTime()
+        self.lives = self._getBaseLives()
         self.alive = True
         self.score = int(0)
 
-    def _getLives(self):
+    def _getBaseLives(self):
         if self.mode == TrainingMode.NORMAL:
             return 0
         else:
             return 3
 
-    def _getTimeLeft(self):
+    def _getBaseTime(self):
         if self.mode == TrainingMode.NORMAL or self.mode == TrainingMode.SURVIVAL:
             return 0
         if self.mode == TrainingMode.TIMED15:
@@ -76,10 +76,10 @@ class Game:
         if self.mode != TrainingMode.NORMAL and self.mode != TrainingMode.SURVIVAL and duration > self.timeleft:
             success = TrainingResult.TOOSLOW
             self.lives -= 1
-            self.timeleft = self._getTimeLeft()
+            self.timeleft = self._getBaseTime()
         else:
             self.score += 1
-            self.timeleft += max(0, min(self._getTimeLeft() - duration, 2*self._getTime()))
+            self.timeleft += max(0, min(self._getBaseTime() - duration, 2*self._getBaseTime()))
         newRating = self._newRating(success, rating)
         if (self.lives == 0): self.alive = False
         return success, newRating
@@ -88,7 +88,7 @@ class Game:
         rating = int(rating)
         success = TrainingResult.SKIPPED
         self.lives -= 1
-        self.timeleft = self._getTimeLeft()
+        self.timeleft = self._getBaseTime()
         newRating = self._newRating(success, rating)
         if (self.lives == 0): self.alive = False
         return success, newRating
