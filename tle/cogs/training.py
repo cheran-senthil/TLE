@@ -34,12 +34,12 @@ class Game:
         # existing game
         if score is not None:
             self.score = int(score)
-            self.lives = int(lives) if lives is not None else 0
-            self.timeleft = int(timeleft) if timeleft is not None else 0
-            self.alive = True if self.lives > 0 or mode == TrainingMode.NORMAL else False
+            self.lives = int(lives) if lives is not None else lives
+            self.timeleft = int(timeleft) if timeleft is not None else timeleft
+            self.alive = True if self.lives is None or self.lives > 0 else False
             return
         #else we init a new game
-        self.timeleft = int(self._getBaseTime())
+        self.timeleft = self._getBaseTime()
         self.lives = self._getBaseLives()
         self.alive = True
         self.score = int(0)
