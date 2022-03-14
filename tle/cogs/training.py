@@ -215,6 +215,7 @@ class Training(commands.Cog):
     
     #TODO: Better concept for problem posts / problem finished posts and statistics posts needed!!!
     async def _postProblemFinished(self, ctx, handle, name, contest_id, index, duration, gamestate, success, timeleft):
+        if success == TrainingResult.INVALIDATED: return
         desc = ''
         text = ''
         color = 0x000000
