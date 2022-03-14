@@ -259,7 +259,7 @@ class Training(commands.Cog):
             timeDiffFormatted = cf_common.pretty_time_format(duration-timeleft, shorten=True, always_seconds=True)
             desc = f'{handle} solved training problem but was {timeDiffFormatted} too slow.'
             text = 'Problem solved but not fast enough.'
-            color = 0xff3030
+            color = 0xf98e1b
         if success == TrainingResult.SKIPPED:
             desc = f'{handle} skipped training problem'
             text = 'Problem skipped.'
@@ -298,12 +298,15 @@ class Training(commands.Cog):
 
         text = ''
         title = f'Current training session of `{handle}`'
+        color = 0x000080
         if past: 
             text = 'You don\'t have an active training session.'
             title = f'Latest training session of `{handle}`'
+            color = 0x000000
         if finished:
             title = f'Current training session of `{handle}` finished.'
-        embed = discord.Embed(title=title)
+            color = 0x000040
+        embed = discord.Embed(title=title, color = color)
         embed.add_field(name='Game mode', value = gamestate._getModeStr(), inline=True)
         embed.add_field(name='Score', value = gamestate.score, inline=True)
         embed.add_field(name='Solves', value = numSolves, inline=True)
