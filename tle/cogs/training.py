@@ -54,11 +54,11 @@ class Game:
         if self.mode == TrainingMode.NORMAL or self.mode == TrainingMode.SURVIVAL:
             return None
         if self.mode == TrainingMode.TIMED15:
-            return int(15*60)
+            return int(15*60+2)
         if self.mode == TrainingMode.TIMED30:
-            return int(30*60)
+            return int(30*60+2)
         if self.mode == TrainingMode.TIMED60:
-            return int(60*60)
+            return int(60*60+2)
 
     def _newRating(self, success, rating):
         newRating = rating
