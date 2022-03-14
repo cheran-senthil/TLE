@@ -18,6 +18,7 @@ class TrainingMode(IntEnum):
     TIMED15 = 2
     TIMED30 = 3
     TIMED60 = 4
+    TIMED1 = 2
 
 class TrainingResult(IntEnum):
     SOLVED = 0,
@@ -53,6 +54,8 @@ class Game:
     def _getBaseTime(self):
         if self.mode == TrainingMode.NORMAL or self.mode == TrainingMode.SURVIVAL:
             return None
+        if self.mode == TrainingMode.TIMED1:
+            return int(1*60+2)
         if self.mode == TrainingMode.TIMED15:
             return int(15*60+2)
         if self.mode == TrainingMode.TIMED30:
@@ -139,13 +142,15 @@ class Training(commands.Cog):
         for arg in args:
             if arg.isdigit():
                 rating = int(arg)
-            elif arg == "survival":
+            elif arg == "survival" or arg == "+survival":
                 mode = TrainingMode.SURVIVAL
-            elif arg == "timed15":
+            elif arg == "timed1" or arg == "+timed1":
                 mode = TrainingMode.TIMED15
-            elif arg == "timed30":
+            elif arg == "timed15" or arg == "+timed15":
+                mode = TrainingMode.TIMED15
+            elif arg == "timed30" or arg == "+timed30":
                 mode = TrainingMode.TIMED30
-            elif arg == "timed60":
+            elif arg == "timed60" or arg == "+timed60":
                 mode = TrainingMode.TIMED60
             else:
                 unrecognizedArgs.append(arg)
@@ -224,7 +229,7 @@ class Training(commands.Cog):
             text = 'Problem solved.'
             color = 0x008000
         if success == TrainingResult.TOOSLOW:
-            timeDiffFormatted = cf_common.pretty_time_format(duration-timeleft)
+            timeDiffFormatted = cf_common.pretty_time_format(duration-timeleft, shorten=True, always_seconds=True)
             desc = f'{handle} solved training problem but was {timeDiffFormatted} too slow.'
             text = 'Problem solved but not fast enough.'
             color = 0xff3030
@@ -235,7 +240,7 @@ class Training(commands.Cog):
         
         url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
         title = f'{index}. {name}'
-        durationFormatted = cf_common.pretty_time_format(duration)
+        durationFormatted = cf_common.pretty_time_format(duration, shorten=True, always_seconds=True)
         embed = discord.Embed(title=title, description=desc, url=url, color=color)
         embed.add_field(name='Score', value=gamestate.score)
         embed.add_field(name='Time taken:', value = durationFormatted)
@@ -294,7 +299,7 @@ class Training(commands.Cog):
         if time_passed > time_left: 
             return 'Time over'
         else: 
-            return cf_common.pretty_time_format(int(time_left - time_passed))
+            return cf_common.pretty_time_format(int(time_left - time_passed), shorten=True, always_seconds=True)
 
 
 
