@@ -317,8 +317,10 @@ class Training(commands.Cog):
         maxRating = cf_common.user_db.train_get_max_rating(training_id) 
         startRating = cf_common.user_db.train_get_start_rating(training_id) 
 
+        text = ''
         title = f'Current training session of `{handle}`'
         if finish: 
+            text = 'You don\'t have an active training session'
             title = f'Latest training session of `{handle}`'
         embed = discord.Embed(title=title)
         embed.add_field(name='Score', value = gamestate.score, inline=True)
@@ -333,7 +335,7 @@ class Training(commands.Cog):
         embed.add_field(name='Skips', value = numSkips, inline=True)
         embed.add_field(name='Start rating', value = startRating, inline=True)
         embed.add_field(name='Highest solve', value = maxRating, inline=True)
-        await ctx.send('', embed=embed) 
+        await ctx.send(text, embed=embed) 
         if not finish:
             _, _, name, contest_id, index, rating, _, _, _ ,_ = active
             await self._postProblem(ctx, handle, name, index, contest_id, rating, gamestate, False)       
