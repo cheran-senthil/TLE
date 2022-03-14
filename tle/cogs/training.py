@@ -268,6 +268,8 @@ class Training(commands.Cog):
         if past: 
             text = 'You don\'t have an active training session.'
             title = f'Latest training session of `{handle}`'
+        if finished:
+            title = f'Current training session of `{handle}` finished.'
         embed = discord.Embed(title=title)
         embed.add_field(name='Score', value = gamestate.score, inline=True)
         # if not finished and not past: 
