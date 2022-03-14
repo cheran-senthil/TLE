@@ -215,6 +215,9 @@ class Training(commands.Cog):
     
     #TODO: Better concept for problem posts / problem finished posts and statistics posts needed!!!
     async def _postProblemFinished(self, ctx, handle, name, contest_id, index, duration, gamestate, success, timeleft):
+        desc = ''
+        text = ''
+        color = 0x000000
         if success == TrainingResult.SOLVED:
             desc = f'{handle} solved training problem.'
             text = 'Problem solved.'
@@ -267,11 +270,10 @@ class Training(commands.Cog):
             title = f'Latest training session of `{handle}`'
         embed = discord.Embed(title=title)
         embed.add_field(name='Score', value = gamestate.score, inline=True)
-        if not finished and not past: 
-            embed.add_field(name='Lives left', value = gamestate.lives if gamestate.lives else 'Inf', inline=True)
-            
-            timeleftFormatted = self._getFormattedTimeleft(float(active[1]), gamestate.timeleft)
-            embed.add_field(name='Time left', value = timeleftFormatted, inline=True)
+        # if not finished and not past: 
+        #     embed.add_field(name='Lives left', value = gamestate.lives if gamestate.lives else 'Inf', inline=True)
+        #     timeleftFormatted = self._getFormattedTimeleft(float(active[1]), gamestate.timeleft)
+        #     embed.add_field(name='Time left', value = timeleftFormatted, inline=True)
         embed.add_field(name='Solves', value = numSolves, inline=True)
         embed.add_field(name='Slow solves', value = numSlowSolves, inline=True)
         embed.add_field(name='Skips', value = numSkips, inline=True)
