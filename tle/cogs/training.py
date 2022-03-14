@@ -45,6 +45,21 @@ class Game:
         self.alive = True
         self.score = int(0)
 
+    def _getModeStr(self):
+        if self.mode == TrainingMode.NORMAL:
+            return "Infinite"
+        elif self.mode == TrainingMode.SURVIVAL:
+            return "Survival"
+        elif self.mode == TrainingMode.TIMED1:
+            return "Timed 1 mins"
+        elif self.mode == TrainingMode.TIMED15:
+            return "Timed 15 mins"
+        elif self.mode == TrainingMode.TIMED30:
+            return "Timed 30 mins"
+        elif self.mode == TrainingMode.TIMED60:
+            return "Timed 60 mins"
+
+
     def _getBaseLives(self):
         if self.mode == TrainingMode.NORMAL:
             return None
@@ -289,6 +304,7 @@ class Training(commands.Cog):
         if finished:
             title = f'Current training session of `{handle}` finished.'
         embed = discord.Embed(title=title)
+        embed.add_field(name='Game mode', value = gamestate._getModeStr(), inline=True)
         embed.add_field(name='Score', value = gamestate.score, inline=True)
         embed.add_field(name='Solves', value = numSolves, inline=True)
         embed.add_field(name='Slow solves', value = numSlowSolves, inline=True)
