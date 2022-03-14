@@ -54,11 +54,11 @@ class Game:
         if self.mode == TrainingMode.NORMAL or self.mode == TrainingMode.SURVIVAL:
             return None
         if self.mode == TrainingMode.TIMED15:
-            return 15*60
+            return int(15*60)
         if self.mode == TrainingMode.TIMED30:
-            return 30*60
+            return int(30*60)
         if self.mode == TrainingMode.TIMED60:
-            return 60*60
+            return int(60*60)
 
     def _newRating(self, success, rating):
         newRating = rating
@@ -73,16 +73,18 @@ class Game:
     def doSolved(self, rating, duration):
         rating = int(rating)
         success = TrainingResult.SOLVED
-        if self.mode != TrainingMode.NORMAL and self.mode != TrainingMode.SURVIVAL and duration > self.timeleft:
-            success = TrainingResult.TOOSLOW
-            self.lives -= 1
-            self.timeleft = int(self._getBaseTime())
+        if self.mode != TrainingMode.NORMAL and self.mode != TrainingMode.SURVIVAL:
+            if duration > self.timeleft:
+                success = TrainingResult.TOOSLOW
+                self.lives -= 1
+                self.timeleft = self._getBaseTime()
+                if self.lives is not None and self.lives == 0: self.alive = False
+            else:
+                self.score += 1
+                self.timeleft = int(min(self.timeleft - duration + self._getBaseTime(), 2*self._getBaseTime()))    
         else:
             self.score += 1
-            self.timeleft = int(min(self.timeleft - duration + self._getBaseTime(), 2*self._getBaseTime()))
         newRating = self._newRating(success, rating)
-        if self.mode != TrainingMode.NORMAL:
-            if (self.lives == 0): self.alive = False
         return success, newRating
 
     def doSkip(self, rating, duration):
@@ -90,8 +92,9 @@ class Game:
         success = TrainingResult.SKIPPED
         if self.mode != TrainingMode.NORMAL:
             self.lives -= 1
-            self.timeleft = int(self._getBaseTime())
-            if (self.lives <= 0): self.alive = False
+            if self.lives is not None and self.lives == 0: self.alive = False
+
+        self.timeleft = self._getBaseTime()
         newRating = self._newRating(success, rating)
         return success, newRating
 
