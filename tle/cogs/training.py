@@ -46,13 +46,13 @@ class Game:
 
     def _getBaseLives(self):
         if self.mode == TrainingMode.NORMAL:
-            return 0
+            return None
         else:
             return 3
 
     def _getBaseTime(self):
         if self.mode == TrainingMode.NORMAL or self.mode == TrainingMode.SURVIVAL:
-            return 0
+            return None
         if self.mode == TrainingMode.TIMED15:
             return 15*60
         if self.mode == TrainingMode.TIMED30:
@@ -150,6 +150,16 @@ class Training(commands.Cog):
             raise TrainingCogError('Unrecognized arguments: {}'.format(' '.join(unrecognizedArgs)))
         return rating, mode
 
+    def _getStatus(self, success):
+        if success == TrainingResult.SOLVED:
+            return TrainingProblemStatus.SOLVED
+        if success == TrainingResult.TOOSLOW:
+            return TrainingProblemStatus.SOLVED_TOO_SLOW
+        if success == TrainingResult.SKIPPED:
+            return TrainingProblemStatus.SKIPPED
+        if success == TrainingResult.INVALIDATED:
+            return TrainingProblemStatus.INVALIDATED
+
     def _validateTrainingStatus(self, ctx, rating, active):
         if rating is not None and rating % 100 != 0:
             raise TrainingCogError('Delta must be a multiple of 100.')
@@ -199,17 +209,18 @@ class Training(commands.Cog):
             raise TrainingCogError(f'You haven\'t completed your active training problem {name} at {url}')               
         finish_time = int(ac[0].creationTimeSeconds)
         return finish_time        
-
+    
+    #TODO: Better concept for problem posts / problem finished posts and statistics posts needed!!!
     async def _postProblemFinished(self, ctx, handle, name, contest_id, index, duration, gamestate, success, timeleft):
+        url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
+        title = f'{index}. {name}'
         if success == TrainingResult.SOLVED:
-            url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
             durationFormatted = cf_common.pretty_time_format(duration)
-            title = f'{handle} solved training problem \"{name}\"'
-            desc  = f'Time taken: {durationFormatted}'
+            desc = f'{handle} solved training problem \"{name}\"'
             embed = discord.Embed(title=title, description=desc, url=url, color=0x008000)
             embed.add_field(name='Score', value=gamestate.score)
-            if gamestate.mode != TrainingMode.NORMAL:
-                embed.add_field(name='Lives left:', value=gamestate.lives)
+            embed.add_field(name='Time taken:', value = {durationFormatted})
+            embed.add_field(name='Lives left:', value=gamestate.lives if gamestate.lives else 'Inf')
             await ctx.send('Problem solved.', embed=embed)
         if success == TrainingResult.TOOSLOW:
             url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
@@ -242,72 +253,11 @@ class Training(commands.Cog):
             embed.add_field(name='Lives left:', value=gamestate.lives)
         ## TODO: this is bugged if we post it in "status"
         if gamestate.mode != TrainingMode.NORMAL and gamestate.mode != TrainingMode.SURVIVAL:
-            embed.add_field(name='Time left:', value=gamestate.timeleft)
+            timeleftFormatted = cf_common.pretty_time_format(gamestate.timeleft)
+            embed.add_field(name='Time left:', value=timeleftFormatted)
         if not new:
             embed.add_field(name='Score', value=gamestate.score)
         await ctx.send(f'{prefix} training problem for `{handle}`', embed=embed)
-
-    async def _startTrainingAndAssignProblem(self, ctx, handle, problem, gamestate):
-        # The caller of this function is responsible for calling `_validate_training_status` first.
-        user_id = ctx.author.id
-        issue_time = datetime.datetime.now().timestamp()
-        rc = cf_common.user_db.new_training(user_id, issue_time, problem, gamestate.mode, gamestate.score, gamestate.lives, gamestate.timeleft)
-        if rc != 1:
-            raise TrainingCogError('Your training has already been added to the database!')
-
-        await self._postProblem(ctx, handle, problem.name, problem.index, problem.contestId, problem.rating, gamestate)
-
-    def _getStatus(self, success):
-        if success == TrainingResult.SOLVED:
-            return TrainingProblemStatus.SOLVED
-        if success == TrainingResult.TOOSLOW:
-            return TrainingProblemStatus.SOLVED_TOO_SLOW
-        if success == TrainingResult.SKIPPED:
-            return TrainingProblemStatus.SKIPPED
-        if success == TrainingResult.INVALIDATED:
-            return TrainingProblemStatus.INVALIDATED
-
-    async def _completeCurrentTrainingProblem(self, ctx, active, handle, finish_time, duration, gamestate, success):
-        training_id, _, name, contest_id, index, _, _, _, _ ,timeleft = active
-        status = self._getStatus(success)
-        rc = cf_common.user_db.end_current_training_problem(training_id, finish_time, status, gamestate.score, gamestate.lives, gamestate.timeleft)
-        if rc == 1:
-            await self._postProblemFinished(ctx, handle, name, contest_id, index, duration, gamestate, success, timeleft)            
-        if rc == -1: 
-            raise TrainingCogError("You already completed your training problem!")
-        if rc == -2:
-            raise TrainingCogError('You don\'t have an active training session!')
-
-    async def _assignNewTrainingProblem(self, ctx, active, handle, problem, gamestate):
-        training_id, _, _, _, _, _, _, _, _ ,_ = active
-        issue_time = datetime.datetime.now().timestamp()
-        rc = cf_common.user_db.assign_training_problem(training_id, issue_time, problem)
-        if rc == 1:
-            await self._postProblem(ctx, handle, problem.name, problem.index, problem.contestId, problem.rating, gamestate)            
-        if rc == -1:
-            raise TrainingCogError('Your training problem has already been added to the database!')       
-
-    async def _showActiveTrainingProblem(self, ctx, active, handle, gamestate):
-        _, _, name, contest_id, index, rating, _, _, _ ,_ = active
-        await self._postProblem(ctx, handle, name, index, contest_id, rating, gamestate, False)  
-
-    async def _finishCurrentTraining(self, ctx, active):
-        training_id, _, _, _, _, _, _, _, _ ,_ = active
-
-        rc = cf_common.user_db.finish_training(training_id)
-        if rc == -1:
-            raise TrainingCogError("You already ended your training!")    
-
-    async def _endTrainingIfDead(self, ctx, active, handle, gamestate):
-        if not gamestate.alive:
-            # show death message
-            await self._finishCurrentTraining(ctx, active)
-            ### end game and post results
-            await self._postTrainingStatistics(ctx, active, handle, gamestate)
-            return True
-        return False
-
-
 
     async def _postTrainingStatistics(self, ctx, active, handle, gamestate, finish = True):
         training_id = active[0]
@@ -339,6 +289,64 @@ class Training(commands.Cog):
         if not finish:
             _, _, name, contest_id, index, rating, _, _, _ ,_ = active
             await self._postProblem(ctx, handle, name, index, contest_id, rating, gamestate, False)       
+
+
+
+
+    async def _startTrainingAndAssignProblem(self, ctx, handle, problem, gamestate):
+        # The caller of this function is responsible for calling `_validate_training_status` first.
+        user_id = ctx.author.id
+        issue_time = datetime.datetime.now().timestamp()
+        rc = cf_common.user_db.new_training(user_id, issue_time, problem, gamestate.mode, gamestate.score, gamestate.lives, gamestate.timeleft)
+        if rc != 1:
+            raise TrainingCogError('Your training has already been added to the database!')
+
+        await self._postProblem(ctx, handle, problem.name, problem.index, problem.contestId, problem.rating, gamestate)
+
+    async def _assignNewTrainingProblem(self, ctx, active, handle, problem, gamestate):
+        training_id, _, _, _, _, _, _, _, _ ,_ = active
+        issue_time = datetime.datetime.now().timestamp()
+        rc = cf_common.user_db.assign_training_problem(training_id, issue_time, problem)
+        if rc == 1:
+            await self._postProblem(ctx, handle, problem.name, problem.index, problem.contestId, problem.rating, gamestate)            
+        if rc == -1:
+            raise TrainingCogError('Your training problem has already been added to the database!')       
+
+    async def _showActiveTrainingProblem(self, ctx, active, handle, gamestate):
+        _, _, name, contest_id, index, rating, _, _, _ ,_ = active
+        await self._postProblem(ctx, handle, name, index, contest_id, rating, gamestate, False)  
+
+    async def _completeCurrentTrainingProblem(self, ctx, active, handle, finish_time, duration, gamestate, success):
+        training_id, _, name, contest_id, index, _, _, _, _ ,timeleft = active
+        status = self._getStatus(success)
+        rc = cf_common.user_db.end_current_training_problem(training_id, finish_time, status, gamestate.score, gamestate.lives, gamestate.timeleft)
+        if rc == 1:
+            await self._postProblemFinished(ctx, handle, name, contest_id, index, duration, gamestate, success, timeleft)            
+        if rc == -1: 
+            raise TrainingCogError("You already completed your training problem!")
+        if rc == -2:
+            raise TrainingCogError('You don\'t have an active training session!')
+
+    async def _finishCurrentTraining(self, ctx, active):
+        training_id, _, _, _, _, _, _, _, _ ,_ = active
+
+        rc = cf_common.user_db.finish_training(training_id)
+        if rc == -1:
+            raise TrainingCogError("You already ended your training!")    
+
+    async def _endTrainingIfDead(self, ctx, active, handle, gamestate):
+        if not gamestate.alive:
+            # show death message
+            await self._finishCurrentTraining(ctx, active)
+            ### end game and post results
+            await self._postTrainingStatistics(ctx, active, handle, gamestate)
+            return True
+        return False
+
+
+
+    #User commands start here
+
 
     @training.command(  brief='Start a training session',
                         usage='[rating] [normal|survival|timed15|timed30|timed60]')
