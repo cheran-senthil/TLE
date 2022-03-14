@@ -975,7 +975,7 @@ class UserDbConn:
         return 1
 
 
-    def check_training(self, user_id):
+    def get_active_training(self, user_id):
         query1 = f'''
             SELECT id, mode, score, lives, time_left FROM trainings
             WHERE user_id = ? AND status = {Training.ACTIVE}
@@ -990,6 +990,17 @@ class UserDbConn:
         res = self.conn.execute(query2, (training_id,)).fetchone()
         if res is None: return None
         return training_id, res[0], res[1], res[2], res[3], res[4], mode, score, lives,time_left
+
+    def get_latest_training(self, user_id):
+        query1 = f'''
+            SELECT id, mode, score, lives, time_left FROM trainings
+            WHERE user_id = ? AND status = {Training.COMPLETED} ORDER BY id DESC
+        '''
+        res = self.conn.execute(query1, (user_id,)).fetchone()
+        if res is None: return None
+        training_id,mode,score,lives,time_left = res
+        return training_id, None, None, None, None, None, mode, score, lives,time_left
+
 
     def end_current_training_problem(self, training_id, finish_time, status, score, lives, time_left):
         query1 = f'''

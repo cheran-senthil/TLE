@@ -121,8 +121,13 @@ class Training(commands.Cog):
 
     async def _getActiveTraining(self, ctx):
         user_id = ctx.message.author.id
-        active = cf_common.user_db.check_training(user_id)
+        active = cf_common.user_db.get_active_training(user_id)
         return active
+
+    async def _getLatestTraining(self, ctx):
+        user_id = ctx.message.author.id
+        latest = cf_common.user_db.get_latest_training(user_id)
+        return latest
 
     def _extractArgs(self, args):
         mode = TrainingMode.NORMAL
@@ -303,18 +308,18 @@ class Training(commands.Cog):
         return False
 
 
-    ### TODO: Get data from DB
+
     async def _postTrainingStatistics(self, ctx, active, handle, gamestate, finish = True):
-        training_id, _, name, contest_id, index, rating, _, _, _ ,_ = active
+        training_id = active[0]
         numSkips = cf_common.user_db.train_get_num_skips(training_id) 
         numSolves = cf_common.user_db.train_get_num_solves(training_id) 
         numSlowSolves = cf_common.user_db.train_get_num_slow_solves(training_id) 
         maxRating = cf_common.user_db.train_get_max_rating(training_id) 
         startRating = cf_common.user_db.train_get_start_rating(training_id) 
 
-        title = f'Training session of `{handle}`'
+        title = f'Current training session of `{handle}`'
         if finish: 
-            title += ' finished'
+            title = f'Latest training session of `{handle}`'
         embed = discord.Embed(title=title)
         embed.add_field(name='Score', value = gamestate.score, inline=True)
         if not finish and gamestate.mode != TrainingMode.NORMAL: 
@@ -330,6 +335,7 @@ class Training(commands.Cog):
         embed.add_field(name='Highest solve', value = maxRating, inline=True)
         await ctx.send('', embed=embed) 
         if not finish:
+            _, _, name, contest_id, index, rating, _, _, _ ,_ = active
             await self._postProblem(ctx, handle, name, index, contest_id, rating, gamestate, False)       
 
     @training.command(  brief='Start a training session',
@@ -413,6 +419,8 @@ class Training(commands.Cog):
     @training.command(brief='If you want to skip your current problem you can get a new one.') #This reduces your life by 1 (if not in Unlimited Mode).
     @cf_common.user_guard(group='training')
     async def skip(self, ctx):
+        """ TODO: Detailed description
+        """        
         ### check if we are in the correct channel
         self._checkIfCorrectChannel(ctx)
 
@@ -447,6 +455,8 @@ class Training(commands.Cog):
     @training.command(brief='End your training session.')
     @cf_common.user_guard(group='training')
     async def finish(self, ctx):
+        """ TODO: Detailed description
+        """        
         ### check if we are in the correct channel
         self._checkIfCorrectChannel(ctx)
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
@@ -471,18 +481,23 @@ class Training(commands.Cog):
 
     @training.command(brief='Shows current status of your training session.')
     async def status(self, ctx):
+        """ TODO: Detailed description
+        """        
         ### check if we are in the correct channel
         self._checkIfCorrectChannel(ctx)
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
 
         ### check game running
         active = await self._getActiveTraining(ctx)
-        self._checkTrainingActive(ctx, active)
-
-        gamestate = Game(active[6], active[7], active[8], active[9])
-        
-        await self._postTrainingStatistics(ctx, active, handle, gamestate, False)
-        #await self._showActiveTrainingProblem(ctx, active, handle, gamestate)
+        if active is not None:
+            gamestate = Game(active[6], active[7], active[8], active[9])
+            await self._postTrainingStatistics(ctx, active, handle, gamestate, False)
+        else:
+            latest = await self._getLatestTraining(ctx)
+            if latest is None:
+                raise TrainingCogError("You don't have an active or past training!")
+            gamestate = Game(latest[6], latest[7], latest[8], latest[9])
+            await self._postTrainingStatistics(ctx, latest, handle, gamestate, True)
 
     @training.command(brief='Set the training channel to the current channel')
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)  # OK
@@ -514,7 +529,3 @@ def setup(bot):
     bot.add_cog(Training(bot))
 
 
-### TODO:
-# - how to handle corruption of DB when solved / skip is spammed
-#   - make finish problem and assign new problem one transaction?
-# - support queries for getting training stats (over all trainings and for current / last training)
