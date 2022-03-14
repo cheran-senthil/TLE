@@ -271,7 +271,7 @@ class Training(commands.Cog):
         embed = discord.Embed(title=title, description=desc, url=url, color=color)
         embed.add_field(name='Score', value=gamestate.score)
         embed.add_field(name='Time taken:', value = durationFormatted)
-        embed.add_field(name='Lives left:', value=gamestate.lives if gamestate.lives else 'Inf')
+        embed.add_field(name='Lives left:', value=gamestate.lives if gamestate.lives is not None else 'Inf')
         await ctx.send(text, embed=embed)
 
     async def _postProblem(self, ctx, handle, problemName, problemIndex, problemContestId, problemRating, issue_time, gamestate, new: bool = True):
@@ -280,8 +280,7 @@ class Training(commands.Cog):
         desc = cf_common.cache2.contest_cache.get_contest(problemContestId).name
         embed = discord.Embed(title=title, url=url, description=desc, color=0x008000)
         embed.add_field(name='Rating', value=problemRating)
-        embed.add_field(name='Lives left:', value=gamestate.lives if gamestate.lives else 'Inf')
-        ## TODO: this is bugged if we post it in "status"
+        embed.add_field(name='Lives left:', value=gamestate.lives if gamestate.lives is not None else 'Inf')
         timeleftFormatted = self._getFormattedTimeleft(issue_time, gamestate.timeleft)
         embed.add_field(name='Time left:', value=timeleftFormatted)
 
