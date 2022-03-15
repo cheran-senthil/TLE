@@ -131,6 +131,7 @@ class Training(commands.Cog):
     @commands.group(brief='Training commands',
                     invoke_without_command=True)
     async def training(self, ctx):
+        ### TODO: Detailed game description
         """Group for commands pertaining trainings"""
         await ctx.send_help(ctx.command)
 
@@ -303,16 +304,16 @@ class Training(commands.Cog):
             title = f'Latest training session of `{handle}`'
             color = 0x000000
         if finished:
-            title = f'Current training session of `{handle}` finished.'
+            title = f'Game over! Training session of `{handle}` ended.'
             color = 0x000040
         embed = discord.Embed(title=title, color = color)
         embed.add_field(name='Game mode', value = gamestate._getModeStr(), inline=True)
-        embed.add_field(name='Score', value = gamestate.score, inline=True)
+        embed.add_field(name='Start rating', value = startRating, inline=True)
+        embed.add_field(name='Highest solve', value = maxRating, inline=True)
         embed.add_field(name='Solves', value = numSolves, inline=True)
         embed.add_field(name='Slow solves', value = numSlowSolves, inline=True)
         embed.add_field(name='Skips', value = numSkips, inline=True)
-        embed.add_field(name='Start rating', value = startRating, inline=True)
-        embed.add_field(name='Highest solve', value = maxRating, inline=True)
+        embed.add_field(name='Score', value = gamestate.score, inline=True)
         await ctx.send(text, embed=embed) 
         if not finished and not past:
             _, issue_time, name, contest_id, index, rating, _, _, _ ,_ = active
