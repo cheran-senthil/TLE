@@ -307,13 +307,13 @@ class Training(commands.Cog):
             title = f'Game over! Training session of `{handle}` ended.'
             color = 0x000040
         embed = discord.Embed(title=title, color = color)
-        embed.add_field(name='Game mode', value = gamestate._getModeStr(), inline=True)
-        embed.add_field(name='Start rating', value = startRating, inline=True)
-        embed.add_field(name='Highest solve', value = maxRating, inline=True)
-        embed.add_field(name='Solves', value = numSolves, inline=True)
-        embed.add_field(name='Slow solves', value = numSlowSolves, inline=True)
-        embed.add_field(name='Skips', value = numSkips, inline=True)
-        embed.add_field(name='Score', value = gamestate.score, inline=True)
+        embed.add_field(name='Game mode', value = gamestate._getModeStr(), inline=False)
+        embed.add_field(name='Start rating', value = startRating, inline=False)
+        embed.add_field(name='Highest solve', value = maxRating, inline=False)
+        embed.add_field(name='Solves', value = numSolves, inline=False)
+        embed.add_field(name='Slow solves', value = numSlowSolves, inline=False)
+        embed.add_field(name='Skips', value = numSkips, inline=False)
+        embed.add_field(name='Score', value = gamestate.score, inline=False)
         await ctx.send(text, embed=embed) 
         if not finished and not past:
             _, issue_time, name, contest_id, index, rating, _, _, _ ,_ = active
