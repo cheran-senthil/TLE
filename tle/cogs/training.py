@@ -309,10 +309,10 @@ class Training(commands.Cog):
         embed = discord.Embed(title=title, color = color)
         embed.add_field(name='Game mode', value = gamestate._getModeStr(), inline=False)
         embed.add_field(name='Start rating', value = startRating, inline=False)
-        embed.add_field(name='Highest solve', value = maxRating, inline=False)
+        embed.add_field(name='Highest solve', value = maxRating, inline=True)
         embed.add_field(name='Solves', value = numSolves, inline=False)
-        embed.add_field(name='Slow solves', value = numSlowSolves, inline=False)
-        embed.add_field(name='Skips', value = numSkips, inline=False)
+        embed.add_field(name='Slow solves', value = numSlowSolves, inline=True)
+        embed.add_field(name='Skips', value = numSkips, inline=True)
         embed.add_field(name='Score', value = gamestate.score, inline=False)
         await ctx.send(text, embed=embed) 
         if not finished and not past:
