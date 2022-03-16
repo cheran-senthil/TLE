@@ -132,18 +132,20 @@ class Training(commands.Cog):
                     invoke_without_command=True)
     async def training(self, ctx):
         """ Group for commands regarding training sessions
-            A training session is a game played against the bot. In this game the bot will assign you a codeforces problem that you need to solve.
+            A training session is a game played against the bot. In this game the bot will assign you a codeforces problem that you should solve.
             If you manage to solve the problem the bot will assign you a harder problem. If you need to skip the problem the bot will lower the difficulty.
-            You can start a game by using the command ;training start
+            You can start a game by using the ;training start command.
             The bot will assign you a codeforces problem that you should solve. If you manage to solve the problem you can do ;training solved and 
-            the bot will assign you a problem that with a 100 points higher rating. If you need editorial / external help or have no idea how to solve it you can 
+            the bot will assign you a problem that is 100 points higher rated. If you need editorial / external help or have no idea how to solve it you can 
             do ;training skip. The bot will reduce the difficulty of the next problem by 100 points.
-            The game is available in 3 modes: infinite, survival or timed
-            - infinite mode: you are allowed as many skips as you like.
-            - survival mode: you have 3 lives (e.g. you can skip 3 times)
-            - timed mode: you have 3 lives like in survival but a life will be lost if you skip or if you don't manage to solve a problem within the time limit. 
-                          There are 3 difficulty levels for timed mode available: timed15 (15 minutes for a problem), timed30 (30 minutes), timed60 (60 minutes)
-            To get further help for the usage of each command u can do ;help training <command> (e.g. ;help training start)
+            The game is available in the following modes: 
+            - infinite: Try to get as high as possible. You are allowed to skip any number of times. 
+            - survivale: Seeking for some thrill. In this mode you only have 3 lives (you can skip 3 problems). How far can you get?
+            - time trial: Still bored? Prepare for the ultimate challenge: In this mode you will also have limited time to solve each problem.
+                          If you need to skip a problem or if you are too slow at solving the problem you will lose one of your 3 lives.
+                          Available difficulty levels: timed15 (15 minutes for each problem), timed30 (30 minutes), timed60 (60 minutes)
+                          You get some bonus time if you manage to solve a problem within the time limit.
+            For further help on usage of a command do ;help training <command> (e.g. ;help training start)
         
         """
         await ctx.send_help(ctx.command)
