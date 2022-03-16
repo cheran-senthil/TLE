@@ -376,8 +376,39 @@ class Codeforces(commands.Cog):
             issue, finish, name, contest, index, delta, status = entry
             if finish:
                 score+=_GITGUD_SCORE_DISTRIB[delta // 100 + 3]
+     
 
         pages = [make_page(chunk, score) for chunk in paginator.chunkify(data, 10)]
+        paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
+
+    @commands.command(brief='Print user nogud history')
+    async def nogudlog(self, ctx, member: discord.Member = None):
+        """Displays the list of nogud problems issued to the specified member, excluding those noguded by admins.
+        """
+        def make_line(entry):
+            issue, finish, name, contest, index, delta, status = entry
+            problem = cf_common.cache2.problem_cache.problem_by_name[name]
+            line = f'[{name}]({problem.url})\N{EN SPACE}[{problem.rating}]'
+            if finish:
+                time_str = cf_common.days_ago(finish)
+                points = f'{_GITGUD_SCORE_DISTRIB[delta // 100 + 3]:+}'
+                line += f'\N{EN SPACE}{time_str}\N{EN SPACE}[{points}]'
+            return line
+
+        def make_page(chunk):
+            message = discord.utils.escape_mentions(f'Nogud log for {member.display_name}')
+            log_str = '\n'.join(make_line(entry) for entry in chunk)
+            embed = discord_common.cf_color_embed(description=log_str)
+            return message, embed
+
+        member = member or ctx.author
+        data = cf_common.user_db.gitlog(member.id)
+        if not data:
+            raise CodeforcesCogError(f'{member.mention} has no gitgud history.')
+
+        data = [entry for entry in data if entry[1]]                
+
+        pages = [make_page(chunk) for chunk in paginator.chunkify(data, 10)]
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
     @commands.command(brief='Report challenge completion')
