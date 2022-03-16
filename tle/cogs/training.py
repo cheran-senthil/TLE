@@ -531,10 +531,11 @@ class Training(commands.Cog):
         if await self._endTrainingIfDead(ctx, active, handle, gamestate): return
 
     #### TODO: Make command usable for other handles too
-    @training.command(brief='Shows current status of your training session.')
+    @training.command(brief='Shows current status of your training session.', usage='[username]')
     async def status(self, ctx, member: discord.Member = None):
         """ Use this command to show the current status of your training session and the current assigned problem. 
             If you don't have an active training this will show the stats of your latest training session.
+            You can add the discord name of a user to get his status instead.
         """        
         member = member or ctx.author
         ### check if we are in the correct channel
@@ -547,7 +548,7 @@ class Training(commands.Cog):
             gamestate = Game(active[6], active[7], active[8], active[9])
             await self._postTrainingStatistics(ctx, active, handle, gamestate, False, False)
         else:
-            latest = await self._getLatestTraining(ctx)
+            latest = await self._getLatestTraining(member.id)
             if latest is None:
                 raise TrainingCogError("You don't have an active or past training!")
             gamestate = Game(latest[6], latest[7], latest[8], latest[9])
