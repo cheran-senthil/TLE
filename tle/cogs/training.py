@@ -131,22 +131,16 @@ class Training(commands.Cog):
     @commands.group(brief='Training commands',
                     invoke_without_command=True)
     async def training(self, ctx):
-        """ Group for commands regarding training sessions
-            A training session is a game played against the bot. In this game the bot will assign you a codeforces problem that you should solve.
-            If you manage to solve the problem the bot will assign you a harder problem. If you need to skip the problem the bot will lower the difficulty.
-            You can start a game by using the ;training start command.
-            The bot will assign you a codeforces problem that you should solve. If you manage to solve the problem you can do ;training solved and 
-            the bot will assign you a problem that is 100 points higher rated. If you need editorial / external help or have no idea how to solve it you can 
-            do ;training skip. The bot will reduce the difficulty of the next problem by 100 points.
+        """ A training is a game played against the bot. In this game the bot will assign you a codeforces problem that you should solve. If you manage to solve the problem the bot will assign you a harder problem. If you need to skip the problem the bot will lower the difficulty.
+            You can start a game by using the ;training start command. The bot will assign you a codeforces problem that you should solve. If you manage to solve the problem you can do ;training solved and the bot will assign you a problem that is 100 points higher rated. If you need editorial / external help or have no idea how to solve it you can do ;training skip. The bot will reduce the difficulty of the next problem by 100 points.
             The game is available in the following modes: 
             - infinite: Try to get as high as possible. You are allowed to skip any number of times. 
-            - survivale: Seeking for some thrill. In this mode you only have 3 lives (you can skip 3 problems). How far can you get?
-            - time trial: Still bored? Prepare for the ultimate challenge: In this mode you will also have limited time to solve each problem.
+            - survival: Seeking for some thrill? In this mode you only have 3 lives (you can skip 3 problems). How far will you get?
+            - time trial: Still bored? Prepare for the ultimate challenge: In this mode you will only have limited time to solve each problem. 
                           If you need to skip a problem or if you are too slow at solving the problem you will lose one of your 3 lives.
                           Available difficulty levels: timed15 (15 minutes for each problem), timed30 (30 minutes), timed60 (60 minutes)
                           You get some bonus time if you manage to solve a problem within the time limit.
-            For further help on usage of a command do ;help training <command> (e.g. ;help training start)
-        
+            For further help on usage of a command do ;help training <command> (e.g. ;help training start)        
         """
         await ctx.send_help(ctx.command)
 
