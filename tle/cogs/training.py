@@ -150,13 +150,11 @@ class Training(commands.Cog):
         if not training_channel_id or ctx.channel.id != training_channel_id:
             raise TrainingCogError('You must use this command in training channel.')
 
-    async def _getActiveTraining(self, ctx):
-        user_id = ctx.message.author.id
+    async def _getActiveTraining(self, user_id):
         active = cf_common.user_db.get_active_training(user_id)
         return active
 
-    async def _getLatestTraining(self, ctx):
-        user_id = ctx.message.author.id
+    async def _getLatestTraining(self, user_id):
         latest = cf_common.user_db.get_latest_training(user_id)
         return latest
 
@@ -217,7 +215,7 @@ class Training(commands.Cog):
 
     def _checkTrainingActive(self, ctx, active):
         if not active:
-            raise TrainingCogError('You do not have an active training')
+            raise TrainingCogError('You do not have an active training. You can start one with ;training start')
 
 
     async def _pickTrainingProblem(self, handle, rating, submissions):
@@ -341,7 +339,7 @@ class Training(commands.Cog):
         if rc != 1:
             raise TrainingCogError('Your training has already been added to the database!')
 
-        active = await self._getActiveTraining(ctx)
+        active = await self._getActiveTraining(user_id)
         await self._postTrainingStatistics(ctx, active, handle, gamestate, False, False)
 
     async def _assignNewTrainingProblem(self, ctx, active, handle, problem, gamestate):
@@ -352,10 +350,6 @@ class Training(commands.Cog):
             await self._postProblem(ctx, handle, problem.name, problem.index, problem.contestId, problem.rating, issue_time, gamestate)            
         if rc == -1:
             raise TrainingCogError('Your training problem has already been added to the database!')       
-
-    async def _showActiveTrainingProblem(self, ctx, active, handle, gamestate):
-        _, issue_time, name, contest_id, index, rating, _, _, _ ,_ = active
-        await self._postProblem(ctx, handle, name, index, contest_id, rating, issue_time, gamestate, False)  
 
     async def _completeCurrentTrainingProblem(self, ctx, active, handle, finish_time, duration, gamestate, success):
         training_id, _, name, contest_id, index, _, _, _, _ ,timeleft = active
@@ -414,7 +408,7 @@ class Training(commands.Cog):
         gamestate = Game(mode)
 
         # check if start of a new training is possible
-        active = await self._getActiveTraining(ctx)
+        active = await self._getActiveTraining(ctx.author.id)
         self._validateTrainingStatus(ctx, rating, active)
 
         ### Picking a new problem with a certain rating
@@ -448,7 +442,7 @@ class Training(commands.Cog):
         submissions = await cf.user.status(handle=handle)
         
         ### check game running
-        active = await self._getActiveTraining(ctx)
+        active = await self._getActiveTraining(ctx.author.id)
         self._checkTrainingActive(ctx, active)
         
 
@@ -473,7 +467,7 @@ class Training(commands.Cog):
         ### Assign new problem
         await self._assignNewTrainingProblem(ctx, active, handle, problem, gamestate)
 
-    @training.command(brief='If you want to skip your current problem you can get a new one.') #This reduces your life by 1 (if not in Unlimited Mode).
+    @training.command(brief='If you want to skip your current problem you can get a new one.') 
     @cf_common.user_guard(group='training')
     async def skip(self, ctx):
         """ Use this command if you want to skip your current training problem. If not in infinite mode this will reduce your lives by 1.
@@ -487,7 +481,7 @@ class Training(commands.Cog):
         submissions = await cf.user.status(handle=handle)
 
         ### check game running
-        active = await self._getActiveTraining(ctx)
+        active = await self._getActiveTraining(ctx.author.id)
         self._checkTrainingActive(ctx, active)
 
         ### game logic here
@@ -512,14 +506,14 @@ class Training(commands.Cog):
     @training.command(brief='End your training session.')
     @cf_common.user_guard(group='training')
     async def finish(self, ctx):
-        """ Use this command to end the current training session. A summary screen will be shown.
+        """ Use this command to end the current training session. 
         """        
         ### check if we are in the correct channel
         self._checkIfCorrectChannel(ctx)
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
 
         ### check game running
-        active = await self._getActiveTraining(ctx)
+        active = await self._getActiveTraining(ctx.author.id)
         self._checkTrainingActive(ctx, active)
 
 
@@ -538,16 +532,17 @@ class Training(commands.Cog):
 
     #### TODO: Make command usable for other handles too
     @training.command(brief='Shows current status of your training session.')
-    async def status(self, ctx):
+    async def status(self, ctx, member: discord.Member = None):
         """ Use this command to show the current status of your training session and the current assigned problem. 
             If you don't have an active training this will show the stats of your latest training session.
         """        
+        member = member or ctx.author
         ### check if we are in the correct channel
         self._checkIfCorrectChannel(ctx)
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
 
         ### check game running
-        active = await self._getActiveTraining(ctx)
+        active = await self._getActiveTraining(member.id)
         if active is not None:
             gamestate = Game(active[6], active[7], active[8], active[9])
             await self._postTrainingStatistics(ctx, active, handle, gamestate, False, False)
