@@ -218,11 +218,13 @@ class Training(commands.Cog):
             raise TrainingCogError('You do not have an active training. You can start one with ;training start')
 
 
-    async def _pickTrainingProblem(self, handle, rating, submissions):
+    async def _pickTrainingProblem(self, handle, rating, submissions, user_id):
         solved = {sub.problem.name for sub in submissions}        
+        skips = cf_common.user_db.get_training_skips(user_id)
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
                     if (prob.rating == rating and
-                        prob.name not in solved)]
+                        prob.name not in solved and
+                        prob.name not in skips)]
 
         def check(problem):
             return (not cf_common.is_nonstandard_problem(problem) and
@@ -412,7 +414,7 @@ class Training(commands.Cog):
         self._validateTrainingStatus(ctx, rating, active)
 
         ### Picking a new problem with a certain rating
-        problem = await self._pickTrainingProblem(handle, rating, submissions)  
+        problem = await self._pickTrainingProblem(handle, rating, submissions, ctx.author.id)  
 
         #assign new problem
         await self._startTrainingAndAssignProblem(ctx, handle, problem, gamestate)
@@ -456,7 +458,7 @@ class Training(commands.Cog):
         success, newRating = gamestate.doSolved(rating, duration)
 
         ### Picking a new problem with a certain rating
-        problem = await self._pickTrainingProblem(handle, newRating, submissions)  
+        problem = await self._pickTrainingProblem(handle, newRating, submissions, ctx.author.id)  
 
         ### Complete old problem
         await self._completeCurrentTrainingProblem(ctx, active, handle, finish_time, duration, gamestate, success)       
@@ -492,7 +494,7 @@ class Training(commands.Cog):
         success, newRating = gamestate.doSkip(rating, duration)
 
         ### Picking a new problem with a certain rating
-        problem = await self._pickTrainingProblem(handle, newRating, submissions)  
+        problem = await self._pickTrainingProblem(handle, newRating, submissions, ctx.author.id)  
 
         ### Complete old problem
         await self._completeCurrentTrainingProblem(ctx, active, handle, finish_time, duration, gamestate, success)       
@@ -530,7 +532,6 @@ class Training(commands.Cog):
         ### Check if game ends here // should trigger each time
         if await self._endTrainingIfDead(ctx, active, handle, gamestate): return
 
-    #### TODO: Make command usable for other handles too
     @training.command(brief='Shows current status of your training session.', usage='[username]')
     async def status(self, ctx, member: discord.Member = None):
         """ Use this command to show the current status of your training session and the current assigned problem. 

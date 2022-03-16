@@ -1048,6 +1048,17 @@ class UserDbConn:
         self.conn.commit()
         return 1
 
+    def get_training_skips(self, user_id):
+        query = f'''
+            SELECT tp.problem_name 
+            FROM training_problems tp, trainings tr
+            WHERE tp.training_id = tr.id 
+            AND (tp.status = {TrainingProblemStatus.SKIPPED} OR tp.status = {TrainingProblemStatus.INVALIDATED})
+            AND tr.user_id = ?
+        '''
+        return {name for name, in self.conn.execute(query, (user_id,)).fetchall()}
+
+
     def train_get_num_solves(self, training_id):
         query = f'''
             SELECT COUNT(*) FROM training_problems 
