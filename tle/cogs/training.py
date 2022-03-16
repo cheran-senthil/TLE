@@ -539,7 +539,7 @@ class Training(commands.Cog):
         member = member or ctx.author
         ### check if we are in the correct channel
         self._checkIfCorrectChannel(ctx)
-        handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
+        handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(member),))
 
         ### check game running
         active = await self._getActiveTraining(member.id)
