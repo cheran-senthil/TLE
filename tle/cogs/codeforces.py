@@ -406,7 +406,7 @@ class Codeforces(commands.Cog):
         if not data:
             raise CodeforcesCogError(f'{member.mention} has no gitgud history.')
 
-        data = [entry for entry in data if entry[1]]                
+        data = [entry for entry in data if entry[1] is not None]                
 
         pages = [make_page(chunk) for chunk in paginator.chunkify(data, 10)]
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
