@@ -138,6 +138,7 @@ class Training(commands.Cog):
     async def training(self, ctx):
         """ A training is a game played against the bot. In this game the bot will assign you a codeforces problem that you should solve. If you manage to solve the problem the bot will assign you a harder problem. If you need to skip the problem the bot will lower the difficulty.
             You can start a game by using the ;training start command. The bot will assign you a codeforces problem that you should solve. If you manage to solve the problem you can do ;training solved and the bot will assign you a problem that is 100 points higher rated. If you need editorial / external help or have no idea how to solve it you can do ;training skip. The bot will reduce the difficulty of the next problem by 100 points.
+            You may end your training at any time with ;training end
             The game is available in the following modes: 
             - infinite: Try to get as high as possible. You are allowed to skip any number of times. 
             - survival: Seeking for some thrill? In this mode you only have 3 lives (you can skip 3 problems). How far will you get?
