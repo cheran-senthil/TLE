@@ -570,7 +570,7 @@ class Graphs(commands.Cog):
         assert ratings, 'Cannot histogram plot empty list of ratings'
 
         assert 100%binsize == 0 # because bins is semi-hardcoded
-        bins = math.ceil((max(ratings) + 1) / 100)//binsize
+        bins = 1 + max(ratings) // binsize
 
         colors = []
         low, high = 0, binsize * bins
