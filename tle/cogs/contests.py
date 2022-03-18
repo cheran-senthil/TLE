@@ -14,6 +14,7 @@ from tle import constants
 from tle.util import codeforces_common as cf_common
 from tle.util import cache_system2
 from tle.util import codeforces_api as cf
+from tle.util import clist_common as clist_common
 from tle.util import db
 from tle.util import discord_common
 from tle.util import events
@@ -312,7 +313,10 @@ class Contests(commands.Cog):
         assert mode in ('cf', 'ioi')
 
         def maybe_int(value):
-            return int(value) if mode == 'cf' else value
+            try:
+                return int(value)
+            except:
+                return value
 
         header_style = '{:>} {:<}    {:^}  ' + '  '.join(['{:^}'] * len(problem_indices))
         body_style = '{:>} {:<}    {:>}  ' + '  '.join(['{:>}'] * len(problem_indices))
@@ -374,7 +378,7 @@ class Contests(commands.Cog):
         num_chunks = len(handle_standings_chunks)
         delta_chunks = paginator.chunkify(deltas, _STANDINGS_PER_PAGE) if deltas else [None] * num_chunks
 
-        if contest.type == 'CF':
+        if contest.type == 'CF' or contest.type == 'CLIST':
             get_table = functools.partial(self._get_cf_or_ioi_standings_table, mode='cf')
         elif contest.type == 'ICPC':
             get_table = self._get_icpc_standings_table
@@ -440,46 +444,52 @@ class Contests(commands.Cog):
             msg = f'{elapsed} elapsed{en}|{en}{remaining} remaining'
             embed.add_field(name='Tick tock', value=msg, inline=False)
         return embed
-
+    
     @commands.command(brief='Show ranklist for given handles and/or server members')
-    async def ranklist(self, ctx, contest_id: int, *handles: str):
+    async def ranklist(self, ctx, contest_id: str, *handles: str):
         """Shows ranklist for the contest with given contest id. If handles contains
         '+server', all server members are included. No handles defaults to '+server'.
+        
+        You can frame contest_id as follow
+        
+        # For codeforces ranklist
+        Enter codeforces contest id
+
+        # For codechef ranklist
+        long<MMYYYY>
+        lunchtime<MMYYYY>
+        cookoff<MMYYYY>
+        starters<MMYYYY>
+
+        # For atcoder ranklist
+        abc<Number> 
+        arc<Number> 
+        agc<Number>
+
+        # For google ranklist
+        kickstart<YY><Round>
+        codejam<YY><Round>
+
+        Use QR for Qualification Round and WF for World Finals.
+
+        # If nothing works
+        Use clist contest_id. You have to prefix - sign to clist contest-id otherwise it will be considered a codeforces contest id.
+        To know clist contest_id visit https://clist.by.
         """
-        handles = await cf_common.resolve_handles(ctx, self.member_converter, handles, maxcnt=None, default_to_all_server=True)
-        contest = cf_common.cache2.contest_cache.get_contest(contest_id)
         wait_msg = await ctx.channel.send('Generating ranklist, please wait...')
-        ranklist = None
-        try:
-            ranklist = cf_common.cache2.ranklist_cache.get_ranklist(contest)
-        except cache_system2.RanklistNotMonitored:
-            if contest.phase == 'BEFORE':
-                raise ContestCogError(f'Contest `{contest.id} | {contest.name}` has not started')
-            ranklist = await cf_common.cache2.ranklist_cache.generate_ranklist(contest.id,
-                                                                            fetch_changes=True)
+        contest = await clist_common.get_contest(contest_id)
+        handles = await clist_common.resolve_handles(ctx, self.member_converter, handles, maxcnt=None, default_to_all_server=True, resource=contest.resource)
+        ranklist = await clist_common.get_ranklist(contest, handles)        
         await wait_msg.delete()
         await ctx.channel.send(embed=self._make_contest_embed_for_ranklist(ranklist))
-        await self._show_ranklist(channel=ctx.channel, contest_id=contest_id, handles=handles, ranklist=ranklist)
+        await self._show_ranklist(channel=ctx.channel, contest_id=contest_id, handles=handles, ranklist=ranklist, contest=contest)
 
-    async def _show_ranklist(self, channel, contest_id: int, handles: [str], ranklist, vc: bool = False, delete_after: float = None):
-        contest = cf_common.cache2.contest_cache.get_contest(contest_id)
+    async def _show_ranklist(self, channel, contest_id: int, handles, ranklist, vc: bool = False, delete_after: float = None, contest=None):
+        contest = contest or cf_common.cache2.contest_cache.get_contest(contest_id)
         if ranklist is None:
             raise ContestCogError('No ranklist to show')
 
-        handle_standings = []
-        for handle in handles:
-            try:
-                standing = ranklist.get_standing_row(handle)
-            except rl.HandleNotPresentError:
-                continue
-
-            # Database has correct handle ignoring case, update to it
-            # TODO: It will throw an exception if this row corresponds to a team. At present ranklist doesnt show teams.
-            # It should be fixed in https://github.com/cheran-senthil/TLE/issues/72
-            handle = standing.party.members[0].handle
-            if vc and standing.party.participantType != 'VIRTUAL':
-                continue
-            handle_standings.append((handle, standing))
+        handle_standings = ranklist.get_handle_standings(handles, vc=vc)
 
         if not handle_standings:
             error = f'None of the handles are present in the ranklist of `{contest.name}`'
@@ -493,7 +503,7 @@ class Contests(commands.Cog):
         if ranklist.is_rated:
             deltas = [ranklist.get_delta(handle) for handle, standing in handle_standings]
 
-        problem_indices = [problem.index for problem in ranklist.problems]
+        problem_indices = ranklist.get_problem_indexes()
         pages = self._make_standings_pages(contest, problem_indices, handle_standings, deltas)
         paginator.paginate(self.bot, channel, pages, wait_time=_STANDINGS_PAGINATE_WAIT_TIME, delete_after=delete_after)
 

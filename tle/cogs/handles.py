@@ -13,13 +13,17 @@ gi.require_version('PangoCairo', '1.0')
 from gi.repository import Pango, PangoCairo
 
 import discord
-import random
+import random, string
 from discord.ext import commands
 
 from tle import constants
 from tle.util import cache_system2
 from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
+from tle.util import clist_api as clist
+from tle.util import clist_common as clist_common
+from tle.util.clist_common import _SUPPORTED_RESOURCES, Resources
+from tle.util import scaper
 from tle.util import discord_common
 from tle.util import events
 from tle.util import paginator
@@ -37,7 +41,7 @@ _PRETTY_HANDLES_PER_PAGE = 10
 _TOP_DELTAS_COUNT = 10
 _MAX_RATING_CHANGES_PER_EMBED = 15
 _UPDATE_HANDLE_STATUS_INTERVAL = 6 * 60 * 60  # 6 hours
-
+_UPDATE_CLIST_CACHE_INTERVAL = 2 * 60 * 60 # 2 hours
 
 class HandleCogError(commands.CommandError):
     pass
@@ -78,6 +82,10 @@ FONTS = [
     'Noto Sans CJK HK',
     'Noto Sans CJK KR',
 ]
+
+def randomword(length):
+    letters = string.ascii_lowercase
+    return ''.join(random.choice(letters) for i in range(length))
 
 def get_gudgitters_image(rankings):
     """return PIL image for rankings"""
@@ -226,23 +234,25 @@ def _make_profile_embed(member, user, *, mode):
     return embed
 
 
-def _make_pages(users, title):
+def _make_pages(users, title, resource=Resources.CODEFORCES):
     chunks = paginator.chunkify(users, _HANDLES_PER_PAGE)
     pages = []
     done = 0
-
+    no_rating = resource==Resources.GOOGLE
+    no_rating_suffix = resource!=Resources.CODEFORCES
     style = table.Style('{:>}  {:<}  {:<}  {:<}')
     for chunk in chunks:
         t = table.Table(style)
-        t += table.Header('#', 'Name', 'Handle', 'Rating')
+        t += table.Header('#', 'Name', 'Handle', 'Contests' if no_rating else 'Rating')
         t += table.Line()
-        for i, (member, handle, rating) in enumerate(chunk):
-            name = member.display_name
+        for i, (member, handle, rating, n_contests) in enumerate(chunk):
+            name = member.display_name if member else ""
             if len(name) > _NAME_MAX_LEN:
                 name = name[:_NAME_MAX_LEN - 1] + '…'
             rank = cf.rating2rank(rating)
             rating_str = 'N/A' if rating is None else str(rating)
-            t += table.Data(i + done, name, handle, f'{rating_str} ({rank.title_abbr})')
+            fourth = n_contests if no_rating else ((f'{rating_str}')+((f'({rank.title_abbr})') if not no_rating_suffix else ''))
+            t += table.Data(i + done, name, handle, fourth)
         table_str = '```\n'+str(t)+'\n```'
         embed = discord_common.cf_color_embed(description=table_str)
         pages.append((title, embed))
@@ -261,6 +271,7 @@ class Handles(commands.Cog):
     async def on_ready(self):
         cf_common.event_sys.add_listener(self._on_rating_changes)
         self._set_ex_users_inactive_task.start()
+        self._update_clist_users_cache.start()
 
     @commands.Cog.listener()
     async def on_member_remove(self, member):
@@ -316,6 +327,15 @@ class Handles(commands.Cog):
                              return_exceptions=True)
         self.logger.info(f'All guilds updated for contest {contest.id}.')
 
+    @tasks.task_spec(name='RefreshClistUserCache',
+                     waiter=tasks.Waiter.fixed_delay(_UPDATE_CLIST_CACHE_INTERVAL))
+    async def _update_clist_users_cache(self, _):
+        account_ids = cf_common.user_db.get_all_account_ids()
+        clist_users = await clist.fetch_user_info(resource=None, account_ids=account_ids)
+        if clist_users:
+            for user in clist_users:
+                cf_common.user_db.cache_clist_user(user)
+
     @commands.group(brief='Commands that have to do with handles', invoke_without_command=True)
     async def handle(self, ctx):
         """Change or collect information about specific handles on Codeforces"""
@@ -341,12 +361,41 @@ class Handles(commands.Cog):
     @handle.command(brief='Set Codeforces handle of a user')
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
     async def set(self, ctx, member: discord.Member, handle: str):
-        """Set Codeforces handle of a user."""
+        """Set codeforces/codechef/atcoder/google handle of a user.
+
+        Some examples are given below
+        ;handle set @Benjamin Benq
+        ;handle set @Kamil cf:Errichto
+        ;handle set @Gennady codechef:gennady.korotkevich
+        ;handle set @Paramjeet cc:thesupremeone
+        ;handle set @Jatin atcoder:nagpaljatin1411
+        ;handle set @Alex ac:Um_nik
+        ;handle set @Priyansh google:Priyansh31dec
+        """
+        resource, handle = clist_common.resource_from_handle_notation(handle)
+        if resource!=Resources.CODEFORCES:
+            member_username = str(member)
+            users = await clist.account(handle=handle, resource=resource)
+            embed = discord.Embed(description=f'Following handles for `{member_username}` have been linked')
+            for user in users:
+                if user.resource not in _SUPPORTED_RESOURCES:
+                    continue
+                embed.add_field(name=user.resource, value=user.handle, inline=True)
+                await self._set_account_id(member.id, ctx.guild, user)
+            return await ctx.send(embed=embed)
         # CF API returns correct handle ignoring case, update to it
         user, = await cf.user.info(handles=[handle])
         await self._set(ctx, member, user)
         embed = _make_profile_embed(member, user, mode='set')
         await ctx.send(embed=embed)
+    
+    async def _set_account_id(self, member_id, guild, user):
+        try:
+            guild_id = guild.id
+            cf_common.user_db.set_account_id(member_id, guild_id, user.id, user.resource)
+        except db.UniqueConstraintFailed:
+            raise HandleCogError(f'The handle `{user["handle"]}` is already associated with another user.')
+        cf_common.user_db.cache_clist_user(user)
 
     async def _set(self, ctx, member, user):
         handle = user.handle
@@ -370,7 +419,46 @@ class Handles(commands.Cog):
     @cf_common.user_guard(group='handle',
                           get_exception=lambda: HandleCogError('Identification is already running for you'))
     async def identify(self, ctx, handle: str):
-        """Link a codeforces account to discord account by submitting a compile error to a random problem"""
+        """Link a codeforces/codechef/atcoder account to discord account
+        
+        Some examples are given below
+        ;handle identify Benq
+        ;handle identify cf:Errichto
+        ;handle identify codechef:gennady.korotkevich
+        ;handle identify cc:thesupremeone
+        ;handle identify atcoder:nagpaljatin1411
+        ;handle identify ac:Um_nik
+
+        For linking google handles, please contact a moderator  
+        """
+
+        invoker = str(ctx.author)
+        resource, handle = clist_common.resource_from_handle_notation(handle)
+        if resource!=Resources.CODEFORCES:
+            if resource==None:
+                return await ctx.send(f'Sorry `{invoker}`, all keyword can only be used with set command.')
+            if resource==Resources.GOOGLE:
+                return await ctx.send(f'Sorry `{invoker}`, you can\'t identify handles of `{Resources.GOOGLE}`, please ask a moderator to link your account.')
+
+            wait_msg = await ctx.channel.send('Fetching account details, please wait...')
+            users = await clist.account(handle, resource)
+            user = users[0]
+            token = randomword(8)
+            await wait_msg.delete()
+            field = 'affiliation' if resource==Resources.ATCODER else 'name'
+            wait_msg = await ctx.send(f'`{invoker}`, change your {field} to `{token}` on {resource} within 60 seconds')
+            await asyncio.sleep(60)
+            await wait_msg.delete()
+            wait_msg = await ctx.channel.send(f'Verifying {field} change...')
+            if scaper.assert_field(handle, token, resource, ctx.author.mention):
+                member = ctx.author
+                await self._set_account_id(member.id, ctx.guild, user)
+                await wait_msg.delete()
+                await ctx.send(f'Your handle is now linked, `{invoker}`')
+            else:
+                await wait_msg.delete()
+                await ctx.send(f'Sorry `{invoker}`, can you try again?')
+            return
         if cf_common.user_db.get_handle(ctx.author.id, ctx.guild.id):
             raise HandleCogError(f'{ctx.author.mention}, you cannot identify when your handle is '
                                  'already set. Ask an Admin or Moderator if you wish to change it')
@@ -520,19 +608,28 @@ class Handles(commands.Cog):
         if you wish to display only members from those countries. Country data is
         sourced from codeforces profiles. e.g. ;handle list Croatia Slovenia
         """
-        countries = [country.title() for country in countries]
-        res = cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)
-        users = [(ctx.guild.get_member(user_id), cf_user.handle, cf_user.rating)
-                 for user_id, cf_user in res if not countries or cf_user.country in countries]
-        users = [(member, handle, rating) for member, handle, rating in users if member is not None]
+        resource = clist_common.detect_loose_resource(countries)
+        if resource!=Resources.CODEFORCES:
+            clist_users = cf_common.user_db.get_clist_users_for_guild(ctx.guild.id, resource=resource)
+            users = []
+            for user_id, user in clist_users:
+                member = ctx.guild.get_member(user_id)
+                users.append((member, user.handle, user.rating, user.n_contests))
+        else:
+            countries = [country.title() for country in countries]
+            res = cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)
+            users = [(ctx.guild.get_member(user_id), cf_user.handle, cf_user.rating)
+                    for user_id, cf_user in res if not countries or cf_user.country in countries]
+            users = [(member, handle, rating, 0) for member, handle, rating in users if member is not None]
         if not users:
             raise HandleCogError('No members with registered handles.')
 
         users.sort(key=lambda x: (1 if x[2] is None else -x[2], x[1]))  # Sorting by (-rating, handle)
-        title = 'Handles of server members'
+        title = 'Handles of server members ('+str(resource)+')'
+        
         if countries:
             title += ' from ' + ', '.join(f'`{country}`' for country in countries)
-        pages = _make_pages(users, title)
+        pages = _make_pages(users, title, resource)
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=_PAGINATE_WAIT_TIME,
                            set_pagenum_footers=True)
 
