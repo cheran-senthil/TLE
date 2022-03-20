@@ -176,8 +176,6 @@ class Training(commands.Cog):
                 mode = TrainingMode.NORMAL
             elif arg == "survival" or arg == "+survival":
                 mode = TrainingMode.SURVIVAL
-            elif arg == "timed1" or arg == "+timed1":
-                mode = TrainingMode.TIMED15
             elif arg == "timed15" or arg == "+timed15":
                 mode = TrainingMode.TIMED15
             elif arg == "timed30" or arg == "+timed30":
@@ -252,16 +250,12 @@ class Training(commands.Cog):
         choice = max(random.randrange(len(problems)) for _ in range(5))
         return problems[choice]
 
-    async def _checkIfSolved(self, ctx, active, handle, submissions, skip):
+    async def _checkIfSolved(self, ctx, active, handle, submissions):
         _, _, name, contest_id, index, _, _, _, _, _ = active
         ac = [sub for sub in submissions if sub.problem.name ==
               name and sub.verdict == 'OK']
         # order by creation time increasing
         ac.sort(key=lambda y: y[6])
-
-        if skip:
-            finish_time = int(datetime.datetime.now().timestamp())
-            return finish_time
 
         if len(ac) == 0:
             url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
@@ -443,18 +437,11 @@ class Training(commands.Cog):
         # assign new problem
         await self._startTrainingAndAssignProblem(ctx, handle, problem, gamestate)
 
-    @training.command(brief='If you have solved your current problem it will assign a new one',
-                      usage='[+force]')
+    @training.command(brief='If you have solved your current problem it will assign a new one')
     @cf_common.user_guard(group='training')
     async def solved(self, ctx, *args):
         """ Use this command if you got AC on the training problem. If game continues the bot will assign a new problem.
-            +force: marks the problem as solved even if its not solved (DEBUG MODE only!!!)
         """
-        # TODO: debug helper:
-        skip = False
-        for arg in args:
-            if arg == "+force":
-                skip = True
 
         # check if we are in the correct channel
         self._checkIfCorrectChannel(ctx)
@@ -469,7 +456,7 @@ class Training(commands.Cog):
         self._checkTrainingActive(ctx, active)
 
         # check if solved
-        finish_time = await self._checkIfSolved(ctx, active, handle, submissions, skip)
+        finish_time = await self._checkIfSolved(ctx, active, handle, submissions)
 
         # game logic here
         _, issue_time, _, _, _, rating, _, _, _, _ = active
