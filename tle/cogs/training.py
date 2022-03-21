@@ -145,14 +145,14 @@ def get_fastest_solves_image(rankings):
     y = BORDER_MARGIN
 
     # draw header
-    draw_row('#', 'Name', 'Handle', 'Time', SMOKE_WHITE, y, bold=True)
+    draw_row('Rating', 'Name', 'Handle', 'Time', SMOKE_WHITE, y, bold=True)
     y += LINE_HEIGHT*HEADER_SPACING
 
     for i, (pos, name, handle, rating, time) in enumerate(rankings):
         color = rating_to_color(rating)
         draw_bg(y, i%2)
         timeFormatted = cf_common.pretty_time_format(time, shorten=True, always_seconds=True)
-        draw_row(str(pos+1), f'{name}', f'{handle} ({rating if rating else "N/A"})' , timeFormatted, color, y)
+        draw_row(str(pos), f'{name}', f'{handle} ({rating if rating else "N/A"})' , timeFormatted, color, y)
         if rating and rating >= 3000:  # nutella
             draw_row('', name[0], handle[0], '', BLACK, y)
         y += LINE_HEIGHT
