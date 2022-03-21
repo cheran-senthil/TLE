@@ -40,6 +40,42 @@ class TrainingResult(IntEnum):
 class TrainingCogError(commands.CommandError):
     pass
 
+def rating_to_color(rating):
+    """returns (r, g, b) pixels values corresponding to rating"""
+    # TODO: Integrate these colors with the ranks in codeforces_api.py
+    BLACK = (10, 10, 10)
+    RED = (255, 20, 20)
+    BLUE = (0, 0, 200)
+    GREEN = (0, 140, 0)
+    ORANGE = (250, 140, 30)
+    PURPLE = (160, 0, 120)
+    CYAN = (0, 165, 170)
+    GREY = (70, 70, 70)
+    if rating is None or rating=='N/A':
+        return BLACK
+    if rating < 1200:
+        return GREY
+    if rating < 1400:
+        return GREEN
+    if rating < 1600:
+        return CYAN
+    if rating < 1900:
+        return BLUE
+    if rating < 2100:
+        return PURPLE
+    if rating < 2400:
+        return ORANGE
+    return RED
+
+FONTS = [
+    'Noto Sans',
+    'Noto Sans CJK JP',
+    'Noto Sans CJK SC',
+    'Noto Sans CJK TC',
+    'Noto Sans CJK HK',
+    'Noto Sans CJK KR',
+]
+
 def get_fastest_solves_image(rankings):
     """return PIL image for rankings"""
     SMOKE_WHITE = (250, 250, 250)
