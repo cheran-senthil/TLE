@@ -90,13 +90,13 @@ def get_fastest_solves_image(rankings):
 
     ROW_COLORS = ((0.95, 0.95, 0.95), (0.9, 0.9, 0.9))
 
-    WIDTH = 900
+    WIDTH = 1000
     #HEIGHT = 900
     BORDER_MARGIN = 20
     COLUMN_MARGIN = 10
     HEADER_SPACING = 1.25
-    WIDTH_RANK = 0.13*WIDTH
-    WIDTH_NAME = 0.32*WIDTH
+    WIDTH_RANK = 0.10*WIDTH
+    WIDTH_NAME = 0.35*WIDTH
     LINE_HEIGHT = 40#(HEIGHT - 2*BORDER_MARGIN)/(20 + HEADER_SPACING)
     HEIGHT = int((len(rankings) + HEADER_SPACING) * LINE_HEIGHT + 2*BORDER_MARGIN)
     # Cairo+Pango setup
