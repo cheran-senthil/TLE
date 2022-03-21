@@ -1094,6 +1094,16 @@ class UserDbConn:
         '''
         return self.conn.execute(query, (training_id,)).fetchone()[0]
 
+    def train_get_fastest_solves(self):
+        query = f'''
+            SELECT tr.user_id, tp.rating, min(tp.finish_time-tp.issue_time)
+            FROM training_problems tp, trainings tr
+            WHERE tp.training_id = tr.id 
+            AND (tp.status = {TrainingProblemStatus.SOLVED} OR tp.status = {TrainingProblemStatus.SOLVED_TOO_SLOW})
+            GROUP BY tp.rating
+        '''
+        return self.conn.execute(query).fetchall()
+
     def close(self):
         self.conn.close()
 

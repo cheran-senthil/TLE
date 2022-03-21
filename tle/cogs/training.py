@@ -3,6 +3,14 @@ from enum import IntEnum
 import discord
 from discord.ext import commands
 import datetime
+
+import io
+import cairo
+import gi
+gi.require_version('Pango', '1.0')
+gi.require_version('PangoCairo', '1.0')
+from gi.repository import Pango, PangoCairo
+
 from tle import constants
 from tle.util.db.user_db_conn import Training, TrainingProblemStatus
 from tle.util import codeforces_api as cf
@@ -31,6 +39,90 @@ class TrainingResult(IntEnum):
 
 class TrainingCogError(commands.CommandError):
     pass
+
+def get_fastest_solves_image(rankings):
+    """return PIL image for rankings"""
+    SMOKE_WHITE = (250, 250, 250)
+    BLACK = (0, 0, 0)
+
+    DISCORD_GRAY = (.212, .244, .247)
+
+    ROW_COLORS = ((0.95, 0.95, 0.95), (0.9, 0.9, 0.9))
+
+    WIDTH = 900
+    #HEIGHT = 900
+    BORDER_MARGIN = 20
+    COLUMN_MARGIN = 10
+    HEADER_SPACING = 1.25
+    WIDTH_RANK = 0.08*WIDTH
+    WIDTH_NAME = 0.38*WIDTH
+    LINE_HEIGHT = 40#(HEIGHT - 2*BORDER_MARGIN)/(20 + HEADER_SPACING)
+    HEIGHT = int((len(rankings) + HEADER_SPACING) * LINE_HEIGHT + 2*BORDER_MARGIN)
+    # Cairo+Pango setup
+    surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, WIDTH, HEIGHT)
+    context = cairo.Context(surface)
+    context.set_line_width(1)
+    context.set_source_rgb(*DISCORD_GRAY)
+    context.rectangle(0, 0, WIDTH, HEIGHT)
+    context.fill()
+    layout = PangoCairo.create_layout(context)
+    layout.set_font_description(Pango.font_description_from_string(','.join(FONTS) + ' 20'))
+    layout.set_ellipsize(Pango.EllipsizeMode.END)
+
+    def draw_bg(y, color_index):
+        nxty = y + LINE_HEIGHT
+
+        # Simple
+        context.move_to(BORDER_MARGIN, y)
+        context.line_to(WIDTH, y)
+        context.line_to(WIDTH, nxty)
+        context.line_to(0, nxty)
+        context.set_source_rgb(*ROW_COLORS[color_index])
+        context.fill()
+
+    def draw_row(pos, username, handle, rating, color, y, bold=False):
+        context.set_source_rgb(*[x/255.0 for x in color])
+
+        context.move_to(BORDER_MARGIN, y)
+
+        def draw(text, width=-1):
+            text = html.escape(text)
+            if bold:
+                text = f'<b>{text}</b>'
+            layout.set_width((width - COLUMN_MARGIN)*1000) # pixel = 1000 pango units
+            layout.set_markup(text, -1)
+            PangoCairo.show_layout(context, layout)
+            context.rel_move_to(width, 0)
+
+        draw(pos, WIDTH_RANK)
+        draw(username, WIDTH_NAME)
+        draw(handle, WIDTH_NAME)
+        draw(rating)
+
+    #
+
+    y = BORDER_MARGIN
+
+    # draw header
+    draw_row('#', 'Name', 'Handle', 'Time', SMOKE_WHITE, y, bold=True)
+    y += LINE_HEIGHT*HEADER_SPACING
+
+    for i, (pos, name, handle, rating, time) in enumerate(rankings):
+        color = rating_to_color(rating)
+        draw_bg(y, i%2)
+        timeFormatted = cf_common.pretty_time_format(time, shorten=True, always_seconds=True)
+        draw_row(str(pos+1), f'{name}', f'{handle} ({rating if rating else "N/A"})' , timeFormatted, color, y)
+        if rating and rating >= 3000:  # nutella
+            draw_row('', name[0], handle[0], '', BLACK, y)
+        y += LINE_HEIGHT
+
+    image_data = io.BytesIO()
+    surface.write_to_png(image_data)
+    image_data.seek(0)
+    discord_file = discord.File(image_data, filename='fastesttraining.png')
+    return discord_file
+
+
 
 
 class Game:
@@ -564,6 +656,32 @@ class Training(commands.Cog):
                     "You don't have an active or past training!")
             gamestate = Game(latest[6], latest[7], latest[8], latest[9])
             await self._postTrainingStatistics(ctx, latest, handle, gamestate, False, True)
+
+    @training.command(brief="Show fastest training solves")
+    async def fastest(self, ctx, *args):
+        """Show a list of fastest solves within a training session for each rating."""
+        res = cf_common.user_db.train_get_fastest_solves()
+        
+        rankings = []
+        index = 0
+        for user_id, rating, time in res:
+            member = ctx.guild.get_member(int(user_id))
+            handle = cf_common.user_db.get_handle(user_id, ctx.guild.id)
+            user = cf_common.user_db.fetch_cf_user(handle)
+            if user is None:
+                continue
+            user_rating = user.rating
+
+            discord_handle = ""
+            if member is not None: 
+                discord_handle = member.display_name
+                
+            rankings.append((rating, discord_handle, handle, user_rating, time))
+
+        if not rankings:
+            raise TrainingCogError('No one has completed a training challenge yet.')
+        discord_file = get_fastest_solves_image(rankings)
+        await ctx.send(file=discord_file)
 
     @training.command(brief='Set the training channel to the current channel')
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)  # OK
