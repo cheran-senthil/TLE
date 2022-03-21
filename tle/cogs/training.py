@@ -4,6 +4,14 @@ import discord
 from discord.ext import commands
 import datetime
 
+from tle import constants
+from tle.util.db.user_db_conn import Training, TrainingProblemStatus
+from tle.util import codeforces_api as cf
+from tle.util import codeforces_common as cf_common
+from tle.util import discord_common
+
+# stuff for drawing image
+import html
 import io
 import cairo
 import gi
@@ -11,11 +19,15 @@ gi.require_version('Pango', '1.0')
 gi.require_version('PangoCairo', '1.0')
 from gi.repository import Pango, PangoCairo
 
-from tle import constants
-from tle.util.db.user_db_conn import Training, TrainingProblemStatus
-from tle.util import codeforces_api as cf
-from tle.util import codeforces_common as cf_common
-from tle.util import discord_common
+FONTS = [
+    'Noto Sans',
+    'Noto Sans CJK JP',
+    'Noto Sans CJK SC',
+    'Noto Sans CJK TC',
+    'Noto Sans CJK HK',
+    'Noto Sans CJK KR',
+]
+
 
 _TRAINING_MIN_RATING_VALUE = 800
 _TRAINING_MAX_RATING_VALUE = 3500
@@ -67,14 +79,7 @@ def rating_to_color(rating):
         return ORANGE
     return RED
 
-FONTS = [
-    'Noto Sans',
-    'Noto Sans CJK JP',
-    'Noto Sans CJK SC',
-    'Noto Sans CJK TC',
-    'Noto Sans CJK HK',
-    'Noto Sans CJK KR',
-]
+
 
 def get_fastest_solves_image(rankings):
     """return PIL image for rankings"""
