@@ -95,8 +95,8 @@ def get_fastest_solves_image(rankings):
     BORDER_MARGIN = 20
     COLUMN_MARGIN = 10
     HEADER_SPACING = 1.25
-    WIDTH_RANK = 0.08*WIDTH
-    WIDTH_NAME = 0.38*WIDTH
+    WIDTH_RANK = 0.13*WIDTH
+    WIDTH_NAME = 0.32*WIDTH
     LINE_HEIGHT = 40#(HEIGHT - 2*BORDER_MARGIN)/(20 + HEADER_SPACING)
     HEIGHT = int((len(rankings) + HEADER_SPACING) * LINE_HEIGHT + 2*BORDER_MARGIN)
     # Cairo+Pango setup
