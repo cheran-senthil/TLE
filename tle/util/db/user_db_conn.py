@@ -396,11 +396,11 @@ class UserDbConn:
         res = self.conn.execute(query, (user_id, guild_id)).fetchone()
         return res[0] if res else None
 
-    def get_user_id(self, handle, guild_id):
+    def get_user_id(self, handle, guild_id, active=1):
         query = ('SELECT user_id '
                  'FROM user_handle '
-                 'WHERE UPPER(handle) = UPPER(?) AND guild_id = ? AND active = 1')
-        res = self.conn.execute(query, (handle, guild_id)).fetchone()
+                 'WHERE UPPER(handle) = UPPER(?) AND guild_id = ? AND active >= ?')
+        res = self.conn.execute(query, (handle, guild_id, active)).fetchone()
         return int(res[0]) if res else None
 
     def remove_handle(self, user_id, guild_id):
