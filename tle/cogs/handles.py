@@ -255,6 +255,7 @@ class Handles(commands.Cog):
         self.bot = bot
         self.logger = logging.getLogger(self.__class__.__name__)
         self.font = ImageFont.truetype(constants.NOTO_SANS_CJK_BOLD_FONT_PATH, size=26) # font for ;handle pretty
+        self.converter = commands.MemberConverter()
 
     @commands.Cog.listener()
     @discord_common.once
@@ -422,16 +423,17 @@ class Handles(commands.Cog):
         embed = _make_profile_embed(member, user, mode='get')
         await ctx.send(embed=embed)
 
-    @handle.command(brief='Remove handle for a user')
+    @handle.command(brief='Unlink handle')
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
-    async def remove(self, ctx, member: discord.Member):
+    async def remove(self, ctx, handle: str):
         """Remove Codeforces handle of a user."""
-        rc = cf_common.user_db.remove_handle(member.id, ctx.guild.id)
+        handle = (await cf_common.resolve_handles(ctx, self.converter, [handle]))[0]
+        rc = cf_common.user_db.remove_handle(handle, ctx.guild.id)
         if not rc:
-            raise HandleCogError(f'Handle for {member.mention} not found in database')
+            raise HandleCogError(f'{handle} not found in database')
         await self.update_member_rank_role(member, role_to_assign=None,
-                                           reason='Handle removed for user')
-        embed = discord_common.embed_success(f'Removed handle for {member.mention}')
+                                           reason='Handle unlinked')
+        embed = discord_common.embed_success(f'Removed {handle} from database')
         await ctx.send(embed=embed)
 
     @handle.command(brief='Resolve redirect of a user\'s handle')
