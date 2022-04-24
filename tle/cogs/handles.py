@@ -417,6 +417,8 @@ class Handles(commands.Cog):
             raise HandleCogError(f'Discord username for `{handle}` not found in database')
         user = cf_common.user_db.fetch_cf_user(handle)
         member = ctx.guild.get_member(user_id)
+        if member is None:
+            raise HandleCogError(f'{user_id} not found in the guild')
         embed = _make_profile_embed(member, user, mode='get')
         await ctx.send(embed=embed)
 
