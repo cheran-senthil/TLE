@@ -432,7 +432,7 @@ class Handles(commands.Cog):
         if user_id is None:
             raise HandleCogError(f'{handle} not found in database')
 
-        rc = cf_common.user_db.remove_handle(handle, ctx.guild.id)
+        cf_common.user_db.remove_handle(handle, ctx.guild.id)
         member = ctx.guild.get_member(user_id)
         await self.update_member_rank_role(member, role_to_assign=None,
                                            reason='Handle unlinked')
