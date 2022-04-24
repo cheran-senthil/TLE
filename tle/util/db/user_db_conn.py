@@ -407,7 +407,7 @@ class UserDbConn:
         query = ('DELETE FROM user_handle '
                  'WHERE UPPER(handle) = UPPER(?) AND guild_id = ?')
         with self.conn:
-            return self.conn.execute(query, (user_id, guild_id)).rowcount
+            return self.conn.execute(query, (handle, guild_id)).rowcount
 
     def get_handles_for_guild(self, guild_id):
         query = ('SELECT user_id, handle '
