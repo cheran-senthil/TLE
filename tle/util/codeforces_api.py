@@ -209,7 +209,7 @@ def _bool_to_str(value):
 
 def cf_ratelimit(f):
     tries = 3
-    per_second = 5
+    per_second = 1
     last = deque([0]*per_second)
 
     @functools.wraps(f)
