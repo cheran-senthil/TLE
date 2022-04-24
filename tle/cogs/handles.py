@@ -427,7 +427,7 @@ class Handles(commands.Cog):
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
     async def remove(self, ctx, handle: str):
         """Remove Codeforces handle of a user."""
-        handle = (await cf_common.resolve_handles(ctx, self.converter, [handle]))[0]
+        handle = await cf_common.resolve_handles(ctx, self.converter, [handle])
         rc = cf_common.user_db.remove_handle(handle, ctx.guild.id)
         if not rc:
             raise HandleCogError(f'{handle} not found in database')
