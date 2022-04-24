@@ -339,7 +339,7 @@ class Handles(commands.Cog):
         if role_to_assign is not None and role_to_assign not in member.roles:
             await member.add_roles(role_to_assign, reason=reason)
 
-    @handle.command(brief='Set Codeforces handle of a user')
+    @handle.command(brief='Set Codeforces handle of a user', aliases=["link"])
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
     async def set(self, ctx, member: discord.Member, handle: str):
         """Set Codeforces handle of a user."""
@@ -423,7 +423,7 @@ class Handles(commands.Cog):
         embed = _make_profile_embed(member, user, mode='get')
         await ctx.send(embed=embed)
 
-    @handle.command(brief='Unlink handle')
+    @handle.command(brief='Unlink handle', aliases=["unlink"])
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
     async def remove(self, ctx, handle: str):
         """Remove Codeforces handle of a user."""
