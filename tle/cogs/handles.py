@@ -428,9 +428,12 @@ class Handles(commands.Cog):
     async def remove(self, ctx, handle: str):
         """Remove Codeforces handle of a user."""
         handle, = await cf_common.resolve_handles(ctx, self.converter, [handle])
-        rc = cf_common.user_db.remove_handle(handle, ctx.guild.id)
-        if not rc:
+        user_id = cf_common.user_db.get_user_id(handle, ctx.guild.id)
+        if user_id is None:
             raise HandleCogError(f'{handle} not found in database')
+
+        rc = cf_common.user_db.remove_handle(handle, ctx.guild.id)
+        member = ctx.guild.get_member(user_id)
         await self.update_member_rank_role(member, role_to_assign=None,
                                            reason='Handle unlinked')
         embed = discord_common.embed_success(f'Removed {handle} from database')
