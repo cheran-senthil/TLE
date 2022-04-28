@@ -160,7 +160,7 @@ def make_from_dict(namedtuple_cls, dict_):
 class CodeforcesApiError(commands.CommandError):
     """Base class for all API related errors."""
     def __init__(self, message=None):
-        super().__init__(message or 'Codeforces API error')
+        super().__init__(message or 'Codeforces API error. There is nothing you or the Admins of the Discord server can do to fix it. We need to wait until Mike does his job.')
 
 
 class TrueApiError(CodeforcesApiError):
