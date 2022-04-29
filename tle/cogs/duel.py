@@ -130,7 +130,7 @@ class Dueling(commands.Cog):
         await ctx.send(f'{ctx.author.mention} successfully registered as a duelist')
 
     @duel.command(brief='Challenge to a duel')
-    async def challenge(self, ctx, opponent: discord.Member, rating: int = None):
+    async def challenge(self, ctx, opponent: discord.Member, *args):
         """Challenge another server member to a duel. Problem difficulty will be the lesser of duelist ratings minus 400. You can alternatively specify a different rating. The duel will be unrated if specified rating is above the default value. The challenge expires if ignored for 5 minutes."""
         challenger_id = ctx.author.id
         challengee_id = opponent.id
@@ -156,13 +156,23 @@ class Dueling(commands.Cog):
         if cf_common.user_db.check_duel_challenge(challengee_id):
             raise DuelCogError(
                 f'{opponent.mention} is currently in a duel!')
+        tags  = []
+        notags= []
+        rating=None
+        
+        for arg in args:
+            if arg[0] == '+':
+                tags.append(arg[1:])
+            else:
+                if arg.isdigit():
+                    rating = int(arg)                
 
         users = [cf_common.user_db.fetch_cf_user(handle) for handle in handles]
         lowest_rating = min(user.rating or 0 for user in users)
         suggested_rating = max(
             round(lowest_rating, -2) + _DUEL_RATING_DELTA, 500)
         rating = round(rating, -2) if rating else suggested_rating
-        unofficial = rating > suggested_rating
+        unofficial = rating > suggested_rating or len(tags) > 0
         dtype = DuelType.UNOFFICIAL if unofficial else DuelType.OFFICIAL
 
         solved = {
@@ -174,7 +184,8 @@ class Dueling(commands.Cog):
             return [prob for prob in cf_common.cache2.problem_cache.problems
                     if prob.rating == rating and prob.name not in solved and prob.name not in seen
                     and not any(cf_common.is_contest_writer(prob.contestId, handle) for handle in handles)
-                    and not cf_common.is_nonstandard_problem(prob)]
+                    and not cf_common.is_nonstandard_problem(prob)
+                    and prob.tag_matches(tags)]                                              
 
         for problems in map(get_problems, range(rating, 400, -100)):
             if problems:
