@@ -129,9 +129,9 @@ class Dueling(commands.Cog):
                 f'{ctx.author.mention} is already a registered duelist')
         await ctx.send(f'{ctx.author.mention} successfully registered as a duelist')
 
-    @duel.command(brief='Challenge to a duel')
+    @duel.command(brief='Challenge to a duel', usage='opponent [rating] [+tags]')
     async def challenge(self, ctx, opponent: discord.Member, *args):
-        """Challenge another server member to a duel. Problem difficulty will be the lesser of duelist ratings minus 400. You can alternatively specify a different rating. The duel will be unrated if specified rating is above the default value. The challenge expires if ignored for 5 minutes."""
+        """Challenge another server member to a duel. Problem difficulty will be the lesser of duelist ratings minus 400. You can alternatively specify a different rating. The duel will be unrated if specified rating is above the default value or tags are used to choose a problem. The challenge expires if ignored for 5 minutes."""
         challenger_id = ctx.author.id
         challengee_id = opponent.id
 
@@ -157,7 +157,6 @@ class Dueling(commands.Cog):
             raise DuelCogError(
                 f'{opponent.mention} is currently in a duel!')
         tags  = []
-        notags= []
         rating=None
         
         for arg in args:
