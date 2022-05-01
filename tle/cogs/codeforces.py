@@ -113,7 +113,7 @@ class Codeforces(commands.Cog):
                     and prob.matches_tags(tags)]
 
         if not problems:
-            raise CodeforcesCogError('Problems not found within the search parameters')
+            raise CodeforcesCogError('Problems not found within the search parameters ('+' '.join(tags)+')')
 
         problems.sort(key=lambda problem: cf_common.cache2.contest_cache.get_contest(
             problem.contestId).startTimeSeconds)
