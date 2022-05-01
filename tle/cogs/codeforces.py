@@ -188,7 +188,7 @@ class Codeforces(commands.Cog):
                     if abs(prob.rating - rating) <= 100 and prob.name not in solved
                     and not any(cf_common.is_contest_writer(prob.contestId, handle) for handle in handles)
                     and not cf_common.is_nonstandard_problem(prob)
-                    and prob.matches_tags(args)]
+                    and prob.matches_tags(tags)]
 
         if len(problems) < 4:
             raise CodeforcesCogError('Problems not found within the search parameters')

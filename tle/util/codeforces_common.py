@@ -285,11 +285,10 @@ def parse_tags(args):
     return tags
     
 def parse_rating(args, default_value):
-    rating = default_value
     for arg in args:
         if arg.isdigit():
-            rating = int(arg)
-    return rating
+            return int(arg)
+    return default_value
 
 class SubFilter:
     def __init__(self, rated=True):
