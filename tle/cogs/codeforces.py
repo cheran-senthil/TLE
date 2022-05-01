@@ -108,10 +108,9 @@ class Codeforces(commands.Cog):
         solved = {sub.problem.name for sub in submissions if sub.verdict == 'OK'}
 
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
-                    if prob.rating == rating and prob.name not in solved and
-                    not cf_common.is_contest_writer(prob.contestId, handle)]
-        if tags:
-            problems = [prob for prob in problems if prob.matches_tags(tags)]
+                    if prob.rating == rating and prob.name not in solved 
+                    and not cf_common.is_contest_writer(prob.contestId, handle)
+                    and prob.matches_tags(tags)]
 
         if not problems:
             raise CodeforcesCogError('Problems not found within the search parameters')
@@ -188,9 +187,8 @@ class Codeforces(commands.Cog):
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
                     if abs(prob.rating - rating) <= 100 and prob.name not in solved
                     and not any(cf_common.is_contest_writer(prob.contestId, handle) for handle in handles)
-                    and not cf_common.is_nonstandard_problem(prob)]
-        if tags:
-            problems = [prob for prob in problems if prob.matches_tags(tags)]
+                    and not cf_common.is_nonstandard_problem(prob)
+                    and prob.matches_tags(args)]
 
         if len(problems) < 4:
             raise CodeforcesCogError('Problems not found within the search parameters')
