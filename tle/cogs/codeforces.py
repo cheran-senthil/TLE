@@ -101,12 +101,8 @@ class Codeforces(commands.Cog):
     async def gimme(self, ctx, *args):
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         rating = round(cf_common.user_db.fetch_cf_user(handle).effective_rating, -2)
-        tags = []
-        for arg in args:
-            if arg.isdigit():
-                rating = int(arg)
-            else:
-                tags.append(arg)
+        tags = cf_common.parse_tags(args)
+        rating = cf_common.parse_rating(args, rating)
 
         submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions if sub.verdict == 'OK'}
@@ -115,7 +111,7 @@ class Codeforces(commands.Cog):
                     if prob.rating == rating and prob.name not in solved and
                     not cf_common.is_contest_writer(prob.contestId, handle)]
         if tags:
-            problems = [prob for prob in problems if prob.tag_matches(tags)]
+            problems = [prob for prob in problems if prob.matches_tags(tags)]
 
         if not problems:
             raise CodeforcesCogError('Problems not found within the search parameters')
@@ -131,7 +127,7 @@ class Codeforces(commands.Cog):
         embed = discord.Embed(title=title, url=problem.url, description=desc)
         embed.add_field(name='Rating', value=problem.rating)
         if tags:
-            tagslist = ', '.join(problem.tag_matches(tags))
+            tagslist = ', '.join(problem.matches_tags(tags))
             embed.add_field(name='Matched tags', value=tagslist)
         await ctx.send(f'Recommended problem for `{handle}`', embed=embed)
 
@@ -180,7 +176,7 @@ class Codeforces(commands.Cog):
         Add tags with "+" before them.
         """
         handles = [arg for arg in args if arg[0] != '+']
-        tags = [arg[1:] for arg in args if arg[0] == '+' and len(arg) > 1]
+        tags = cf_common.parse_tags(args)
 
         handles = handles or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
@@ -194,7 +190,7 @@ class Codeforces(commands.Cog):
                     and not any(cf_common.is_contest_writer(prob.contestId, handle) for handle in handles)
                     and not cf_common.is_nonstandard_problem(prob)]
         if tags:
-            problems = [prob for prob in problems if prob.tag_matches(tags)]
+            problems = [prob for prob in problems if prob.matches_tags(tags)]
 
         if len(problems) < 4:
             raise CodeforcesCogError('Problems not found within the search parameters')
@@ -384,7 +380,7 @@ class Codeforces(commands.Cog):
         """Displays a list of contests, sorted by number of unsolved problems.
         Contest names matching any of the provided tags will be considered. e.g ;fullsolve +edu"""
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
-        tags = [x for x in args if x[0] == '+']
+        tags = cf_common.parse_tags(args)
 
         problem_to_contests = cf_common.cache2.problemset_cache.problem_to_contests
         contests = [contest for contest in cf_common.cache2.contest_cache.get_contests_in_phase('FINISHED')

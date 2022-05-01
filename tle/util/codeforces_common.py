@@ -108,7 +108,7 @@ def is_nonstandard_contest(contest):
 
 def is_nonstandard_problem(problem):
     return (is_nonstandard_contest(cache2.contest_cache.get_contest(problem.contestId)) or
-            problem.tag_matches(['*special']))
+            problem.matches_tags(['*special']))
 
 
 async def get_visited_contests(handles : [str]):
@@ -279,6 +279,17 @@ def parse_date(arg):
         return time.mktime(datetime.datetime.strptime(arg, fmt).timetuple())
     except ValueError:
         raise ParamParseError(f'{arg} is an invalid date argument')
+        
+def parse_tags(args):
+    tags = [x for x in args if x[0] == '+']
+    return tags
+    
+def parse_rating(args, default_value):
+    rating = default_value
+    for arg in args:
+        if arg.isdigit():
+            rating = int(arg)
+    return rating
 
 class SubFilter:
     def __init__(self, rated=True):
@@ -360,7 +371,7 @@ class SubFilter:
             contest = cache2.contest_cache.contest_by_id.get(problem.contestId, None)
             type_ok = submission.author.participantType in self.types
             date_ok = self.dlo <= submission.creationTimeSeconds < self.dhi
-            tag_ok = not self.tags or problem.tag_matches(self.tags)
+            tag_ok = not self.tags or problem.matches_tags(self.tags)
             index_ok = not self.indices or any(index.lower() == problem.index.lower() for index in self.indices)
             contest_ok = not self.contests or (contest and contest.matches(self.contests))
             team_ok = self.team or len(submission.author.members) == 1

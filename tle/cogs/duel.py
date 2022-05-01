@@ -156,16 +156,10 @@ class Dueling(commands.Cog):
         if cf_common.user_db.check_duel_challenge(challengee_id):
             raise DuelCogError(
                 f'{opponent.mention} is currently in a duel!')
-        tags  = []
-        rating=None
-        
-        for arg in args:
-            if arg[0] == '+':
-                tags.append(arg[1:])
-            else:
-                if arg.isdigit():
-                    rating = int(arg)                
-
+                
+         
+        tags = cf_common.parse_tags(args)
+        rating = cf_common.parse_rating(args, None)
         users = [cf_common.user_db.fetch_cf_user(handle) for handle in handles]
         lowest_rating = min(user.rating or 0 for user in users)
         suggested_rating = max(
@@ -184,7 +178,7 @@ class Dueling(commands.Cog):
                     if prob.rating == rating and prob.name not in solved and prob.name not in seen
                     and not any(cf_common.is_contest_writer(prob.contestId, handle) for handle in handles)
                     and not cf_common.is_nonstandard_problem(prob)
-                    and prob.tag_matches(tags)]                                              
+                    and prob.matches_tags(tags)]                                              
 
         for problems in map(get_problems, range(rating, 400, -100)):
             if problems:
