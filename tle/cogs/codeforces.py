@@ -378,7 +378,7 @@ class Codeforces(commands.Cog):
         """Displays a list of contests, sorted by number of unsolved problems.
         Contest names matching any of the provided tags will be considered. e.g ;fullsolve +edu"""
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
-        tags = cf_common.parse_tags(args)
+        tags = [x for x in args if x[0] == '+']
 
         problem_to_contests = cf_common.cache2.problemset_cache.problem_to_contests
         contests = [contest for contest in cf_common.cache2.contest_cache.get_contests_in_phase('FINISHED')
