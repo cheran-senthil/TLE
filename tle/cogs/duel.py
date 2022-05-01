@@ -157,7 +157,6 @@ class Dueling(commands.Cog):
             raise DuelCogError(
                 f'{opponent.mention} is currently in a duel!')
                 
-         
         tags = cf_common.parse_tags(args)
         rating = cf_common.parse_rating(args, None)
         users = [cf_common.user_db.fetch_cf_user(handle) for handle in handles]
@@ -178,7 +177,7 @@ class Dueling(commands.Cog):
                     if prob.rating == rating and prob.name not in solved and prob.name not in seen
                     and not any(cf_common.is_contest_writer(prob.contestId, handle) for handle in handles)
                     and not cf_common.is_nonstandard_problem(prob)
-                    and prob.matches_tags(tags)]                                              
+                    and prob.matches_tags(tags)]
 
         for problems in map(get_problems, range(rating, 400, -100)):
             if problems:

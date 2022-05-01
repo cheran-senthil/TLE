@@ -279,16 +279,19 @@ def parse_date(arg):
         return time.mktime(datetime.datetime.strptime(arg, fmt).timetuple())
     except ValueError:
         raise ParamParseError(f'{arg} is an invalid date argument')
-        
+
+
 def parse_tags(args):
     tags = [x[1:] for x in args if x[0] == '+']
     return tags
-    
+
+
 def parse_rating(args, default_value):
     for arg in args:
         if arg.isdigit():
             return int(arg)
     return default_value
+
 
 class SubFilter:
     def __init__(self, rated=True):
