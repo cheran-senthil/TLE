@@ -177,7 +177,7 @@ class Dueling(commands.Cog):
                     if prob.rating == rating and prob.name not in solved and prob.name not in seen
                     and not any(cf_common.is_contest_writer(prob.contestId, handle) for handle in handles)
                     and not cf_common.is_nonstandard_problem(prob)
-                    and prob.matching_tags(tags)]
+                    and prob.matches_all_tags(tags)]
 
         for problems in map(get_problems, range(rating, 400, -100)):
             if problems:
