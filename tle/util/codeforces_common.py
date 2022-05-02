@@ -108,7 +108,7 @@ def is_nonstandard_contest(contest):
 
 def is_nonstandard_problem(problem):
     return (is_nonstandard_contest(cache2.contest_cache.get_contest(problem.contestId)) or
-            problem.matches_tags(['*special']))
+            problem.matching_tags(['*special']))
 
 
 async def get_visited_contests(handles : [str]):
@@ -286,7 +286,7 @@ def parse_tags(args):
     return tags
 
 
-def parse_rating(args, default_value):
+def parse_rating(args, default_value = None):
     for arg in args:
         if arg.isdigit():
             return int(arg)
@@ -373,7 +373,7 @@ class SubFilter:
             contest = cache2.contest_cache.contest_by_id.get(problem.contestId, None)
             type_ok = submission.author.participantType in self.types
             date_ok = self.dlo <= submission.creationTimeSeconds < self.dhi
-            tag_ok = problem.matches_tags(self.tags)
+            tag_ok = problem.matching_tags(self.tags)
             index_ok = not self.indices or any(index.lower() == problem.index.lower() for index in self.indices)
             contest_ok = not self.contests or (contest and contest.matches(self.contests))
             team_ok = self.team or len(submission.author.members) == 1

@@ -116,12 +116,13 @@ class Problem(namedtuple('Problem', 'contestId problemsetName index name type po
     def has_metadata(self):
         return self.contestId is not None and self.rating is not None
 
-    def matches_tags(self, query_tags):
-        """If every query tag is a substring of any problem tag, returns a list of matched tags."""
-        if len(query_tags) == 0:
+    def matching_tags(self, filter_tags):
+        """Function checks if every filter tag is a substring of any problem tag. If all filter tags can be matched it returns a list of matched tags. Otherwise the result is None. 
+        If function is called with no filter_tags it returns all problem tags. This allows the function to be used in a natural way even if no filter tags are set."""
+        if not filter_tags:
             return self.tags
         matches = set()
-        for query_tag in query_tags:
+        for query_tag in filter_tags:
             curmatch = [tag for tag in self.tags if query_tag in tag]
             if not curmatch:
                 return None

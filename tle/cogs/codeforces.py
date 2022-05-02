@@ -110,7 +110,7 @@ class Codeforces(commands.Cog):
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
                     if prob.rating == rating and prob.name not in solved 
                     and not cf_common.is_contest_writer(prob.contestId, handle)
-                    and prob.matches_tags(tags)]
+                    and prob.matching_tags(tags)]
 
         if not problems:
             raise CodeforcesCogError('Problems not found within the search parameters')
@@ -126,7 +126,7 @@ class Codeforces(commands.Cog):
         embed = discord.Embed(title=title, url=problem.url, description=desc)
         embed.add_field(name='Rating', value=problem.rating)
         if tags:
-            tagslist = ', '.join(problem.matches_tags(tags))
+            tagslist = ', '.join(problem.matching_tags(tags))
             embed.add_field(name='Matched tags', value=tagslist)
         await ctx.send(f'Recommended problem for `{handle}`', embed=embed)
 
@@ -188,7 +188,7 @@ class Codeforces(commands.Cog):
                     if abs(prob.rating - rating) <= 100 and prob.name not in solved
                     and not any(cf_common.is_contest_writer(prob.contestId, handle) for handle in handles)
                     and not cf_common.is_nonstandard_problem(prob)
-                    and prob.matches_tags(tags)]
+                    and prob.matching_tags(tags)]
 
         if len(problems) < 4:
             raise CodeforcesCogError('Problems not found within the search parameters')
