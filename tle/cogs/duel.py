@@ -158,7 +158,7 @@ class Dueling(commands.Cog):
                 f'{opponent.mention} is currently in a duel!')
                 
         tags = cf_common.parse_tags(args)
-        notags = cf_common.parse_tags(args, '~')
+        bantags = cf_common.parse_tags(args, '~')
         rating = cf_common.parse_rating(args)
         users = [cf_common.user_db.fetch_cf_user(handle) for handle in handles]
         lowest_rating = min(user.rating or 0 for user in users)
@@ -179,7 +179,7 @@ class Dueling(commands.Cog):
                     and not any(cf_common.is_contest_writer(prob.contestId, handle) for handle in handles)
                     and not cf_common.is_nonstandard_problem(prob)
                     and prob.matches_all_tags(tags)
-                    and not prob.matches_any_tag(notags)]
+                    and not prob.matches_any_tag(bantags)]
 
         for problems in map(get_problems, range(rating, 400, -100)):
             if problems:

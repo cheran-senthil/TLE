@@ -102,7 +102,7 @@ class Codeforces(commands.Cog):
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         rating = round(cf_common.user_db.fetch_cf_user(handle).effective_rating, -2)
         tags = cf_common.parse_tags(args)
-        notags = cf_common.parse_tags(args, '~')
+        bantags = cf_common.parse_tags(args, '~')
         rating = cf_common.parse_rating(args, rating)
 
         submissions = await cf.user.status(handle=handle)
@@ -112,7 +112,7 @@ class Codeforces(commands.Cog):
                     if prob.rating == rating and prob.name not in solved 
                     and not cf_common.is_contest_writer(prob.contestId, handle)
                     and prob.matches_all_tags(tags)
-                    and not prob.matches_any_tag(notags)]
+                    and not prob.matches_any_tag(bantags)]
 
         if not problems:
             raise CodeforcesCogError('Problems not found within the search parameters')
@@ -175,11 +175,11 @@ class Codeforces(commands.Cog):
     async def mashup(self, ctx, *args):
         """Create a mashup contest using problems within +-100 of average rating of handles provided.
         Add tags with "+" before them.
-        Exclude tags with "~" before them.
+        Ban tags with "~" before them.
         """
         handles = [arg for arg in args if arg[0] != '+' and arg[0] != '~']
         tags = cf_common.parse_tags(args)
-        notags = cf_common.parse_tags(args, '~')
+        bantags = cf_common.parse_tags(args, '~')
 
         handles = handles or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
@@ -193,7 +193,7 @@ class Codeforces(commands.Cog):
                     and not any(cf_common.is_contest_writer(prob.contestId, handle) for handle in handles)
                     and not cf_common.is_nonstandard_problem(prob)
                     and prob.matches_all_tags(tags)
-                    and not prob.matches_any_tag(notags)]
+                    and not prob.matches_any_tag(bantags)]
 
         if len(problems) < 4:
             raise CodeforcesCogError('Problems not found within the search parameters')
