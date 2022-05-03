@@ -112,7 +112,7 @@ class Codeforces(commands.Cog):
                     if prob.rating == rating and prob.name not in solved 
                     and not cf_common.is_contest_writer(prob.contestId, handle)
                     and prob.matches_all_tags(tags)
-                    and not prob.matches_any_tags(notags)]
+                    and not prob.matches_any_tag(notags)]
 
         if not problems:
             raise CodeforcesCogError('Problems not found within the search parameters')
