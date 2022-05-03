@@ -301,6 +301,7 @@ class SubFilter:
         self.rlo, self.rhi = 500, 3800
         self.types = []
         self.tags = []
+        self.notags = []
         self.contests = []
         self.indices = []
 
@@ -327,6 +328,10 @@ class SubFilter:
                 if len(arg) == 1:
                     raise ParamParseError('Problem tag cannot be empty.')
                 self.tags.append(arg[1:])
+            elif arg[0] == '~':
+                if len(arg) == 1:
+                    raise ParamParseError('Problem tag cannot be empty.')
+                self.notags.append(arg[1:])
             elif arg[0:2] == 'd<':
                 self.dhi = min(self.dhi, parse_date(arg[2:]))
             elif arg[0:3] == 'd>=':
@@ -374,6 +379,7 @@ class SubFilter:
             type_ok = submission.author.participantType in self.types
             date_ok = self.dlo <= submission.creationTimeSeconds < self.dhi
             tag_ok = problem.matches_all_tags(self.tags)
+            notag_ok = not problem.matches_any_tag(self.notags)
             index_ok = not self.indices or any(index.lower() == problem.index.lower() for index in self.indices)
             contest_ok = not self.contests or (contest and contest.matches(self.contests))
             team_ok = self.team or len(submission.author.members) == 1
@@ -385,7 +391,7 @@ class SubFilter:
                 problem_ok = (not contest or contest.id >= cf.GYM_ID_THRESHOLD
                               or not is_nonstandard_problem(problem))
                 rating_ok = True
-            if type_ok and date_ok and rating_ok and tag_ok and team_ok and problem_ok and contest_ok and index_ok:
+            if type_ok and date_ok and rating_ok and tag_ok and notag_ok and team_ok and problem_ok and contest_ok and index_ok:
                 filtered_subs.append(submission)
         return filtered_subs
 
