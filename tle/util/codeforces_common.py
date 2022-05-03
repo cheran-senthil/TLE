@@ -281,8 +281,8 @@ def parse_date(arg):
         raise ParamParseError(f'{arg} is an invalid date argument')
 
 
-def parse_tags(args):
-    tags = [x[1:] for x in args if x[0] == '+']
+def parse_tags(args, identifier = '+'):
+    tags = [x[1:] for x in args if x[0] == identifier]
     return tags
 
 

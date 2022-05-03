@@ -102,6 +102,7 @@ class Codeforces(commands.Cog):
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         rating = round(cf_common.user_db.fetch_cf_user(handle).effective_rating, -2)
         tags = cf_common.parse_tags(args)
+        notags = cf_common.parse_tags(args, '-')
         rating = cf_common.parse_rating(args, rating)
 
         submissions = await cf.user.status(handle=handle)
@@ -110,7 +111,8 @@ class Codeforces(commands.Cog):
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
                     if prob.rating == rating and prob.name not in solved 
                     and not cf_common.is_contest_writer(prob.contestId, handle)
-                    and prob.matches_all_tags(tags)]
+                    and prob.matches_all_tags(tags)
+                    and not prob.matches_any_tags(notags)]
 
         if not problems:
             raise CodeforcesCogError('Problems not found within the search parameters')
