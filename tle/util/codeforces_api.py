@@ -2,7 +2,7 @@ import asyncio
 import logging
 import time
 import functools
-from collections import namedtuple, deque
+from collections import namedtuple, deque, defaultdict
 
 import aiohttp
 
@@ -116,28 +116,28 @@ class Problem(namedtuple('Problem', 'contestId problemsetName index name type po
     def has_metadata(self):
         return self.contestId is not None and self.rating is not None
 
-    def matching_tags(self, match_tags):
-        """Function tries to match every match_tag to a problem tag. A match is valid if the match_tag is a substring of any problem tag. 
-        The function returns the number of successfully matched tags."""
-        count = 0
+    def _matching_tags_dict(self, match_tags):
+        """Returns a dict with matching tags."""
+        tags = defaultdict(list)
         for match_tag in match_tags:
-            curmatch = [tag for tag in self.tags if match_tag in tag]
-            if curmatch:
-                count += 1
-        return count
+            for tag in self.tags:
+                if match_tag in tag:
+                    tags[match_tag].append(tag)
+        return dict(tags)
 
     def matches_all_tags(self, match_tags):
-        return self.matching_tags(match_tags) == len(match_tags)
+        match_tags = set(match_tags)
+        return len(self._matching_tags_dict(match_tags)) == len(match_tags)
 
     def matches_any_tag(self, match_tags):
-        return self.matching_tags(match_tags) > 0
+        match_tags = set(match_tags)
+        return len(self._matching_tags_dict(match_tags)) > 0
 
     def get_matched_tags(self, match_tags):
-        matches = set()
-        for match_tag in match_tags:
-            curmatch = [tag for tag in self.tags if match_tag in tag]
-            matches.update(curmatch)
-        return list(matches)
+        return [
+            tag for tags in self._matching_tags_dict(match_tags).values()
+            for tag in tags
+        ]
 
 
 ProblemStatistics = namedtuple('ProblemStatistics', 'contestId index solvedCount')
