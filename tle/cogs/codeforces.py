@@ -177,7 +177,7 @@ class Codeforces(commands.Cog):
         Add tags with "+" before them.
         Exclude tags with "~" before them.
         """
-        handles = [arg for arg in args if arg[0] != '+']
+        handles = [arg for arg in args if arg[0] != '+' and arg[0] != '~']
         tags = cf_common.parse_tags(args)
         notags = cf_common.parse_tags(args, '~')
 
