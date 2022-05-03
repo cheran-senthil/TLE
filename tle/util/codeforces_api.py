@@ -2,7 +2,7 @@ import asyncio
 import logging
 import time
 import functools
-from collections import namedtuple, deque
+from collections import namedtuple, deque, defaultdict
 
 import aiohttp
 
@@ -116,15 +116,28 @@ class Problem(namedtuple('Problem', 'contestId problemsetName index name type po
     def has_metadata(self):
         return self.contestId is not None and self.rating is not None
 
-    def tag_matches(self, query_tags):
-        """If every query tag is a substring of any problem tag, returns a list of matched tags."""
-        matches = set()
-        for query_tag in query_tags:
-            curmatch = [tag for tag in self.tags if query_tag in tag]
-            if not curmatch:
-                return None
-            matches.update(curmatch)
-        return list(matches)
+    def _matching_tags_dict(self, match_tags):
+        """Returns a dict with matching tags."""
+        tags = defaultdict(list)
+        for match_tag in match_tags:
+            for tag in self.tags:
+                if match_tag in tag:
+                    tags[match_tag].append(tag)
+        return dict(tags)
+
+    def matches_all_tags(self, match_tags):
+        match_tags = set(match_tags)
+        return len(self._matching_tags_dict(match_tags)) == len(match_tags)
+
+    def matches_any_tag(self, match_tags):
+        match_tags = set(match_tags)
+        return len(self._matching_tags_dict(match_tags)) > 0
+
+    def get_matched_tags(self, match_tags):
+        return [
+            tag for tags in self._matching_tags_dict(match_tags).values()
+            for tag in tags
+        ]
 
 
 ProblemStatistics = namedtuple('ProblemStatistics', 'contestId index solvedCount')
