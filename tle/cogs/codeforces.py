@@ -96,7 +96,7 @@ class Codeforces(commands.Cog):
             await ctx.send(embed=embed)
 
     @commands.command(brief='Recommend a problem',
-                      usage='[+tags..] [~tags..] [rating]')
+                      usage='[+tag..] [~tag..] [rating]')
     @cf_common.user_guard(group='gitgud')
     async def gimme(self, ctx, *args):
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
@@ -171,7 +171,7 @@ class Codeforces(commands.Cog):
         pages = [make_page(chunk) for chunk in paginator.chunkify(submissions[:100], 10)]
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
-    @commands.command(brief='Create a mashup', usage='[handles] [+tags] [~tags]')
+    @commands.command(brief='Create a mashup', usage='[handles] [+tag..] [~tag..]')
     async def mashup(self, ctx, *args):
         """Create a mashup contest using problems within +-100 of average rating of handles provided.
         Add tags with "+" before them.
