@@ -39,7 +39,7 @@ Now all dependencies need to be installed. TLE uses [Poetry](https://poetry.eust
 poetry install
 ```
 
-> :warning: **TLE requires Python 3.7 or later!**
+> :warning: **TLE requires Python 3.8 or later!**
 
 If you are using Ubuntu with older versions of python, then do the following:
 
