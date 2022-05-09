@@ -101,8 +101,8 @@ class Codeforces(commands.Cog):
     async def gimme(self, ctx, *args):
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         rating = round(cf_common.user_db.fetch_cf_user(handle).effective_rating, -2)
-        tags = cf_common.parse_tags(args)
-        bantags = cf_common.parse_tags(args, '~')
+        tags = cf_common.parse_tags(args, prefix='+')
+        bantags = cf_common.parse_tags(args, prefix='~')
         rating = cf_common.parse_rating(args, rating)
 
         submissions = await cf.user.status(handle=handle)
@@ -178,8 +178,8 @@ class Codeforces(commands.Cog):
         Ban tags with "~" before them.
         """
         handles = [arg for arg in args if arg[0] not in '+~']
-        tags = cf_common.parse_tags(args)
-        bantags = cf_common.parse_tags(args, '~')
+        tags = cf_common.parse_tags(args, prefix='+')
+        bantags = cf_common.parse_tags(args, prefix='~')
 
         handles = handles or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
