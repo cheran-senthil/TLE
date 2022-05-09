@@ -96,12 +96,13 @@ class Codeforces(commands.Cog):
             await ctx.send(embed=embed)
 
     @commands.command(brief='Recommend a problem',
-                      usage='[tags...] [rating]')
+                      usage='[+tag..] [~tag..] [rating]')
     @cf_common.user_guard(group='gitgud')
     async def gimme(self, ctx, *args):
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         rating = round(cf_common.user_db.fetch_cf_user(handle).effective_rating, -2)
-        tags = cf_common.parse_tags(args)
+        tags = cf_common.parse_tags(args, prefix='+')
+        bantags = cf_common.parse_tags(args, prefix='~')
         rating = cf_common.parse_rating(args, rating)
 
         submissions = await cf.user.status(handle=handle)
@@ -110,7 +111,8 @@ class Codeforces(commands.Cog):
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
                     if prob.rating == rating and prob.name not in solved 
                     and not cf_common.is_contest_writer(prob.contestId, handle)
-                    and prob.matches_all_tags(tags)]
+                    and prob.matches_all_tags(tags)
+                    and not prob.matches_any_tag(bantags)]
 
         if not problems:
             raise CodeforcesCogError('Problems not found within the search parameters')
@@ -131,7 +133,7 @@ class Codeforces(commands.Cog):
         await ctx.send(f'Recommended problem for `{handle}`', embed=embed)
 
     @commands.command(brief='List solved problems',
-                      usage='[handles] [+hardest] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [r>=rating] [r<=rating] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy] [c+marker..] [i+index..]')
+                      usage='[handles] [+hardest] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [~tag..] [r>=rating] [r<=rating] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy] [c+marker..] [i+index..]')
     async def stalk(self, ctx, *args):
         """Print problems solved by user sorted by time (default) or rating.
         All submission types are included by default (practice, contest, etc.)
@@ -169,13 +171,15 @@ class Codeforces(commands.Cog):
         pages = [make_page(chunk) for chunk in paginator.chunkify(submissions[:100], 10)]
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
-    @commands.command(brief='Create a mashup', usage='[handles] [+tags]')
+    @commands.command(brief='Create a mashup', usage='[handles] [+tag..] [~tag..]')
     async def mashup(self, ctx, *args):
         """Create a mashup contest using problems within +-100 of average rating of handles provided.
         Add tags with "+" before them.
+        Ban tags with "~" before them.
         """
-        handles = [arg for arg in args if arg[0] != '+']
-        tags = cf_common.parse_tags(args)
+        handles = [arg for arg in args if arg[0] not in '+~']
+        tags = cf_common.parse_tags(args, prefix='+')
+        bantags = cf_common.parse_tags(args, prefix='~')
 
         handles = handles or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
@@ -188,7 +192,8 @@ class Codeforces(commands.Cog):
                     if abs(prob.rating - rating) <= 100 and prob.name not in solved
                     and not any(cf_common.is_contest_writer(prob.contestId, handle) for handle in handles)
                     and not cf_common.is_nonstandard_problem(prob)
-                    and prob.matches_all_tags(tags)]
+                    and prob.matches_all_tags(tags)
+                    and not prob.matches_any_tag(bantags)]
 
         if len(problems) < 4:
             raise CodeforcesCogError('Problems not found within the search parameters')

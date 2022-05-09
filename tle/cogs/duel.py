@@ -129,9 +129,10 @@ class Dueling(commands.Cog):
                 f'{ctx.author.mention} is already a registered duelist')
         await ctx.send(f'{ctx.author.mention} successfully registered as a duelist')
 
-    @duel.command(brief='Challenge to a duel', usage='opponent [rating] [+tags]')
+    @duel.command(brief='Challenge to a duel', usage='opponent [rating] [+tag..] [~tag..]')
     async def challenge(self, ctx, opponent: discord.Member, *args):
-        """Challenge another server member to a duel. Problem difficulty will be the lesser of duelist ratings minus 400. You can alternatively specify a different rating. The duel will be unrated if specified rating is above the default value or tags are used to choose a problem. The challenge expires if ignored for 5 minutes."""
+        """Challenge another server member to a duel. Problem difficulty will be the lesser of duelist ratings minus 400. You can alternatively specify a different rating. 
+        The duel will be unrated if specified rating is above the default value or tags are used to choose a problem. The challenge expires if ignored for 5 minutes."""
         challenger_id = ctx.author.id
         challengee_id = opponent.id
 
@@ -157,14 +158,15 @@ class Dueling(commands.Cog):
             raise DuelCogError(
                 f'{opponent.mention} is currently in a duel!')
                 
-        tags = cf_common.parse_tags(args)
+        tags = cf_common.parse_tags(args, prefix='+')
+        bantags = cf_common.parse_tags(args, prefix='~')
         rating = cf_common.parse_rating(args)
         users = [cf_common.user_db.fetch_cf_user(handle) for handle in handles]
         lowest_rating = min(user.rating or 0 for user in users)
         suggested_rating = max(
             round(lowest_rating, -2) + _DUEL_RATING_DELTA, 500)
         rating = round(rating, -2) if rating else suggested_rating
-        unofficial = rating > suggested_rating or len(tags) > 0
+        unofficial = rating > suggested_rating or tags or bantags
         dtype = DuelType.UNOFFICIAL if unofficial else DuelType.OFFICIAL
 
         solved = {
@@ -177,7 +179,8 @@ class Dueling(commands.Cog):
                     if prob.rating == rating and prob.name not in solved and prob.name not in seen
                     and not any(cf_common.is_contest_writer(prob.contestId, handle) for handle in handles)
                     and not cf_common.is_nonstandard_problem(prob)
-                    and prob.matches_all_tags(tags)]
+                    and prob.matches_all_tags(tags)
+                    and not prob.matches_any_tag(bantags)]
 
         for problems in map(get_problems, range(rating, 400, -100)):
             if problems:
