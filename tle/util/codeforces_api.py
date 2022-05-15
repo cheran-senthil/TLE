@@ -391,7 +391,7 @@ class user:
         adaptN = [900, 550, 300, 150, 50, 0]
         for r in resp:
             if (len(r) > 0):
-                if (r[0].newRating < 1000):
+                if (r[0].newRating <= 1200):
                     for ind in range(0,(min(6, len(r)))):
                         r[ind] = RatingChange(r[ind].contestId, r[ind].contestName, r[ind].handle, r[ind].rank, r[ind].ratingUpdateTimeSeconds, r[ind].oldRating+adaptO[ind], r[ind].newRating+adaptN[ind])
                 else:
