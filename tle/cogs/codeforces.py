@@ -323,7 +323,7 @@ class Codeforces(commands.Cog):
             problem.contestId).startTimeSeconds)
 
         choice = max(random.randrange(len(problems)) for _ in range(5))
-        if tags or notags:
+        if tags or bantags:
             delta = max(delta - 200, _GITGUD_MAX_NEG_DELTA_VALUE)
         await self._gitgud(ctx, handle, problems[choice], delta)
 
