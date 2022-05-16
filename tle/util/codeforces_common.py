@@ -401,6 +401,9 @@ class SubFilter:
         return rating_changes
 
 def fix_rating_changes(rating_changes):
+    if not rating_changes:
+        return rating_changes
+
     old_diff = [1400, 900, 550, 300, 150, 50]
     new_diff = [900, 550, 300, 150, 50, 0]
     # Codeforces Round #644 (Div. 3)
