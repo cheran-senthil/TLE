@@ -266,7 +266,7 @@ class Codeforces(commands.Cog):
     @commands.command(brief='Challenge', 
                       usage='[delta=0] [+tags...] [~tags...]')
     @cf_common.user_guard(group='gitgud')
-    async def gitgud(self, ctx, delta: int = 0, *args):
+    async def gitgud(self, ctx, *args):
         """Gitgud: You can request a problem from the bots relative to your current rating with ;gitgud <delta>
         - It is also possible to request problems with a certain tag now but you get less points for it: ;gitgud <delta> [+tags...] [~tags...]
         - After solving the problem you can claim gitgud points for it with ;gotgud
@@ -289,17 +289,17 @@ class Codeforces(commands.Cog):
         submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions}
         noguds = cf_common.user_db.get_noguds(ctx.message.author.id)
-        #delta = 0
+        delta = 0
         tags = cf_common.parse_tags(args, prefix='+')
         bantags = cf_common.parse_tags(args, prefix='~')
         
-        # for arg in args:
-            # if arg[0] == '-':
-                # if arg[1:].isdigit():
-                    # delta = int(arg)
-            # else:
-                # if arg[0:].isdigit():
-                    # delta = int(arg)
+        for arg in args:
+            if arg[0] == '-':
+                if arg[1:].isdigit():
+                    delta = int(arg)
+            else:
+                if arg[0:].isdigit():
+                    delta = int(arg)
 
         await self._validate_gitgud_status(ctx, delta)
         
