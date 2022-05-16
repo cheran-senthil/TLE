@@ -409,3 +409,4 @@ def fix_rating_changes(rating_changes):
             old_r, new_r = rating_changes[i].oldRating, rating_changes[i].newRating
             rating_changes[i] = rating_changes[i]._replace(oldRating=old_r + old_diff[i],
                                                            newRating=new_r + new_diff[i])
+    return rating_changes
