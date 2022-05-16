@@ -264,11 +264,11 @@ class Codeforces(commands.Cog):
         await ctx.send(f'Mashup contest for `{str_handles}`', embed=embed)
 
     @commands.command(brief='Challenge', 
-                      usage='[delta=0] [+tags...] [-tags...]')
+                      usage='[delta=0] [+tags...] [~tags...]')
     @cf_common.user_guard(group='gitgud')
     async def gitgud(self, ctx, *args):
         """Gitgud: You can request a problem from the bots relative to your current rating with ;gitgud <delta>
-        - It is also possible to request problems with a certain tag now but you get less points for it: ;gitgud <delta> [+tags...] [-tags...]
+        - It is also possible to request problems with a certain tag now but you get less points for it: ;gitgud <delta> [+tags...] [~tags...]
         - After solving the problem you can claim gitgud points for it with ;gotgud
         - If you can't solve the problem for 2 hours you can skip it with ;nogud
         - The all-time ranklist can be found with ;gitgudders
@@ -290,38 +290,25 @@ class Codeforces(commands.Cog):
         solved = {sub.problem.name for sub in submissions}
         noguds = cf_common.user_db.get_noguds(ctx.message.author.id)
         delta = 0
-        tags  = []
-        notags= []
+        tags = cf_common.parse_tags(args, prefix='+')
+        bantags = cf_common.parse_tags(args, prefix='~')
         
         for arg in args:
-            if arg[0] == '-' or arg[0] == '~':
+            if arg[0] == '-':
                 if arg[1:].isdigit():
                     delta = int(arg)
-                else:
-                    notags.append(arg[1:])
             else:
-                if arg[0] == '+':
-                    if arg[1:].isdigit():
-                        delta = int(arg)
-                    else:
-                        tags.append(arg[1:])
-                else:
-                    if arg.isdigit():
-                        delta = int(arg)
-                    else:
-                        tags.append(arg)
+                if arg[0:].isdigit():
+                    delta = int(arg)
 
         await self._validate_gitgud_status(ctx, delta)
         
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
-                    if (prob.rating == rating + delta and
-                        prob.name not in solved and
-                        prob.name not in noguds)]
-                        
-        if tags:
-            problems = [prob for prob in problems if prob.tag_matches(tags)]
-        if notags:
-            problems = [prob for prob in problems if (prob.tag_matches_or(notags) == None)]        
+                    if (prob.rating == rating + delta 
+                    and prob.name not in solved 
+                    and prob.name not in noguds)
+                    and prob.matches_all_tags(tags)
+                    and not prob.matches_any_tag(bantags)]
                         
 
         def check(problem):
