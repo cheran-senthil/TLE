@@ -141,7 +141,7 @@ class Codeforces(commands.Cog):
         solved = {sub.problem.name for sub in submissions if sub.verdict == 'OK'}
 
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
-                    if prob.rating >= srating and prob.rating <= erating and prob.name not in solved and
+                    if prob.rating >= srating and prob.rating <= erating and prob.name not in solved
                     and not cf_common.is_contest_writer(prob.contestId, handle)
                     and prob.matches_all_tags(tags)
                     and not prob.matches_any_tag(bantags)]
