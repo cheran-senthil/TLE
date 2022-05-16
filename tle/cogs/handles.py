@@ -362,7 +362,7 @@ class Handles(commands.Cog):
         if role_to_assign is not None and role_to_assign not in member.roles:
             await member.add_roles(role_to_assign, reason=reason)
 
-    @handle.command(brief='Set Codeforces handle of a user')
+    @handle.command(brief='Set Codeforces handle of a user', aliases=["link"])
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
     async def set(self, ctx, member: discord.Member, handle: str):
         """Set Codeforces handle of a user."""
@@ -438,19 +438,25 @@ class Handles(commands.Cog):
             raise HandleCogError(f'Discord username for `{handle}` not found in database')
         user = cf_common.user_db.fetch_cf_user(handle)
         member = ctx.guild.get_member(user_id)
+        if member is None:
+            raise HandleCogError(f'{user_id} not found in the guild')
         embed = _make_profile_embed(member, user, mode='get')
         await ctx.send(embed=embed)
 
-    @handle.command(brief='Remove handle for a user')
+    @handle.command(brief='Unlink handle', aliases=["unlink"])
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
-    async def remove(self, ctx, member: discord.Member):
+    async def remove(self, ctx, handle: str):
         """Remove Codeforces handle of a user."""
-        rc = cf_common.user_db.remove_handle(member.id, ctx.guild.id)
-        if not rc:
-            raise HandleCogError(f'Handle for {member.mention} not found in database')
+        handle, = await cf_common.resolve_handles(ctx, self.converter, [handle])
+        user_id = cf_common.user_db.get_user_id(handle, ctx.guild.id)
+        if user_id is None:
+            raise HandleCogError(f'{handle} not found in database')
+
+        cf_common.user_db.remove_handle(handle, ctx.guild.id)
+        member = ctx.guild.get_member(user_id)
         await self.update_member_rank_role(member, role_to_assign=None,
-                                           reason='Handle removed for user')
-        embed = discord_common.embed_success(f'Removed handle for {member.mention}')
+                                           reason='Handle unlinked')
+        embed = discord_common.embed_success(f'Removed {handle} from database')
         await ctx.send(embed=embed)
         
     @handle.command(brief='Remove handle for a user')

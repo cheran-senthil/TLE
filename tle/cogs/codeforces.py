@@ -118,14 +118,16 @@ class Codeforces(commands.Cog):
             paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)   
 
     @commands.command(brief='Recommend a problem',
-                      usage='[tags...] [-tags...] [rating|rating1-rating2]')
+                      usage='[+tag..] [~tag..] [rating|rating1-rating2]')
     @cf_common.user_guard(group='gitgud')
     async def gimme(self, ctx, *args):
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
+        rating = round(cf_common.user_db.fetch_cf_user(handle).effective_rating, -2)
+        tags = cf_common.parse_tags(args, prefix='+')
+        bantags = cf_common.parse_tags(args, prefix='~')
+
         srating = round(cf_common.user_db.fetch_cf_user(handle).effective_rating, -2)
         erating = srating 
-        tags  = []
-        notags= []
         for arg in args:
             if arg[0:3].isdigit():
                 ratings = arg.split("-")
@@ -134,25 +136,15 @@ class Codeforces(commands.Cog):
                     erating = int(ratings[1])
                 else:
                     erating = srating
-            else:
-                if arg[0] == '-' or arg[0] == '~':
-                    notags.append(arg[1:])
-                else:
-                    if arg[0] == '+':
-                        tags.append(arg[1:])
-                    else:
-                        tags.append(arg)
-                    
+
         submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions if sub.verdict == 'OK'}
 
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
                     if prob.rating >= srating and prob.rating <= erating and prob.name not in solved and
-                    not cf_common.is_contest_writer(prob.contestId, handle)]
-        if tags:
-            problems = [prob for prob in problems if prob.tag_matches(tags)]
-        if notags:
-            problems = [prob for prob in problems if (prob.tag_matches_or(notags) == None)]
+                    and not cf_common.is_contest_writer(prob.contestId, handle)
+                    and prob.matches_all_tags(tags)
+                    and not prob.matches_any_tag(bantags)]
 
         if not problems:
             raise CodeforcesCogError('Problems not found within the search parameters')
@@ -168,7 +160,7 @@ class Codeforces(commands.Cog):
         embed = discord.Embed(title=title, url=problem.url, description=desc)
         embed.add_field(name='Rating', value=problem.rating)
         if tags:
-            tagslist = ', '.join(problem.tag_matches(tags))
+            tagslist = ', '.join(problem.get_matched_tags(tags))
             embed.add_field(name='Matched tags', value=tagslist)
         await ctx.send(f'Recommended problem for `{handle}`', embed=embed)
 
@@ -214,14 +206,16 @@ class Codeforces(commands.Cog):
         pages = [make_page(chunk) for chunk in paginator.chunkify(submissions[:100], 10)]
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
-    @commands.command(brief='Create a mashup', usage='[handles] [+tags] [?[-]delta]')
+    @commands.command(brief='Create a mashup', usage='[handles] [+tag..] [~tag..] [?[-]delta]')
     async def mashup(self, ctx, *args):
         """Create a mashup contest using problems within -200 and +400 of average rating of handles provided.
         Add tags with "+" before them.
+        Ban tags with "~" before them.
         """
         delta = 100
-        handles = [arg for arg in args if arg[0] != '+' and arg[0]!='?']
-        tags = [arg[1:] for arg in args if arg[0] == '+' and len(arg) > 1]
+        handles = [arg for arg in args if arg[0] not in '+~?']
+        tags = cf_common.parse_tags(args, prefix='+')
+        bantags = cf_common.parse_tags(args, prefix='~')
         deltaStr = [arg[1:] for arg in args if arg[0] == '?' and len(arg) > 1]
         if len(deltaStr) > 1:
             raise CodeforcesCogError('Only one delta argument is allowed')
@@ -230,7 +224,7 @@ class Codeforces(commands.Cog):
                 delta += round(int(deltaStr[0]), -2)
             except ValueError:
                 raise CodeforcesCogError('delta could not be interpreted as number')
-        
+
         handles = handles or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         resp = [await cf.user.status(handle=handle) for handle in handles]
@@ -244,9 +238,9 @@ class Codeforces(commands.Cog):
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
                     if abs(prob.rating - rating) <= 300 and prob.name not in solved
                     and not any(cf_common.is_contest_writer(prob.contestId, handle) for handle in handles)
-                    and not cf_common.is_nonstandard_problem(prob)]
-        if tags:
-            problems = [prob for prob in problems if prob.tag_matches(tags)]
+                    and not cf_common.is_nonstandard_problem(prob)
+                    and prob.matches_all_tags(tags)
+                    and not prob.matches_any_tag(bantags)]
 
         if len(problems) < 4:
             raise CodeforcesCogError('Problems not found within the search parameters')
