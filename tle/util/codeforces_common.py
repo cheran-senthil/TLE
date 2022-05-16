@@ -406,6 +406,6 @@ def fix_rating_changes(rating_changes):
     # Codeforces Round #644 (Div. 3)
     if rating_changes[0].ratingUpdateTimeSeconds >= 1590334500:
         for i in range(min(6, len(rating_changes))):
-            old_r, new_r = rating_change[i].oldRating, rating_change[i].newRating
-            rating_change[i] = rating_change[i]._replace(oldRating=old_r + old_diff[i],
-                                                         newRating=new_r + new_diff[i])
+            old_r, new_r = rating_changes[i].oldRating, rating_changes[i].newRating
+            rating_changes[i] = rating_changes[i]._replace(oldRating=old_r + old_diff[i],
+                                                           newRating=new_r + new_diff[i])
