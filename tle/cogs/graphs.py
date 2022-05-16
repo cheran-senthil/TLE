@@ -236,6 +236,7 @@ class Graphs(commands.Cog):
         handles = args or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         resp = [await cf.user.rating(handle=handle) for handle in handles]
+        resp = [cf_common.fix_rating_changes(rating_changes) for rating_changes in resp]
         resp = [filt.filter_rating_changes(rating_changes) for rating_changes in resp]
 
         if not any(resp):

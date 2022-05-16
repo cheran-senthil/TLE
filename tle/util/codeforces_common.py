@@ -399,3 +399,13 @@ class SubFilter:
         rating_changes = [change for change in rating_changes
                     if self.dlo <= change.ratingUpdateTimeSeconds < self.dhi]
         return rating_changes
+
+def fix_rating_changes(rating_changes):
+    old_diff = [1400, 900, 550, 300, 150, 50]
+    new_diff = [900, 550, 300, 150, 50, 0]
+    # Codeforces Round #644 (Div. 3)
+    if rating_changes[0].ratingUpdateTimeSeconds >= 1590334500:
+        for i in range(min(6, len(rating_changes))):
+            old_r, new_r = rating_change[i].oldRating, rating_change[i].newRating
+            rating_change[i] = rating_change[i]._replace(oldRating=old_r + old_diff[i],
+                                                         newRating=new_r + new_diff[i])
