@@ -461,16 +461,7 @@ class Handles(commands.Cog):
                                            reason='Handle unlinked')
         embed = discord_common.embed_success(f'Removed {handle} from database')
         await ctx.send(embed=embed)
-        
-    @handle.command(brief='Remove handle for a user')
-    @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
-    async def removeById(self, ctx, user_id):
-        """Remove Codeforces handle of a user by using its discord id. Useful if user is not a server member anymore."""
-        rc = cf_common.user_db.remove_handle(user_id, ctx.guild.id)
-        if not rc:
-            raise HandleCogError(f'Handle for {user_id} not found in database')
-        embed = discord_common.embed_success(f'Removed handle for {user_id}')
-        await ctx.send(embed=embed)        
+    
 
     @handle.command(brief='Resolve redirect of a user\'s handle')
     async def unmagic(self, ctx):
