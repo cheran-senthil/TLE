@@ -4,6 +4,7 @@ import json
 import logging
 import time
 import datetime as dt
+import requests
 from collections import defaultdict, namedtuple
 
 import discord
