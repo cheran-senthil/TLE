@@ -809,6 +809,72 @@ class Contests(commands.Cog):
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
 
+
+    @commands.command(usage='contest')
+    async def cdif(self, ctx, contest):
+        """predict contest problem difficulties
+        """
+        _, problems, _ = await cf.contest.standings(contest_id=contest)
+        output = ''
+        officialRatings = []
+        for problem in problems:
+            officialRatings.append(problem.rating)
+
+        def calculateDifficutly(ratings, solved):
+            ans = -1000
+
+            def calcProb(dif):
+                prob = 1
+                d = 0
+                for (r, s) in zip(ratings, solved):
+                    p = 1/(1+10**((dif-r)/400))
+                    d += p
+                    if s:
+                        d -= 1
+                    prob *= p if s else (1-p)
+                return d > 0 and prob < 0.95
+            jump = 4096
+            while jump >= 1:
+                if calcProb(ans+jump):
+                    ans += jump
+                jump /= 2
+            ans = round(ans+1)
+            return ans
+
+        scores = [[]]
+        solved = [[] for i in range(100)]
+        ratings = []
+        indicies = []
+
+        def get_ratings(contest):
+            data = requests.get(
+                f'https://codeforces.com/api/contest.ratingChanges?contestId={contest}')
+            data = data.json()
+            data = data['result']
+            for row in data:
+                ratings.append(row['oldRating'])
+
+        def get_results(contest):
+            data = requests.get(
+                f' https://codeforces.com/api/contest.standings?contestId={contest}&showUnofficial=false')
+            data = data.json()
+            data = data['result']
+            for row in data['problems']:
+                indicies.append(row['index'])
+            for row in data['rows']:
+                for i, result in enumerate(row['problemResults']):
+                    solved[i].append(min(result['points'], 1))
+        #print('getting ratings')
+        get_ratings(contest)
+        #print('getting results')
+        get_results(contest)
+        #print('calculating')
+
+        output = ""
+        for i, index in enumerate(indicies):
+            output += f'{index}: {officialRatings[i]} ({calculateDifficutly(ratings,solved[i])})\n'
+        await ctx.send(output)
+        
     @discord_common.send_error_if(ContestCogError, rl.RanklistError,
                                   cache_system2.CacheError, cf_common.ResolveHandleError)
     async def cog_command_error(self, ctx, error):
