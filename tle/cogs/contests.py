@@ -818,7 +818,7 @@ class Contests(commands.Cog):
         officialRatings = [problem.rating for problem in problems]
         indicies = [problem.index for problem in problems]
 
-        rating_changes = await cf.contest.ratingChanges(contest)
+        rating_changes = await cf.contest.ratingChanges(contest_id=contest)
         ratings = [rating.oldRating for rating in rating_changes]
 
         solved = [[] for i in range(100)]
