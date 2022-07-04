@@ -814,11 +814,18 @@ class Contests(commands.Cog):
     async def cdif(self, ctx, contest):
         """predict contest problem difficulties
         """
-        _, problems, _ = await cf.contest.standings(contest_id=contest)
-        output = ''
-        officialRatings = []
-        for problem in problems:
-            officialRatings.append(problem.rating)
+        _, problems, ranklist = await cf.contest.standings(contest_id=contest, show_unofficial=False)
+        officialRatings = [problem.rating for problem in problems]
+        indicies = [problem.index for problem in problems]
+
+        rating_changes = await cf.contest.ratingChanges(contest_id=contest)
+        ratings = [rating.oldRating for rating in rating_changes]
+
+        solved = [[] for i in range(100)]
+        for row in ranklist:
+            for i, result in enumerate(row.problemResults):
+                solved[i].append(min(result.points, 1))        
+        
 
         def calculateDifficutly(ratings, solved):
             ans = -1000
@@ -841,35 +848,47 @@ class Contests(commands.Cog):
             ans = round(ans+1)
             return ans
 
-        scores = [[]]
-        solved = [[] for i in range(100)]
-        ratings = []
-        indicies = []
 
-        def get_ratings(contest):
-            data = requests.get(
-                f'https://codeforces.com/api/contest.ratingChanges?contestId={contest}')
-            data = data.json()
-            data = data['result']
-            for row in data:
-                ratings.append(row['oldRating'])
 
-        def get_results(contest):
-            data = requests.get(
-                f' https://codeforces.com/api/contest.standings?contestId={contest}&showUnofficial=false')
-            data = data.json()
-            data = data['result']
-            for row in data['problems']:
-                indicies.append(row['index'])
-            for row in data['rows']:
-                for i, result in enumerate(row['problemResults']):
-                    solved[i].append(min(result['points'], 1))
+        # def get_ratings(contest):
+            # data = requests.get(
+                # f'https://codeforces.com/api/contest.ratingChanges?contestId={contest}')
+            # data = data.json()
+            # data = data['result']
+            # for row in data:
+                # ratings.append(row['oldRating'])
+
+        # def get_results(contest):
+            # data = requests.get(
+                # f' https://codeforces.com/api/contest.standings?contestId={contest}&showUnofficial=false')
+            # data = data.json()
+            # data = data['result']
+            # for row in data['problems']:
+                # indicies.append(row['index'])
+            # for row in data['rows']:
+                # for i, result in enumerate(row['problemResults']):
+                    # solved[i].append(min(result['points'], 1))
+                    
         #print('getting ratings')
-        get_ratings(contest)
+        #get_ratings(contest)
         #print('getting results')
-        get_results(contest)
+        #get_results(contest)
         #print('calculating')
+        
+        
+        # RanklistRow = namedtuple('RanklistRow', 'party rank points penalty problemResults')
 
+        # ProblemResult = namedtuple('ProblemResult',
+                           # 'points penalty rejectedAttemptCount type bestSubmissionTimeSeconds')
+            # for row in resp['rows']:
+            # row['party']['members'] = [make_from_dict(Member, member)
+                                       # for member in row['party']['members']]
+            # row['party'] = make_from_dict(Party, row['party'])
+            # row['problemResults'] = [make_from_dict(ProblemResult, problem_result)
+                                     # for problem_result in row['problemResults']]
+        # ranklist = [make_from_dict(RanklistRow, row_dict) for row_dict in resp['rows']]
+        # return contest_, problems, ranklist
+        
         output = ""
         for i, index in enumerate(indicies):
             output += f'{index}: {officialRatings[i]} ({calculateDifficutly(ratings,solved[i])})\n'
