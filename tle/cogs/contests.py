@@ -810,15 +810,15 @@ class Contests(commands.Cog):
         await ctx.send(embed=embed, file=discord_file)
 
 
-    @commands.command(usage='contest')
-    async def cdif(self, ctx, contest):
-        """predict contest problem difficulties
+    @commands.command(brief='Estimation of contest problem ratings', alias='probrat', usage='contest_id')
+    async def problemratings(self, ctx, contest_id):
+        """Estimation of contest problem ratings
         """
-        _, problems, ranklist = await cf.contest.standings(contest_id=contest, show_unofficial=False)
+        _, problems, ranklist = await cf.contest.standings(contest_id=contest_id, show_unofficial=False)
         officialRatings = [problem.rating for problem in problems]
         indicies = [problem.index for problem in problems]
 
-        rating_changes = await cf.contest.ratingChanges(contest_id=contest)
+        rating_changes = await cf.contest.ratingChanges(contest_id=contest_id)
         ratings = [rating.oldRating for rating in rating_changes]
 
         solved = [[] for i in range(100)]
@@ -847,47 +847,6 @@ class Contests(commands.Cog):
                 jump /= 2
             ans = round(ans+1)
             return ans
-
-
-
-        # def get_ratings(contest):
-            # data = requests.get(
-                # f'https://codeforces.com/api/contest.ratingChanges?contestId={contest}')
-            # data = data.json()
-            # data = data['result']
-            # for row in data:
-                # ratings.append(row['oldRating'])
-
-        # def get_results(contest):
-            # data = requests.get(
-                # f' https://codeforces.com/api/contest.standings?contestId={contest}&showUnofficial=false')
-            # data = data.json()
-            # data = data['result']
-            # for row in data['problems']:
-                # indicies.append(row['index'])
-            # for row in data['rows']:
-                # for i, result in enumerate(row['problemResults']):
-                    # solved[i].append(min(result['points'], 1))
-                    
-        #print('getting ratings')
-        #get_ratings(contest)
-        #print('getting results')
-        #get_results(contest)
-        #print('calculating')
-        
-        
-        # RanklistRow = namedtuple('RanklistRow', 'party rank points penalty problemResults')
-
-        # ProblemResult = namedtuple('ProblemResult',
-                           # 'points penalty rejectedAttemptCount type bestSubmissionTimeSeconds')
-            # for row in resp['rows']:
-            # row['party']['members'] = [make_from_dict(Member, member)
-                                       # for member in row['party']['members']]
-            # row['party'] = make_from_dict(Party, row['party'])
-            # row['problemResults'] = [make_from_dict(ProblemResult, problem_result)
-                                     # for problem_result in row['problemResults']]
-        # ranklist = [make_from_dict(RanklistRow, row_dict) for row_dict in resp['rows']]
-        # return contest_, problems, ranklist
         
         output = ""
         for i, index in enumerate(indicies):
