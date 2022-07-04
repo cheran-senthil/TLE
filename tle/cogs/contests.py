@@ -814,7 +814,7 @@ class Contests(commands.Cog):
     async def cdif(self, ctx, contest):
         """predict contest problem difficulties
         """
-        _, problems, ranklist = await cf.contest.standings(contest, show_unofficial=false)
+        _, problems, ranklist = await cf.contest.standings(contest, show_unofficial=False)
         officialRatings = [problem.rating for problem in problems]
         indicies = [problem.index for problem in problems]
 
