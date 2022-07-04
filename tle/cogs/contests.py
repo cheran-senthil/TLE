@@ -810,7 +810,7 @@ class Contests(commands.Cog):
         await ctx.send(embed=embed, file=discord_file)
 
 
-    @commands.command(brief='Estimation of contest problem ratings', aliases='probrat', usage='contest_id')
+    @commands.command(brief='Estimation of contest problem ratings', aliases=['probrat'], usage='contest_id')
     async def problemratings(self, ctx, contest_id):
         """Estimation of contest problem ratings
         """
