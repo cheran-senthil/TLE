@@ -819,6 +819,7 @@ class Contests(commands.Cog):
         indicies = [problem.index for problem in problems]
 
         rating_changes = await cf.contest.ratingChanges(contest_id=contest_id)
+        ratings = []
         if len(rating_changes) == 0 or useCache:
             current_ratings = cf_common.cache2.rating_changes_cache.handle_rating_cache
             for row in ranklist:
