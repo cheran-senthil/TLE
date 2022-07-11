@@ -810,11 +810,11 @@ class Contests(commands.Cog):
         await ctx.send(embed=embed, file=discord_file)
 
 
-    @commands.command(brief='Estimation of contest problem ratings', aliases=['probrat'], usage='contest_id')
+    @commands.command(brief='Estimation of contest problem ratings', aliases=['probrat'], usage='contest_id [useUnofficial]')
     async def problemratings(self, ctx, contest_id, unofficial = True):
         """Estimation of contest problem ratings
         """
-        _, problems, ranklist = await cf.contest.standings(contest_id=contest_id, show_unofficial=False)
+        _, problems, ranklist = await cf.contest.standings(contest_id=contest_id, show_unofficial=unofficial)
         officialRatings = [problem.rating for problem in problems]
         indicies = [problem.index for problem in problems]
 
