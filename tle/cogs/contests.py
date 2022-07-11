@@ -858,7 +858,7 @@ class Contests(commands.Cog):
             ans = round(ans+1)
             return ans
         
-        style = table.Style('{:>}  {:<}  {:<}')
+        style = table.Style('{:<}  {:>}  {:>}')
         t = table.Table(style)
         t += table.Header('#', 'Official', 'Predicted')
         t += table.Line()
