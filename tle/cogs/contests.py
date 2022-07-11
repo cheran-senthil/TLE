@@ -811,7 +811,7 @@ class Contests(commands.Cog):
 
 
     @commands.command(brief='Estimation of contest problem ratings', aliases=['probrat'], usage='contest_id [useUnofficial]')
-    async def problemratings(self, ctx, contest_id, unofficial = True):
+    async def problemratings(self, ctx, contest_id, unofficial = True, useCache = True):
         """Estimation of contest problem ratings
         """
         _, problems, ranklist = await cf.contest.standings(contest_id=contest_id, show_unofficial=unofficial)
@@ -819,7 +819,13 @@ class Contests(commands.Cog):
         indicies = [problem.index for problem in problems]
 
         rating_changes = await cf.contest.ratingChanges(contest_id=contest_id)
-        ratings = [rating.oldRating for rating in rating_changes]
+        if len(rating_changes) == 0 or useCache:
+            current_ratings = cf_common.cache2.rating_changes_cache.handle_rating_cache
+            for row in ranklist:
+                member = row.party.members[0].handle
+                ratings.append(current_ratings[member])
+        else:
+            ratings = [rating.oldRating for rating in rating_changes]
 
         solved = [[] for i in range(100)]
         for row in ranklist:
