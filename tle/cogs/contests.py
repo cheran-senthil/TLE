@@ -824,7 +824,10 @@ class Contests(commands.Cog):
             current_ratings = cf_common.cache2.rating_changes_cache.handle_rating_cache
             for row in ranklist:
                 member = row.party.members[0].handle
-                ratings.append(current_ratings[member])
+                if member in current_ratings:
+                    ratings.append(current_ratings[member])
+                else: 
+                    ratings.append(0)
         else:
             ratings = [rating.oldRating for rating in rating_changes]
 
