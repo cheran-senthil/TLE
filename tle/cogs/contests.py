@@ -810,11 +810,11 @@ class Contests(commands.Cog):
         await ctx.send(embed=embed, file=discord_file)
 
 
-    @commands.command(brief='Estimation of contest problem ratings', aliases=['probrat'], usage='contest_id [useUnofficial]')
-    async def problemratings(self, ctx, contest_id, unofficial = True, useCache = True):
+    @commands.command(brief='Estimation of contest problem ratings', aliases=['probrat'], usage='contest_id')
+    async def problemratings(self, ctx, contest_id, useCache = False):
         """Estimation of contest problem ratings
         """
-        _, problems, ranklist = await cf.contest.standings(contest_id=contest_id, show_unofficial=unofficial)
+        _, problems, ranklist = await cf.contest.standings(contest_id=contest_id, show_unofficial=False)
         officialRatings = [problem.rating for problem in problems]
         indicies = [problem.index for problem in problems]
 
@@ -858,10 +858,16 @@ class Contests(commands.Cog):
             ans = round(ans+1)
             return ans
         
-        output = ""
+        style = table.Style('{:>}  {:<}  {:<}')
+        t = table.Table(style)
+        t += table.Header('#', 'Official', 'Predicted')
+        t += table.Line()
         for i, index in enumerate(indicies):
-            output += f'{index}: {officialRatings[i]} ({calculateDifficutly(ratings,solved[i])})\n'
-        await ctx.send(output)
+            predicted = calculateDifficutly(ratings,solved[i])
+            t += table.Data(f'{index}', f'{officialRatings[i]}', f'{predicted}')
+        table_str = f'```\n{t}\n```'
+        embed = discord_common.cf_color_embed(description=table_str)
+        await ctx.send(embed=embed)
         
     @discord_common.send_error_if(ContestCogError, rl.RanklistError,
                                   cache_system2.CacheError, cf_common.ResolveHandleError)
