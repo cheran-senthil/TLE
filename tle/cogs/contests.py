@@ -816,9 +816,8 @@ class Contests(commands.Cog):
         """
         contests = await cf.contest.list()
         reqcontest = [contest for contest in contests if int(contest.id) == int(contest_id)]
-        raise ContestCogError(f'Size: {len(reqcontest)}')
-        ids = [contest.id for contest in reqcontest]
         combined = [contest for contest in contests if reqcontest[0].startTimeSeconds == contest.startTimeSeconds]
+        raise ContestCogError(f'Size: {len(combined)}')
 
         _, problems, ranklist = await cf.contest.standings(contest_id=contest_id, show_unofficial=False)
         officialRatings = [problem.rating for problem in problems]
