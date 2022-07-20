@@ -815,7 +815,7 @@ class Contests(commands.Cog):
         """Estimation of contest problem ratings
         """
         contests = await cf.contest.list()
-        reqcontest = [contest for contest in contests if int(contest.id) == int(contest_id)]
+        reqcontest = [contest for contest in contests if contest.id == contest_id]
         combined = [contest for contest in contests if reqcontest[0].startTimeSeconds == contest.startTimeSeconds]
         raise ContestCogError(f'Size: {len(combined)}')
 
