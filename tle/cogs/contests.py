@@ -817,13 +817,15 @@ class Contests(commands.Cog):
         contests = await cf.contest.list()
         reqcontest = [contest for contest in contests if contest.id == contest_id]
         ids = [contest.id for contest in reqcontest]
-        desc = ", ".join(ids)
+        s = ", ".join(ids)
+        desc = f'```\n{s}\n```'
         embed = discord_common.cf_color_embed(description=desc)
         await ctx.send(embed=embed)
         combined = [contest for contest in contests if reqcontest[0].startTimeSeconds == contest.startTimeSeconds]
 
         ids = [contest.id for contest in combined]
-        desc = ", ".join(ids)
+        s = ", ".join(ids)
+        desc = f'```\n{s}\n```'
         embed = discord_common.cf_color_embed(description=desc)
         await ctx.send(embed=embed)
 
