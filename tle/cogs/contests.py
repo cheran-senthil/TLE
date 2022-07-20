@@ -816,7 +816,7 @@ class Contests(commands.Cog):
         """
         contests = await cf.contest.list()
         reqcontest = [contest for contest in contests if id == contest_id]
-        combined = [contest for contest in contests if reqcontest.startTimeSeconds == contest.startTimeSeconds]
+        combined = [contest for contest in contests if reqcontest[0].startTimeSeconds == contest.startTimeSeconds]
 
         ids = [contest.id for contest in combined]
         desc = ", ".join(ids)
