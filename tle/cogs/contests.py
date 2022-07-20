@@ -885,7 +885,7 @@ class Contests(commands.Cog):
                     if problems[i][j].name == name:
                         idx = j
                 if idx == -1: continue
-                for row in ranklist[i]:
+                for row in ranklists[i]:
                     solves.append(min(row.problemResults[idx].points, 1))
                     ratings.append(rating_cache[row.party.members[0].handle])
             predicted.append(calculateDifficulty(ratings,solves))
