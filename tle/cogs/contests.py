@@ -811,7 +811,7 @@ class Contests(commands.Cog):
 
 
     @commands.command(brief='Estimation of contest problem ratings', aliases=['probrat'], usage='contest_id')
-    async def problemratings(self, ctx, contest_id):
+    async def problemratings(self, ctx, contest_id: int):
         """Estimation of contest problem ratings
         """
         contests = await cf.contest.list()
