@@ -816,7 +816,9 @@ class Contests(commands.Cog):
         """
         contests = await cf.contest.list()
         reqcontest = [contest for contest in contests if contest.id == contest_id]
-        combined = [contest for contest in contests if reqcontest[0].startTimeSeconds == contest.startTimeSeconds]
+        combined = []
+        combined.append(reqcontest[0])
+        combined.append([contest for contest in contests if reqcontest[0].startTimeSeconds == contest.startTimeSeconds and contest.id != contest_id])
 
 
         # get ranklist of all contests in separate lists
@@ -827,7 +829,6 @@ class Contests(commands.Cog):
 
         problems = []
         ranklists = []
-        rating_changes = []
         rating_cache = dict()
         for contest in combined:
             _, problem, ranklist = await cf.contest.standings(contest_id=contest.id, show_unofficial=False)
