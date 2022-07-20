@@ -811,16 +811,25 @@ class Contests(commands.Cog):
 
 
     @commands.command(brief='Estimation of contest problem ratings', aliases=['probrat'], usage='contest_id')
-    async def problemratings(self, ctx, contest_id, useCache = False):
+    async def problemratings(self, ctx, contest_id):
         """Estimation of contest problem ratings
         """
+        contests = await cf.contest.list()
+        reqcontest = [contest for contest in contests if id == contest_id]
+        combined = [contest for contest in contests if reqcontest.startTimeSeconds == contest.startTimeSeconds]
+
+        ids = [contest.id for contest in combined]
+        desc = ", ".join(ids)
+        embed = discord_common.cf_color_embed(description=desc)
+        await ctx.send(embed=embed)
+
         _, problems, ranklist = await cf.contest.standings(contest_id=contest_id, show_unofficial=False)
         officialRatings = [problem.rating for problem in problems]
         indicies = [problem.index for problem in problems]
 
         rating_changes = await cf.contest.ratingChanges(contest_id=contest_id)
         ratings = []
-        if len(rating_changes) == 0 or useCache:
+        if len(rating_changes) == 0:
             current_ratings = cf_common.cache2.rating_changes_cache.handle_rating_cache
             for row in ranklist:
                 member = row.party.members[0].handle
