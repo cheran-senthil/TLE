@@ -816,18 +816,9 @@ class Contests(commands.Cog):
         """
         contests = await cf.contest.list()
         reqcontest = [contest for contest in contests if int(contest.id) == int(contest_id)]
+        raise ContestCogError(f'Size: {len(reqcontest)}')
         ids = [contest.id for contest in reqcontest]
-        s = ", ".join(ids)
-        desc = f'```\n{s}\n```'
-        embed = discord_common.cf_color_embed(description=desc)
-        await ctx.send(embed=embed)
         combined = [contest for contest in contests if reqcontest[0].startTimeSeconds == contest.startTimeSeconds]
-
-        ids = [contest.id for contest in combined]
-        s = ", ".join(ids)
-        desc = f'```\n{s}\n```'
-        embed = discord_common.cf_color_embed(description=desc)
-        await ctx.send(embed=embed)
 
         _, problems, ranklist = await cf.contest.standings(contest_id=contest_id, show_unofficial=False)
         officialRatings = [problem.rating for problem in problems]
