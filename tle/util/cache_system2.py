@@ -502,6 +502,10 @@ class RatingChangesCache:
         return self.handle_rating_cache.get(handle,
                                             cf.DEFAULT_RATING if default_if_absent else None)
 
+    def get_all_ratings_before_timestamp(self, timestamp):
+        res = self.cache_master.conn.get_all_ratings_before_timestamp(timestamp)
+        return {res[i].handle: res[i] for i in range(0, len(res))}
+
     def get_all_ratings(self):
         return list(self.handle_rating_cache.values())
 

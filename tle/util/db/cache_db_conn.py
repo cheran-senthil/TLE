@@ -55,6 +55,8 @@ class CacheDbConn:
                           'ON rating_change (contest_id)')
         self.conn.execute('CREATE INDEX IF NOT EXISTS ix_rating_change_handle '
                           'ON rating_change (handle)')
+        self.conn.execute('CREATE INDEX IF NOT EXISTS ix_rating_change_rating_update_time '
+                          'ON rating_change (handle ASC, rating_update_time DESC)')
 
         # Table for problems fetched from contest.standings endpoint for every contest.
         # This is separate from table problem as it contains the same problem twice if it
@@ -175,6 +177,15 @@ class CacheDbConn:
                  'ON r.contest_id = c.id '
                  'WHERE r.handle = ?')
         res = self.conn.execute(query, (handle,)).fetchall()
+        return [cf.RatingChange._make(change) for change in res]
+
+    def get_all_ratings_before_timestamp(self, timestamp):
+        query = ('SELECT contest_id, "Dummy", handle, rank, rating_update_time, old_rating, new_rating '
+                 'FROM rating_change '
+                 'WHERE rating_update_time < ? '
+                 'GROUP BY handle '
+                 'HAVING MAX(rating_update_time)')
+        res = self.conn.execute(query, (timestamp,)).fetchall()
         return [cf.RatingChange._make(change) for change in res]
 
     def cache_problemset(self, problemset):
