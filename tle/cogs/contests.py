@@ -834,9 +834,9 @@ class Contests(commands.Cog):
             ranklists.append(ranklist)
 
             if contest.id == contest_id:
-                officialRatings = [problem.rating for problem in problems[0]]
-                indicies = [problem.index for problem in problems[0]]
-                problemNames = [problem.name for problem in problems[0]]
+                officialRatings = [prob.rating for prob in problem]
+                indicies = [prob.index for prob in problem]
+                problemNames = [prob.name for prob in problem]
 
             #build ratingCache that has all old_rating for all contestants
             rating_change = await cf.contest.ratingChanges(contest_id=contest.id)
