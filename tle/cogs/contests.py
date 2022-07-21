@@ -811,33 +811,50 @@ class Contests(commands.Cog):
 
 
     @commands.command(brief='Estimation of contest problem ratings', aliases=['probrat'], usage='contest_id')
-    async def problemratings(self, ctx, contest_id, useCache = False):
+    async def problemratings(self, ctx, contest_id: int):
         """Estimation of contest problem ratings
         """
-        _, problems, ranklist = await cf.contest.standings(contest_id=contest_id, show_unofficial=False)
-        officialRatings = [problem.rating for problem in problems]
-        indicies = [problem.index for problem in problems]
+        contests = await cf.contest.list()
+        reqcontest = [contest for contest in contests if contest.id == contest_id]
+        combined = [contest for contest in contests if reqcontest[0].startTimeSeconds == contest.startTimeSeconds]
 
-        rating_changes = await cf.contest.ratingChanges(contest_id=contest_id)
-        ratings = []
-        if len(rating_changes) == 0 or useCache:
-            current_ratings = cf_common.cache2.rating_changes_cache.handle_rating_cache
-            for row in ranklist:
-                member = row.party.members[0].handle
-                if member in current_ratings:
-                    ratings.append(current_ratings[member])
-                else: 
-                    ratings.append(0)
-        else:
-            ratings = [rating.oldRating for rating in rating_changes]
 
-        solved = [[] for i in range(100)]
-        for row in ranklist:
-            for i, result in enumerate(row.problemResults):
-                solved[i].append(min(result.points, 1))        
-        
+        # get ranklist of all contests in separate lists
+        # get rating_changes of all contests in separate lists
+        # for each problem name of original contest
+            # find in each ranklist the handles and ratings that had a chance to do the problem
+            # calculate rating from these values
 
-        def calculateDifficutly(ratings, solved):
+        problems = []
+        ranklists = []
+        rating_cache = dict()
+        for contest in combined:
+            _, problem, ranklist = await cf.contest.standings(contest_id=contest.id, show_unofficial=False)
+            problems.append(problem)
+            ranklists.append(ranklist)
+
+            if contest.id == contest_id:
+                officialRatings = [prob.rating for prob in problem]
+                indicies = [prob.index for prob in problem]
+                problemNames = [prob.name for prob in problem]
+
+            #build ratingCache that has all old_rating for all contestants
+            rating_change = await cf.contest.ratingChanges(contest_id=contest.id)
+            from_cache = False
+            if len(rating_change) == 0:
+                from_cache = True
+                cached_ratings = cf_common.cache2.rating_changes_cache.handle_rating_cache
+                for row in ranklist:
+                    member = row.party.members[0].handle
+                    if member in cached_ratings:
+                        rating_cache[member] = cached_ratings[member]
+                    else: 
+                        rating_cache[member] = 0
+            else:
+                for change in rating_change:
+                    rating_cache[change.handle] = change.oldRating
+
+        def calculateDifficulty(ratings, solved):
             ans = -1000
 
             def calcProb(dif):
@@ -857,16 +874,35 @@ class Contests(commands.Cog):
                 jump /= 2
             ans = round(ans+1)
             return ans
-        
+
+        predicted = []
+        for name in problemNames:
+            ratings = []
+            solves = []
+
+            for i in range(len(problems)):
+                #get index of name in problem list of each contest
+                idx = -1
+                for j in range(len(problems[i])):
+                    if problems[i][j].name == name:
+                        idx = j
+                if idx == -1: continue
+                for row in ranklists[i]:
+                    solves.append(min(row.problemResults[idx].points, 1))
+                    ratings.append(rating_cache[row.party.members[0].handle])
+            predicted.append(calculateDifficulty(ratings,solves))
+
+        # Output results
         style = table.Style('{:<}  {:>}  {:>}')
         t = table.Table(style)
-        t += table.Header('#', 'Official', 'Predicted')
+        t += table.Header('#', 'Official', 'Predicted (C)' if from_cache else 'Predicted')
         t += table.Line()
         for i, index in enumerate(indicies):
-            predicted = calculateDifficutly(ratings,solved[i])
-            t += table.Data(f'{index}', f'{officialRatings[i]}', f'{predicted}')
+            t += table.Data(f'{index}', f'{officialRatings[i]}', f'{predicted[i]}')
         table_str = f'```\n{t}\n```'
-        embed = discord_common.cf_color_embed(description=table_str)
+        url = f'{cf.CONTEST_BASE_URL}{contest_id}'
+        title = reqcontest[0].name
+        embed = discord_common.cf_color_embed(description=table_str, title=title, url=url)
         await ctx.send(embed=embed)
         
     @discord_common.send_error_if(ContestCogError, rl.RanklistError,
