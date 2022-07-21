@@ -850,7 +850,7 @@ class Contests(commands.Cog):
                 for row in ranklist:
                     member = row.party.members[0].handle
                     if member in cached_ratings:
-                        rating_cache[member] = cached_ratings[member]
+                        rating_cache[member] = cached_ratings[member].new_rating
                     else: 
                         rating_cache[member] = 0
             else:
