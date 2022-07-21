@@ -816,9 +816,7 @@ class Contests(commands.Cog):
         """
         contests = await cf.contest.list()
         reqcontest = [contest for contest in contests if contest.id == contest_id]
-        combined = []
-        combined.append(reqcontest[0])
-        combined.append([contest for contest in contests if reqcontest[0].startTimeSeconds == contest.startTimeSeconds and contest.id != contest_id])
+        combined = [contest for contest in contests if reqcontest[0].startTimeSeconds == contest.startTimeSeconds]
 
 
         # get ranklist of all contests in separate lists
@@ -834,6 +832,12 @@ class Contests(commands.Cog):
             _, problem, ranklist = await cf.contest.standings(contest_id=contest.id, show_unofficial=False)
             problems.append(problem)
             ranklists.append(ranklist)
+
+            if contest.id == contest_id:
+                officialRatings = [problem.rating for problem in problems[0]]
+                indicies = [problem.index for problem in problems[0]]
+                problemNames = [problem.name for problem in problems[0]]
+
             #build ratingCache that has all old_rating for all contestants
             rating_change = await cf.contest.ratingChanges(contest_id=contest.id)
             if len(rating_change) == 0:
@@ -847,11 +851,6 @@ class Contests(commands.Cog):
             else:
                 for change in rating_change:
                     rating_cache[change.handle] = change.oldRating
-
-
-        officialRatings = [problem.rating for problem in problems[0]]
-        indicies = [problem.index for problem in problems[0]]
-        problemNames = [problem.name for problem in problems[0]]
 
         def calculateDifficulty(ratings, solved):
             ans = -1000
