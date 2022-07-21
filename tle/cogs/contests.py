@@ -840,7 +840,9 @@ class Contests(commands.Cog):
 
             #build ratingCache that has all old_rating for all contestants
             rating_change = await cf.contest.ratingChanges(contest_id=contest.id)
+            from_cache = False
             if len(rating_change) == 0:
+                from_cache = True
                 cached_ratings = cf_common.cache2.rating_changes_cache.handle_rating_cache
                 for row in ranklist:
                     member = row.party.members[0].handle
@@ -890,21 +892,10 @@ class Contests(commands.Cog):
                     ratings.append(rating_cache[row.party.members[0].handle])
             predicted.append(calculateDifficulty(ratings,solves))
 
-
-
-
-
-        # solved = [[] for i in range(100)]
-        # for row in ranklist:
-        #     for i, result in enumerate(row.problemResults):
-        #         solved[i].append(min(result.points, 1))        
-        
-
-
         # Output results
         style = table.Style('{:<}  {:>}  {:>}')
         t = table.Table(style)
-        t += table.Header('#', 'Official', 'Predicted')
+        t += table.Header('#', 'Official', 'Predicted (C)' if from_cache else 'Predicted')
         t += table.Line()
         for i, index in enumerate(indicies):
             t += table.Data(f'{index}', f'{officialRatings[i]}', f'{predicted[i]}')
