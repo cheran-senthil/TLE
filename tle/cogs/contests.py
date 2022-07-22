@@ -888,8 +888,10 @@ class Contests(commands.Cog):
                         idx = j
                 if idx == -1: continue
                 for row in ranklists[i]:
-                    solves.append(min(row.problemResults[idx].points, 1))
-                    ratings.append(rating_cache[row.party.members[0].handle])
+                    member = row.party.members[0].handle
+                    if member in rating_cache:
+                        solves.append(min(row.problemResults[idx].points, 1))
+                        ratings.append(rating_cache[member])
             predicted.append(calculateDifficulty(ratings,solves))
 
         # Output results
