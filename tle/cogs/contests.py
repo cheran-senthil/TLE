@@ -22,6 +22,7 @@ from tle.util import ranklist as rl
 from tle.util import table
 from tle.util import tasks
 from tle.util import graph_common as gc
+from util.codeforces_api import RatingChangesUnavailableError
 
 _CONTESTS_PER_PAGE = 5
 _CONTEST_PAGINATE_WAIT_TIME = 5 * 60
@@ -839,7 +840,10 @@ class Contests(commands.Cog):
                 problemNames = [prob.name for prob in problem]
 
             #build ratingCache that has all old_rating for all contestants
-            rating_change = await cf.contest.ratingChanges(contest_id=contest.id)
+            try:
+                rating_change = await cf.contest.ratingChanges(contest_id=contest.id)
+            except RatingChangesUnavailableError as e:
+                rating_change = []
             from_cache = False
             if len(rating_change) == 0:
                 # get rating of contestants from cache
