@@ -842,13 +842,13 @@ class Contests(commands.Cog):
             rating_change = await cf.contest.ratingChanges(contest_id=contest.id)
             from_cache = False
             if len(rating_change) == 0:
-                # cache command only provides latest rating for each contestant. This is totally wrong for everything but the current contest
-                # better would be to query the ratings before the contest start time of the queried contest
-                # no idea if such a query is feasible (an example contest that needs cache is: 1032)
+                # get rating of contestants from cache
+                # we want to have the rating before the contest we query for
                 from_cache = True
                 cached_ratings = cf_common.cache2.rating_changes_cache.get_all_ratings_before_timestamp(reqcontest[0].startTimeSeconds)
                 for row in ranklist:
                     member = row.party.members[0].handle
+                    # members not in cache are considered new (Unrated)
                     if member in cached_ratings:
                         rating_cache[member] = cached_ratings[member].newRating
                     else: 

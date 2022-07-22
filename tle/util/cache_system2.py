@@ -504,7 +504,7 @@ class RatingChangesCache:
 
     def get_all_ratings_before_timestamp(self, timestamp):
         res = self.cache_master.conn.get_all_ratings_before_timestamp(timestamp)
-        return {res[i].handle: res[i] for i in range(0, len(res))}
+        return {ratingchange.handle: ratingchange for ratingchange in res}
 
     def get_all_ratings(self):
         return list(self.handle_rating_cache.values())
