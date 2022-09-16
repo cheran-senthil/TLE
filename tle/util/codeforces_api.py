@@ -7,6 +7,7 @@ from collections import namedtuple, deque, defaultdict
 import aiohttp
 
 from discord.ext import commands
+from tle.util import codeforces_common as cf_common
 
 API_BASE_URL = 'https://codeforces.com/api/'
 CONTEST_BASE_URL = 'https://codeforces.com/contest/'
@@ -385,7 +386,7 @@ class user:
                     raise HandleNotFoundError(e.comment, handle)
                 raise
             result += [make_from_dict(User, user_dict) for user_dict in resp]
-        return result
+        return [cf_common.fix_urls(user) for user in result]
 
     @staticmethod
     async def rating(*, handle):
