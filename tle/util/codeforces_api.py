@@ -386,7 +386,7 @@ class user:
                     raise HandleNotFoundError(e.comment, handle)
                 raise
             result += [make_from_dict(User, user_dict) for user_dict in resp]
-        return [cf_common.fix_image_urls(user) for user in result]
+        return [cf_common.fix_urls(user) for user in result]
     @staticmethod
     def correct_rating_changes(*, resp):
         adaptO = [1400, 900, 550, 300, 150, 50]
