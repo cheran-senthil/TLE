@@ -7,6 +7,7 @@ from collections import namedtuple, deque, defaultdict
 import aiohttp
 
 from discord.ext import commands
+from tle.util import codeforces_common as cf_common
 
 API_BASE_URL = 'https://codeforces.com/api/'
 CONTEST_BASE_URL = 'https://codeforces.com/contest/'
@@ -386,24 +387,6 @@ class user:
                 raise
             result += [make_from_dict(User, user_dict) for user_dict in resp]
         return [cf_common.fix_urls(user) for user in result]
-    @staticmethod
-    def correct_rating_changes(*, resp):
-        adaptO = [1400, 900, 550, 300, 150, 50]
-        adaptN = [900, 550, 300, 150, 50, 0]
-        for r in resp:
-            if (len(r) > 0):
-                if (r[0].newRating <= 1200):
-                    for ind in range(0,(min(6, len(r)))):
-                        r[ind] = RatingChange(r[ind].contestId, r[ind].contestName, r[ind].handle, r[ind].rank, r[ind].ratingUpdateTimeSeconds, r[ind].oldRating+adaptO[ind], r[ind].newRating+adaptN[ind])
-                else:
-                    r[0] = RatingChange(r[0].contestId, r[0].contestName, r[0].handle, r[0].rank, r[0].ratingUpdateTimeSeconds, r[0].oldRating+1500, r[0].newRating)
-        for r in resp:
-            oldPerf = 0
-            for ind in range(0,len(r)):
-                r[ind] = RatingChange(r[ind].contestId, r[ind].contestName, r[ind].handle, r[ind].rank, r[ind].ratingUpdateTimeSeconds, oldPerf, r[ind].oldRating + 4*(r[ind].newRating-r[ind].oldRating))
-                oldPerf = r[ind].oldRating + 4*(r[ind].newRating-r[ind].oldRating)
-        return resp
-
 
     @staticmethod
     async def rating(*, handle):

@@ -5,6 +5,7 @@ from collections import namedtuple
 from discord.ext import commands
 
 from tle.util import codeforces_api as cf
+from tle.util import codeforces_common as cf_common
 
 _DEFAULT_VC_RATING = 1500
 
