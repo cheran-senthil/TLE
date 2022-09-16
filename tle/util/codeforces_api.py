@@ -365,8 +365,8 @@ def user_info_chunkify(handles):
         yield chunk
 
 def fix_titlephoto_string(user):
-    if user.titlePhoto[:5] != 'https':
-        user.titlePhoto = 'https'+user.titlePhoto
+    if user.titlePhoto.startsWith('//'):
+        user.titlePhoto = 'https:'+user.titlePhoto
 
 class user:
     @staticmethod
