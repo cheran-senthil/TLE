@@ -366,7 +366,7 @@ class UserDbConn:
                  'FROM cf_user_cache '
                  'WHERE UPPER(handle) = UPPER(?)')
         user = self.conn.execute(query, (handle,)).fetchone()
-        return cf.User._make(user) if user else None
+        return cf_common.fix_urls(cf.User._make(user)) if user else None
 
     def set_handle(self, user_id, guild_id, handle):
         query = ('SELECT user_id '
