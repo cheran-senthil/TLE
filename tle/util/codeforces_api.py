@@ -7,7 +7,8 @@ from collections import namedtuple, deque, defaultdict
 import aiohttp
 
 from discord.ext import commands
-from codeforces_common import fix_titlephoto_string
+from tle.util import codeforces_common as cf_common
+
 
 API_BASE_URL = 'https://codeforces.com/api/'
 CONTEST_BASE_URL = 'https://codeforces.com/contest/'
@@ -386,7 +387,7 @@ class user:
                 raise
             result += [make_from_dict(User, user_dict) for user_dict in resp]
         for user_entry in result: 
-            fix_titlephoto_string(user_entry)
+            cf_common.fix_titlephoto_string(user_entry)
         return result
     @staticmethod
     def correct_rating_changes(*, resp):

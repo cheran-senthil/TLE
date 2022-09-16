@@ -5,7 +5,7 @@ from collections import namedtuple
 from discord.ext import commands
 
 from tle.util import codeforces_api as cf
-from util.codeforces_common import fix_titlephoto_string
+from tle.util import codeforces_common as cf_common
 
 _DEFAULT_VC_RATING = 1500
 
@@ -427,7 +427,7 @@ class UserDbConn:
         if not user: 
             return None
         user = cf.User._make(user)
-        fix_titlephoto_string(user)
+        cf_common.fix_titlephoto_string(user)
         return user
 
     def set_handle(self, user_id, guild_id, handle):
