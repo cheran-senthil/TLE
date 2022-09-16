@@ -185,7 +185,7 @@ class Dueling(commands.Cog):
         users = [cf_common.user_db.fetch_cf_user(handle) for handle in handles]
         lowest_rating = min(user.rating or 0 for user in users)
         suggested_rating = max(
-            round(lowest_rating, -2) + _DUEL_RATING_DELTA, 500)
+            round(lowest_rating, -2) + _DUEL_RATING_DELTA, 800)
         rating = round(rating, -2) if rating else suggested_rating
         unofficial = rating > _DUEL_OFFICIAL_CUTOFF #suggested_rating 
         dtype = DuelType.UNOFFICIAL if unofficial else DuelType.OFFICIAL
@@ -290,7 +290,7 @@ class Dueling(commands.Cog):
         if not active:
             raise DuelCogError(f'{ctx.author.mention}, you are not in a duel.')
 
-        duelid, challenger_id, challengee_id, start_time, problem_name, contest_id, index, dtype = active
+        duelid, challenger_id, challengee_id, start_timestamp, problem_name, contest_id, index, dtype = active
 
         UNSOLVED = 0
         TESTING = -1
@@ -318,29 +318,95 @@ class Dueling(commands.Cog):
         challenger = ctx.guild.get_member(challenger_id)
         challengee = ctx.guild.get_member(challengee_id)
 
-        if challenger_time and challengee_time:
-            if challenger_time != challengee_time:
+        # get problem including rating
+        problem = [prob for prob in cf_common.cache2.problem_cache.problems
+                   if prob.name == problem_name]
+
+        # get handles
+        userids = [challenger_id, challengee_id]
+        handles = [cf_common.user_db.get_handle(
+            userid, ctx.guild.id) for userid in userids]
+        users = [cf_common.user_db.fetch_cf_user(handle) for handle in handles]
+        
+        higherrated_rating, lowerrated_rating = users[0].rating, users[1].rating
+        highrated_timestamp, lowrated_timestamp = challenger_time, challengee_time
+        highrated, lowrated = challenger, challengee
+        if users[0].rating > users[1].rating:
+            higherrated_rating, lowerrated_rating = users[1].rating, users[0].rating
+            highrated_timestamp, lowrated_timestamp = challengee_time, challenger_time
+            highrated, lowrated = challengee, challenger
+
+        p_lowrated = 1 / (1 + 10**((problem.rating - lowerrated_rating) / 1000))
+        p_highrated = 1 / (1 + 10**((problem.rating - higherrated_rating) / 1000))
+        coeff = p_highrated / p_lowrated
+        # cap values to double time at max
+        max_ratio = 2.0
+        coeff = min(max_ratio, max(1./max_ratio, coeff))
+        adjusted = True
+        # for non adjusted duels we can fall back to normal
+        if dtype == DuelType.UNOFFICIAL or dtype == DuelType.OFFICIAL:
+            adjusted = False
+            coeff = 1.0
+
+        # if lower rated finished first -> win for him
+        # if higher rated finished first
+        #       if lower rated is also done -> check times and announce winner
+        #       if lower rated is still missing -> make timer till his time is over and check again
+        if highrated_timestamp and lowrated_timestamp:
+            highrated_duration = highrated_timestamp - start_timestamp
+            lowerrated_duration = lowrated_timestamp - start_timestamp
+            if highrated_duration != lowerrated_duration * coeff: 
+                if highrated_duration < lowerrated_duration * coeff:
+                    winner = highrated
+                    loser = lowrated
+                else:
+                    winner = lowrated
+                    loser = highrated
+                    
                 diff = cf_common.pretty_time_format(
-                    abs(challengee_time - challenger_time), always_seconds=True)
-                winner = challenger if challenger_time < challengee_time else challengee
-                loser = challenger if challenger_time > challengee_time else challengee
+                    abs(lowerrated_duration * coeff - highrated_duration), always_seconds=True)
                 win_status = Winner.CHALLENGER if winner == challenger else Winner.CHALLENGEE
-                embed = complete_duel(duelid, ctx.guild.id, win_status, winner, loser, min(
-                    challenger_time, challengee_time), 1, dtype)
-                await ctx.send(f'Both {challenger.mention} and {challengee.mention} solved it but {winner.mention} was {diff} faster!', embed=embed)
+                win_time = challenger_time if winner == challenger else challengee_time
+                embed = complete_duel(duelid, ctx.guild.id, win_status, winner, loser, win_time, 1, dtype)
+                if adjusted:
+                    await ctx.send(f"Both {challenger.mention} and {challengee.mention} solved it but {winner.mention} was {diff} faster!", embed=embed)
+                else: 
+                    await ctx.send(f'Both {challenger.mention} and {challengee.mention} solved it but {winner.mention} was {diff} faster!', embed=embed)
             else:
                 embed = complete_duel(duelid, ctx.guild.id, Winner.DRAW,
                                       challenger, challengee, challenger_time, 0.5, dtype)
-                await ctx.send(f"{challenger.mention} and {challengee.mention} solved the problem in the exact same amount of time! It's a draw!", embed=embed)
+                if adjusted:
+                    await ctx.send(f"{challenger.mention} and {challengee.mention} solved the problem with the same adjusted time! It's a draw!", embed=embed)
+                else: 
+                    await ctx.send(f"{challenger.mention} and {challengee.mention} solved the problem in the exact same amount of time! It's a draw!", embed=embed)
+        elif highrated_timestamp: # special handling since we cant know if lowrated will still solve within time
+            highrated_duration = highrated_timestamp - start_timestamp
+            lowerrated_duration = highrated_duration * coeff
+            now_timestamp = datetime.datetime.now().timestamp()
+            if now_timestamp >= start_timestamp + lowerrated_duration: # we can make a decision, higher rated won
+                winner = highrated 
+                loser = lowrated
+                win_status = Winner.CHALLENGER if winner == challenger else Winner.CHALLENGEE
+                win_time = challenger_time if winner == challenger else challengee_time
+                embed = complete_duel(duelid, ctx.guild.id, win_status,
+                                    winner, loser, win_time, 1, dtype)
+                await ctx.send(f'{winner.mention} beat {loser.mention} in a duel!', embed=embed)
+            else:
+                time_remaining = lowerrated_duration - now_timestamp
+                time_remaining_formatted = cf_common.pretty_time_format(
+                    time_remaining, always_seconds=True)
+                await ctx.send(f'{highrated.mention} solved it but {lowrated.mention} still has {time_remaining_formatted} to solve the problem!', embed=embed)
+                await asyncio.sleep(time_remaining+5)
+                # schedule recheck after the waiting time / maybe call the whole function again?
 
-        elif challenger_time:
-            embed = complete_duel(duelid, ctx.guild.id, Winner.CHALLENGER,
-                                  challenger, challengee, challenger_time, 1, dtype)
-            await ctx.send(f'{challenger.mention} beat {challengee.mention} in a duel!', embed=embed)
-        elif challengee_time:
-            embed = complete_duel(duelid, ctx.guild.id, Winner.CHALLENGEE,
-                                  challengee, challenger, challengee_time, 1, dtype)
-            await ctx.send(f'{challengee.mention} beat {challenger.mention} in a duel!', embed=embed)
+        elif lowrated_timestamp:
+            winner = lowrated 
+            loser = highrated
+            win_status = Winner.CHALLENGER if winner == challenger else Winner.CHALLENGEE
+            win_time = challenger_time if winner == challenger else challengee_time
+            embed = complete_duel(duelid, ctx.guild.id, win_status,
+                                  winner, loser, win_time, 1, dtype)
+            await ctx.send(f'{winner.mention} beat {loser.mention} in a duel!', embed=embed)
         else:
             await ctx.send('Nobody solved the problem yet.')
 
