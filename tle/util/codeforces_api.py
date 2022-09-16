@@ -7,6 +7,8 @@ from collections import namedtuple, deque, defaultdict
 import aiohttp
 
 from discord.ext import commands
+from tle.util import codeforces_common as cf_common
+
 
 API_BASE_URL = 'https://codeforces.com/api/'
 CONTEST_BASE_URL = 'https://codeforces.com/contest/'
@@ -364,10 +366,6 @@ def user_info_chunkify(handles):
     if chunk:
         yield chunk
 
-def fix_titlephoto_string(user):
-    if user.titlePhoto.startsWith('//'):
-        user.titlePhoto = 'https:'+user.titlePhoto
-
 class user:
     @staticmethod
     async def info(*, handles):
@@ -388,9 +386,7 @@ class user:
                     raise HandleNotFoundError(e.comment, handle)
                 raise
             result += [make_from_dict(User, user_dict) for user_dict in resp]
-        for user_entry in result: 
-            fix_titlephoto_string(user_entry)
-        return result
+        return [cf_common.fix_urls(user) for user in result]
     @staticmethod
     def correct_rating_changes(*, resp):
         adaptO = [1400, 900, 550, 300, 150, 50]
