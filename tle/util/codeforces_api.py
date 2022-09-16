@@ -364,6 +364,10 @@ def user_info_chunkify(handles):
     if chunk:
         yield chunk
 
+def fix_titlephoto_string(user):
+    if user.titlePhoto.startsWith('//'):
+        user.titlePhoto = 'https:'+user.titlePhoto
+
 class user:
     @staticmethod
     async def info(*, handles):
@@ -384,6 +388,8 @@ class user:
                     raise HandleNotFoundError(e.comment, handle)
                 raise
             result += [make_from_dict(User, user_dict) for user_dict in resp]
+        for user_entry in result: 
+            fix_titlephoto_string(user_entry)
         return result
     @staticmethod
     def correct_rating_changes(*, resp):
