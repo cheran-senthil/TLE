@@ -43,6 +43,8 @@ class Winner(IntEnum):
 class DuelType(IntEnum):
     UNOFFICIAL = 0
     OFFICIAL = 1
+    ADJUNOFFICIAL = 2
+    ADJOFFICIAL = 3
     
 class RatedVC(IntEnum):
     ONGOING = 0
