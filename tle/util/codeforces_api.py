@@ -388,8 +388,8 @@ class user:
                     raise HandleNotFoundError(e.comment, handle)
                 raise
             result += [make_from_dict(User, user_dict) for user_dict in resp]
-        for entry in result: 
-            fix_titlephoto_string(user)
+        for user_entry in result: 
+            fix_titlephoto_string(user_entry)
         return result
     @staticmethod
     def correct_rating_changes(*, resp):
