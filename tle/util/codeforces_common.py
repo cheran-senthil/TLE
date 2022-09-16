@@ -292,6 +292,9 @@ def parse_rating(args, default_value = None):
             return int(arg)
     return default_value
 
+def fix_titlephoto_string(user):
+    if user.titlePhoto.startswith('//'):
+        user.titlePhoto = 'https:'+user.titlePhoto
 
 class SubFilter:
     def __init__(self, rated=True):

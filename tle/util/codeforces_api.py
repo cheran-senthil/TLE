@@ -7,6 +7,7 @@ from collections import namedtuple, deque, defaultdict
 import aiohttp
 
 from discord.ext import commands
+from codeforces_common import fix_titlephoto_string
 
 API_BASE_URL = 'https://codeforces.com/api/'
 CONTEST_BASE_URL = 'https://codeforces.com/contest/'
@@ -363,10 +364,6 @@ def user_info_chunkify(handles):
         size += len(handle) + 1
     if chunk:
         yield chunk
-
-def fix_titlephoto_string(user):
-    if user.titlePhoto.startsWith('//'):
-        user.titlePhoto = 'https:'+user.titlePhoto
 
 class user:
     @staticmethod
