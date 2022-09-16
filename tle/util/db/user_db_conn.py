@@ -424,11 +424,7 @@ class UserDbConn:
                  'FROM cf_user_cache '
                  'WHERE UPPER(handle) = UPPER(?)')
         user = self.conn.execute(query, (handle,)).fetchone()
-        if not user: 
-            return None
-        user = cf.User._make(user)
-        user = cf_common.fix_titlephoto_string(user)
-        return user
+        return cf_common.fix_image_urls(cf.User._make(user)) if user else None
 
     def set_handle(self, user_id, guild_id, handle):
         query = ('SELECT user_id '

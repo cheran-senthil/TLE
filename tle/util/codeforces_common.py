@@ -298,7 +298,8 @@ def fix_url_schema(url: str):
     return url
 
 def fix_titlephoto_string(user: cf.User):
-    user = user._replace(titlePhoto = fix_url_schema(user.titlePhoto))
+    if user.titlePhoto.startswith('//'):
+        user = user._replace(titlePhoto = 'https:' + user.titlePhoto)
     return user
 
 
