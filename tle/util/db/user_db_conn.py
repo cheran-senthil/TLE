@@ -427,7 +427,7 @@ class UserDbConn:
         if not user: 
             return None
         user = cf.User._make(user)
-        cf_common.fix_titlephoto_string(user)
+        user = cf_common.fix_titlephoto_string(user)
         return user
 
     def set_handle(self, user_id, guild_id, handle):

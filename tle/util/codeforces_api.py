@@ -387,7 +387,7 @@ class user:
                 raise
             result += [make_from_dict(User, user_dict) for user_dict in resp]
         for user_entry in result: 
-            cf_common.fix_titlephoto_string(user_entry)
+            user_entry = cf_common.fix_titlephoto_string(user_entry)
         return result
     @staticmethod
     def correct_rating_changes(*, resp):
