@@ -386,8 +386,8 @@ class user:
                     raise HandleNotFoundError(e.comment, handle)
                 raise
             result += [make_from_dict(User, user_dict) for user_dict in resp]
-        for user_entry in result: 
-            user_entry = cf_common.fix_titlephoto_string(user_entry)
+        for ind in range(len(result)): 
+            result[ind] = result[ind]._replace(titlePhoto = cf_common.fix_url_schema(result[ind].titlePhoto))
         return result
     @staticmethod
     def correct_rating_changes(*, resp):

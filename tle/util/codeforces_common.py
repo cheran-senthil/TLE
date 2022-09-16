@@ -297,6 +297,11 @@ def fix_titlephoto_string(user: cf.User):
         user = user._replace(titlePhoto = 'https:'+user.titlePhoto)
     return user
 
+def fix_url_schema(url: str):
+    if url.startswith('//'):
+        url = 'https:'+url
+    return url
+
 class SubFilter:
     def __init__(self, rated=True):
         self.team = False
