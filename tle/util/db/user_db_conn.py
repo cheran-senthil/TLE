@@ -595,6 +595,14 @@ class UserDbConn:
         '''
         return self.conn.execute(query, (userid, userid)).fetchone()
 
+    def check_duel_giveup(self, userid):
+        query = f'''
+            SELECT id, challenger, challengee, start_time, problem_name, contest_id, p_index, type FROM duel
+            WHERE (challenger = ? OR challengee = ?) AND status == {Duel.ONGOING}
+        '''
+        return self.conn.execute(query, (userid, userid)).fetchone()
+
+
     def check_duel_complete(self, userid):
         query = f'''
             SELECT id, challenger, challengee, start_time, problem_name, contest_id, p_index, type FROM duel
