@@ -53,6 +53,13 @@ def rating2rank(rating):
             return rank
 
 
+def parse_adjusted(args):
+    for arg in args:
+        if arg == "adj":
+            return True
+    return False
+
+
 class DuelCogError(commands.CommandError):
     pass
 
@@ -154,10 +161,11 @@ class Dueling(commands.Cog):
                 f'{ctx.author.mention} is already a registered duelist')
         await ctx.send(f'{ctx.author.mention} successfully registered as a duelist')
 
-    @duel.command(brief='Challenge to a duel', usage='opponent [rating] [+tag..] [~tag..]')
+    @duel.command(brief='Challenge to a duel', usage='opponent [rating] [+tag..] [~tag..] [adj]')
     async def challenge(self, ctx, opponent: discord.Member, *args):
         """Challenge another server member to a duel. Problem difficulty will be the lesser of duelist ratings minus 400. You can alternatively specify a different rating. 
-        The duel will be unrated if specified rating is above the default value or tags are used to choose a problem. The challenge expires if ignored for 5 minutes."""
+        The duel will be unrated if specified rating is above the default value or tags are used to choose a problem. The challenge expires if ignored for 5 minutes.
+        If the keyword 'adj' is added the system will allow the lower rated user to take more time to solve the problem."""
         challenger_id = ctx.author.id
         challengee_id = opponent.id
 
@@ -186,14 +194,18 @@ class Dueling(commands.Cog):
         tags = cf_common.parse_tags(args, prefix='+')
         bantags = cf_common.parse_tags(args, prefix='~')
         rating = cf_common.parse_rating(args)
+        adjusted = parse_adjusted(args)
         users = [cf_common.user_db.fetch_cf_user(handle) for handle in handles]
         lowest_rating = min(user.rating or 0 for user in users)
-        suggested_rating = max(
-            round(lowest_rating, -2) + _DUEL_RATING_DELTA, 800)
+        suggested_rating = round(lowest_rating, -2) + _DUEL_RATING_DELTA
         rating = round(rating, -2) if rating else suggested_rating
+        rating = min(3500, max(rating, 800))
         unofficial = rating > _DUEL_OFFICIAL_CUTOFF #suggested_rating 
-        dtype = DuelType.UNOFFICIAL if unofficial else DuelType.OFFICIAL
-
+        if adjusted:
+            dtype = DuelType.ADJUNOFFICIAL if unofficial else DuelType.ADJOFFICIAL
+        else:
+            dtype = DuelType.UNOFFICIAL if unofficial else DuelType.OFFICIAL
+        
         solved = {
             sub.problem.name for subs in submissions for sub in subs if sub.verdict != 'COMPILATION_ERROR'}
         seen = {name for userid in userids for name,
@@ -226,8 +238,27 @@ class Dueling(commands.Cog):
         duelid = cf_common.user_db.create_duel(
             challenger_id, challengee_id, issue_time, problem, dtype)
 
-        ostr = 'an **unofficial**' if unofficial else 'a'
-        await ctx.send(f'{ctx.author.mention} is challenging {opponent.mention} to {ostr} {rstr}duel!')
+        if adjusted:
+            # get cf handles and cf.Users
+            userids = [challenger_id, challengee_id]
+            handles = [cf_common.user_db.get_handle(
+                userid, ctx.guild.id) for userid in userids]
+            users = [cf_common.user_db.fetch_cf_user(handle) for handle in handles] 
+     
+            # get discord member
+            challenger = ctx.guild.get_member(challenger_id)
+            challengee = ctx.guild.get_member(challengee_id)
+
+            highrated_user, lowrated_user = users[0], users[1] if users[0].rating > users[1].rating else users[1], users[0]
+            highrated_member, lowrated_member = challenger, challengee if users[0].rating > users[1].rating else challengee, challenger
+            higherrated_rating, lowerrated_rating = highrated_user.rating, lowrated_user.rating
+            coeff = self.get_coefficient(problem, lowerrated_rating, higherrated_rating)
+            percentage = round((coeff - 1.0)*100,0)
+            ostr = 'an **unofficial** adjusted' if unofficial else 'an adjusted'
+            await ctx.send(f'{ctx.author.mention} is challenging {opponent.mention} to {ostr} {rstr}duel! {lowrated_member.mention} is lower rated and will get {percentage} % more time than {highrated_member.mention}.' )
+        else: 
+            ostr = 'an **unofficial**' if unofficial else 'a'
+            await ctx.send(f'{ctx.author.mention} is challenging {opponent.mention} to {ostr} {rstr}duel!')
         await asyncio.sleep(_DUEL_EXPIRY_TIME)
         if cf_common.user_db.cancel_duel(duelid, Duel.EXPIRED):
             message = f'{ctx.author.mention}, your request to duel {opponent.mention} has expired!'
@@ -351,6 +382,13 @@ class Dueling(commands.Cog):
                             winner, loser, win_time, 1, dtype)
         await ctx.send(f'{loser.mention} gave up. {winner.mention} won the duel against {loser.mention}!', embed=embed)
 
+    def get_coefficient(self, problem, lowerrated_rating, higherrated_rating):
+        p_lowrated = 1 / (1 + 10**((problem.rating - lowerrated_rating) / 1000))
+        p_highrated = 1 / (1 + 10**((problem.rating - higherrated_rating) / 1000))
+        coeff = p_highrated / p_lowrated
+        # cap values
+        coeff = min(_DUEL_MAX_RATIO, max(1./_DUEL_MAX_RATIO, coeff))
+        return coeff
 
 
     @duel.command(brief='Complete a duel')
@@ -387,16 +425,13 @@ class Dueling(commands.Cog):
         problem = [prob for prob in cf_common.cache2.problem_cache.problems
                    if prob.name == problem_name]
 
-        p_lowrated = 1 / (1 + 10**((problem.rating - lowerrated_rating) / 1000))
-        p_highrated = 1 / (1 + 10**((problem.rating - higherrated_rating) / 1000))
-        coeff = p_highrated / p_lowrated
-        # cap values
-        coeff = min(_DUEL_MAX_RATIO, max(1./_DUEL_MAX_RATIO, coeff))
-        adjusted = True
-        # for non adjusted duels we can fall back to normal
-        if dtype == DuelType.UNOFFICIAL or dtype == DuelType.OFFICIAL:
-            adjusted = False
-            coeff = 1.0
+        adjusted = False
+        coeff = 1.0
+
+        #for adjusted duels we calc coefficient and set flag
+        if dtype == DuelType.ADJUNOFFICIAL or dtype == DuelType.ADJOFFICIAL:
+            coeff = self.get_coefficient(problem, lowerrated_rating, higherrated_rating)
+            adjusted = True
 
         # if lower rated finished first -> win for him
         # if higher rated finished first
