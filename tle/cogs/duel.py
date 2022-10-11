@@ -251,7 +251,8 @@ class Dueling(commands.Cog):
 
             highrated_user = users[0] if users[0].rating > users[1].rating else users[1]
             lowrated_user = users[1] if users[0].rating > users[1].rating else users[0]
-            highrated_member, lowrated_member = challenger, challengee if users[0].rating > users[1].rating else challengee, challenger
+            highrated_member = challenger if users[0].rating > users[1].rating else challengee
+            lowrated_member = challengee if users[0].rating > users[1].rating else challenger
             higherrated_rating, lowerrated_rating = highrated_user.rating, lowrated_user.rating
             coeff = self.get_coefficient(problem, lowerrated_rating, higherrated_rating)
             percentage = round((coeff - 1.0)*100,0)
@@ -351,8 +352,10 @@ class Dueling(commands.Cog):
             userid, ctx.guild.id) for userid in userids]
         users = [cf_common.user_db.fetch_cf_user(handle) for handle in handles] 
         
-        highrated_user, lowrated_user = users[0], users[1] if users[0].rating > users[1].rating else users[1], users[0]
-        highrated_member, lowrated_member = challenger, challengee if users[0].rating > users[1].rating else challengee, challenger
+        highrated_user = users[0] if users[0].rating > users[1].rating else users[1]
+        lowrated_user = users[1] if users[0].rating > users[1].rating else users[0]
+        highrated_member = challenger if users[0].rating > users[1].rating else challengee
+        lowrated_member = challengee if users[0].rating > users[1].rating else challenger
 
         highrated_timestamp = await self._get_solve_time(highrated_user.handle, contest_id, index)
         lowrated_timestamp = await self._get_solve_time(lowrated_user.handle, contest_id, index)            
@@ -410,8 +413,10 @@ class Dueling(commands.Cog):
             userid, ctx.guild.id) for userid in userids]
         users = [cf_common.user_db.fetch_cf_user(handle) for handle in handles] 
         
-        highrated_user, lowrated_user = users[0], users[1] if users[0].rating > users[1].rating else users[1], users[0]
-        highrated_member, lowrated_member = challenger, challengee if users[0].rating > users[1].rating else challengee, challenger
+        highrated_user = users[0] if users[0].rating > users[1].rating else users[1]
+        lowrated_user = users[1] if users[0].rating > users[1].rating else users[0]
+        highrated_member = challenger if users[0].rating > users[1].rating else challengee
+        lowrated_member = challengee if users[0].rating > users[1].rating else challenger
         higherrated_rating, lowerrated_rating = highrated_user.rating, lowrated_user.rating
 
         highrated_timestamp = await self._get_solve_time(highrated_user.handle, contest_id, index)
