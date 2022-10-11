@@ -839,15 +839,21 @@ class Contests(commands.Cog):
                 problemNames = [prob.name for prob in problem]
 
             #build ratingCache that has all old_rating for all contestants
-            rating_change = await cf.contest.ratingChanges(contest_id=contest.id)
+            try:
+                rating_change = await cf.contest.ratingChanges(contest_id=contest.id)
+            except cf.RatingChangesUnavailableError as e:
+                rating_change = []
             from_cache = False
             if len(rating_change) == 0:
+                # get rating of contestants from cache
+                # we want to have the rating before the contest we query for
                 from_cache = True
-                cached_ratings = cf_common.cache2.rating_changes_cache.handle_rating_cache
+                cached_ratings = cf_common.cache2.rating_changes_cache.get_all_ratings_before_timestamp(reqcontest[0].startTimeSeconds)
                 for row in ranklist:
                     member = row.party.members[0].handle
+                    # members not in cache are considered new (Unrated)
                     if member in cached_ratings:
-                        rating_cache[member] = cached_ratings[member]
+                        rating_cache[member] = cached_ratings[member].newRating
                     else: 
                         rating_cache[member] = 0
             else:

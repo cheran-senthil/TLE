@@ -292,6 +292,11 @@ def parse_rating(args, default_value = None):
             return int(arg)
     return default_value
 
+def fix_urls(user: cf.User):
+    if user.titlePhoto.startswith('//'):
+        user = user._replace(titlePhoto = 'https:' + user.titlePhoto)
+    return user
+
 
 class SubFilter:
     def __init__(self, rated=True):
