@@ -725,7 +725,7 @@ class Dueling(commands.Cog):
         paginator.paginate(self.bot, ctx.channel, pages,
                            wait_time=5 * 60, set_pagenum_footers=True)
 
-    async def invalidate_duel(self, ctx, duelid, challenger_id, challengee_id):
+    async def invalidate_duel(self, ctx, duelid, challenger_id, challengee_id): 
         rc = cf_common.user_db.invalidate_duel(duelid)
         if rc == 0:
             raise DuelCogError(f'Unable to invalidate duel {duelid}.')
@@ -735,7 +735,7 @@ class Dueling(commands.Cog):
         await ctx.send(f'Duel between {challenger.mention} and {challengee.mention} has been invalidated.')
 
     @duel.command(brief='Invalidate the duel')
-    async def invalidate(self, ctx):
+    async def invalidate(self, ctx): # @@@ TODO: broken with new duel types
         """Declare your duel invalid. Use this if you've solved the problem prior to the duel.
         You can only use this functionality during the first 60 seconds of the duel."""
         active = cf_common.user_db.check_duel_complete(ctx.author.id)
