@@ -249,7 +249,7 @@ class Dueling(commands.Cog):
             challenger = ctx.guild.get_member(challenger_id)
             challengee = ctx.guild.get_member(challengee_id)
 
-            highrated_user, lowrated_user = users[0], users[1] if users[0].rating > users[1].rating else users[1], users[0]
+            highrated_user, lowrated_user = sorted(users, key =lambda a: a['rating'])#users[0], users[1] if users[0].rating > users[1].rating else users[1], users[0]
             highrated_member, lowrated_member = challenger, challengee if users[0].rating > users[1].rating else challengee, challenger
             higherrated_rating, lowerrated_rating = highrated_user.rating, lowrated_user.rating
             coeff = self.get_coefficient(problem, lowerrated_rating, higherrated_rating)
