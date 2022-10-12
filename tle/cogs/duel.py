@@ -504,13 +504,13 @@ class Dueling(commands.Cog):
                 time_remaining = lowerrated_duration - current_duration
                 time_remaining_formatted = cf_common.pretty_time_format(
                     time_remaining, always_seconds=True)
-                await ctx.send(f'{highrated_member.mention} solved it but {lowrated_member.mention} still has {time_remaining_formatted} to solve the problem! Please reinvoke `;duel complete` once {lowrated_member.mention} solved it or after {time_remaining_formatted}! {lowrated_member.mention} can also invoke  `;duel giveup` if they want to give up.', embed=embed)
+                await ctx.send(f'{highrated_member.mention} solved it but {lowrated_member.mention} still has {time_remaining_formatted} to solve the problem! Please reinvoke `;duel complete` once {lowrated_member.mention} solved it or after {time_remaining_formatted}! {lowrated_member.mention} can also invoke  `;duel giveup` if they want to give up.')
 
         elif lowrated_timestamp:
             winner = lowrated_member 
             loser = highrated_member
             win_status = Winner.CHALLENGER if winner == challenger else Winner.CHALLENGEE
-            win_time = lowrated_member
+            win_time = lowrated_timestamp
             embed = complete_duel(duelid, ctx.guild.id, win_status,
                                   winner, loser, win_time, 1, dtype)
             await ctx.send(f'{winner.mention} beat {loser.mention} in a duel!', embed=embed)
