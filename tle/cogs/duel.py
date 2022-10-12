@@ -145,7 +145,7 @@ class Dueling(commands.Cog):
     async def challenge(self, ctx, opponent: discord.Member, *args):
         """Challenge another server member to a duel. Problem difficulty will be the lesser of duelist ratings minus 400. You can alternatively specify a different rating. 
         The duel will be unrated if specified rating is above the default value or tags are used to choose a problem. The challenge expires if ignored for 5 minutes.
-        If the keyword 'adj' is added the system will allow the lower rated user to take more time to solve the problem."""
+        If the keyword 'adj' is added the system will give the lower rated duelist more time to solve the problem."""
         challenger_id = ctx.author.id
         challengee_id = opponent.id
 
@@ -247,7 +247,7 @@ class Dueling(commands.Cog):
             embed = discord_common.embed_alert(message)
             await ctx.send(embed=embed)
 
-    @duel.command(brief='Decline a duel')
+    @duel.command(brief='Decline a duel challenge. Can be used to decline a challenge as challengee.')
     async def decline(self, ctx):
         active = cf_common.user_db.check_duel_decline(ctx.author.id)
         if not active:
@@ -261,7 +261,7 @@ class Dueling(commands.Cog):
         embed = discord_common.embed_alert(message)
         await ctx.send(embed=embed)
 
-    @duel.command(brief='Withdraw a challenge')
+    @duel.command(brief='Withdraw a duel challenge. Can be used to revert the challenge as challenger.')
     async def withdraw(self, ctx):
         active = cf_common.user_db.check_duel_withdraw(ctx.author.id)
         if not active:
@@ -275,7 +275,7 @@ class Dueling(commands.Cog):
         embed = discord_common.embed_alert(message)
         await ctx.send(embed=embed)
 
-    @duel.command(brief='Accept a duel')
+    @duel.command(brief='Accept a duel challenge. This starts the duel.')
     async def accept(self, ctx):
         active = cf_common.user_db.check_duel_accept(ctx.author.id)
         if not active:
@@ -313,7 +313,7 @@ class Dueling(commands.Cog):
             return _DUEL_STATUS_TESTING
         return min(subs, key=lambda sub: sub.creationTimeSeconds).creationTimeSeconds
     
-    @duel.command(brief='Give up an adjusted duel. Can only be used by the lower rated duelist after the higher rated duelist has solved the problem.')
+    @duel.command(brief='Give up the duel (only for adjusted duels). Can only be used by the lower rated duelist after the higher rated duelist has solved the problem.')
     async def giveup(self, ctx):
         active = cf_common.user_db.check_duel_giveup(ctx.author.id)
         if not active:
@@ -375,7 +375,7 @@ class Dueling(commands.Cog):
         return coeff
 
 
-    @duel.command(brief='Complete a duel')
+    @duel.command(brief='Complete a duel. Can be used after the problem was solved by one of the duelists.')
     async def complete(self, ctx, override = None):
         active = cf_common.user_db.check_duel_complete(ctx.author.id)
         if not active:
@@ -497,7 +497,7 @@ class Dueling(commands.Cog):
         else:
             await ctx.send('Nobody solved the problem yet.')
 
-    @duel.command(brief='Offer/Accept a draw')
+    @duel.command(brief='Offer a draw or accept a draw offer.')
     async def draw(self, ctx):
         active = cf_common.user_db.check_duel_draw(ctx.author.id)
         if not active:
@@ -527,7 +527,7 @@ class Dueling(commands.Cog):
                               offerer, ctx.author, now, 0.5, dtype)
         await ctx.send(f'{ctx.author.mention} accepted draw offer by {offerer.mention}.', embed=embed)
 
-    @duel.command(brief='Show duelist profile')
+    @duel.command(brief='Show duelist profile page')
     async def profile(self, ctx, member: discord.Member = None):
         member = member or ctx.author
         if not cf_common.user_db.is_duelist(member.id):
@@ -650,7 +650,7 @@ class Dueling(commands.Cog):
         paginator.paginate(self.bot, ctx.channel, pages,
                            wait_time=5 * 60, set_pagenum_footers=True)
 
-    @duel.command(brief='Print recent duels')
+    @duel.command(brief='Print a list of recent duels.')
     async def recent(self, ctx):
         data = cf_common.user_db.get_recent_duels()
         pages = self._paginate_duels(
@@ -658,7 +658,7 @@ class Dueling(commands.Cog):
         paginator.paginate(self.bot, ctx.channel, pages,
                            wait_time=5 * 60, set_pagenum_footers=True)
 
-    @duel.command(brief='Print list of ongoing duels')
+    @duel.command(brief='Print list of ongoing duels.')
     async def ongoing(self, ctx, member: discord.Member = None):
         def make_line(entry):
             start_time, name, challenger, challengee = entry
@@ -731,10 +731,10 @@ class Dueling(commands.Cog):
         challengee = ctx.guild.get_member(challengee_id)
         await ctx.send(f'Duel between {challenger.mention} and {challengee.mention} has been invalidated.')
 
-    @duel.command(brief='Invalidate the duel')
+    @duel.command(brief='Invalidate the duel. Can be used within 2 minutes after the duel has been started.')
     async def invalidate(self, ctx): # @@@ TODO: broken with new duel types
         """Declare your duel invalid. Use this if you've solved the problem prior to the duel.
-        You can only use this functionality during the first 60 seconds of the duel."""
+        You can only use this functionality during the first 120 seconds of the duel."""
         active = cf_common.user_db.check_duel_complete(ctx.author.id)
         if not active:
             raise DuelCogError(f'{ctx.author.mention}, you are not in a duel.')
