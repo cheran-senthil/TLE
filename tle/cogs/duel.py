@@ -396,7 +396,7 @@ class Dueling(commands.Cog):
 
 
     @duel.command(brief='Complete a duel')
-    async def complete(self, ctx):
+    async def complete(self, ctx, override = None):
         active = cf_common.user_db.check_duel_complete(ctx.author.id)
         if not active:
             raise DuelCogError(f'{ctx.author.mention}, you are not in a duel.')
@@ -419,8 +419,25 @@ class Dueling(commands.Cog):
         lowrated_member = challengee if users[0].rating > users[1].rating else challenger
         higherrated_rating, lowerrated_rating = highrated_user.rating, lowrated_user.rating
 
-        highrated_timestamp = await self._get_solve_time(highrated_user.handle, contest_id, index)
-        lowrated_timestamp = await self._get_solve_time(lowrated_user.handle, contest_id, index)            
+        if not override:
+            highrated_timestamp = await self._get_solve_time(highrated_user.handle, contest_id, index)
+            lowrated_timestamp = await self._get_solve_time(lowrated_user.handle, contest_id, index)            
+        else:
+            if override == '0':
+                highrated_timestamp = _DUEL_STATUS_UNSOLVED
+                lowrated_timestamp = datetime.datetime.now().timestamp()
+            if override == '1':
+                highrated_timestamp = datetime.datetime.now().timestamp()
+                lowrated_timestamp = _DUEL_STATUS_UNSOLVED
+            if override == '2':
+                highrated_timestamp = datetime.datetime.now().timestamp()
+                lowrated_timestamp = datetime.datetime.now().timestamp()+1
+            if override == '3':
+                highrated_timestamp = datetime.datetime.now().timestamp()
+                lowrated_timestamp = datetime.datetime.now().timestamp()+1000
+            if override == '4':
+                highrated_timestamp = _DUEL_STATUS_UNSOLVED
+                lowrated_timestamp = _DUEL_STATUS_UNSOLVED
 
         # no pending submissions allowed
         if highrated_timestamp == _DUEL_STATUS_TESTING or lowrated_timestamp == _DUEL_STATUS_TESTING:
