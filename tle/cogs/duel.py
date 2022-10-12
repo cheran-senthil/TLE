@@ -436,7 +436,7 @@ class Dueling(commands.Cog):
 
         #for adjusted duels we calc coefficient and set flag
         if dtype == DuelType.ADJUNOFFICIAL or dtype == DuelType.ADJOFFICIAL:
-            coeff = self.get_coefficient(problem, lowerrated_rating, higherrated_rating)
+            coeff = self.get_coefficient(problem[0], lowerrated_rating, higherrated_rating)
             adjusted = True
 
         # if lower rated finished first -> win for him
@@ -487,7 +487,7 @@ class Dueling(commands.Cog):
                 time_remaining = lowerrated_duration - current_duration
                 time_remaining_formatted = cf_common.pretty_time_format(
                     time_remaining, always_seconds=True)
-                await ctx.send(f'{highrated_member.mention} solved it but {lowrated_member.mention} still has {time_remaining_formatted} to solve the problem! Please reinvoke `;duel complete` ocne {lowrated_member.mention} solved it or after {time_remaining_formatted}! {lowrated_member.mention} can also invoke  `;duel giveup` if they want to give up.', embed=embed)
+                await ctx.send(f'{highrated_member.mention} solved it but {lowrated_member.mention} still has {time_remaining_formatted} to solve the problem! Please reinvoke `;duel complete` once {lowrated_member.mention} solved it or after {time_remaining_formatted}! {lowrated_member.mention} can also invoke  `;duel giveup` if they want to give up.', embed=embed)
 
         elif lowrated_timestamp:
             winner = lowrated_member 
@@ -671,6 +671,8 @@ class Dueling(commands.Cog):
                 now - start_time, shorten=True, always_seconds=True)
             challenger = get_cf_user(challenger, ctx.guild.id)
             challengee = get_cf_user(challengee, ctx.guild.id)
+            if challenger is None:
+                challenger = 
             return f'[{challenger.handle}]({challenger.url}) vs [{challengee.handle}]({challengee.url}): [{name}]({problem.url}) [{problem.rating}] {when}'
 
         def make_page(chunk):
