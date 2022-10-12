@@ -671,8 +671,6 @@ class Dueling(commands.Cog):
                 now - start_time, shorten=True, always_seconds=True)
             challenger = get_cf_user(challenger, ctx.guild.id)
             challengee = get_cf_user(challengee, ctx.guild.id)
-            if challenger is None:
-                challenger = 
             return f'[{challenger.handle}]({challenger.url}) vs [{challengee.handle}]({challengee.url}): [{name}]({problem.url}) [{problem.rating}] {when}'
 
         def make_page(chunk):
