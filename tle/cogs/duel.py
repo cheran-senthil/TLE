@@ -86,27 +86,7 @@ def complete_duel(duelid, guild_id, win_status, winner, loser, finish_time, scor
     if rc == 0:
         raise DuelCogError('Hey! No cheating!')
 
-    # # Work in progress: Add gitgud entry for the winner
-    # # Step 1: Add entry to db
-    # issue_time = datetime.datetime.now().timestamp()
-    # rc = cf_common.user_db.new_challenge(user_id, issue_time, problem, delta)
-    # if rc != 1:
-        # raise CodeforcesCogError('Your challenge has already been added to the database!')
-    # # Step 2: Complete it immediately
-    # active = cf_common.user_db.check_challenge(user_id)
-    # submissions = await cf.user.status(handle=handle)
-    # solved = {sub.problem.name for sub in submissions if sub.verdict == 'OK'}
-
-    # challenge_id, issue_time, name, contestId, index, delta = active
-    # if not name in solved:
-        # raise CodeforcesCogError('You haven\'t completed your challenge.')
-
-    # delta = _GITGUD_SCORE_DISTRIB[delta // 100 + 3]
-    # finish_time = int(datetime.datetime.now().timestamp())
-    # rc = cf_common.user_db.complete_challenge(user_id, challenge_id, finish_time, delta)
-    
-    
-    if dtype == DuelType.UNOFFICIAL:
+    if dtype == DuelType.UNOFFICIAL or dtype == DuelType.ADJUNOFFICIAL:
         return None
 
     winner_cf = get_cf_user(winner.id, guild_id)
@@ -254,8 +234,8 @@ class Dueling(commands.Cog):
             highrated_member = challenger if users[0].rating > users[1].rating else challengee
             lowrated_member = challengee if users[0].rating > users[1].rating else challenger
             higherrated_rating, lowerrated_rating = highrated_user.rating, lowrated_user.rating
-            coeff = self.get_coefficient(problem, lowerrated_rating, higherrated_rating)
-            percentage = round((coeff - 1.0)*100,0)
+            coeff = self.get_coefficient(problem.rating, lowerrated_rating, higherrated_rating)
+            percentage = round((coeff - 1.0)*100,1)
             ostr = 'an **unofficial** adjusted' if unofficial else 'an adjusted'
             await ctx.send(f'{ctx.author.mention} is challenging {opponent.mention} to {ostr} {rstr}duel! {lowrated_member.mention} is lower rated and will get {percentage} % more time than {highrated_member.mention}.' )
         else: 
@@ -333,7 +313,7 @@ class Dueling(commands.Cog):
             return _DUEL_STATUS_TESTING
         return min(subs, key=lambda sub: sub.creationTimeSeconds).creationTimeSeconds
     
-    @duel.command(brief='Give up a duel')
+    @duel.command(brief='Give up an adjusted duel. Can only be used by the lower rated duelist after the higher rated duelist has solved the problem.')
     async def giveup(self, ctx):
         active = cf_common.user_db.check_duel_giveup(ctx.author.id)
         if not active:
@@ -360,10 +340,10 @@ class Dueling(commands.Cog):
         highrated_timestamp = await self._get_solve_time(highrated_user.handle, contest_id, index)
         lowrated_timestamp = await self._get_solve_time(lowrated_user.handle, contest_id, index)            
 
-        lowrated_id = userids[1] if users[0].rating > users[1].rating else userids[0]
+        lowerrated_id = userids[1] if users[0].rating > users[1].rating else userids[0]
 
         # only low rated user can invoke the command
-        if ctx.author.id != lowrated_id:
+        if ctx.author.id != lowerrated_id:
             await ctx.send(f'Only the lower rated user can give up the duel.')
             return
 
@@ -386,9 +366,9 @@ class Dueling(commands.Cog):
                             winner, loser, win_time, 1, dtype)
         await ctx.send(f'{loser.mention} gave up. {winner.mention} won the duel against {loser.mention}!', embed=embed)
 
-    def get_coefficient(self, problem, lowerrated_rating, higherrated_rating):
-        p_lowrated = 1 / (1 + 10**((problem.rating - lowerrated_rating) / 1000))
-        p_highrated = 1 / (1 + 10**((problem.rating - higherrated_rating) / 1000))
+    def get_coefficient(self, problem_rating, lowerrated_rating, higherrated_rating):
+        p_lowrated = 1 / (1 + 10**((problem_rating - lowerrated_rating) / 1000))
+        p_highrated = 1 / (1 + 10**((problem_rating - higherrated_rating) / 1000))
         coeff = p_highrated / p_lowrated
         # cap values
         coeff = min(_DUEL_MAX_RATIO, max(1./_DUEL_MAX_RATIO, coeff))
@@ -453,7 +433,7 @@ class Dueling(commands.Cog):
 
         #for adjusted duels we calc coefficient and set flag
         if dtype == DuelType.ADJUNOFFICIAL or dtype == DuelType.ADJOFFICIAL:
-            coeff = self.get_coefficient(problem[0], lowerrated_rating, higherrated_rating)
+            coeff = self.get_coefficient(problem[0].rating, lowerrated_rating, higherrated_rating)
             adjusted = True
 
         # if lower rated finished first -> win for him
@@ -472,13 +452,13 @@ class Dueling(commands.Cog):
                     winner = lowrated_member
                     loser = highrated_member
                     win_time = lowrated_timestamp
-                    
+
                 diff = cf_common.pretty_time_format(
-                    abs(lowerrated_duration - highrated_duration * coeff), always_seconds=True)
+                abs(highrated_duration * coeff - lowerrated_duration), always_seconds=True)                    
                 win_status = Winner.CHALLENGER if winner == challenger else Winner.CHALLENGEE
                 embed = complete_duel(duelid, ctx.guild.id, win_status, winner, loser, win_time, 1, dtype)
                 if adjusted:
-                    await ctx.send(f"Both {challenger.mention} and {challengee.mention} solved it but {winner.mention} was {diff} faster!", embed=embed)
+                    await ctx.send(f"Both {challenger.mention} and {challengee.mention} solved it. But {winner.mention} was {diff} faster than the adjusted time limit!", embed=embed)
                 else: 
                     await ctx.send(f'Both {challenger.mention} and {challengee.mention} solved it but {winner.mention} was {diff} faster!', embed=embed)
             else:
@@ -504,7 +484,7 @@ class Dueling(commands.Cog):
                 time_remaining = lowerrated_duration - current_duration
                 time_remaining_formatted = cf_common.pretty_time_format(
                     time_remaining, always_seconds=True)
-                await ctx.send(f'{highrated_member.mention} solved it but {lowrated_member.mention} still has {time_remaining_formatted} to solve the problem! Please reinvoke `;duel complete` once {lowrated_member.mention} solved it or after {time_remaining_formatted}! {lowrated_member.mention} can also invoke  `;duel giveup` if they want to give up.')
+                await ctx.send(f'{highrated_member.mention} solved it but {lowrated_member.mention} still has {time_remaining_formatted} to solve the problem! Please reinvoke `;duel complete` once {lowrated_member.mention} solved it or after {time_remaining_formatted} have passed! {lowrated_member.mention} can also invoke `;duel giveup` if they want to give up.')
 
         elif lowrated_timestamp:
             winner = lowrated_member 

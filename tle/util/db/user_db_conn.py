@@ -662,7 +662,7 @@ class UserDbConn:
             self.conn.rollback()
             return 0
 
-        if dtype == DuelType.OFFICIAL:
+        if dtype == DuelType.OFFICIAL or dtype == DuelType.ADJOFFICIAL:
             self.update_duel_rating(winner_id, +delta)
             self.update_duel_rating(loser_id, -delta)
 
@@ -776,7 +776,7 @@ class UserDbConn:
     def get_complete_official_duels(self):
         query = f'''
             SELECT challenger, challengee, winner, finish_time FROM duel WHERE status={Duel.COMPLETE}
-            AND type={DuelType.OFFICIAL} ORDER BY finish_time ASC
+            AND (type={DuelType.OFFICIAL} OR type={DuelType.ADJOFFICIAL}) ORDER BY finish_time ASC
         '''
         return self.conn.execute(query).fetchall()
 
