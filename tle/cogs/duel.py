@@ -182,6 +182,8 @@ class Dueling(commands.Cog):
         rating = min(3500, max(rating, 800))
         unofficial = rating > _DUEL_OFFICIAL_CUTOFF #suggested_rating 
         if adjusted:
+            # since its experimental we keep it unofficial for now
+            unofficial = True
             dtype = DuelType.ADJUNOFFICIAL if unofficial else DuelType.ADJOFFICIAL
         else:
             dtype = DuelType.UNOFFICIAL if unofficial else DuelType.OFFICIAL
@@ -376,7 +378,7 @@ class Dueling(commands.Cog):
 
 
     @duel.command(brief='Complete a duel. Can be used after the problem was solved by one of the duelists.')
-    async def complete(self, ctx, override = None):
+    async def complete(self, ctx):
         active = cf_common.user_db.check_duel_complete(ctx.author.id)
         if not active:
             raise DuelCogError(f'{ctx.author.mention}, you are not in a duel.')
@@ -399,6 +401,7 @@ class Dueling(commands.Cog):
         lowrated_member = challengee if users[0].rating > users[1].rating else challenger
         higherrated_rating, lowerrated_rating = highrated_user.rating, lowrated_user.rating
 
+        override = None
         if not override:
             highrated_timestamp = await self._get_solve_time(highrated_user.handle, contest_id, index)
             lowrated_timestamp = await self._get_solve_time(lowrated_user.handle, contest_id, index)            
