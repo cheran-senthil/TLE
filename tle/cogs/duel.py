@@ -131,20 +131,21 @@ class Dueling(commands.Cog):
         logger.info(f'duel._check_ongoing_duels_for_guild running for {guild_id}')
         # check for ongoing duels that are older than _DUEL_MAX_DUEL_DURATION
         data = cf_common.user_db.get_ongoing_duels(guild_id)
+        guild = self.bot.fetch_guild(guild_id)
+
         for entry in data:
             start_time, name, challenger_id, challengee_id, duelid, dtype = entry
             now = datetime.datetime.now().timestamp()
             if now - start_time >= _DUEL_MAX_DUEL_DURATION:
                 logger.info(f'duel._check_ongoing_duels_for_guild: Found overdue duel {duelid}')
+                challenger = guild.get_member(challenger_id)
+                challengee = guild.get_member(challengee_id)                    
 
                 embed = complete_duel(duelid, guild_id, Winner.DRAW,
-                                challenger_id, challengee_id, now, 0.5, dtype)
+                                challenger, challengee, now, 0.5, dtype)
                 channel_id = cf_common.user_db.get_duel_channel(guild_id)
                 if channel_id is not None:
                     channel = self.bot.get_channel(channel_id)
-                    guild = self.bot.fetch_guild(guild_id)
-                    challenger = guild.get_member(challenger_id)
-                    challengee = guild.get_member(challengee_id)                    
                     await channel.send(f'Auto draw of duel between {challenger.mention} and {challengee.mention}.', embed=embed)    
         # check for adjusted duels that need completion
 
