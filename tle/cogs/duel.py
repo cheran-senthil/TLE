@@ -128,18 +128,24 @@ class Dueling(commands.Cog):
         asyncio.create_task(self._check_ongoing_duels())   
 
     async def _check_ongoing_duels_for_guild(self, guild_id):
-        logger.info(f'duel._check_ongoing_duels_for_guild running for {guild_id}')
+        logger.info(f'_check_ongoing_duels_for_guild: running for {guild_id}')
         # check for ongoing duels that are older than _DUEL_MAX_DUEL_DURATION
         data = cf_common.user_db.get_ongoing_duels(guild_id)
         guild = await self.bot.fetch_guild(guild_id)
+        if guild is None:
+            logger.warn(f'_check_ongoing_duels_for_guild: guild could not be retrieved.')
 
         for entry in data:
             start_time, name, challenger_id, challengee_id, duelid, dtype = entry
             now = datetime.datetime.now().timestamp()
             if now - start_time >= _DUEL_MAX_DUEL_DURATION:
-                logger.info(f'duel._check_ongoing_duels_for_guild: Found overdue duel {duelid}')
+                logger.info(f'_check_ongoing_duels_for_guild: Found overdue duel {duelid}')
                 challenger = guild.get_member(challenger_id)
+                if challenger is None:
+                    logger.warn(f'_check_ongoing_duels_for_guild: member with {challenger_id} could not be retrieved.')
                 challengee = guild.get_member(challengee_id)                    
+                if challengee is None:
+                    logger.warn(f'_check_ongoing_duels_for_guild: member with {challengee_id} could not be retrieved.')
 
                 embed = complete_duel(duelid, guild_id, Winner.DRAW,
                                 challenger, challengee, now, 0.5, dtype)
