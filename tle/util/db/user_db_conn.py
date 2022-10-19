@@ -685,8 +685,8 @@ class UserDbConn:
             return 0
 
         if dtype == DuelType.OFFICIAL or dtype == DuelType.ADJOFFICIAL:
-            self.update_duel_rating(winner_id, +delta)
-            self.update_duel_rating(loser_id, -delta)
+            self.update_duel_rating(winner_id, guild_id, +delta)
+            self.update_duel_rating(loser_id, guild_id, -delta)
 
         self.conn.commit()
         return 1

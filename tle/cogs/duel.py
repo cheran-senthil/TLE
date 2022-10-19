@@ -28,7 +28,7 @@ _DUEL_MAX_RATIO = 3.0
 _DUEL_STATUS_UNSOLVED = 0
 _DUEL_STATUS_TESTING = -1
 _DUEL_CHECK_ONGOING_INTERVAL = 600
-_DUEL_MAX_DUEL_DURATION = 24 * 60 * 60
+_DUEL_MAX_DUEL_DURATION = 15*60#24 * 60 * 60
 
 DuelRank = namedtuple(
     'Rank', 'low high title title_abbr color_graph color_embed')
@@ -64,23 +64,6 @@ def parse_nohandicap(args):
 
 class DuelCogError(commands.CommandError):
     pass
-
-async def on_ready(self):
-    asyncio.create_task(self._check_ongoing_duels())
-
-# async def _check_ongoing_duels(self):
-#     # check for ongoing duels that are older than _DUEL_MAX_DUEL_DURATION
-#     data = cf_common.user_db.get_ongoing_duels()
-#     for entry in data:
-#         start_time, name, challenger, challengee, duelid, dtype = entry
-#         now = datetime.datetime.now().timestamp()
-#         if now - start_time >= _DUEL_MAX_DUEL_DURATION:
-#             embed = complete_duel(duelid, ctx.guild.id, Winner.DRAW,
-#                               challenger, challengee, now, 0.5, dtype)
-#             await ctx.send(f'{ctx.author.mention} accepted draw offer by {offerer.mention}.', embed=embed)    
-#     # check for adjusted duels that need completion
-#     await asyncio.sleep(_DUEL_CHECK_ONGOING_INTERVAL)
-#     asyncio.create_task(self._check_ongoing_duels())    
 
 def elo_prob(player, opponent):
     return (1 + 10**((opponent - player) / 400))**-1
@@ -129,6 +112,33 @@ class Dueling(commands.Cog):
         self.bot = bot
         self.converter = commands.MemberConverter()
         self.draw_offers = {}
+
+    async def on_ready(self):
+        asyncio.create_task(self._check_ongoing_duels())
+
+    async def _check_ongoing_duels(self):
+        for guild in self.bot.guilds:
+            self._check_ongoing_duels_for_guild(guild.id)    
+        await asyncio.sleep(_DUEL_CHECK_ONGOING_INTERVAL)
+        asyncio.create_task(self._check_ongoing_duels())   
+
+    async def _check_ongoing_duels_for_guild(self, guild_id):
+        # check for ongoing duels that are older than _DUEL_MAX_DUEL_DURATION
+        data = cf_common.user_db.get_ongoing_duels()
+        for entry in data:
+            start_time, name, challenger_id, challengee_id, duelid, dtype = entry
+            now = datetime.datetime.now().timestamp()
+            if now - start_time >= _DUEL_MAX_DUEL_DURATION:
+                embed = complete_duel(duelid, guild_id, Winner.DRAW,
+                                challenger, challengee, now, 0.5, dtype)
+                channel_id = cf_common.user_db.get_duel_channel(guild_id)
+                if channel_id is not None:
+                    channel = self.bot.get_channel(channel_id)
+                    guild = self.bot.fetch_guild(guild_id)
+                    challenger = guild.get_member(challenger_id)
+                    challengee = guild.get_member(challengee_id)                    
+                    await channel.send(f'Auto draw of duel between {challenger.mention} and {challengee.mention}.', embed=embed)    
+        # check for adjusted duels that need completion
 
     @commands.group(brief='Duel commands',
                     invoke_without_command=True)
@@ -286,8 +296,8 @@ class Dueling(commands.Cog):
             coeff = self.get_coefficient(problem.rating, lowerrated_rating, higherrated_rating)
             percentage = round((coeff - 1.0)*100,1)
             ostr = 'an **unofficial** ' if unofficial else 'a '
-            diff = cf_common.pretty_time_format(600 * coeff)                    
-            await ctx.send(f'{ctx.author.mention} is challenging {opponent.mention} to {ostr} {rstr}duel with handicap! {lowrated_member.mention} is lower rated and will get {percentage} % more time than {highrated_member.mention} ({diff} per 10 minutes).' )
+            diff = cf_common.pretty_time_format(600 * coeff-600)                    
+            await ctx.send(f'{ctx.author.mention} is challenging {opponent.mention} to {ostr} {rstr}duel with handicap! {lowrated_member.mention} is lower rated and will get {percentage} % more time ({diff} / 10 min) than {highrated_member.mention}.' )
         else: 
             ostr = 'an **unofficial**' if unofficial else 'a'
             await ctx.send(f'{ctx.author.mention} is challenging {opponent.mention} to {ostr} {rstr}duel!')
