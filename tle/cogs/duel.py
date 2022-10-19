@@ -116,11 +116,11 @@ class Dueling(commands.Cog):
         self.converter = commands.MemberConverter()
         self.draw_offers = {}
 
+    @commands.Cog.listener()
+    @discord_common.once
     async def on_ready(self):
         asyncio.create_task(self._check_ongoing_duels())
     
-    @commands.Cog.listener()
-    @discord_common.once
     async def _check_ongoing_duels(self):
         for guild in self.bot.guilds:
             self._check_ongoing_duels_for_guild(guild.id)    
