@@ -123,7 +123,7 @@ class Dueling(commands.Cog):
     
     async def _check_ongoing_duels(self):
         for guild in self.bot.guilds:
-            self._check_ongoing_duels_for_guild(guild.id)    
+            await self._check_ongoing_duels_for_guild(guild.id)    
         await asyncio.sleep(_DUEL_CHECK_ONGOING_INTERVAL)
         asyncio.create_task(self._check_ongoing_duels())   
 
