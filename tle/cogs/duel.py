@@ -31,7 +31,7 @@ _DUEL_MAX_RATIO = 3.0
 _DUEL_STATUS_UNSOLVED = 0
 _DUEL_STATUS_TESTING = -1
 _DUEL_CHECK_ONGOING_INTERVAL = 600
-_DUEL_MAX_DUEL_DURATION = 15*60#24 * 60 * 60
+_DUEL_MAX_DUEL_DURATION = 5*60#24 * 60 * 60
 
 DuelRank = namedtuple(
     'Rank', 'low high title title_abbr color_graph color_embed')
@@ -118,7 +118,9 @@ class Dueling(commands.Cog):
 
     async def on_ready(self):
         asyncio.create_task(self._check_ongoing_duels())
-
+    
+    @commands.Cog.listener()
+    @discord_common.once
     async def _check_ongoing_duels(self):
         for guild in self.bot.guilds:
             self._check_ongoing_duels_for_guild(guild.id)    
