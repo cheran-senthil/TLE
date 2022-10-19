@@ -2,6 +2,7 @@ import random
 import datetime
 import discord
 import asyncio
+import logging
 import itertools
 
 from discord.ext import commands
@@ -16,6 +17,8 @@ from tle.util import paginator
 from tle.util import discord_common
 from tle.util import table
 from tle.util import graph_common as gc
+
+logger = logging.getLogger(__name__)
 
 _DUEL_INVALIDATE_TIME = 2 * 60
 _DUEL_EXPIRY_TIME = 5 * 60
@@ -123,12 +126,15 @@ class Dueling(commands.Cog):
         asyncio.create_task(self._check_ongoing_duels())   
 
     async def _check_ongoing_duels_for_guild(self, guild_id):
+        logger.info(f'duel._check_ongoing_duels_for_guild running for {guild_id}')
         # check for ongoing duels that are older than _DUEL_MAX_DUEL_DURATION
         data = cf_common.user_db.get_ongoing_duels()
         for entry in data:
             start_time, name, challenger_id, challengee_id, duelid, dtype = entry
             now = datetime.datetime.now().timestamp()
             if now - start_time >= _DUEL_MAX_DUEL_DURATION:
+                logger.info(f'duel._check_ongoing_duels_for_guild: Found overdue duel {duelid}')
+
                 embed = complete_duel(duelid, guild_id, Winner.DRAW,
                                 challenger, challengee, now, 0.5, dtype)
                 channel_id = cf_common.user_db.get_duel_channel(guild_id)
