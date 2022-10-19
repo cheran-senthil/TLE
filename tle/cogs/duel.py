@@ -130,7 +130,7 @@ class Dueling(commands.Cog):
     async def _check_ongoing_duels_for_guild(self, guild_id):
         logger.info(f'duel._check_ongoing_duels_for_guild running for {guild_id}')
         # check for ongoing duels that are older than _DUEL_MAX_DUEL_DURATION
-        data = cf_common.user_db.get_ongoing_duels()
+        data = cf_common.user_db.get_ongoing_duels(guild_id)
         for entry in data:
             start_time, name, challenger_id, challengee_id, duelid, dtype = entry
             now = datetime.datetime.now().timestamp()
