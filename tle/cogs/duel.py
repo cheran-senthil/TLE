@@ -138,7 +138,7 @@ class Dueling(commands.Cog):
                 logger.info(f'duel._check_ongoing_duels_for_guild: Found overdue duel {duelid}')
 
                 embed = complete_duel(duelid, guild_id, Winner.DRAW,
-                                challenger, challengee, now, 0.5, dtype)
+                                challenger_id, challengee_id, now, 0.5, dtype)
                 channel_id = cf_common.user_db.get_duel_channel(guild_id)
                 if channel_id is not None:
                     channel = self.bot.get_channel(channel_id)
