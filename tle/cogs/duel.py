@@ -129,20 +129,19 @@ class Dueling(commands.Cog):
         asyncio.create_task(self._check_ongoing_duels())
     
     async def _check_ongoing_duels(self):
+        logger.info(f'_check_ongoing_duels: start')
         for guild in self.bot.guilds:
-            await self._check_ongoing_duels_for_guild(guild.id)    
+            await self._check_ongoing_duels_for_guild(guild)    
+        logger.info(f'_check_ongoing_duels: after processing')            
         await asyncio.sleep(_DUEL_CHECK_ONGOING_INTERVAL)
+        logger.info(f'_check_ongoing_duels: after wait')
         asyncio.create_task(self._check_ongoing_duels())   
 
-    async def _check_ongoing_duels_for_guild(self, guild_id):
-        logger.info(f'_check_ongoing_duels_for_guild: running for {guild_id}')
+    async def _check_ongoing_duels_for_guild(self, guild):
+        logger.info(f'_check_ongoing_duels_for_guild: running for {guild.id}')
         # check for ongoing duels that are older than _DUEL_MAX_DUEL_DURATION
-        data = cf_common.user_db.get_ongoing_duels(guild_id)
-        guild = self.bot.get_guild(guild_id)
-        if guild is None:
-            logger.warn(f'_check_ongoing_duels_for_guild: guild could not be retrieved.')
-
-        channel_id = cf_common.user_db.get_duel_channel(guild_id)
+        data = cf_common.user_db.get_ongoing_duels(guild.id)
+        channel_id = cf_common.user_db.get_duel_channel(guild.id)
         if channel_id == None:
             logger.warn(f'_check_ongoing_duels_for_guild: duel channel is not set.')
             return
@@ -165,7 +164,7 @@ class Dueling(commands.Cog):
                 if challengee is None:
                     logger.warn(f'_check_ongoing_duels_for_guild: member with {challengee_id} could not be retrieved.')
 
-                embed = complete_duel(duelid, guild_id, Winner.DRAW,
+                embed = complete_duel(duelid, guild.id, Winner.DRAW,
                                 challenger, challengee, now, 0.5, dtype)
                 timelimit = cf_common.pretty_time_format(_DUEL_MAX_DUEL_DURATION) 
                 await channel.send(f'Auto draw of duel between {challenger.mention} and {challengee.mention} since it was active for more than {timelimit}.', embed=embed)    
