@@ -328,7 +328,7 @@ class Dueling(commands.Cog):
             highrated_member = challenger if users[0].rating > users[1].rating else challengee
             lowrated_member = challengee if users[0].rating > users[1].rating else challenger
             higherrated_rating, lowerrated_rating = highrated_user.rating, lowrated_user.rating
-            coeff = self.get_coefficient(problem.rating, lowerrated_rating, higherrated_rating)
+            coeff = _get_coefficient(problem.rating, lowerrated_rating, higherrated_rating)
             percentage = round((coeff - 1.0)*100,1)
             ostr = 'an **unofficial** ' if unofficial else 'a '
             diff = cf_common.pretty_time_format(600 * coeff-600)                    
