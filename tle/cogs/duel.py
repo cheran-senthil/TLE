@@ -172,7 +172,7 @@ class Dueling(commands.Cog):
         # check for duels that can be completed
         for entry in data:
             logger.info(f'_check_ongoing_duels_for_guild: Found ongoing duel {duelid}')
-            await self._check_duel_complete(guild, channel, duelid, entry, False)
+            await self._check_duel_complete(guild, channel, entry, False)
                     
 
     @commands.group(brief='Duel commands',
