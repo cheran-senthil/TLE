@@ -30,8 +30,8 @@ _DUEL_MAX_RATIO = 3.0
 
 _DUEL_STATUS_UNSOLVED = 0
 _DUEL_STATUS_TESTING = -1
-_DUEL_CHECK_ONGOING_INTERVAL = 600
-_DUEL_MAX_DUEL_DURATION = 5*60#24 * 60 * 60
+_DUEL_CHECK_ONGOING_INTERVAL = 60
+_DUEL_MAX_DUEL_DURATION = 24 * 60 * 60
 
 DuelRank = namedtuple(
     'Rank', 'low high title title_abbr color_graph color_embed')
@@ -109,6 +109,13 @@ def check_if_allow_self_register(ctx):
         raise DuelCogError('Self Registration is not enabled.')
     return True
 
+def _get_coefficient(problem_rating, lowerrated_rating, higherrated_rating):
+    p_lowrated = 1 / (1 + 10**((problem_rating - lowerrated_rating) / 1000))
+    p_highrated = 1 / (1 + 10**((problem_rating - higherrated_rating) / 1000))
+    coeff = p_highrated / p_lowrated
+    # cap values
+    coeff = min(_DUEL_MAX_RATIO, max(1./_DUEL_MAX_RATIO, coeff))
+    return coeff
 
 class Dueling(commands.Cog):
     def __init__(self, bot):
@@ -135,10 +142,21 @@ class Dueling(commands.Cog):
         if guild is None:
             logger.warn(f'_check_ongoing_duels_for_guild: guild could not be retrieved.')
 
+        channel_id = cf_common.user_db.get_duel_channel(guild_id)
+        if channel_id == None:
+            logger.warn(f'_check_ongoing_duels_for_guild: duel channel is not set.')
+            return
+
+        channel = self.bot.get_channel(channel_id)
+        if channel is None:
+            logger.warn(f'_check_ongoing_duels_for_guild: duel channel is not found on the server.')
+            return
+
+
         for entry in data:
-            start_time, name, challenger_id, challengee_id, duelid, dtype = entry
+            start_timestamp, problem_name, _, _, challenger_id, challengee_id, duelid, dtype = entry
             now = datetime.datetime.now().timestamp()
-            if now - start_time >= _DUEL_MAX_DUEL_DURATION:
+            if now - start_timestamp >= _DUEL_MAX_DUEL_DURATION:
                 logger.info(f'_check_ongoing_duels_for_guild: Found overdue duel {duelid}')
                 challenger = guild.get_member(challenger_id)
                 if challenger is None:
@@ -149,11 +167,14 @@ class Dueling(commands.Cog):
 
                 embed = complete_duel(duelid, guild_id, Winner.DRAW,
                                 challenger, challengee, now, 0.5, dtype)
-                channel_id = cf_common.user_db.get_duel_channel(guild_id)
-                if channel_id is not None:
-                    channel = self.bot.get_channel(channel_id)
-                    await channel.send(f'Auto draw of duel between {challenger.mention} and {challengee.mention}.', embed=embed)    
-        # check for adjusted duels that need completion
+                timelimit = cf_common.pretty_time_format(_DUEL_MAX_DUEL_DURATION) 
+                await channel.send(f'Auto draw of duel between {challenger.mention} and {challengee.mention} since it was active for more than {timelimit}.', embed=embed)    
+
+        # check for duels that can be completed
+        for entry in data:
+            logger.info(f'_check_ongoing_duels_for_guild: Found ongoing duel {duelid}')
+            await self._check_duel_complete(guild, channel, duelid, entry, False)
+                    
 
     @commands.group(brief='Duel commands',
                     invoke_without_command=True)
@@ -447,34 +468,18 @@ class Dueling(commands.Cog):
                             winner, loser, win_time, 1, dtype)
         await ctx.send(f'{loser.mention} gave up. {winner.mention} won the duel against {loser.mention}!', embed=embed)
 
-    def get_coefficient(self, problem_rating, lowerrated_rating, higherrated_rating):
-        p_lowrated = 1 / (1 + 10**((problem_rating - lowerrated_rating) / 1000))
-        p_highrated = 1 / (1 + 10**((problem_rating - higherrated_rating) / 1000))
-        coeff = p_highrated / p_lowrated
-        # cap values
-        coeff = min(_DUEL_MAX_RATIO, max(1./_DUEL_MAX_RATIO, coeff))
-        return coeff
-
-
-    @duel.command(brief='Complete a duel. Can be used after the problem was solved by one of the duelists.')
-    async def complete(self, ctx):
-        # check if we are in the correct channel
-        self._checkIfCorrectChannel(ctx)
-
-        active = cf_common.user_db.check_duel_complete(ctx.author.id, ctx.guild.id)
-        if not active:
-            raise DuelCogError(f'{ctx.author.mention}, you are not in a duel.')
-
-        duelid, challenger_id, challengee_id, start_timestamp, problem_name, contest_id, index, dtype = active
+    ### TODO: function is doing way to much
+    async def _check_duel_complete(self, guild, channel, data, isAutoComplete = False):
+        start_timestamp, problem_name, contest_id, index, challenger_id, challengee_id, duelid, dtype = data
 
         # get discord member
-        challenger = ctx.guild.get_member(challenger_id)
-        challengee = ctx.guild.get_member(challengee_id)
+        challenger = guild.get_member(challenger_id)
+        challengee = guild.get_member(challengee_id)
 
          # get cf handles and cf.Users
         userids = [challenger_id, challengee_id]
         handles = [cf_common.user_db.get_handle(
-            userid, ctx.guild.id) for userid in userids]
+            userid, guild.id) for userid in userids]
         users = [cf_common.user_db.fetch_cf_user(handle) for handle in handles] 
         
         highrated_user = users[0] if users[0].rating > users[1].rating else users[1]
@@ -482,32 +487,8 @@ class Dueling(commands.Cog):
         highrated_member = challenger if users[0].rating > users[1].rating else challengee
         lowrated_member = challengee if users[0].rating > users[1].rating else challenger
         higherrated_rating, lowerrated_rating = highrated_user.rating, lowrated_user.rating
-
-        override = None
-        if not override:
-            highrated_timestamp = await self._get_solve_time(highrated_user.handle, contest_id, index)
-            lowrated_timestamp = await self._get_solve_time(lowrated_user.handle, contest_id, index)            
-        else:
-            if override == '0':
-                highrated_timestamp = _DUEL_STATUS_UNSOLVED
-                lowrated_timestamp = datetime.datetime.now().timestamp()
-            if override == '1':
-                highrated_timestamp = datetime.datetime.now().timestamp()
-                lowrated_timestamp = _DUEL_STATUS_UNSOLVED
-            if override == '2':
-                highrated_timestamp = datetime.datetime.now().timestamp()
-                lowrated_timestamp = datetime.datetime.now().timestamp()+1
-            if override == '3':
-                highrated_timestamp = datetime.datetime.now().timestamp()
-                lowrated_timestamp = datetime.datetime.now().timestamp()+1000
-            if override == '4':
-                highrated_timestamp = _DUEL_STATUS_UNSOLVED
-                lowrated_timestamp = _DUEL_STATUS_UNSOLVED
-
-        # no pending submissions allowed
-        if highrated_timestamp == _DUEL_STATUS_TESTING or lowrated_timestamp == _DUEL_STATUS_TESTING:
-            await ctx.send(f'Wait a bit, {ctx.author.mention}. A submission is still being judged.')
-            return
+        highrated_timestamp = await self._get_solve_time(highrated_user.handle, contest_id, index)
+        lowrated_timestamp = await self._get_solve_time(lowrated_user.handle, contest_id, index) 
 
         # get problem including rating
         problem = [prob for prob in cf_common.cache2.problem_cache.problems
@@ -518,7 +499,7 @@ class Dueling(commands.Cog):
 
         #for adjusted duels we calc coefficient and set flag
         if dtype == DuelType.ADJUNOFFICIAL or dtype == DuelType.ADJOFFICIAL:
-            coeff = self.get_coefficient(problem[0].rating, lowerrated_rating, higherrated_rating)
+            coeff = _get_coefficient(problem[0].rating, lowerrated_rating, higherrated_rating)
             adjusted = True
 
         # if lower rated finished first -> win for him
@@ -541,18 +522,18 @@ class Dueling(commands.Cog):
                 diff = cf_common.pretty_time_format(
                 abs(highrated_duration * coeff - lowerrated_duration), always_seconds=True)                    
                 win_status = Winner.CHALLENGER if winner == challenger else Winner.CHALLENGEE
-                embed = complete_duel(duelid, ctx.guild.id, win_status, winner, loser, win_time, 1, dtype)
+                embed = complete_duel(duelid, guild.id, win_status, winner, loser, win_time, 1, dtype)
                 if adjusted:
-                    await ctx.send(f"Both {challenger.mention} and {challengee.mention} solved it. But {winner.mention} was {diff} faster than the adjusted time limit!", embed=embed)
+                    await channel.send(f"Both {challenger.mention} and {challengee.mention} solved it. But {winner.mention} was {diff} faster than the adjusted time limit!", embed=embed)
                 else: 
-                    await ctx.send(f'Both {challenger.mention} and {challengee.mention} solved it but {winner.mention} was {diff} faster!', embed=embed)
+                    await channel.send(f'Both {challenger.mention} and {challengee.mention} solved it but {winner.mention} was {diff} faster!', embed=embed)
             else:
-                embed = complete_duel(duelid, ctx.guild.id, Winner.DRAW,
+                embed = complete_duel(duelid, guild.id, Winner.DRAW,
                                       challenger, challengee, highrated_timestamp, 0.5, dtype)
                 if adjusted:
-                    await ctx.send(f"{challenger.mention} and {challengee.mention} solved the problem with the same adjusted time! It's a draw!", embed=embed)
+                    await channel.send(f"{challenger.mention} and {challengee.mention} solved the problem with the same adjusted time! It's a draw!", embed=embed)
                 else: 
-                    await ctx.send(f"{challenger.mention} and {challengee.mention} solved the problem in the exact same amount of time! It's a draw!", embed=embed)
+                    await channel.send(f"{challenger.mention} and {challengee.mention} solved the problem in the exact same amount of time! It's a draw!", embed=embed)
         elif highrated_timestamp: # special handling since we cant know if lowrated will still solve within time
             highrated_duration = highrated_timestamp - start_timestamp
             lowerrated_duration = highrated_duration * coeff
@@ -562,25 +543,41 @@ class Dueling(commands.Cog):
                 loser = lowrated_member
                 win_status = Winner.CHALLENGER if winner == challenger else Winner.CHALLENGEE
                 win_time = highrated_timestamp
-                embed = complete_duel(duelid, ctx.guild.id, win_status,
+                embed = complete_duel(duelid, guild.id, win_status,
                                     winner, loser, win_time, 1, dtype)
-                await ctx.send(f'{winner.mention} beat {loser.mention} in a duel!', embed=embed)
+                await channel.send(f'{winner.mention} beat {loser.mention} in a duel!', embed=embed)
             else:
                 time_remaining = lowerrated_duration - current_duration
                 time_remaining_formatted = cf_common.pretty_time_format(
                     time_remaining, always_seconds=True)
-                await ctx.send(f'{highrated_member.mention} solved it but {lowrated_member.mention} still has {time_remaining_formatted} to solve the problem! Please reinvoke `;duel complete` once {lowrated_member.mention} solved it or after {time_remaining_formatted} have passed! {lowrated_member.mention} can also invoke `;duel giveup` if they want to give up.')
+                if not isAutoComplete:
+                    await channel.send(f'{highrated_member.mention} solved it but {lowrated_member.mention} still has {time_remaining_formatted} to solve the problem! Please reinvoke `;duel complete` once {lowrated_member.mention} solved it or after {time_remaining_formatted} have passed! {lowrated_member.mention} can also invoke `;duel giveup` if they want to give up.')
 
         elif lowrated_timestamp:
             winner = lowrated_member 
             loser = highrated_member
             win_status = Winner.CHALLENGER if winner == challenger else Winner.CHALLENGEE
             win_time = lowrated_timestamp
-            embed = complete_duel(duelid, ctx.guild.id, win_status,
+            embed = complete_duel(duelid, guild.id, win_status,
                                   winner, loser, win_time, 1, dtype)
-            await ctx.send(f'{winner.mention} beat {loser.mention} in a duel!', embed=embed)
+            await channel.send(f'{winner.mention} beat {loser.mention} in a duel!', embed=embed)
         else:
-            await ctx.send('Nobody solved the problem yet.')
+            if not isAutoComplete:
+                await channel.send('Nobody solved the problem yet.')
+
+
+    @duel.command(brief='Complete a duel. Can be used after the problem was solved by one of the duelists.')
+    async def complete(self, ctx):
+        # check if we are in the correct channel
+        self._checkIfCorrectChannel(ctx)
+
+        active = cf_common.user_db.check_duel_complete(ctx.author.id, ctx.guild.id)
+        if not active:
+            raise DuelCogError(f'{ctx.author.mention}, you are not in a duel.')
+
+        duelid, challenger_id, challengee_id, start_timestamp, problem_name, contest_id, index, dtype = active
+
+        await self._check_duel_complete(ctx.guild, ctx.channel, active)
 
     @duel.command(brief='Offer a draw or accept a draw offer.')
     async def draw(self, ctx):
@@ -749,7 +746,7 @@ class Dueling(commands.Cog):
     @duel.command(brief='Print list of ongoing duels.')
     async def ongoing(self, ctx, member: discord.Member = None):
         def make_line(entry):
-            start_time, name, challenger, challengee, _, _ = entry
+            _, challenger, challengee, start_time, name, _, _, _ = entry
             problem = cf_common.cache2.problem_cache.problem_by_name[name]
             now = datetime.datetime.now().timestamp()
             when = cf_common.pretty_time_format(
