@@ -129,12 +129,9 @@ class Dueling(commands.Cog):
         asyncio.create_task(self._check_ongoing_duels())
     
     async def _check_ongoing_duels(self):
-        logger.info(f'_check_ongoing_duels: start')
         for guild in self.bot.guilds:
             await self._check_ongoing_duels_for_guild(guild)    
-        logger.info(f'_check_ongoing_duels: after processing')            
         await asyncio.sleep(_DUEL_CHECK_ONGOING_INTERVAL)
-        logger.info(f'_check_ongoing_duels: after wait')
         asyncio.create_task(self._check_ongoing_duels())   
 
     async def _check_ongoing_duels_for_guild(self, guild):
@@ -156,7 +153,6 @@ class Dueling(commands.Cog):
             start_timestamp, problem_name, _, _, challenger_id, challengee_id, duelid, dtype = entry
             now = datetime.datetime.now().timestamp()
             if now - start_timestamp >= _DUEL_MAX_DUEL_DURATION:
-                logger.info(f'_check_ongoing_duels_for_guild: Found overdue duel {duelid}')
                 challenger = guild.get_member(challenger_id)
                 if challenger is None:
                     logger.warn(f'_check_ongoing_duels_for_guild: member with {challenger_id} could not be retrieved.')
@@ -171,7 +167,6 @@ class Dueling(commands.Cog):
 
         # check for duels that can be completed
         for entry in data:
-            logger.info(f'_check_ongoing_duels_for_guild: Found ongoing duel {duelid}')
             await self._check_duel_complete(guild, channel, entry, True)
                     
 
@@ -331,8 +326,11 @@ class Dueling(commands.Cog):
             coeff = _get_coefficient(problem.rating, lowerrated_rating, higherrated_rating)
             percentage = round((coeff - 1.0)*100,1)
             ostr = 'an **unofficial** ' if unofficial else 'a '
-            diff = cf_common.pretty_time_format(600 * coeff-600)                    
-            await ctx.send(f'{ctx.author.mention} is challenging {opponent.mention} to {ostr} {rstr}duel with handicap! {lowrated_member.mention} is lower rated and will get {percentage} % more time ({diff} / 10 min) than {highrated_member.mention}.' )
+            diff = cf_common.pretty_time_format(600 * coeff-600)
+            if lowerrated_rating == higherrated_rating:
+                await ctx.send(f'{ctx.author.mention} is challenging {opponent.mention} to {ostr} {rstr}duel with handicap! Since {lowrated_member.mention} and {highrated_member.mention} have same rating no one will get a time bonus.' )
+            else:     
+                await ctx.send(f'{ctx.author.mention} is challenging {opponent.mention} to {ostr} {rstr}duel with handicap! {lowrated_member.mention} is lower rated and will get {percentage} % more time (bonus of {diff} for every 10 minutes of duel duration) than {highrated_member.mention}.' )
         else: 
             ostr = 'an **unofficial**' if unofficial else 'a'
             await ctx.send(f'{ctx.author.mention} is challenging {opponent.mention} to {ostr} {rstr}duel!')
@@ -467,7 +465,6 @@ class Dueling(commands.Cog):
                             winner, loser, win_time, 1, dtype)
         await ctx.send(f'{loser.mention} gave up. {winner.mention} won the duel against {loser.mention}!', embed=embed)
 
-    ### TODO: function is doing way to much
     async def _check_duel_complete(self, guild, channel, data, isAutoComplete = False):
         start_timestamp, problem_name, contest_id, index, challenger_id, challengee_id, duelid, dtype = data
 
