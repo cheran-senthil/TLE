@@ -326,7 +326,7 @@ class Dueling(commands.Cog):
             coeff = _get_coefficient(problem.rating, lowerrated_rating, higherrated_rating)
             percentage = round((coeff - 1.0)*100,1)
             ostr = 'an **unofficial** ' if unofficial else 'a '
-            diff = cf_common.pretty_time_format(600 * coeff-600)
+            diff = cf_common.pretty_time_format(600 * coeff-600, always_seconds=True)
             if lowerrated_rating == higherrated_rating:
                 await ctx.send(f'{ctx.author.mention} is challenging {opponent.mention} to {ostr} {rstr}duel with handicap! Since {lowrated_member.mention} and {highrated_member.mention} have same rating no one will get a time bonus.' )
             else:     
