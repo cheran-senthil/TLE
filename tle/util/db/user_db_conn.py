@@ -733,7 +733,7 @@ class UserDbConn:
 
     def get_ongoing_duels(self, guild_id):
         query = f'''
-            SELECT start_time, problem_name, contest_id, p_index, challenger, challengee, id, type FROM duel
+            SELECT id, challenger, challengee, start_time, problem_name, contest_id, p_index, type FROM duel
             WHERE status == {Duel.ONGOING} AND guild_id = ? ORDER BY start_time DESC
         '''
         return self.conn.execute(query, (guild_id,)).fetchall()
