@@ -150,7 +150,7 @@ class Dueling(commands.Cog):
 
 
         for entry in data:
-            start_timestamp, problem_name, _, _, challenger_id, challengee_id, duelid, dtype = entry
+            duelid, challenger_id, challengee_id, start_timestamp, problem_name, _, _, dtype = entry
             now = datetime.datetime.now().timestamp()
             if now - start_timestamp >= _DUEL_MAX_DUEL_DURATION:
                 challenger = guild.get_member(challenger_id)
@@ -466,7 +466,7 @@ class Dueling(commands.Cog):
         await ctx.send(f'{loser.mention} gave up. {winner.mention} won the duel against {loser.mention}!', embed=embed)
 
     async def _check_duel_complete(self, guild, channel, data, isAutoComplete = False):
-        start_timestamp, problem_name, contest_id, index, challenger_id, challengee_id, duelid, dtype = data
+        duelid, challenger_id, challengee_id, start_timestamp, problem_name, contest_id, index, dtype = data
 
         # get discord member
         challenger = guild.get_member(challenger_id)
@@ -570,8 +570,6 @@ class Dueling(commands.Cog):
         active = cf_common.user_db.check_duel_complete(ctx.author.id, ctx.guild.id)
         if not active:
             raise DuelCogError(f'{ctx.author.mention}, you are not in a duel.')
-
-        duelid, challenger_id, challengee_id, start_timestamp, problem_name, contest_id, index, dtype = active
 
         await self._check_duel_complete(ctx.guild, ctx.channel, active)
 
