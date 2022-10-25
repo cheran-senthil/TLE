@@ -486,6 +486,13 @@ class Dueling(commands.Cog):
         highrated_timestamp = await self._get_solve_time(highrated_user.handle, contest_id, index)
         lowrated_timestamp = await self._get_solve_time(lowrated_user.handle, contest_id, index) 
 
+
+        # no pending submissions allowed
+        if highrated_timestamp == _DUEL_STATUS_TESTING or lowrated_timestamp == _DUEL_STATUS_TESTING:
+            if isAutoComplete:
+                await channel.send(f'Wait a bit. A submission is still being judged.')
+            return
+
         # get problem including rating
         problem = [prob for prob in cf_common.cache2.problem_cache.problems
                    if prob.name == problem_name]
