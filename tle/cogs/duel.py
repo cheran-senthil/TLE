@@ -489,7 +489,7 @@ class Dueling(commands.Cog):
 
         # no pending submissions allowed
         if highrated_timestamp == _DUEL_STATUS_TESTING or lowrated_timestamp == _DUEL_STATUS_TESTING:
-            if isAutoComplete:
+            if not isAutoComplete:
                 await channel.send(f'Wait a bit. A submission is still being judged.')
             return
 
