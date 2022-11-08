@@ -265,7 +265,7 @@ class Dueling(commands.Cog):
         rating = cf_common.parse_rating(args)
         nohandicap = parse_nohandicap(args)
         users = [cf_common.user_db.fetch_cf_user(handle) for handle in handles]
-        lowest_rating = min(user.rating or 0 for user in users)
+        lowest_rating = min(user.effective_rating or 0 for user in users)
         suggested_rating = round(lowest_rating, -2) + _DUEL_RATING_DELTA
         rating = round(rating, -2) if rating else suggested_rating
         rating = min(3500, max(rating, 800))
@@ -318,11 +318,11 @@ class Dueling(commands.Cog):
             challenger = ctx.guild.get_member(challenger_id)
             challengee = ctx.guild.get_member(challengee_id)
 
-            highrated_user = users[0] if users[0].rating > users[1].rating else users[1]
-            lowrated_user = users[1] if users[0].rating > users[1].rating else users[0]
-            highrated_member = challenger if users[0].rating > users[1].rating else challengee
-            lowrated_member = challengee if users[0].rating > users[1].rating else challenger
-            higherrated_rating, lowerrated_rating = highrated_user.rating, lowrated_user.rating
+            highrated_user = users[0] if users[0].effective_rating > users[1].effective_rating else users[1]
+            lowrated_user = users[1] if users[0].effective_rating > users[1].effective_rating else users[0]
+            highrated_member = challenger if users[0].effective_rating > users[1].effective_rating else challengee
+            lowrated_member = challengee if users[0].effective_rating > users[1].effective_rating else challenger
+            higherrated_rating, lowerrated_rating = highrated_user.effective_rating, lowrated_user.effective_rating
             coeff = _get_coefficient(problem.rating, lowerrated_rating, higherrated_rating)
             percentage = round((coeff - 1.0)*100,1)
             ostr = 'an **unofficial** ' if unofficial else 'a '
@@ -330,7 +330,7 @@ class Dueling(commands.Cog):
             if lowerrated_rating == higherrated_rating:
                 await ctx.send(f'{ctx.author.mention} is challenging {opponent.mention} to {ostr} {rstr}duel with handicap! Since {lowrated_member.mention} and {highrated_member.mention} have same rating no one will get a time bonus.' )
             else:     
-                await ctx.send(f'{ctx.author.mention} is challenging {opponent.mention} to {ostr} {rstr}duel with handicap! {lowrated_member.mention} is lower rated and will get {percentage} % more time (bonus of {diff} for every 10 minutes of duel duration) than {highrated_member.mention}.' )
+                await ctx.send(f'{ctx.author.mention} is challenging {opponent.mention} to {ostr} {rstr}duel with handicap! {lowrated_member.mention} is lower rated and will get {percentage} % more time (bonus of {diff} for every 10 minutes of duel duration).' )
         else: 
             ostr = 'an **unofficial**' if unofficial else 'a'
             await ctx.send(f'{ctx.author.mention} is challenging {opponent.mention} to {ostr} {rstr}duel!')
@@ -431,15 +431,15 @@ class Dueling(commands.Cog):
             userid, ctx.guild.id) for userid in userids]
         users = [cf_common.user_db.fetch_cf_user(handle) for handle in handles] 
         
-        highrated_user = users[0] if users[0].rating > users[1].rating else users[1]
-        lowrated_user = users[1] if users[0].rating > users[1].rating else users[0]
-        highrated_member = challenger if users[0].rating > users[1].rating else challengee
-        lowrated_member = challengee if users[0].rating > users[1].rating else challenger
+        highrated_user = users[0] if users[0].effective_rating > users[1].effective_rating else users[1]
+        lowrated_user = users[1] if users[0].effective_rating > users[1].effective_rating else users[0]
+        highrated_member = challenger if users[0].effective_rating > users[1].effective_rating else challengee
+        lowrated_member = challengee if users[0].effective_rating > users[1].effective_rating else challenger
 
         highrated_timestamp = await self._get_solve_time(highrated_user.handle, contest_id, index)
         lowrated_timestamp = await self._get_solve_time(lowrated_user.handle, contest_id, index)            
 
-        lowerrated_id = userids[1] if users[0].rating > users[1].rating else userids[0]
+        lowerrated_id = userids[1] if users[0].effective_rating > users[1].effective_rating else userids[0]
 
         # only low rated user can invoke the command
         if ctx.author.id != lowerrated_id:
@@ -478,11 +478,11 @@ class Dueling(commands.Cog):
             userid, guild.id) for userid in userids]
         users = [cf_common.user_db.fetch_cf_user(handle) for handle in handles] 
         
-        highrated_user = users[0] if users[0].rating > users[1].rating else users[1]
-        lowrated_user = users[1] if users[0].rating > users[1].rating else users[0]
-        highrated_member = challenger if users[0].rating > users[1].rating else challengee
-        lowrated_member = challengee if users[0].rating > users[1].rating else challenger
-        higherrated_rating, lowerrated_rating = highrated_user.rating, lowrated_user.rating
+        highrated_user = users[0] if users[0].effective_rating > users[1].effective_rating else users[1]
+        lowrated_user = users[1] if users[0].effective_rating > users[1].effective_rating else users[0]
+        highrated_member = challenger if users[0].effective_rating > users[1].effective_rating else challengee
+        lowrated_member = challengee if users[0].effective_rating > users[1].effective_rating else challenger
+        higherrated_rating, lowerrated_rating = highrated_user.effective_rating, lowrated_user.effective_rating
         highrated_timestamp = await self._get_solve_time(highrated_user.handle, contest_id, index)
         lowrated_timestamp = await self._get_solve_time(lowrated_user.handle, contest_id, index) 
 
@@ -554,7 +554,7 @@ class Dueling(commands.Cog):
                 time_remaining_formatted = cf_common.pretty_time_format(
                     time_remaining, always_seconds=True)
                 if not isAutoComplete:
-                    await channel.send(f'{highrated_member.mention} solved it but {lowrated_member.mention} still has {time_remaining_formatted} to solve the problem! Please reinvoke `;duel complete` once {lowrated_member.mention} solved it or after {time_remaining_formatted} have passed! {lowrated_member.mention} can also invoke `;duel giveup` if they want to give up.')
+                    await channel.send(f'{highrated_member.mention} solved it but {lowrated_member.mention} still has {time_remaining_formatted} to solve the problem! Bot will check automatically if the problem has been solved or time is up. {lowrated_member.mention} can also invoke `;duel giveup` if they want to give up.')
 
         elif lowrated_timestamp:
             winner = lowrated_member 
