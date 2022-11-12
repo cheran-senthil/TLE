@@ -43,7 +43,7 @@ def setup():
     font_downloader.maybe_download()
 
 
-def main():
+async def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--nodb', action='store_true')
     args = parser.parse_args()
