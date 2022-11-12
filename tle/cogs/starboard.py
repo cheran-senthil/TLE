@@ -71,7 +71,7 @@ class Starboard(commands.Cog):
             else:
                 embed.add_field(name='Attachment', value=f'[{file.filename}]({file.url})', inline=False)
 
-        embed.set_footer(text=str(message.author), icon_url=message.author.avatar_url)
+        embed.set_footer(text=str(message.author), icon_url=message.author.avatar)
         return embed
 
     async def check_and_add_to_starboard(self, starboard_channel_id, payload):
