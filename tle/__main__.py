@@ -85,7 +85,7 @@ async def main():
         asyncio.create_task(discord_common.presence(bot))
 
     bot.add_listener(discord_common.bot_error_handler, name='on_command_error')
-    bot.run(token)
+    await bot.start(token)
 
 
 if __name__ == '__main__':
