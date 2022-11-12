@@ -923,5 +923,5 @@ class Dueling(commands.Cog):
         pass
 
 
-def setup(bot):
-    bot.add_cog(Dueling(bot))
+async def setup(bot):
+    await bot.add_cog(Dueling(bot))
