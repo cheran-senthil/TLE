@@ -42,8 +42,13 @@ def setup():
     # Download fonts if necessary
     font_downloader.maybe_download()
 
+async def load_cogs():
+    cogs = [file.stem for file in Path('tle', 'cogs').glob('*.py')]
+    for extension in cogs:
+        await bot.load_extension(f'tle.cogs.{extension}')
+    logging.info(f'Cogs loaded: {", ".join(bot.cogs)}')
 
-async def main():
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--nodb', action='store_true')
     args = parser.parse_args()
@@ -64,10 +69,9 @@ async def main():
     intents.message_content = True
 
     bot = commands.Bot(command_prefix=commands.when_mentioned_or(';'), intents=intents)
-    cogs = [file.stem for file in Path('tle', 'cogs').glob('*.py')]
-    for extension in cogs:
-        await bot.load_extension(f'tle.cogs.{extension}')
-    logging.info(f'Cogs loaded: {", ".join(bot.cogs)}')
+    
+    load_cogs()
+
 
     def no_dm_check(ctx):
         if ctx.guild is None:
@@ -89,4 +93,4 @@ async def main():
 
 
 if __name__ == '__main__':
-    await main()
+    main()
