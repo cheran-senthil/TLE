@@ -1,12 +1,12 @@
 [tool.poetry]
 name = "TLE"
-version = "0.1.0"
+version = "0.2.0"
 description = ""
 authors = ["meooow25 <soumiksarkar.3120@gmail.com>"]
 
 [tool.poetry.dependencies]
-python = "^3.7"
-"discord.py" = "^1.5.0"
+python = "^3.8"
+"discord.py" = "^2.1.0"
 seaborn = "^0.10.1"
 lxml = "^4.6"
 pillow = "^9.0"

@@ -43,7 +43,7 @@ def setup():
     font_downloader.maybe_download()
 
 
-def main():
+async def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--nodb', action='store_true')
     args = parser.parse_args()
@@ -61,11 +61,12 @@ def main():
     
     intents = discord.Intents.default()
     intents.members = True
+    intents.message_content = True
 
     bot = commands.Bot(command_prefix=commands.when_mentioned_or(';'), intents=intents)
     cogs = [file.stem for file in Path('tle', 'cogs').glob('*.py')]
     for extension in cogs:
-        bot.load_extension(f'tle.cogs.{extension}')
+        await bot.load_extension(f'tle.cogs.{extension}')
     logging.info(f'Cogs loaded: {", ".join(bot.cogs)}')
 
     def no_dm_check(ctx):
@@ -84,8 +85,8 @@ def main():
         asyncio.create_task(discord_common.presence(bot))
 
     bot.add_listener(discord_common.bot_error_handler, name='on_command_error')
-    bot.run(token)
+    await bot.start(token)
 
 
 if __name__ == '__main__':
-    main()
+     asyncio.run(main())

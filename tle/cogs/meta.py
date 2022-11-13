@@ -94,10 +94,10 @@ class Meta(commands.Cog):
     @commands.has_role(constants.TLE_ADMIN)
     async def guilds(self, ctx):
         "Replies with info on the bot's guilds"
-        msg = [f'Guild ID: {guild.id} | Name: {guild.name} | Owner: {guild.owner.id} | Icon: {guild.icon_url}'
+        msg = [f'Guild ID: {guild.id} | Name: {guild.name} | Owner: {guild.owner.id} | Icon: {guild.icon}'
                 for guild in self.bot.guilds]
         await ctx.send('```' + '\n'.join(msg) + '```')
 
 
-def setup(bot):
-    bot.add_cog(Meta(bot))
+async def setup(bot):
+    await bot.add_cog(Meta(bot))

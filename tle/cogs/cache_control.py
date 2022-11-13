@@ -85,5 +85,5 @@ class CacheControl(commands.Cog):
         await ctx.send(f'Done, fetched {count} problems')
 
 
-def setup(bot):
-    bot.add_cog(CacheControl(bot))
+async def setup(bot):
+    await bot.add_cog(CacheControl(bot))

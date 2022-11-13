@@ -17,7 +17,7 @@ _SUCCESS_GREEN = 0x28A745
 _ALERT_AMBER = 0xFFBF00
 
 
-def embed_neutral(desc, color=discord.Embed.Empty):
+def embed_neutral(desc, color=None):
     return discord.Embed(description=str(desc), color=color)
 
 
@@ -48,7 +48,7 @@ def attach_image(embed, img_file):
 
 
 def set_author_footer(embed, user):
-    embed.set_footer(text=f'Requested by {user}', icon_url=user.avatar_url)
+    embed.set_footer(text=f'Requested by {user}', icon_url=user.avatar)
 
 
 def send_error_if(*error_cls):

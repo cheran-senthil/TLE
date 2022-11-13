@@ -943,5 +943,5 @@ class Handles(commands.Cog):
         pass
 
 
-def setup(bot):
-    bot.add_cog(Handles(bot))
+async def setup(bot):
+    await bot.add_cog(Handles(bot))
