@@ -82,8 +82,8 @@ class Starboard(commands.Cog):
 
         channel = self.bot.get_channel(payload.channel_id)
         message = await channel.fetch_message(payload.message_id)
-        if (message.type != discord.MessageType.default or
-                len(message.content) == 0 and len(message.attachments) == 0):
+        if ((message.type != discord.MessageType.default and message.type != discord.MessageType.reply)
+            or (len(message.content) == 0 and len(message.attachments) == 0)):
             raise StarboardCogError('Cannot starboard this message')
 
         reaction_count = sum(reaction.count for reaction in message.reactions
