@@ -475,7 +475,7 @@ class Codeforces(commands.Cog):
             raise CodeforcesCogError('Unable to recommend a contest')
 
         recommendations = list(recommendations)
-        random.shuffle(recommendations)
+        recommendations.sort(key=lambda contest: cf_common.cache2.contest_cache.get_contest(contest).startTimeSeconds, reverse=True)
         contests = [cf_common.cache2.contest_cache.get_contest(contest_id) for contest_id in recommendations[:25]]
 
         def make_line(c):
