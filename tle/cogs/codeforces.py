@@ -18,10 +18,17 @@ from tle.util import cache_system2
 
 
 _GITGUD_NO_SKIP_TIME = 2 * 60 * 60
-_GITGUD_SCORE_DISTRIB = (2, 3, 5, 8, 12, 17, 23, 23, 23, 23, 23)
-_GITGUD_MAX_NEG_DELTA_VALUE = -300
-_GITGUD_MAX_POS_DELTA_VALUE =  700
+_GITGUD_SCORE_DISTRIB = (1, 2, 3, 5, 8, 12, 17, 23)
+_GITGUD_SCORE_DISTRIB_MIN = -400
+_GITGUD_SCORE_DISTRIB_MAX =  300
 
+def _calculateGitgudScoreForDelta(delta):
+    if (delta <= _GITGUD_SCORE_DISTRIB_MIN):
+        return _GITGUD_SCORE_DISTRIB[0]
+    if (delta >= _GITGUD_SCORE_DISTRIB_MAX):
+        return _GITGUD_SCORE_DISTRIB[-1]
+    index = (delta - _GITGUD_SCORE_DISTRIB_MIN)//100
+    return _GITGUD_SCORE_DISTRIB[index]
 
 class CodeforcesCogError(commands.CommandError):
     pass
@@ -35,9 +42,6 @@ class Codeforces(commands.Cog):
     async def _validate_gitgud_status(self, ctx, delta):
         if delta is not None and delta % 100 != 0:
             raise CodeforcesCogError('Delta must be a multiple of 100.')
-
-        if delta is not None and (delta < _GITGUD_MAX_NEG_DELTA_VALUE or delta > _GITGUD_MAX_POS_DELTA_VALUE):
-            raise CodeforcesCogError(f'Delta must range from {_GITGUD_MAX_NEG_DELTA_VALUE} to {_GITGUD_MAX_POS_DELTA_VALUE}.')
 
         user_id = ctx.message.author.id
         active = cf_common.user_db.check_challenge(user_id)
@@ -59,13 +63,13 @@ class Codeforces(commands.Cog):
         desc = cf_common.cache2.contest_cache.get_contest(problem.contestId).name
         embed = discord.Embed(title=title, url=problem.url, description=desc)
         embed.add_field(name='Rating', value=problem.rating)
-        embed.add_field(name='Points', value=(_GITGUD_SCORE_DISTRIB[(delta-_GITGUD_MAX_NEG_DELTA_VALUE)//100]))
+        embed.add_field(name='Points', value=(_calculateGitgudScoreForDelta(delta)))
         await ctx.send(f'Challenge problem for `{handle}`', embed=embed)
 
     @commands.command(brief='Upsolve a problem')
     @cf_common.user_guard(group='gitgud')
     async def upsolve(self, ctx, choice: int = -1):
-        """Upsolve: The command ;upsolve lists all problems that you haven't solved in contests you participated and which are within the range -300 to +700 of your current rating
+        """Upsolve: The command ;upsolve lists all problems that you haven't solved in contests you participated 
         - Type ;upsolve for listing all available problems.
         - Type ;upsolve <nr> for choosing the problem <nr> as gitgud problem (only possible if you have no active gitgud challenge)
         - After solving the problem you can claim gitgud points for it with ;gotgud
@@ -76,8 +80,8 @@ class Codeforces(commands.Cog):
         - For help with each of the commands you can type ;help <command> (e.g. ;help gitgudders)
         
         Point distribution:
-        delta  | -300 | -200 | -100 |  0  | +100 | +200 | +300 | +400 | +500 | +600 | +700
-        points |   2  |   3  |   5  |  8  |  12  |  17  |  23  |  23  |  23  |  23  |  23
+        delta  | <-300| -300 | -200 | -100 |  0  | +100 | +200 |>=300
+        points |   1  |   2  |   3  |   5  |  8  |  12  |  17  |  23 
         """
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         user = cf_common.user_db.fetch_cf_user(handle)
@@ -89,8 +93,7 @@ class Codeforces(commands.Cog):
         submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions if sub.verdict == 'OK'}
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
-                    if prob.name not in solved and prob.contestId in contests
-                    and ((prob.rating - rating) >= _GITGUD_MAX_NEG_DELTA_VALUE and (prob.rating - rating) <= _GITGUD_MAX_POS_DELTA_VALUE)]
+                    if prob.name not in solved and prob.contestId in contests]
 
         if not problems:
             raise CodeforcesCogError('Problems not found within the search parameters')
@@ -102,7 +105,7 @@ class Codeforces(commands.Cog):
             problem = problems[choice - 1]
             await self._gitgud(ctx, handle, problem, problem.rating - rating)
         else:
-            problems = problems[:100]
+            problems = problems[:500]
               
             def make_line(i, prob):
                 data = (f'{i + 1}: [{prob.name}]({prob.url}) [{prob.rating}]')
@@ -278,9 +281,10 @@ class Codeforces(commands.Cog):
         - For help with each of the commands you can type ;help <command> (e.g. ;help gitgudders)
         
         Point distribution:
-        delta  | -300 | -200 | -100 |  0  | +100 | +200 | +300 | +400 | +500 | +600 | +700
-        no tags|   2  |   3  |   5  |  8  |  12  |  17  |  23  |  23  |  23  |  23  |  23
-        tags   |   2  |   2  |   2  |  3  |   5  |   8  |  12  |  17  |  23  |  23  |  23
+        delta  | <-300| -300 | -200 | -100 |   0  | +100 | +200 |>=300
+        no tags|   1  |   2  |   3  |   5  |   8  |  12  |  17  |  23 
+        delta  | <-100| -100 |   0  | +100 | +200 | +300 | +400 |>=500
+        tags   |   1  |   2  |   3  |   5  |   8  |  12  |  17  |  23 
         """
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         user = cf_common.user_db.fetch_cf_user(handle)
@@ -325,7 +329,7 @@ class Codeforces(commands.Cog):
 
         choice = max(random.randrange(len(problems)) for _ in range(5))
         if tags or bantags:
-            delta = max(delta - 200, _GITGUD_MAX_NEG_DELTA_VALUE)
+            delta = delta - 200
         await self._gitgud(ctx, handle, problems[choice], delta)
 
     @commands.command(brief='Print user gitgud history')
@@ -339,7 +343,7 @@ class Codeforces(commands.Cog):
             line = f'[{name}]({problem.url})\N{EN SPACE}[{problem.rating}]'
             if finish:
                 time_str = cf_common.days_ago(finish)
-                points = f'{_GITGUD_SCORE_DISTRIB[delta // 100 + 3]:+}'
+                points = f'{_calculateGitgudScoreForDelta(delta):+}'
                 line += f'\N{EN SPACE}{time_str}\N{EN SPACE}[{points}]'
             return line
 
@@ -357,7 +361,7 @@ class Codeforces(commands.Cog):
         for entry in data:
             issue, finish, name, contest, index, delta, status = entry
             if finish:
-                score+=_GITGUD_SCORE_DISTRIB[delta // 100 + 3]
+                score+=_calculateGitgudScoreForDelta(delta)
      
 
         pages = [make_page(chunk, score) for chunk in paginator.chunkify(data, 10)]
@@ -373,7 +377,7 @@ class Codeforces(commands.Cog):
             line = f'[{name}]({problem.url})\N{EN SPACE}[{problem.rating}]'
             if finish:
                 time_str = cf_common.days_ago(finish)
-                points = f'{_GITGUD_SCORE_DISTRIB[delta // 100 + 3]:+}'
+                points = f'{_calculateGitgudScoreForDelta(delta):+}'
                 line += f'\N{EN SPACE}{time_str}\N{EN SPACE}[{points}]'
             return line
 
@@ -409,7 +413,7 @@ class Codeforces(commands.Cog):
         if not name in solved:
             raise CodeforcesCogError('You haven\'t completed your challenge.')
 
-        delta = _GITGUD_SCORE_DISTRIB[delta // 100 + 3]
+        delta = _calculateGitgudScoreForDelta(delta)
         finish_time = int(datetime.datetime.now().timestamp())
         rc = cf_common.user_db.complete_challenge(user_id, challenge_id, finish_time, delta)
         if rc == 1:
