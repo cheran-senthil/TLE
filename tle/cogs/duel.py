@@ -129,8 +129,15 @@ class Dueling(commands.Cog):
         asyncio.create_task(self._check_ongoing_duels())
     
     async def _check_ongoing_duels(self):
-        for guild in self.bot.guilds:
-            await self._check_ongoing_duels_for_guild(guild)    
+        try:
+            for guild in self.bot.guilds:
+                await self._check_ongoing_duels_for_guild(guild)    
+        except Exception as exception:
+            # we need to handle exceptions on our own -> put them into server log for now (TODO: logging channel would be better)
+            msg = 'Ignoring exception in command {}:'.format("_check_round_complete")
+            exc_info = type(exception), exception, exception.__traceback__
+            extra = { }
+            logger.exception(msg, exc_info=exc_info, extra=extra)            
         await asyncio.sleep(_DUEL_CHECK_ONGOING_INTERVAL)
         asyncio.create_task(self._check_ongoing_duels())   
 
