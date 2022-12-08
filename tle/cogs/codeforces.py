@@ -267,7 +267,7 @@ class Codeforces(commands.Cog):
         embed = discord_common.cf_color_embed(description=msg)
         await ctx.send(f'Mashup contest for `{str_handles}`', embed=embed)
 
-    @commands.command(brief='Challenge', aliases=['gitbad']
+    @commands.command(brief='Challenge', aliases=['gitbad'],
                       usage='[delta=0] [+tags...] [~tags...]')
     @cf_common.user_guard(group='gitgud')
     async def gitgud(self, ctx, *args):
