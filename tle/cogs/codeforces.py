@@ -264,7 +264,7 @@ class Codeforces(commands.Cog):
         embed = discord_common.cf_color_embed(description=msg)
         await ctx.send(f'Mashup contest for `{str_handles}`', embed=embed)
 
-    @commands.command(brief='Challenge', 
+    @commands.command(brief='Challenge', aliases=['gitbad']
                       usage='[delta=0] [+tags...] [~tags...]')
     @cf_common.user_guard(group='gitgud')
     async def gitgud(self, ctx, *args):
@@ -393,7 +393,7 @@ class Codeforces(commands.Cog):
         pages = [make_page(chunk) for chunk in paginator.chunkify(data, 10)]
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
-    @commands.command(brief='Report challenge completion')
+    @commands.command(brief='Report challenge completion', aliases=['gotbad'])
     @cf_common.user_guard(group='gitgud')
     async def gotgud(self, ctx):
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
