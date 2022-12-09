@@ -268,11 +268,11 @@ class Codeforces(commands.Cog):
         await ctx.send(f'Mashup contest for `{str_handles}`', embed=embed)
 
     @commands.command(brief='Challenge', aliases=['gitbad'],
-                      usage='[delta=0] [+tags...] [~tags...]')
+                      usage='[delta=0|r=rating] [+tags...] [~tags...]')
     @cf_common.user_guard(group='gitgud')
     async def gitgud(self, ctx, *args):
         """Gitgud: You can request a problem from the bots relative to your current rating with ;gitgud <delta>
-        - It is also possible to request problems with a certain tag now but you get less points for it: ;gitgud <delta> [+tags...] [~tags...]
+        - It is also possible to request problems with a certain tag now but you get less points for it: ;gitgud <delta>|r=<rating> [+tags...] [~tags...]
         - After solving the problem you can claim gitgud points for it with ;gotgud
         - If you can't solve the problem for 2 hours you can skip it with ;nogud
         - The all-time ranklist can be found with ;gitgudders
