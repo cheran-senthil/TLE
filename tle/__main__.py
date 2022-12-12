@@ -17,6 +17,7 @@ from tle.util import codeforces_common as cf_common
 from tle.util import discord_common, font_downloader
 
 
+
 def setup():
     # Make required directories.
     for path in constants.ALL_DIRS:
@@ -64,6 +65,7 @@ async def main():
     intents.message_content = True
 
     bot = commands.Bot(command_prefix=commands.when_mentioned_or(';'), intents=intents)
+    bot.help_command = discord_common.TleHelp()
     cogs = [file.stem for file in Path('tle', 'cogs').glob('*.py')]
     for extension in cogs:
         await bot.load_extension(f'tle.cogs.{extension}')

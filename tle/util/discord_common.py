@@ -137,3 +137,30 @@ async def presence(bot):
             await asyncio.sleep(10 * 60)
 
     presence_task.start()
+
+class TleHelp(commands.DefaultHelpCommand):
+    def add_command_formatting(self, command):
+        """A utility function to format the non-indented block of commands and groups.
+
+        Parameters
+        ------------
+        command: :class:`Command`
+            The command to format.
+        """
+
+        if command.description:
+            self.paginator.add_line(command.description, empty=True)
+
+        signature = self.get_command_signature(command)
+        if command.usage:
+            signature += " "+command.usage
+        self.paginator.add_line(signature, empty=True)
+
+        if command.help:
+            try:
+                self.paginator.add_line(command.help, empty=True)
+            except RuntimeError:
+                for line in command.help.splitlines():
+                    self.paginator.add_line(line)
+                self.paginator.add_line()
+
