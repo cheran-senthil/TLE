@@ -472,11 +472,11 @@ async def _needs_fixing(handles):
 
 
 async def _resolve_redirect(handle):
-    url = 'http://codeforces.com/profile/' + handle
+    url = 'https://codeforces.com/profile/' + handle
     async with _session.head(url) as r:
         if r.status == 200:
             return handle
-        if r.status == 302:
+        if r.status == 301 or r.status == 302:
             redirected = r.headers.get('Location')
             if '/profile/' not in redirected:
                 # Ended up not on profile page, probably invalid handle
