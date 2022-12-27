@@ -453,7 +453,7 @@ async def _needs_fixing(handles):
 
 
 async def _resolve_redirect(handle):
-    url = 'http://codeforces.com/profile/' + handle
+    url = PROFILE_BASE_URL + handle
     async with _session.head(url) as r:
         if r.status == 200:
             return handle
