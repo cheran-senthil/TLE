@@ -80,7 +80,6 @@ Fill in appropriate variables in new "environment" file.
 
 - **BOT_TOKEN**: the Discord Bot Token for your bot.
 - **LOGGING_COG_CHANNEL_ID**: the [Discord Channel ID](https://support.discord.com/hc/en-us/articles/206346498-Where-can-I-find-my-User-Server-Message-ID-) of a Discord Channel where you want error messages sent to.
-- **ALLOW_DUEL_SELF_REGISTER**: boolean value indicating if self registration for duels is enabled.
 - **TLE_ADMIN**: the name of the role that can run admin commands of the bot. If this is not set, the role name will default to "Admin".
 - **TLE_MODERATOR**: the name of the role that can run moderator commands of the bot. If this is not set, the role name will default to "Moderator".
 

@@ -8,6 +8,7 @@ from collections import defaultdict
 import discord
 from discord.ext import commands
 
+
 from tle import constants
 from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common

@@ -275,22 +275,23 @@ class Round(commands.Cog):
         return problem
 
 
-    @round.command(name="challenge", brief="Challenge multiple users to a round")
+    @round.command(name="challenge", brief="Challenge multiple users to a round", usage="[@user1 @user2...]")
     async def challenge(self, ctx, *members: discord.Member):
         # check if we are in the correct channel
         self._check_if_correct_channel(ctx)
         
         members = list(set(members))
-        if len(members) == 0:
-            raise RoundCogError('The correct usage is `;round challenge @user1 @user2...`')            
         if ctx.author not in members:
             members.append(ctx.author)
         if len(members) > MAX_ROUND_USERS:
             raise RoundCogError(f'{ctx.author.mention} atmost {MAX_ROUND_USERS} users can compete at a time') 
+
+        # get handles first. This also checks if discord member has a linked handle!
+        handles = cf_common.members_to_handles(members, ctx.guild.id)            
         for member in members:
             if not cf_common.user_db.is_duelist(member.id, ctx.guild.id):
-                raise RoundCogError(
-                    f'{member.mention}, you are not a registered duelist!')            
+                cf_common.user_db.register_duelist(member.id, ctx.guild.id)         
+
         # check for members still in a round
         self._check_if_any_member_is_already_in_round(ctx, members)
 
@@ -307,7 +308,6 @@ class Round(commands.Cog):
         repeat = await self._get_time_response(self.bot, ctx, f"{ctx.author.mention} do you want a new problem to appear when someone solves a problem (type 1 for yes and 0 for no)", 30, ctx.author, [0, 1])
 
         # pick problems
-        handles = cf_common.members_to_handles(members, ctx.guild.id)
         submissions = [await cf.user.status(handle=handle) for handle in handles]        
         solved = {sub.problem.name for subs in submissions for sub in subs if sub.verdict != 'COMPILATION_ERROR'} 
         selected = []
@@ -322,7 +322,7 @@ class Round(commands.Cog):
 
         await ctx.send(embed=self._round_problems_embed(round_info))
 
-    @round.command(brief="Invalidate a round (Admin/Mod only)")
+    @round.command(brief="Invalidate a round (Admin/Mod only)", usage="@user")
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)  # OK
     async def _invalidate(self, ctx, member: discord.Member):
         if not cf_common.user_db.check_if_user_in_ongoing_round(ctx.guild.id, member.id):
@@ -330,7 +330,7 @@ class Round(commands.Cog):
         cf_common.user_db.delete_round(ctx.guild.id, member.id)
         await ctx.send(f'Round deleted.')
 
-    @round.command(brief="View problems of a round")
+    @round.command(brief="View problems of your round or for a specific user", usage="[@user]")
     async def problems(self, ctx, member: discord.Member=None):
         # check if we are in the correct channel
         self._check_if_correct_channel(ctx)

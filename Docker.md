@@ -33,7 +33,6 @@ Fill in appropriate variables in new "environment" file.
 ```console
 export BOT_TOKEN="XXXXXXXXXXXXXXXXXXXXXXXX.XXXXXX.XXXXXXXXXXXXXXXXXXXXXXXXXXX"
 export LOGGING_COG_CHANNEL_ID="XXXXXXXXXXXXXXXXXX"
-export ALLOW_DUEL_SELF_REGISTER="false"
 ```
 - Change the value of `BOT_TOKEN` with the token of the bot you created from [this step](https://github.com/reactiflux/discord-irc/wiki/Creating-a-discord-bot-&-getting-a-token).
 

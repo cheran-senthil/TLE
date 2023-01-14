@@ -104,11 +104,6 @@ def complete_duel(duelid, guild_id, win_status, winner, loser, finish_time, scor
     return embed
 
 
-def check_if_allow_self_register(ctx):
-    if not constants.ALLOW_DUEL_SELF_REGISTER:
-        raise DuelCogError('Self Registration is not enabled.')
-    return True
-
 def _get_coefficient(problem_rating, lowerrated_rating, higherrated_rating):
     p_lowrated = 1 / (1 + 10**((problem_rating - lowerrated_rating) / 1000))
     p_highrated = 1 / (1 + 10**((problem_rating - higherrated_rating) / 1000))
@@ -210,29 +205,6 @@ class Dueling(commands.Cog):
         embed.add_field(name='Channel', value=channel.mention)
         await ctx.send(embed=embed)
 
-    @duel.command(brief='Register a duelist')
-    @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
-    async def register(self, ctx, member: discord.Member):
-        """Register a duelist"""
-        rc = cf_common.user_db.register_duelist(member.id, ctx.guild.id)
-        if rc == 0:
-            raise DuelCogError(
-                f'{member.mention} is already a registered duelist')
-        await ctx.send(f'{member.mention} successfully registered as a duelist.')
-
-    @duel.command(brief='Register yourself as a duelist')
-    @commands.check(check_if_allow_self_register)
-    async def selfregister(self, ctx):
-        """Register yourself as a duelist"""
-        if not cf_common.user_db.get_handle(ctx.author.id, ctx.guild.id):
-            raise DuelCogError(
-                f'{ctx.author.mention}, you cannot register yourself as a duelist without setting your handle.')
-        rc = cf_common.user_db.register_duelist(ctx.author.id, ctx.guild.id)
-        if rc == 0:
-            raise DuelCogError(
-                f'{ctx.author.mention} is already a registered duelist')
-        await ctx.send(f'{ctx.author.mention} successfully registered as a duelist')
-
     @duel.command(brief='Challenge to a duel', usage='opponent [rating] [+tag..] [~tag..] [nohandicap]')
     async def challenge(self, ctx, opponent: discord.Member, *args):
         """Challenge another server member to a duel. Problem difficulty will be the lesser of duelist ratings minus 400. You can alternatively specify a different rating. 
@@ -252,11 +224,9 @@ class Dueling(commands.Cog):
         submissions = [await cf.user.status(handle=handle) for handle in handles]
 
         if not cf_common.user_db.is_duelist(challenger_id, ctx.guild.id):
-            raise DuelCogError(
-                f'{ctx.author.mention}, you are not a registered duelist!')
+            cf_common.user_db.register_duelist(challenger_id, ctx.guild.id)
         if not cf_common.user_db.is_duelist(challengee_id, ctx.guild.id):
-            raise DuelCogError(
-                f'{opponent.mention} is not a registered duelist!')
+            cf_common.user_db.register_duelist(challengee_id, ctx.guild.id)
         if challenger_id == challengee_id:
             raise DuelCogError(
                 f'{ctx.author.mention}, you cannot challenge yourself!')
@@ -623,9 +593,10 @@ class Dueling(commands.Cog):
     @duel.command(brief='Show duelist profile page')
     async def profile(self, ctx, member: discord.Member = None):
         member = member or ctx.author
+        
         if not cf_common.user_db.is_duelist(member.id, ctx.guild.id):
             raise DuelCogError(
-                f'{member.mention} is not a registered duelist.')
+                f'{member.mention} has not done any duels.')
 
         user = get_cf_user(member.id, ctx.guild.id)
         rating = cf_common.user_db.get_duel_rating(member.id, ctx.guild.id)
@@ -854,6 +825,7 @@ class Dueling(commands.Cog):
 
     # TODO: Add _invalidate by cfhandle
      
+    # rating does not plot rating changes through lockouts
     @duel.command(brief='Plot rating', usage='[duelist]')
     async def rating(self, ctx, *members: discord.Member):
         """Plot duelist's rating."""
