@@ -441,12 +441,40 @@ class Contests(commands.Cog):
             embed.add_field(name='Tick tock', value=msg, inline=False)
         return embed
 
+    @staticmethod
+    def _filter_rated_only_contestant_data(handles, ranklist):
+
+        # Keep only rated contestants
+        rated_contestants = [handle for handle in handles
+                             if ranklist.standing_by_id.get_correct_handle(handle) in ranklist.delta_by_handle]
+
+        # fix the actual ranks for cases like Edu rounds where unofficial ranks are also included in official standings
+        current_rank = 0
+        last_rank = 0
+        last_score = (-1, -1)
+        for contestant in ranklist.standings:
+            handle = contestant.party.teamName or contestant.party.members[0].handle
+            if handle in ranklist.delta_by_handle:
+                current_score = (contestant.points, contestant.penalty)
+                current_rank += 1
+                dict = ranklist.standing_by_id[handle]._asdict()
+                dict['rank'] = current_rank if current_score != last_score else last_rank
+                last_rank = dict['rank']
+                last_score = current_score
+                ranklist.standing_by_id[handle] = cf.make_from_dict(cf.RanklistRow, dict)
+
+        return rated_contestants, ranklist
+
     @commands.command(brief='Show ranklist for given handles and/or server members')
-    async def ranklist(self, ctx, contest_id: int, *handles: str):
-        """Shows ranklist for the contest with given contest id. If handles contains
-        '+server', all server members are included. No handles defaults to '+server'.
+    async def ranklist(self, ctx, contest_id: int, *args: str):
         """
-        handles = await cf_common.resolve_handles(ctx, self.member_converter, handles, maxcnt=None, default_to_all_server=True)
+        Shows ranklist for the contest with given contest id. If handles contains
+        '+server', all server members are included. No handles defaults to '+server'.
+        Use '+official' for only showing rated participants for the round
+        """
+        (show_official,), handles = cf_common.filter_flags(args, ['+official'])
+        handles = await cf_common.resolve_handles(ctx, self.member_converter, handles, maxcnt=None,
+                                                  default_to_all_server=True)
         contest = cf_common.cache2.contest_cache.get_contest(contest_id)
         wait_msg = await ctx.channel.send('Generating ranklist, please wait...')
         ranklist = None
@@ -455,8 +483,15 @@ class Contests(commands.Cog):
         except cache_system2.RanklistNotMonitored:
             if contest.phase == 'BEFORE':
                 raise ContestCogError(f'Contest `{contest.id} | {contest.name}` has not started')
-            ranklist = await cf_common.cache2.ranklist_cache.generate_ranklist(contest.id,
-                                                                            fetch_changes=True)
+            ranklist = await cf_common.cache2.ranklist_cache.generate_ranklist(contest.id, fetch_changes=True,
+                                                                               show_unofficial=show_official is False)
+
+        # for Edu rounds the cf api returns the unofficial participants as official as well.
+        # Hence we need to fix ranks for actual rated people
+        # Note that unofficial people still have their original ranks but they will be filtered out in show_ranklist
+        if show_official and "educational" in contest.name.lower():
+            handles, ranklist = self._filter_rated_only_contestant_data(handles, ranklist)
+
         await wait_msg.delete()
         await ctx.channel.send(embed=self._make_contest_embed_for_ranklist(ranklist))
         await self._show_ranklist(channel=ctx.channel, contest_id=contest_id, handles=handles, ranklist=ranklist)
@@ -473,10 +508,12 @@ class Contests(commands.Cog):
             except rl.HandleNotPresentError:
                 continue
 
-            # Database has correct handle ignoring case, update to it
             # TODO: It will throw an exception if this row corresponds to a team. At present ranklist doesnt show teams.
             # It should be fixed in https://github.com/cheran-senthil/TLE/issues/72
-            handle = standing.party.members[0].handle
+            # This probably is fixed, tho idk if that is what they meant when they made this
+
+            # Database has correct handle ignoring case, update to it
+            handle = standing.party.teamName or standing.party.members[0].handle
             if vc and standing.party.participantType != 'VIRTUAL':
                 continue
             handle_standings.append((handle, standing))
@@ -854,7 +891,7 @@ class Contests(commands.Cog):
                     # members not in cache are considered new (Unrated)
                     if member in cached_ratings:
                         rating_cache[member] = cached_ratings[member].newRating
-                    else: 
+                    else:
                         rating_cache[member] = 0
             else:
                 for change in rating_change:
@@ -912,7 +949,7 @@ class Contests(commands.Cog):
         title = reqcontest[0].name
         embed = discord_common.cf_color_embed(description=table_str, title=title, url=url)
         await ctx.send(embed=embed)
-        
+
     @discord_common.send_error_if(ContestCogError, rl.RanklistError,
                                   cache_system2.CacheError, cf_common.ResolveHandleError)
     async def cog_command_error(self, ctx, error):

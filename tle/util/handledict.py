@@ -2,13 +2,14 @@
     A case insensitive dictionay with bare minimum functions required for handling usernames.
 """
 
+
 class HandleDict:
     def __init__(self):
         self._store = {}
 
     @staticmethod
     def _getlower(key):
-        return key.lower() if type(key)==str else key
+        return key.lower() if type(key) == str else key
 
     def __setitem__(self, key, value):
         # Use the lowercased key for lookups, but store the actual
@@ -17,6 +18,13 @@ class HandleDict:
 
     def __getitem__(self, key):
         return self._store[self._getlower(key)][1]
+
+    # get correct handle irrespective of the input case of the handle (if the handle is present)
+    def get_correct_handle(self, key):
+        try:
+            return self._store[self._getlower(key)][0]
+        except KeyError:
+            return ""
 
     def __delitem__(self, key):
         del self._store[self._getlower(key)]

@@ -38,11 +38,7 @@ class Ranklist:
 
         self.standing_by_id = HandleDict()
         for row in self.standings:
-            if row.party.ghost:
-                # Apparently ghosts don't have team ID.
-                id_ = row.party.teamName
-            else:
-                id_ = row.party.teamId or row.party.members[0].handle
+            id_ = row.party.teamName or row.party.members[0].handle
             self.standing_by_id[id_] = row
 
         self.delta_by_handle = None
