@@ -853,8 +853,8 @@ class Graphs(commands.Cog):
                   for member, delta in zip(members, deltas)]
 
         #get bins dynamically
-        min_delta = min([min(delta) for delta in deltas])
-        max_delta = max([max(delta) for delta in deltas])
+        min_delta = min([min(delta, default=0) for delta in deltas])
+        max_delta = max([max(delta, default=0) for delta in deltas])
         hist_bins = list(range(min_delta - 50, max_delta + 50 + 1, 100)) 
         
         plt.clf()
