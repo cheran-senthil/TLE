@@ -192,7 +192,7 @@ class Codeforces(commands.Cog):
         else:
             submissions.sort(key=lambda sub: sub.creationTimeSeconds, reverse=True)
 
-        handlesWithUrl = ['`{}` (https://www.codeforces.com/profile/{})'.format(handle,handle) for handle in handles]
+        handlesWithUrl = ['`{}` (https://codeforces.com/profile/{})'.format(handle,handle) for handle in handles]
 
         def make_line(sub):
             data = (f'[{sub.problem.name}]({sub.problem.url})',
