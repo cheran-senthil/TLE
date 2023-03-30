@@ -572,18 +572,19 @@ class Handles(commands.Cog):
         """Show the list of users of gitgud with their scores."""
         
         # Calculate time range of given month (d=) or current month
-        now_time = datetime.datetime.now()
+        now = datetime.datetime.now()
         for arg in args:
             if arg[0:2] == 'd=':
-                now_time = parse_date(arg[2:])
-        now_time = now_time.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        start_time = int(now_time.timestamp())
-        if now_time.month == 12:
-            now_time = now_time.replace(month=1,year=now_time.year+1)
-        else:
-            now_time = now_time.replace(month=now_time.month+1)
-        end_time = int(now_time.timestamp())
+                now = parse_date(arg[2:])
+
+        start_time, end_time = cf_common.get_start_and_end_of_month(now)
         
+        # more points seasons start at April 1st 2023 (timestamp: 1680300000) and is only active in the last 7 days of the month
+        morePointsActive = False
+        morePointsTime = end_time - cfc._ONE_WEEK_DURATION
+        if start_time >= cfc._GITGUD_MORE_POINTS_START_TIME: 
+            morePointsActive = True
+
         division = None
         showall = False
         for arg in args:
@@ -603,8 +604,9 @@ class Handles(commands.Cog):
         for entry in results:
             res[entry[0]] = 0
         for entry in results:
-            if len(entry) >= 2:
-                res[entry[0]] += cfc._calculateGitgudScoreForDelta(int(entry[1]))
+            if len(entry) >= 3:
+                score = cfc._calculateGitgudScoreForDelta(int(entry[1]))
+                res[entry[0]] += 2 * score if morePointsActive and int(entry[2]) >= morePointsTime else score
             else:
                 raise HandleCogError(f'Tuple size {len(entry)} for entry {entry[0]}')
         

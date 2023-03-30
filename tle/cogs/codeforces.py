@@ -22,6 +22,8 @@ _GITGUD_NO_SKIP_TIME = 2 * 60 * 60
 _GITGUD_SCORE_DISTRIB = (1, 2, 3, 5, 8, 12, 17, 23)
 _GITGUD_SCORE_DISTRIB_MIN = -400
 _GITGUD_SCORE_DISTRIB_MAX =  300
+_ONE_WEEK_DURATION = 7 * 24 * 60 * 60
+_GITGUD_MORE_POINTS_START_TIME = 1680300000
 
 def _calculateGitgudScoreForDelta(delta):
     if (delta <= _GITGUD_SCORE_DISTRIB_MIN):
@@ -39,6 +41,14 @@ class Codeforces(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.converter = commands.MemberConverter()
+
+    # more points seasons start at April 1st 2023 (timestamp: 1680300000) and is only active in the last 7 days of the month
+    def _check_more_points_active(self, now_time, start_time, end_time):
+        morePointsActive = False
+        morePointsTime = end_time - _ONE_WEEK_DURATION
+        if start_time >= _GITGUD_MORE_POINTS_START_TIME and now_time >= morePointsTime: 
+            morePointsActive = True
+        return morePointsActive
 
     async def _validate_gitgud_status(self, ctx, delta):
         if delta is not None and delta % 100 != 0:
@@ -60,11 +70,22 @@ class Codeforces(commands.Cog):
         if rc != 1:
             raise CodeforcesCogError('Your challenge has already been added to the database!')
 
+        # Calculate time range of given month (d=) or current month
+        now = datetime.datetime.now()
+        start_time, end_time = cf_common.get_start_and_end_of_month(now)
+        now_time = int(now.timestamp())
+        # more points seasons start at April 1st 2023 (timestamp: 1680300000) and is only active in the last 7 days of the month
+        morePointsActive = self._check_more_points_active(now_time, start_time, end_time)
+
+        points = _calculateGitgudScoreForDelta(delta)
+        monthlypoints = 2 * points if morePointsActive else points
+
         title = f'{problem.index}. {problem.name}'
         desc = cf_common.cache2.contest_cache.get_contest(problem.contestId).name
         embed = discord.Embed(title=title, url=problem.url, description=desc)
         embed.add_field(name='Rating', value=problem.rating)
-        embed.add_field(name='Points', value=(_calculateGitgudScoreForDelta(delta)))
+        embed.add_field(name='Alltime points', value=(points))
+        embed.add_field(name='Monthly points', value=(monthlypoints))
         await ctx.send(f'Challenge problem for `{handle}`', embed=embed)
 
     @commands.command(brief='Upsolve a problem')
@@ -418,12 +439,21 @@ class Codeforces(commands.Cog):
         if not name in solved:
             raise CodeforcesCogError('You haven\'t completed your challenge.')
 
-        delta = _calculateGitgudScoreForDelta(delta)
+        score = _calculateGitgudScoreForDelta(delta)
         finish_time = int(datetime.datetime.now().timestamp())
-        rc = cf_common.user_db.complete_challenge(user_id, challenge_id, finish_time, delta)
+        rc = cf_common.user_db.complete_challenge(user_id, challenge_id, finish_time, score)
+
+        now = datetime.datetime.now()
+        start_time, end_time = cf_common.get_start_and_end_of_month(now)
+        now_time = int(now.timestamp())
+
+        morePointsActive = self._check_more_points_active(now_time, start_time, end_time)
+        
+        monthlyPoints = 2 * score if morePointsActive else score
+
         if rc == 1:
             duration = cf_common.pretty_time_format(finish_time - issue_time)
-            await ctx.send(f'Challenge completed in {duration}. {handle} gained {delta} points.')
+            await ctx.send(f'Challenge completed in {duration}. {handle} gained {score} alltime ranklist points and {monthlyPoints} monthly ranklist points.')
         else:
             await ctx.send('You have already claimed your points')
 

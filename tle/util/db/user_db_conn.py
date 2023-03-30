@@ -390,7 +390,7 @@ class UserDbConn:
 
     def get_gudgitters_timerange(self, timestampStart, timestampEnd):
         query = '''
-            SELECT user_id, rating_delta FROM challenge WHERE finish_time >= ? AND finish_time <= ? ORDER BY user_id
+            SELECT user_id, rating_delta, issue_time FROM challenge WHERE finish_time >= ? AND finish_time <= ? ORDER BY user_id
         '''
         return self.conn.execute(query, (timestampStart,timestampEnd)).fetchall()
 
