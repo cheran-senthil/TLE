@@ -531,11 +531,12 @@ class RanklistCache:
     async def run(self):
         self._update_task.start()
 
-    def get_ranklist(self, contest):
-        try:
-            return self.ranklist_by_contest[contest.id]
-        except KeyError:
+    # Currently ranklist monitoring only supports caching unofficial ranklists
+    # If official ranklist is asked, the cache will throw RanklistNotMonitored Error
+    def get_ranklist(self, contest, show_official):
+        if show_official or contest.id not in self.ranklist_by_contest:  
             raise RanklistNotMonitored(contest)
+        return self.ranklist_by_contest[contest.id]
 
     @tasks.task_spec(name='RanklistCacheUpdate',
                      waiter=tasks.Waiter.for_event(events.ContestListRefresh))

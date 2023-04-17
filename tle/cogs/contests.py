@@ -479,7 +479,7 @@ class Contests(commands.Cog):
         wait_msg = await ctx.channel.send('Generating ranklist, please wait...')
         ranklist = None
         try:
-            ranklist = cf_common.cache2.ranklist_cache.get_ranklist(contest)
+            ranklist = cf_common.cache2.ranklist_cache.get_ranklist(contest, show_official)
         except cache_system2.RanklistNotMonitored:
             if contest.phase == 'BEFORE':
                 raise ContestCogError(f'Contest `{contest.id} | {contest.name}` has not started')
@@ -507,10 +507,6 @@ class Contests(commands.Cog):
                 standing = ranklist.get_standing_row(handle)
             except rl.HandleNotPresentError:
                 continue
-
-            # TODO: It will throw an exception if this row corresponds to a team. At present ranklist doesnt show teams.
-            # It should be fixed in https://github.com/cheran-senthil/TLE/issues/72
-            # This probably is fixed, tho idk if that is what they meant when they made this
 
             # Database has correct handle ignoring case, update to it
             handle = standing.party.teamName or standing.party.members[0].handle
