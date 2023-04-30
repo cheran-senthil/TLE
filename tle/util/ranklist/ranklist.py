@@ -2,6 +2,7 @@ from discord.ext import commands
 
 from tle.util.ranklist.rating_calculator import CodeforcesRatingCalculator
 from tle.util.handledict import HandleDict
+from tle.util.codeforces_api import make_from_dict, RanklistRow
 
 
 class RanklistError(commands.CommandError):
@@ -33,20 +34,37 @@ class Ranklist:
         self.problems = problems
         self.standings = standings
         self.fetch_time = fetch_time
-
         self.is_rated = is_rated
-
-        self.standing_by_id = HandleDict()
-        for row in self.standings:
-            if row.party.ghost:
-                # Apparently ghosts don't have team ID.
-                id_ = row.party.teamName
-            else:
-                id_ = row.party.teamId or row.party.members[0].handle
-            self.standing_by_id[id_] = row
-
         self.delta_by_handle = None
         self.deltas_status = None
+        self.standing_by_id = None
+        self._create_inverse_standings()
+
+    def _create_inverse_standings(self):
+        self.standing_by_id = HandleDict()
+        for row in self.standings:
+            id_ = row.party.teamName or row.party.members[0].handle
+            self.standing_by_id[id_] = row
+
+    def fix_rated_standings(self):
+        if self.delta_by_handle is None:
+            raise DeltasNotPresentError
+
+        fixed_standings = []
+        current_rated_rank = 1
+        last_rated_rank, last_rated_score = 0, (-1, -1)
+        for contestant in self.standings:
+            handle = contestant.party.teamName or contestant.party.members[0].handle
+            if handle in self.delta_by_handle:
+                current_score = (contestant.points, contestant.penalty)
+                standings_row = self.standing_by_id[handle]._asdict()
+                standings_row['rank'] = current_rated_rank if current_score != last_rated_score else last_rated_rank
+                fixed_standings.append(make_from_dict(RanklistRow, standings_row))
+                last_rated_rank, last_rated_score = standings_row['rank'], current_score
+                current_rated_rank += 1
+
+        self.standings = fixed_standings
+        self._create_inverse_standings()
 
     def set_deltas(self, delta_by_handle):
         if not self.is_rated:
