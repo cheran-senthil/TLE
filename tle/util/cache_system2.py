@@ -659,7 +659,7 @@ class RanklistCache:
         # for some reason Educational contests also have div1 peeps in the official standings.
         # hence we need to manually weed them out
         if not show_unofficial and 'Educational' in ranklist.contest.name:
-            ranklist.fix_rated_standings()
+            ranklist.remove_unofficial_contestants()
 
         return ranklist
 

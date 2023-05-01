@@ -43,27 +43,34 @@ class Ranklist:
     def _create_inverse_standings(self):
         self.standing_by_id = HandleDict()
         for row in self.standings:
-            id_ = row.party.teamName or row.party.members[0].handle
+            id_ = self.get_ranklist_lookup_key(row)
             self.standing_by_id[id_] = row
 
-    def fix_rated_standings(self):
-        if self.delta_by_handle is None:
-            raise DeltasNotPresentError
+    def remove_unofficial_contestants(self):
+        """
+        To be used for cases when official ranklist contains unofficial contestants
+        Currently this is seen is Educational Contests ranklist where div1 contestants are marked official in api result
+        """
 
-        fixed_standings = []
+        if self.delta_by_handle is None:
+            raise DeltasNotPresentError(self.contest)
+
+        official_standings = []
         current_rated_rank = 1
-        last_rated_rank, last_rated_score = 0, (-1, -1)
+        last_rated_rank = 0
+        last_rated_score = (-1, -1)
         for contestant in self.standings:
-            handle = contestant.party.teamName or contestant.party.members[0].handle
+            handle = self.get_ranklist_lookup_key(contestant)
             if handle in self.delta_by_handle:
                 current_score = (contestant.points, contestant.penalty)
                 standings_row = self.standing_by_id[handle]._asdict()
                 standings_row['rank'] = current_rated_rank if current_score != last_rated_score else last_rated_rank
-                fixed_standings.append(make_from_dict(RanklistRow, standings_row))
-                last_rated_rank, last_rated_score = standings_row['rank'], current_score
+                official_standings.append(make_from_dict(RanklistRow, standings_row))
+                last_rated_rank = standings_row['rank']
+                last_rated_score = current_score
                 current_rated_rank += 1
 
-        self.standings = fixed_standings
+        self.standings = official_standings
         self._create_inverse_standings()
 
     def set_deltas(self, delta_by_handle):
@@ -93,3 +100,7 @@ class Ranklist:
             return self.standing_by_id[handle]
         except KeyError:
             raise HandleNotPresentError(self.contest, handle)
+
+    @staticmethod
+    def get_ranklist_lookup_key(contestant):
+        return contestant.party.teamName or contestant.party.members[0].handle
