@@ -442,21 +442,26 @@ class Contests(commands.Cog):
         return embed
 
     @commands.command(brief='Show ranklist for given handles and/or server members')
-    async def ranklist(self, ctx, contest_id: int, *handles: str):
-        """Shows ranklist for the contest with given contest id. If handles contains
-        '+server', all server members are included. No handles defaults to '+server'.
+    async def ranklist(self, ctx, contest_id: int, *args: str):
         """
-        handles = await cf_common.resolve_handles(ctx, self.member_converter, handles, maxcnt=None, default_to_all_server=True)
+        Shows ranklist for the contest with given contest id. If handles contains
+        '+server', all server members are included. No handles defaults to '+server'.
+        Use '+official' for only showing rated participants for the round
+        """
+        (show_official,), handles = cf_common.filter_flags(args, ['+official'])
+        handles = await cf_common.resolve_handles(ctx, self.member_converter, handles, maxcnt=None,
+                                                  default_to_all_server=True)
         contest = cf_common.cache2.contest_cache.get_contest(contest_id)
         wait_msg = await ctx.channel.send('Generating ranklist, please wait...')
         ranklist = None
         try:
-            ranklist = cf_common.cache2.ranklist_cache.get_ranklist(contest)
+            ranklist = cf_common.cache2.ranklist_cache.get_ranklist(contest, show_official)
         except cache_system2.RanklistNotMonitored:
             if contest.phase == 'BEFORE':
                 raise ContestCogError(f'Contest `{contest.id} | {contest.name}` has not started')
-            ranklist = await cf_common.cache2.ranklist_cache.generate_ranklist(contest.id,
-                                                                            fetch_changes=True)
+            ranklist = await cf_common.cache2.ranklist_cache.generate_ranklist(contest.id, fetch_changes=True,
+                                                                               show_unofficial=not show_official)
+
         await wait_msg.delete()
         await ctx.channel.send(embed=self._make_contest_embed_for_ranklist(ranklist))
         await self._show_ranklist(channel=ctx.channel, contest_id=contest_id, handles=handles, ranklist=ranklist)
@@ -474,9 +479,7 @@ class Contests(commands.Cog):
                 continue
 
             # Database has correct handle ignoring case, update to it
-            # TODO: It will throw an exception if this row corresponds to a team. At present ranklist doesnt show teams.
-            # It should be fixed in https://github.com/cheran-senthil/TLE/issues/72
-            handle = standing.party.members[0].handle
+            handle = rl.Ranklist.get_ranklist_lookup_key(standing)
             if vc and standing.party.participantType != 'VIRTUAL':
                 continue
             handle_standings.append((handle, standing))
