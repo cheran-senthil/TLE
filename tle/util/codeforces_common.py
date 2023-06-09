@@ -230,7 +230,8 @@ async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5, defaul
     for handle in handles:
         if handle.startswith('!'):
             # ! denotes Discord user
-            member_identifier = handle[1:]
+            # suffix removal as quickfix for new username changes
+            member_identifier = handle[1:].removesuffix('#0')
             try:
                 member = await converter.convert(ctx, member_identifier)
             except commands.errors.CommandError:
