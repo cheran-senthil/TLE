@@ -17,8 +17,10 @@ logger = logging.getLogger(__name__)
 _CONTESTS_PER_BATCH_IN_CACHE_UPDATES = 100
 CONTEST_BLACKLIST = {1308, 1309, 1431, 1432}
 
+
 def _is_blacklisted(contest):
     return contest.id in CONTEST_BLACKLIST
+
 
 class CacheError(commands.CommandError):
     pass
@@ -419,11 +421,11 @@ class RatingChangesCache:
 
         to_monitor = [
             contest for contest in
-            self.cache_master.contest_cache.contests_by_phase['FINISHED'] 
+            self.cache_master.contest_cache.contests_by_phase['FINISHED']
             if self.is_newly_finished_without_rating_changes(contest)
-            and not _is_blacklisted(contest)
-            ]
-                 
+               and not _is_blacklisted(contest)
+        ]
+
         cur_ids = {contest.id for contest in self.monitored_contests}
         new_ids = {contest.id for contest in to_monitor}
         if new_ids != cur_ids:
@@ -440,7 +442,7 @@ class RatingChangesCache:
         self.monitored_contests = [
             contest for contest in self.monitored_contests
             if self.is_newly_finished_without_rating_changes(contest)
-            and not _is_blacklisted(contest)
+               and not _is_blacklisted(contest)
         ]
 
         if not self.monitored_contests:
@@ -519,6 +521,7 @@ class RanklistNotMonitored(RanklistCacheError):
         super().__init__(f'The ranklist for `{contest.name}` is not being monitored')
         self.contest = contest
 
+
 class RanklistCache:
     _RELOAD_DELAY = 2 * 60
 
@@ -534,7 +537,7 @@ class RanklistCache:
     # Currently ranklist monitoring only supports caching unofficial ranklists
     # If official ranklist is asked, the cache will throw RanklistNotMonitored Error
     def get_ranklist(self, contest, show_official):
-        if show_official or contest.id not in self.ranklist_by_contest:  
+        if show_official or contest.id not in self.ranklist_by_contest:
             raise RanklistNotMonitored(contest)
         return self.ranklist_by_contest[contest.id]
 
@@ -548,7 +551,7 @@ class RanklistCache:
         finished_contests = [
             contest for contest in contests_by_phase['FINISHED']
             if not _is_blacklisted(contest)
-            and rating_cache.is_newly_finished_without_rating_changes(contest)
+               and rating_cache.is_newly_finished_without_rating_changes(contest)
         ]
 
         to_monitor = running_contests + finished_contests
@@ -584,51 +587,82 @@ class RanklistCache:
         for contest_id, ranklist in ranklist_by_contest.items():
             self.ranklist_by_contest[contest_id] = ranklist
 
-    async def generate_ranklist(self, contest_id, *, fetch_changes=False, predict_changes=False, show_unofficial=True):
-        assert fetch_changes ^ predict_changes
-
+    @staticmethod
+    async def _get_contest_details(contest_id, show_unofficial):
         contest, problems, standings = await cf.contest.standings(contest_id=contest_id,
                                                                   show_unofficial=show_unofficial)
-        now = time.time()
-
         # Exclude PRACTICE and MANAGER
         standings = [row for row in standings
                      if row.party.participantType in ('CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL')]
-        if fetch_changes:
-            # Fetch final rating changes from CF.
-            # For older contests.
-            is_rated = False
-            try:
-                changes = await cf.contest.ratingChanges(contest_id=contest_id)
-                # For contests intended to be rated but declared unrated, an empty list is returned.
-                is_rated = len(changes) > 0
-            except cf.RatingChangesUnavailableError:
-                pass
+
+        return contest, problems, standings
+
+    # Fetch final rating changes from CF.
+    # For older contests.
+    async def _get_ranklist_with_fetched_changes(self, contest_id, show_unofficial):
+        contest, problems, standings = await self._get_contest_details(contest_id, show_unofficial)
+        now = time.time()
+
+        is_rated = False
+        try:
+            changes = await cf.contest.ratingChanges(contest_id=contest_id)
+            # For contests intended to be rated but declared unrated, an empty list is returned.
+            is_rated = len(changes) > 0
+        except cf.RatingChangesUnavailableError:
+            pass
+
+        ranklist = None
+        if is_rated:
             ranklist = Ranklist(contest, problems, standings, now, is_rated=is_rated)
-            if is_rated:
-                delta_by_handle = {change.handle: change.newRating - change.oldRating
-                                   for change in changes}
-                ranklist.set_deltas(delta_by_handle)
-        elif predict_changes:
-            # Rating changes have not been applied yet, predict rating changes.
-            # For running/recent contests.
+            delta_by_handle = {change.handle: change.newRating - change.oldRating
+                               for change in changes}
+            ranklist.set_deltas(delta_by_handle)
+
+        return ranklist
+
+    # Rating changes have not been applied yet, predict rating changes.
+    # For running/recent/unrated contests.
+    async def _get_ranklist_with_predicted_changes(self, contest_id, show_unofficial):
+        contest, problems, standings = await self._get_contest_details(contest_id, show_unofficial)
+        now = time.time()
+
+        standings_official = None
+        if not show_unofficial:
+            standings_official = standings
+        else:
             _, _, standings_official = await cf.contest.standings(contest_id=contest_id)
 
-            has_teams = any(row.party.teamId is not None for row in standings_official)
-            if cf_common.is_nonstandard_contest(contest) or has_teams:
-                # The contest is not rated
-                ranklist = Ranklist(contest, problems, standings, now, is_rated=False)
-            else:
-                current_rating = await CacheSystem.getUsersEffectiveRating(activeOnly=False)
-                current_rating = {row.party.members[0].handle: current_rating.get(row.party.members[0].handle, 1500)
-                                  for row in standings_official}
-                if 'Educational' in contest.name:
-                    # For some reason educational contests return all contestants in ranklist even
-                    # when unofficial contestants are not requested.
-                    current_rating = {handle: rating
-                                      for handle, rating in current_rating.items() if rating < 2100}
-                ranklist = Ranklist(contest, problems, standings, now, is_rated=True)
-                ranklist.predict(current_rating)
+        has_teams = any(row.party.teamId is not None for row in standings_official)
+        if cf_common.is_nonstandard_contest(contest) or has_teams:
+            # The contest is not traditionally rated
+            ranklist = Ranklist(contest, problems, standings, now, is_rated=False)
+        else:
+            current_rating = await CacheSystem.getUsersEffectiveRating(activeOnly=False)
+            current_rating = {row.party.members[0].handle: current_rating.get(row.party.members[0].handle, 1500)
+                              for row in standings_official}
+            if 'Educational' in contest.name:
+                # For some reason educational contests return all contestants in ranklist even
+                # when unofficial contestants are not requested.
+                current_rating = {handle: rating
+                                  for handle, rating in current_rating.items() if rating < 2100}
+            ranklist = Ranklist(contest, problems, standings, now, is_rated=True)
+            ranklist.predict(current_rating)
+        return ranklist
+
+    async def generate_ranklist(self, contest_id, *, fetch_changes=False, predict_changes=False, show_unofficial=True):
+        assert fetch_changes ^ predict_changes
+
+        ranklist = None
+        if fetch_changes:
+            ranklist = await self._get_ranklist_with_fetched_changes(contest_id, show_unofficial)
+        if ranklist is None:
+            # Either predict_changes was true or fetching rating changes failed
+            ranklist = await self._get_ranklist_with_predicted_changes(contest_id, show_unofficial)
+
+        # for some reason Educational contests also have div1 peeps in the official standings.
+        # hence we need to manually weed them out
+        if not show_unofficial and 'Educational' in ranklist.contest.name:
+            ranklist.remove_unofficial_contestants()
 
         return ranklist
 
@@ -639,20 +673,20 @@ class RanklistCache:
         # Exclude PRACTICE, MANAGER and OUR_OF_COMPETITION
         standings = [row for row in standings
                      if row.party.participantType == 'CONTESTANT' or
-                        row.party.members[0].handle in handles]
+                     row.party.members[0].handle in handles]
         standings.sort(key=lambda row: row.rank)
         standings = [row._replace(rank=i + 1) for i, row in enumerate(standings)]
         now = time.time()
         rating_changes = await cf.contest.ratingChanges(contest_id=contest_id)
-        current_official_rating = {rating_change.handle : rating_change.oldRating
-                                    for rating_change in rating_changes}
+        current_official_rating = {rating_change.handle: rating_change.oldRating
+                                   for rating_change in rating_changes}
 
         # TODO: assert that none of the given handles are in the official standings.
         handles = [row.party.members[0].handle for row in standings
                    if row.party.members[0].handle in handles and
-                      row.party.participantType == 'VIRTUAL']
+                   row.party.participantType == 'VIRTUAL']
         current_vc_rating = {handle: cf_common.user_db.get_vc_rating(handle_to_member_id.get(handle))
-                                for handle in handles}
+                             for handle in handles}
         ranklist = Ranklist(contest, problems, standings, now, is_rated=True)
         delta_by_handle = {}
         for handle in handles:
@@ -700,6 +734,5 @@ class CacheSystem:
         """
         ratedList = await cf.user.ratedList(activeOnly=activeOnly)
         users_effective_rating_dict = {user.handle: user.effective_rating
-                                  for user in ratedList}
+                                       for user in ratedList}
         return users_effective_rating_dict
-
