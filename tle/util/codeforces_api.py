@@ -9,7 +9,6 @@ import aiohttp
 from discord.ext import commands
 from tle.util import codeforces_common as cf_common
 
-
 API_BASE_URL = 'https://codeforces.com/api/'
 CONTEST_BASE_URL = 'https://codeforces.com/contest/'
 CONTESTS_BASE_URL = 'https://codeforces.com/contests/'
@@ -387,6 +386,7 @@ class user:
                 raise
             result += [make_from_dict(User, user_dict) for user_dict in resp]
         return [cf_common.fix_urls(user) for user in result]
+
     @staticmethod
     def correct_rating_changes(*, resp):
         adaptO = [1400, 900, 550, 300, 150, 50]
@@ -472,7 +472,7 @@ async def _needs_fixing(handles):
 
 
 async def _resolve_redirect(handle):
-    url = 'https://codeforces.com/profile/' + handle
+    url = PROFILE_BASE_URL + handle
     async with _session.head(url) as r:
         if r.status == 200:
             return handle

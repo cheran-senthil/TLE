@@ -606,6 +606,7 @@ class Handles(commands.Cog):
         for entry in results:
             if len(entry) >= 3:
                 score = cfc._calculateGitgudScoreForDelta(int(entry[1]))
+                # @@ add finish time constraint (both times need to be within the more points range)
                 res[entry[0]] += 2 * score if morePointsActive and int(entry[2]) >= morePointsTime else score
             else:
                 raise HandleCogError(f'Tuple size {len(entry)} for entry {entry[0]}')

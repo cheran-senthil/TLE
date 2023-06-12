@@ -43,6 +43,8 @@ class Codeforces(commands.Cog):
         self.converter = commands.MemberConverter()
 
     # more points seasons start at April 1st 2023 (timestamp: 1680300000) and is only active in the last 7 days of the month
+
+    # @@@ add issue and finish time constraint (both times need to be within the more points range)
     def _check_more_points_active(self, now_time, start_time, end_time):
         morePointsActive = False
         morePointsTime = end_time - _ONE_WEEK_DURATION

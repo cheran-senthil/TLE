@@ -99,8 +99,8 @@ def is_contest_writer(contest_id, handle):
 
 
 _NONSTANDARD_CONTEST_INDICATORS = [
-    'wild', 'fools', 'surprise', 'unknown', 'friday', 'q#', 'testing',
-    'marathon', 'kotlin', 'onsite', 'experimental', 'abbyy']
+    'wild', 'fools', 'unrated', 'surprise', 'unknown', 'friday', 'q#', 'testing',
+    'marathon', 'kotlin', 'onsite', 'experimental', 'abbyy', 'icpc']
 
 
 def is_nonstandard_contest(contest):
@@ -242,6 +242,10 @@ async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5, defaul
         if handle.startswith('!'):
             # ! denotes Discord user
             member_identifier = handle[1:]
+            # suffix removal as quickfix for new username changes
+            if member_identifier[-2:] == '#0':
+                member_identifier = member_identifier[:-2]
+
             try:
                 member = await converter.convert(ctx, member_identifier)
             except commands.errors.CommandError:
