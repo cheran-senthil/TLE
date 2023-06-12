@@ -587,20 +587,10 @@ class RanklistCache:
         for contest_id, ranklist in ranklist_by_contest.items():
             self.ranklist_by_contest[contest_id] = ranklist
 
-<<<<<<< HEAD
-    async def generate_ranklist(self, contest_id, *, fetch_changes=False, predict_changes=False, show_unofficial=True):
-        assert fetch_changes ^ predict_changes
-
-        contest, problems, standings = await cf.contest.standings(contest_id=contest_id,
-                                                                  show_unofficial=show_unofficial)
-        now = time.time()
-=======
     @staticmethod
     async def _get_contest_details(contest_id, show_unofficial):
         contest, problems, standings = await cf.contest.standings(contest_id=contest_id,
                                                                   show_unofficial=show_unofficial)
->>>>>>> c940947ef8d4a5138ae247814c5bbe7921228d49
-
         # Exclude PRACTICE and MANAGER
         standings = [row for row in standings
                      if row.party.participantType in ('CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL')]
