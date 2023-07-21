@@ -60,7 +60,7 @@ async def main():
     intents.members = True
     intents.message_content = True
 
-    bot = commands.Bot(command_prefix=commands.when_mentioned_or(';'), intents=intents)
+    bot = commands.Bot(command_prefix=commands.when_mentioned_or(discord_common._BOT_PREFIX), intents=intents)
     bot.help_command = discord_common.TleHelp()
     cogs = [file.stem for file in Path('tle', 'cogs').glob('*.py')]
     for extension in cogs:

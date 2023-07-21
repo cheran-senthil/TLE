@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 _CF_COLORS = (0xFFCA1F, 0x198BCC, 0xFF2020)
 _SUCCESS_GREEN = 0x28A745
 _ALERT_AMBER = 0xFFBF00
+_BOT_PREFIX = ';'
 
 
 def embed_neutral(desc, color=None):
@@ -151,7 +152,7 @@ class TleHelp(commands.DefaultHelpCommand):
         if command.description:
             self.paginator.add_line(command.description, empty=True)
 
-        signature = self.get_command_signature(command)
+        signature = _BOT_PREFIX + command.qualified_name
         if command.usage:
             signature += " "+command.usage
         self.paginator.add_line(signature, empty=True)
