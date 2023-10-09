@@ -4,6 +4,7 @@ from typing import List
 import math
 import time
 from collections import defaultdict
+import logging
 
 import discord
 from discord.ext import commands
@@ -41,6 +42,7 @@ class Codeforces(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.converter = commands.MemberConverter()
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     # more points seasons start at April 1st 2023 (timestamp: 1680300000) and is only active in the last 7 days of the month
 
@@ -356,6 +358,11 @@ class Codeforces(commands.Cog):
             problem.contestId).startTimeSeconds)
 
         choice = max(random.randrange(len(problems)) for _ in range(5))
+
+        # remove division tags since we dont want them to reduce points
+        tags = [tag for tag in tags if tag not in cache_system2._DIV_TAGS]
+        bantags = [tag for tag in bantags if tag not in cache_system2._DIV_TAGS]
+
         if tags or bantags:
             delta = delta - 200
         await self._gitgud(ctx, handle, problems[choice], delta)
@@ -482,6 +489,9 @@ class Codeforces(commands.Cog):
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
     async def _nogud(self, ctx, member: discord.Member):
         active = cf_common.user_db.check_challenge(member.id)
+        if not active:
+            await ctx.send(f'No active challenge found for user `{member.display_name}`.')
+            return
         rc = cf_common.user_db.skip_challenge(member.id, active[0], Gitgud.FORCED_NOGUD)
         if rc == 1:
             await ctx.send(f'Challenge skip forced.')
