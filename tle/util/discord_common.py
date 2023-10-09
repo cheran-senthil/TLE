@@ -153,6 +153,9 @@ class TleHelp(commands.DefaultHelpCommand):
             self.paginator.add_line(command.description, empty=True)
 
         signature = _BOT_PREFIX + command.qualified_name
+        if len(command.aliases) > 0:
+            aliases = '|'.join(command.aliases)
+            signature += '|'+aliases
         if command.usage:
             signature += " "+command.usage
         self.paginator.add_line(signature, empty=True)
