@@ -16,7 +16,7 @@ from tle.util.ranklist import Ranklist
 logger = logging.getLogger(__name__)
 _CONTESTS_PER_BATCH_IN_CACHE_UPDATES = 100
 CONTEST_BLACKLIST = {1308, 1309, 1431, 1432}
-
+_DIV_TAGS = ['div1', 'div2', 'div3', 'div4', 'edu']
 
 def _is_blacklisted(contest):
     return contest.id in CONTEST_BLACKLIST
@@ -164,6 +164,8 @@ class ContestCache:
 class ProblemCache:
     _RELOAD_INTERVAL = 6 * 60 * 60
 
+    
+
     def __init__(self, cache_master):
         self.cache_master = cache_master
 
@@ -239,6 +241,14 @@ class ProblemCache:
         self.problem_by_name = problem_by_name
         self.problems_last_cache = time.time()
 
+        for problem in self.problems:
+            problem_contest = self.cache_master.contest_cache.contest_by_id.get(problem.contestId)
+
+            divisions = [div_tag for div_tag in _DIV_TAGS if problem_contest.matches([div_tag])] 
+
+            for division in divisions:
+                problem.tags.append(division) 
+        
         rc = self.cache_master.conn.cache_problems(self.problems)
         self.logger.info(f'{rc} problems stored in database')
 
@@ -331,11 +341,20 @@ class ProblemsetCache:
 
     async def _fetch_for_contest(self, contest_id):
         try:
-            _, problemset, _ = await cf.contest.standings(contest_id=contest_id, from_=1,
+            contest, problemset, _ = await cf.contest.standings(contest_id=contest_id, from_=1,
                                                           count=1)
+            
+            divisions = [div_tag for div_tag in _DIV_TAGS if contest.matches([div_tag])] 
+
+            for problem in problemset:
+                for division in divisions:
+                    problem.tags.append(division) 
+
+
         except cf.CodeforcesApiError as er:
             self.logger.warning(f'Problemset fetch failed for contest {contest_id}. {er!r}')
             problemset = []
+        
         return problemset
 
     def _save_problems(self, problems):
