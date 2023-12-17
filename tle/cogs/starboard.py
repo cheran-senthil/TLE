@@ -66,7 +66,7 @@ class Starboard(commands.Cog):
 
         if message.attachments:
             file = message.attachments[0]
-            if file.url.lower().endswith(('png', 'jpeg', 'jpg', 'gif', 'webp')):
+            if file.filename.lower().endswith(('png', 'jpeg', 'jpg', 'gif', 'webp')):
                 embed.set_image(url=file.url)
             else:
                 embed.add_field(name='Attachment', value=f'[{file.filename}]({file.url})', inline=False)
