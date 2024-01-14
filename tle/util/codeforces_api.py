@@ -4,12 +4,14 @@ import functools
 import itertools
 import logging
 import time
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Dict, Iterable, List, NamedTuple, Optional
 
 import aiohttp
 from discord.ext import commands
 
 from tle.util import codeforces_common as cf_common
+
+# ruff: noqa: N815
 
 API_BASE_URL = 'https://codeforces.com/api/'
 CONTEST_BASE_URL = 'https://codeforces.com/contest/'
@@ -22,7 +24,13 @@ DEFAULT_RATING = 1500
 
 logger = logging.getLogger(__name__)
 
-Rank = namedtuple('Rank', 'low high title title_abbr color_graph color_embed')
+class Rank(NamedTuple):
+    low: Optional[int]
+    high: Optional[int]
+    title: str
+    title_abbr: Optional[str]
+    color_graph: Optional[str]
+    color_embed: Optional[int]
 
 RATED_RANKS = (
     Rank(-10 ** 9, 1200, 'Newbie', 'N', '#CCCCCC', 0x808080),
@@ -39,11 +47,12 @@ RATED_RANKS = (
 UNRATED_RANK = Rank(None, None, 'Unrated', None, None, None)
 
 
-def rating2rank(rating: int) -> Rank:
+def rating2rank(rating: Optional[int]) -> Rank:
     """Returns the rank corresponding to the given rating."""
     if rating is None:
         return UNRATED_RANK
     for rank in RATED_RANKS:
+        assert rank.low is not None and rank.high is not None
         if rank.low <= rating < rank.high:
             return rank
     raise ValueError(f'Rating {rating} outside range of known ranks.')
@@ -51,10 +60,21 @@ def rating2rank(rating: int) -> Rank:
 
 # Data classes
 
-class User(namedtuple('User', 'handle firstName lastName country city organization contribution '
-                              'rating maxRating lastOnlineTimeSeconds registrationTimeSeconds '
-                              'friendOfCount titlePhoto')):
-    __slots__ = ()
+class User(NamedTuple):
+    """Codeforces user."""
+    handle: str
+    firstName: Optional[str]
+    lastName: Optional[str]
+    country: Optional[str]
+    city: Optional[str]
+    organization: Optional[str]
+    contribution: int
+    rating: Optional[int]
+    maxRating: Optional[int]
+    lastOnlineTimeSeconds: int
+    registrationTimeSeconds: int
+    friendOfCount: int
+    titlePhoto: str
 
     @property
     def effective_rating(self) -> int:
@@ -72,17 +92,33 @@ class User(namedtuple('User', 'handle firstName lastName country city organizati
         return f'{PROFILE_BASE_URL}{self.handle}'
 
 
-RatingChange = namedtuple('RatingChange',
-                          'contestId contestName handle rank ratingUpdateTimeSeconds oldRating newRating')
+class RatingChange(NamedTuple):
+    """Codeforces rating change."""
+    contestId: int
+    contestName: str
+    handle: str
+    rank: int
+    ratingUpdateTimeSeconds: int
+    oldRating: int
+    newRating: int
 
+class Contest(NamedTuple):
+    """Codeforces contest."""
+    id: int
+    name: str
+    startTimeSeconds: Optional[int]
+    durationSeconds: Optional[int]
+    type: str
+    phase: str
+    preparedBy: Optional[str]
 
-class Contest(namedtuple('Contest', 'id name startTimeSeconds durationSeconds type phase preparedBy')):
-    __slots__ = ()
     PHASES = 'BEFORE CODING PENDING_SYSTEM_TEST SYSTEM_TEST FINISHED'.split()
 
     @property
-    def end_time(self) -> int:
+    def end_time(self) -> Optional[int]:
         """Returns the end time of the contest."""
+        if self.startTimeSeconds is None or self.durationSeconds is None:
+            return None
         return self.startTimeSeconds + self.durationSeconds
 
     @property
@@ -101,34 +137,53 @@ class Contest(namedtuple('Contest', 'id name startTimeSeconds durationSeconds ty
             return ''.join(x for x in s.lower() if x.isalnum())
         return any(filter_and_normalize(marker) in filter_and_normalize(self.name) for marker in markers)
 
-class Party(namedtuple('Party', ('contestId members participantType teamId teamName ghost room '
-                                 'startTimeSeconds'))):
-    __slots__ = ()
+class Member(NamedTuple):
+    """Codeforces party member."""
+    handle: str
+
+class Party(NamedTuple):
+    """Codeforces party."""
+    contestId: Optional[int]
+    members: List[Member]
+    participantType: str
+    teamId: Optional[int]
+    teamName: Optional[str]
+    ghost: bool
+    room: Optional[int]
+    startTimeSeconds: Optional[int]
+
     PARTICIPANT_TYPES = ('CONTESTANT', 'PRACTICE', 'VIRTUAL', 'MANAGER', 'OUT_OF_COMPETITION')
 
-
-Member = namedtuple('Member', 'handle')
-
-
-class Problem(namedtuple('Problem', 'contestId problemsetName index name type points rating tags')):
-    __slots__ = ()
+class Problem(NamedTuple):
+    """Codeforces problem."""
+    contestId: Optional[int]
+    problemsetName: Optional[str]
+    index: str
+    name: str
+    type: str
+    points: Optional[float]
+    rating: Optional[int]
+    tags: List[str]
 
     @property
-    def contest_identifier(self):
+    def contest_identifier(self) -> str:
+        """Returns a string identifying the contest."""
         return f'{self.contestId}{self.index}'
 
     @property
-    def url(self):
+    def url(self) -> str:
+        """Returns the URL of the problem."""
         if self.contestId is None:
             assert self.problemsetName == 'acmsguru', f'Unknown problemset {self.problemsetName}'
             return f'{ACMSGURU_BASE_URL}problem/99999/{self.index}'
         base = CONTEST_BASE_URL if self.contestId < GYM_ID_THRESHOLD else GYM_BASE_URL
         return f'{base}{self.contestId}/problem/{self.index}'
 
-    def has_metadata(self):
+    def has_metadata(self) -> bool:
+        """Returns whether the problem has metadata."""
         return self.contestId is not None and self.rating is not None
 
-    def _matching_tags_dict(self, match_tags):
+    def _matching_tags_dict(self, match_tags: Iterable[str]) -> Dict[str, List[str]]:
         """Returns a dict with matching tags."""
         tags = defaultdict(list)
         for match_tag in match_tags:
@@ -137,33 +192,58 @@ class Problem(namedtuple('Problem', 'contestId problemsetName index name type po
                     tags[match_tag].append(tag)
         return dict(tags)
 
-    def matches_all_tags(self, match_tags):
+    def matches_all_tags(self, match_tags: Iterable[str]) -> bool:
+        """Returns whether the problem matches all of the given tags."""
         match_tags = set(match_tags)
         return len(self._matching_tags_dict(match_tags)) == len(match_tags)
 
-    def matches_any_tag(self, match_tags):
+    def matches_any_tag(self, match_tags: Iterable[str]) -> bool:
+        """Returns whether the problem matches any of the given tags."""
         match_tags = set(match_tags)
         return len(self._matching_tags_dict(match_tags)) > 0
 
-    def get_matched_tags(self, match_tags):
+    def get_matched_tags(self, match_tags: Iterable[str]) -> List[str]:
+        """Returns a list of tags that match any of the given tags."""
         return [
             tag for tags in self._matching_tags_dict(match_tags).values()
             for tag in tags
         ]
 
+class ProblemStatistics(NamedTuple):
+    """Codeforces problem statistics."""
+    contestId: Optional[int]
+    index: str
+    solvedCount: int
 
-ProblemStatistics = namedtuple('ProblemStatistics', 'contestId index solvedCount')
+class Submission(NamedTuple):
+    """Codeforces submission for a problem."""
+    id: int
+    contestId: Optional[int]
+    problem: Problem
+    author: Party
+    programmingLanguage: str
+    verdict: Optional[str]
+    creationTimeSeconds: int
+    relativeTimeSeconds: int
 
-Submission = namedtuple('Submissions',
-                        'id contestId problem author programmingLanguage verdict creationTimeSeconds relativeTimeSeconds')
+class RanklistRow(NamedTuple):
+    """Codeforces ranklist row."""
+    party: Party
+    rank: int
+    points: float
+    penalty: int
+    problemResults: List['ProblemResult']
 
-RanklistRow = namedtuple('RanklistRow', 'party rank points penalty problemResults')
-
-ProblemResult = namedtuple('ProblemResult',
-                           'points penalty rejectedAttemptCount type bestSubmissionTimeSeconds')
-
+class ProblemResult(NamedTuple):
+    """Codeforces problem result."""
+    points: float
+    penalty: Optional[int]
+    rejectedAttemptCount: int
+    type: str
+    bestSubmissionTimeSeconds: Optional[int]
 
 def make_from_dict(namedtuple_cls, dict_):
+    """Creates a namedtuple from a subset of values in a dict."""
     field_vals = [dict_.get(field) for field in namedtuple_cls._fields]
     return namedtuple_cls._make(field_vals)
 
@@ -172,48 +252,65 @@ def make_from_dict(namedtuple_cls, dict_):
 
 class CodeforcesApiError(commands.CommandError):
     """Base class for all API related errors."""
-    def __init__(self, message=None):
+
+    def __init__(self, message: Optional[str] = None):
         super().__init__(message or 'Codeforces API error')
 
 
 class TrueApiError(CodeforcesApiError):
     """An error originating from a valid response of the API."""
-    def __init__(self, comment, message=None):
+
+    def __init__(self, comment: str, message: Optional[str] = None):
         super().__init__(message)
         self.comment = comment
 
 
 class ClientError(CodeforcesApiError):
     """An error caused by a request to the API failing."""
+
     def __init__(self):
         super().__init__('Error connecting to Codeforces API')
 
 
 class HandleNotFoundError(TrueApiError):
-    def __init__(self, comment, handle):
+    """An error caused by a handle not being found on Codeforces."""
+
+    def __init__(self, comment: str, handle: str):
         super().__init__(comment, f'Handle `{handle}` not found on Codeforces')
         self.handle = handle
 
 
 class HandleInvalidError(TrueApiError):
-    def __init__(self, comment, handle):
+    """An error caused by a handle not being valid on Codeforces."""
+
+    def __init__(self, comment: str, handle: str):
         super().__init__(comment, f'`{handle}` is not a valid Codeforces handle')
         self.handle = handle
 
 
 class CallLimitExceededError(TrueApiError):
-    def __init__(self, comment):
+    """An error caused by the call limit being exceeded."""
+
+    def __init__(self, comment: str):
         super().__init__(comment, 'Codeforces API call limit exceeded')
 
 
 class ContestNotFoundError(TrueApiError):
-    def __init__(self, comment, contest_id):
-        super().__init__(comment, f'Contest with ID `{contest_id}` not found on Codeforces')
+    """An error caused by a contest not being found on Codeforces."""
+
+    def __init__(self, comment: str, contest_id: Any):
+        super().__init__(
+            comment, f'Contest with ID `{contest_id}` not found on Codeforces'
+        )
 
 
 class RatingChangesUnavailableError(TrueApiError):
-    def __init__(self, comment, contest_id):
-        super().__init__(comment, f'Rating changes unavailable for contest with ID `{contest_id}`')
+    """An error caused by rating changes being unavailable for a contest."""
+
+    def __init__(self, comment: str, contest_id: Any):
+        super().__init__(
+            comment, f'Rating changes unavailable for contest with ID `{contest_id}`'
+        )
 
 
 # Codeforces API query methods
