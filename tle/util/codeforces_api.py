@@ -1,12 +1,13 @@
 import asyncio
+from collections import defaultdict, deque, namedtuple
+import functools
 import logging
 import time
-import functools
-from collections import namedtuple, deque, defaultdict
+from typing import Dict, Iterable, List, Optional
 
 import aiohttp
-
 from discord.ext import commands
+
 from tle.util import codeforces_common as cf_common
 
 API_BASE_URL = 'https://codeforces.com/api/'
@@ -432,27 +433,7 @@ class user:
         return [make_from_dict(Submission, submission_dict) for submission_dict in resp]
 
 
-async def _needs_fixing(handles):
-    to_fix = []
-    chunks = user_info_chunkify(handles)
-    for handle_chunk in chunks:
-        while handle_chunk:
-            try:
-                cf_users = await user.info(handles=handle_chunk)
-
-                # Users could still have changed capitalization
-                for handle, cf_user in zip(handle_chunk, cf_users):
-                    assert handle.lower() == cf_user.handle.lower()
-                    if handle != cf_user.handle:
-                        to_fix.append(handle)
-                break
-            except HandleNotFoundError as e:
-                to_fix.append(e.handle)
-                handle_chunk.remove(e.handle)
-    return to_fix
-
-
-async def _resolve_redirect(handle):
+async def _resolve_redirect(handle: str) -> Optional[str]:
     url = PROFILE_BASE_URL + handle
     async with _session.head(url) as r:
         if r.status == 200:
@@ -466,21 +447,41 @@ async def _resolve_redirect(handle):
         raise CodeforcesApiError(
             f'Something went wrong trying to redirect {url}')
 
-
-async def _resolve_handle_mapping(handles_to_fix):
-    redirections = {}
-    failed = []
-    for handle in handles_to_fix:
-        new_handle = await _resolve_redirect(handle)
-        if not new_handle:
-            redirections[handle] = None
-        else:
-            cf_user, = await user.info(handles=[new_handle])
-            redirections[handle] = cf_user
-    return redirections
+async def _resolve_handle_to_new_user(
+    handle: str,
+) -> Optional[User]:
+    new_handle = await _resolve_redirect(handle)
+    if new_handle is None:
+        return None
+    cf_user, = await user.info(handles=[new_handle])
+    return cf_user
 
 
-async def resolve_redirects(handles):
-    handles_to_fix = await _needs_fixing(handles)
-    handle_mapping = await _resolve_handle_mapping(handles_to_fix)
-    return handle_mapping
+async def _resolve_handles(handles: Iterable[str]) -> Dict[str, Optional[User]]:
+    chunks = user_info_chunkify(handles)
+
+    resolved_handles: Dict[str, Optional[User]] = {}
+
+    for handle_chunk in chunks:
+        while handle_chunk:
+            try:
+                cf_users = await user.info(handles=handle_chunk)
+
+                # No failure, all handles resolve to users,
+                # but capitalization might be wrong still.
+                for handle, cf_user in zip(handle_chunk, cf_users):
+                    # Only difference left should be capitalization.
+                    assert handle.lower() == cf_user.handle.lower()
+                    if handle != cf_user.handle:
+                        resolved_handles[handle] = cf_user
+                break
+            except HandleNotFoundError as e:
+                # Handle resolution failed, fix the reported handle.
+                resolved_handles[e.handle] = await _resolve_handle_to_new_user(e.handle)
+                handle_chunk.remove(e.handle)
+    return resolved_handles
+
+
+async def resolve_redirects(handles: Iterable[str]) -> Dict[str, Optional[User]]:
+    """Returns a mapping of handles to their resolved CF users."""
+    return await _resolve_handles(handles)
