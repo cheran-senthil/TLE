@@ -4,8 +4,12 @@
 cd "$(dirname "$0")"
 
 [ -e environment ] && . ./environment
-python3 -m venv .venv
-. .venv/bin/activate
+
+if [[ -n "${VENV_DIR}" ]]; then
+    echo "Activating virtual environment in ${VENV_DIR}."
+    python3 -m venv "${VENV_DIR}"
+    . "${VENV_DIR}/bin/activate"
+fi
 
 while true; do
     git pull
