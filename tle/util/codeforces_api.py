@@ -1,9 +1,10 @@
 import asyncio
 from collections import defaultdict, deque, namedtuple
 import functools
+import itertools
 import logging
 import time
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, Optional
 
 import aiohttp
 from discord.ext import commands
@@ -38,12 +39,14 @@ RATED_RANKS = (
 UNRATED_RANK = Rank(None, None, 'Unrated', None, None, None)
 
 
-def rating2rank(rating):
+def rating2rank(rating: int) -> Rank:
+    """Returns the rank corresponding to the given rating."""
     if rating is None:
         return UNRATED_RANK
     for rank in RATED_RANKS:
         if rank.low <= rating < rank.high:
             return rank
+    raise ValueError(f'Rating {rating} outside range of known ranks.')
 
 
 # Data classes
@@ -54,15 +57,18 @@ class User(namedtuple('User', 'handle firstName lastName country city organizati
     __slots__ = ()
 
     @property
-    def effective_rating(self):
+    def effective_rating(self) -> int:
+        """Returns the effective rating of the user."""
         return self.rating if self.rating is not None else DEFAULT_RATING
 
     @property
-    def rank(self):
+    def rank(self) -> Rank:
+        """Returns the rank corresponding to the user's rating."""
         return rating2rank(self.rating)
 
     @property
-    def url(self):
+    def url(self) -> str:
+        """Returns the URL of the user's profile."""
         return f'{PROFILE_BASE_URL}{self.handle}'
 
 
@@ -75,21 +81,25 @@ class Contest(namedtuple('Contest', 'id name startTimeSeconds durationSeconds ty
     PHASES = 'BEFORE CODING PENDING_SYSTEM_TEST SYSTEM_TEST FINISHED'.split()
 
     @property
-    def end_time(self):
+    def end_time(self) -> int:
+        """Returns the end time of the contest."""
         return self.startTimeSeconds + self.durationSeconds
 
     @property
-    def url(self):
+    def url(self) -> str:
+        """Returns the URL of the contest."""
         return f'{CONTEST_BASE_URL if self.id < GYM_ID_THRESHOLD else GYM_BASE_URL}{self.id}'
 
     @property
-    def register_url(self):
+    def register_url(self) -> str:
+        """Returns the URL to register for the contest."""
         return f'{CONTESTS_BASE_URL}{self.id}'
 
-    def matches(self, markers):
-        def strfilt(s):
+    def matches(self, markers: Iterable[str]) -> bool:
+        """Returns whether the contest matches any of the given markers."""
+        def filter_and_normalize(s: str) -> str:
             return ''.join(x for x in s.lower() if x.isalnum())
-        return any(strfilt(marker) in strfilt(self.name) for marker in markers)
+        return any(filter_and_normalize(marker) in filter_and_normalize(self.name) for marker in markers)
 
 class Party(namedtuple('Party', ('contestId members participantType teamId teamName ghost room '
                                  'startTimeSeconds'))):
@@ -225,11 +235,11 @@ def _bool_to_str(value):
 def cf_ratelimit(f):
     tries = 3
     per_second = 1
-    last = deque([0]*per_second)
+    last = deque([0.0]*per_second)
 
     @functools.wraps(f)
     async def wrapped(*args, **kwargs):
-        for i in range(tries):
+        for i in itertools.count():
             now = time.time()
 
             # Next valid slot is 1s after the `per_second`th last request
@@ -248,15 +258,16 @@ def cf_ratelimit(f):
                 logger.info(f'Try {i+1}/{tries} at query failed.')
                 logger.info(repr(e))
                 if i < tries - 1:
-                    logger.info(f'Retrying...')
+                    logger.info('Retrying...')
                 else:
-                    logger.info(f'Aborting.')
+                    logger.info('Aborting.')
                     raise e
+        raise AssertionError('Unreachable')
     return wrapped
 
 
 @cf_ratelimit
-async def _query_api(path, data=None):
+async def _query_api(path: str, data: Any=None):
     url = API_BASE_URL + path
     try:
         logger.info(f'Querying CF API at {url} with {data}')
@@ -348,7 +359,7 @@ class problemset:
                         resp['problemStatistics']]
         return problems, problemstats
 
-def user_info_chunkify(handles):
+def user_info_chunkify(handles: Iterable[str]):
     """
     Querying user.info using POST requests is limited to 10000 handles or 2**16
     bytes, so requests might need to be split into chunks
