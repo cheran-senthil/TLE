@@ -4,8 +4,7 @@ import functools
 import itertools
 import logging
 import time
-from typing import Any, Dict, Iterable, List, NamedTuple, Optional
-
+from typing import Any, Dict, Iterable, Iterator, List, NamedTuple, Optional, Sequence, Tuple
 import aiohttp
 from discord.ext import commands
 
@@ -25,6 +24,7 @@ DEFAULT_RATING = 1500
 logger = logging.getLogger(__name__)
 
 class Rank(NamedTuple):
+    """Codeforces rank."""
     low: Optional[int]
     high: Optional[int]
     title: str
@@ -124,7 +124,9 @@ class Contest(NamedTuple):
     @property
     def url(self) -> str:
         """Returns the URL of the contest."""
-        return f'{CONTEST_BASE_URL if self.id < GYM_ID_THRESHOLD else GYM_BASE_URL}{self.id}'
+        if self.id < GYM_ID_THRESHOLD:
+            return f'{CONTEST_BASE_URL}{self.id}'
+        return f'{GYM_BASE_URL}{self.id}'
 
     @property
     def register_url(self) -> str:
@@ -315,16 +317,17 @@ class RatingChangesUnavailableError(TrueApiError):
 
 # Codeforces API query methods
 
-_session = None
+_session: aiohttp.ClientSession = None
 
 
-async def initialize():
+async def initialize() -> None:
+    """Initialization for the Codeforces API module."""
     global _session
     _session = aiohttp.ClientSession()
 
 
-def _bool_to_str(value):
-    if type(value) is bool:
+def _bool_to_str(value: bool) -> str:
+    if isinstance(value, bool):
         return 'true' if value else 'false'
     raise TypeError(f'Expected bool, got {value} of type {type(value)}')
 
@@ -390,7 +393,8 @@ async def _query_api(path: str, data: Any=None):
 
 class contest:
     @staticmethod
-    async def list(*, gym=None):
+    async def list(*, gym: Optional[bool] = None) -> List[Contest]:
+        """Returns a list of contests."""
         params = {}
         if gym is not None:
             params['gym'] = _bool_to_str(gym)
@@ -398,7 +402,8 @@ class contest:
         return [make_from_dict(Contest, contest_dict) for contest_dict in resp]
 
     @staticmethod
-    async def ratingChanges(*, contest_id):
+    async def ratingChanges(*, contest_id: Any) -> List[RatingChange]:
+        """Returns a list of rating changes for a contest."""
         params = {'contestId': contest_id}
         try:
             resp = await _query_api('contest.ratingChanges', params)
@@ -411,8 +416,15 @@ class contest:
         return [make_from_dict(RatingChange, change_dict) for change_dict in resp]
 
     @staticmethod
-    async def standings(*, contest_id, from_=None, count=None, handles=None, room=None,
-                        show_unofficial=None):
+    async def standings(
+        *,
+        contest_id: Any,
+        from_: Optional[int] = None,
+        count: Optional[int] = None,
+        handles: Optional[List[str]] = None,
+        room: Optional[Any] = None,
+        show_unofficial: Optional[bool] = None,
+    ) -> Tuple[Contest, List[Problem], List[RanklistRow]]:
         params = {'contestId': contest_id}
         if from_ is not None:
             params['from'] = from_
@@ -444,7 +456,10 @@ class contest:
 
 class problemset:
     @staticmethod
-    async def problems(*, tags=None, problemset_name=None):
+    async def problems(
+        *, tags=None, problemset_name=None
+    ) -> Tuple[List[Problem], List[ProblemStatistics]]:
+        """Returns a list of problems."""
         params = {}
         if tags is not None:
             params['tags'] = ';'.join(tags)
@@ -456,11 +471,10 @@ class problemset:
                         resp['problemStatistics']]
         return problems, problemstats
 
-def user_info_chunkify(handles: Iterable[str]):
-    """
-    Querying user.info using POST requests is limited to 10000 handles or 2**16
-    bytes, so requests might need to be split into chunks
-    """
+def user_info_chunkify(handles: Iterable[str]) -> Iterator[List[str]]:
+    """Yields chunks of handles that can be queried with user.info."""
+    # Querying user.info using POST requests is limited to 10000 handles or 2**16
+    # bytes, so requests might need to be split into chunks
     SIZE_LIMIT = 2**16
     HANDLE_LIMIT = 10000
     chunk = []
@@ -477,7 +491,8 @@ def user_info_chunkify(handles: Iterable[str]):
 
 class user:
     @staticmethod
-    async def info(*, handles):
+    async def info(*, handles: Sequence[str]) -> List[User]:
+        """Returns a list of user info."""
         chunks = list(user_info_chunkify(handles))
         if len(chunks) > 1:
             logger.warning(f'cf.info request with {len(handles)} handles,'
@@ -498,7 +513,8 @@ class user:
         return [cf_common.fix_urls(user) for user in result]
 
     @staticmethod
-    async def rating(*, handle):
+    async def rating(*, handle: str):
+        """Returns a list of rating changes for a user."""
         params = {'handle': handle}
         try:
             resp = await _query_api('user.rating', params)
@@ -511,7 +527,8 @@ class user:
         return [make_from_dict(RatingChange, ratingchange_dict) for ratingchange_dict in resp]
 
     @staticmethod
-    async def ratedList(*, activeOnly=None):
+    async def ratedList(*, activeOnly: bool = None) -> List[User]:
+        """Returns a list of rated users."""
         params = {}
         if activeOnly is not None:
             params['activeOnly'] = _bool_to_str(activeOnly)
@@ -519,8 +536,11 @@ class user:
         return [make_from_dict(User, user_dict) for user_dict in resp]
 
     @staticmethod
-    async def status(*, handle, from_=None, count=None):
-        params = {'handle': handle}
+    async def status(
+        *, handle: str, from_: Optional[int] = None, count: Optional[int] = None
+    ) -> List[Submission]:
+        """Returns a list of submissions for a user."""
+        params: Dict[str, Any] = {'handle': handle}
         if from_ is not None:
             params['from'] = from_
         if count is not None:
