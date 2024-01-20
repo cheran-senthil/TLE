@@ -49,6 +49,8 @@ python3.7 -m pip install poetry
 python3.7 -m poetry install
 ```
 
+On some systems, Poetry is not able to install TLE's dependencies correctly. If you are unable to run `poetry install` without errors after completing the steps below, see the note at the end of the *final steps* section.
+
 ---
 
 #### Library dependencies
@@ -89,6 +91,14 @@ To start TLE just run:
 
 ```bash
 ./run.sh
+```
+
+On some systems, Poetry is unable to correctly install TLE's dependencies even after completing the above steps. In this case, using Pip to manage the dependencies instead may work. Note that Poetry still must be installed.
+
+To install dependencies in a virtual environment using Pip and start TLE, just run:
+
+```bash
+./run-pip.sh
 ```
 
 ### Notes
