@@ -31,6 +31,15 @@ Clone the repository
 git clone https://github.com/cheran-senthil/TLE
 ```
 
+### Optional: venv
+
+If you want to isolate the TLE python environment from your system one, now would be the time to do it.
+See the [venv documentation](https://docs.python.org/3/library/venv.html) for details.
+
+If you decide to use a venv there is some convenience logic in the startup
+script to automatically active your venv when running the bot.
+See [Environment Variables](#environment-variables) for details.
+
 ### Dependencies
 
 Now all dependencies need to be installed. TLE uses [Poetry](https://poetry.eustace.io/) to manage its python dependencies. After installing Poetry navigate to the root of the repo and run
@@ -86,6 +95,7 @@ Fill in appropriate variables in new "environment" file.
 - **ALLOW_DUEL_SELF_REGISTER**: boolean value indicating if self registration for duels is enabled.
 - **TLE_ADMIN**: the name of the role that can run admin commands of the bot. If this is not set, the role name will default to "Admin".
 - **TLE_MODERATOR**: the name of the role that can run moderator commands of the bot. If this is not set, the role name will default to "Moderator".
+- **VENV_DIR**: If non-empty, automatically activate this venv when running the bot.
 
 To start TLE just run:
 
