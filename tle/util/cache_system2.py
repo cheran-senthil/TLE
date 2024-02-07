@@ -523,7 +523,7 @@ class RatingChangesCache:
         return self.handle_rating_cache.get(handle,
                                             cf.DEFAULT_RATING if default_if_absent else None)
 
-    def get_all_ratings_before_timestamp(self, timestamp):
+    async def get_all_ratings_before_timestamp(self, timestamp):
         res = self.cache_master.conn.get_all_ratings_before_timestamp(timestamp)
         return {ratingchange.handle: ratingchange for ratingchange in res}
 

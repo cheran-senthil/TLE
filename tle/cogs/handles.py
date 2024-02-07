@@ -405,17 +405,18 @@ class Handles(commands.Cog):
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
                     if prob.rating <= 1200]
         problem = random.choice(problems)
-        await ctx.send(f'`{invoker}`, submit a compile error to <{problem.url}> within 60 seconds')
-        await asyncio.sleep(60)
+        await ctx.send(f'`{invoker}`, submit a compile error to <{problem.url}> within 60 seconds (this shows the bot that you have access to the account)')
+        for i in range(4):
+            await asyncio.sleep(15)
 
-        subs = await cf.user.status(handle=handle, count=5)
-        if any(sub.problem.name == problem.name and sub.verdict == 'COMPILATION_ERROR' for sub in subs):
-            user, = await cf.user.info(handles=[handle])
-            await self._set(ctx, ctx.author, user)
-            embed = _make_profile_embed(ctx.author, user, mode='set')
-            await ctx.send(embed=embed)
-        else:
-            await ctx.send(f'Sorry `{invoker}`, can you try again?')
+            subs = await cf.user.status(handle=handle, count=5)
+            if any(sub.problem.name == problem.name and sub.verdict == 'COMPILATION_ERROR' for sub in subs):
+                user, = await cf.user.info(handles=[handle])
+                await self._set(ctx, ctx.author, user)
+                embed = _make_profile_embed(ctx.author, user, mode='set')
+                await ctx.send(embed=embed)
+                return
+        await ctx.send(f'Sorry `{invoker}`, can you try again? Remember: The identification process needs you to submit a Compilation error to the mentioned problem!')
 
     @handle.command(brief='Get handle by Discord username')
     async def get(self, ctx, member: discord.Member):

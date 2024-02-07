@@ -841,6 +841,7 @@ class Contests(commands.Cog):
     async def problemratings(self, ctx, contest_id: int):
         """Estimation of contest problem ratings
         """
+        await ctx.send('This will take a while')
         contests = await cf.contest.list()
         reqcontest = [contest for contest in contests if contest.id == contest_id]
         combined = [contest for contest in contests if reqcontest[0].startTimeSeconds == contest.startTimeSeconds]
@@ -875,7 +876,7 @@ class Contests(commands.Cog):
                 # get rating of contestants from cache
                 # we want to have the rating before the contest we query for
                 from_cache = True
-                cached_ratings = cf_common.cache2.rating_changes_cache.get_all_ratings_before_timestamp(reqcontest[0].startTimeSeconds)
+                cached_ratings = await cf_common.cache2.rating_changes_cache.get_all_ratings_before_timestamp(reqcontest[0].startTimeSeconds)
                 for row in ranklist:
                     member = row.party.members[0].handle
                     # members not in cache are considered new (Unrated)
