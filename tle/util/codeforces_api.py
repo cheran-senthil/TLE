@@ -460,7 +460,7 @@ async def _needs_fixing(handles):
 
                 # Users could still have changed capitalization
                 for handle, cf_user in zip(handle_chunk, cf_users):
-                    assert handle.lower() == cf_user.handle.lower()
+                    assert handle.lower() == cf_user.handle.lower(),f"{handle.lower()} differs from {cf_user.handle.lower()}"
                     if handle != cf_user.handle:
                         to_fix.append(handle)
                 break
