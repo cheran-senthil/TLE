@@ -374,6 +374,7 @@ class user:
             f'will be chunkified into {len(chunks)} requests.')
 
         result = []
+        count = 0
         for chunk in chunks:
             params = {'handles': ';'.join(chunk)}
             try:
@@ -385,6 +386,8 @@ class user:
                     raise HandleNotFoundError(e.comment, handle)
                 raise
             result += [make_from_dict(User, user_dict) for user_dict in resp]
+            count += len(chunk)
+        logger.info(f"user.info was called for {count} entries and {len(result)} User objects could be created.")
         return [cf_common.fix_urls(user) for user in result]
 
     @staticmethod
