@@ -21,11 +21,11 @@ from tle.util.elo import _ELO_CONSTANT
 
 logger = logging.getLogger(__name__)
 
-_DUEL_INVALIDATE_TIME = 2 * 60
+_DUEL_INVALIDATE_TIME = 5 * 60
 _DUEL_EXPIRY_TIME = 5 * 60
 _DUEL_RATING_DELTA = -400
 _DUEL_OFFICIAL_CUTOFF = 3500
-_DUEL_NO_DRAW_TIME = 10 * 60
+_DUEL_NO_DRAW_TIME = 5 * 60
 _DUEL_MAX_RATIO = 3.0
 
 _DUEL_STATUS_UNSOLVED = 0
@@ -795,7 +795,7 @@ class Dueling(commands.Cog):
         challengee = ctx.guild.get_member(challengee_id)
         await ctx.send(f'Duel between {challenger.mention} and {challengee.mention} has been invalidated.')
 
-    @duel.command(brief='Invalidate the duel. Can be used within 2 minutes after the duel has been started.')
+    @duel.command(brief='Invalidate the duel. Can be used within 5 minutes after the duel has been started.')
     async def invalidate(self, ctx): # @@@ TODO: broken with new duel types
         """Declare your duel invalid. Use this if you've solved the problem prior to the duel.
         You can only use this functionality during the first 120 seconds of the duel."""

@@ -375,7 +375,10 @@ class Handles(commands.Cog):
             cf_common.user_db.set_handle(member.id, ctx.guild.id, handle)
         except db.UniqueConstraintFailed:
             raise HandleCogError(f'The handle `{handle}` is already associated with another user.')
-        cf_common.user_db.cache_cf_user(user)
+        rc = cf_common.user_db.cache_cf_user(user)
+        if rc != 1:
+            raise HandleCogError('DB update for user {user.handle} failed.')
+
 
         roles = [role for role in ctx.guild.roles if role.name == user.rank.title]
         if not roles:
@@ -405,7 +408,7 @@ class Handles(commands.Cog):
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
                     if prob.rating <= 1200]
         problem = random.choice(problems)
-        await ctx.send(f'`{invoker}`, submit a compile error to <{problem.url}> within 60 seconds (this shows the bot that you have access to the account)')
+        await ctx.send(f'`{invoker}`, submit a compile error to <{problem.url}> within 60 seconds (this will show the bot that you have access to the account)')
         for i in range(4):
             await asyncio.sleep(15)
 
@@ -737,7 +740,9 @@ class Handles(commands.Cog):
         members, handles = zip(*member_handles)
         users = await cf.user.info(handles=handles)
         for user in users:
-            cf_common.user_db.cache_cf_user(user)
+            rc = cf_common.user_db.cache_cf_user(user)
+            if rc != 1:
+                raise HandleCogError('DB update for user {user.handle} failed.')
 
         required_roles = {user.rank.title for user in users}
         rank2role = {role.name: role for role in guild.roles if role.name in required_roles}
