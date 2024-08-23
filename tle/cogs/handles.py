@@ -571,7 +571,7 @@ class Handles(commands.Cog):
                     if self.dlo <= change.ratingUpdateTimeSeconds < self.dhi]
         return rating_changes
 
-    @commands.command(brief="Show gudgitters of the month", aliases=["monthlygitgudders","monthlygg","monthlygitbadders"], usage="[div1|div2|div3] [d=mmyyyy] [+all]")
+    @commands.command(brief="Show gudgitters of the month", aliases=["monthlygitgudders","monthlygg","monthlygitbadders", "mgg"], usage="[div1|div2|div3] [d=mmyyyy] [+all]")
     async def monthlygudgitters(self, ctx, *args):
         """Show the list of users of gitgud with their scores."""
         
