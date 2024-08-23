@@ -99,7 +99,7 @@ class Codeforces(commands.Cog):
         - Type ;upsolve for listing all available problems.
         - Type ;upsolve <nr> for choosing the problem <nr> as gitgud problem (only possible if you have no active gitgud challenge)
         - After solving the problem you can claim gitgud points for it with ;gotgud
-        - If you can't solve the problem for 2 hours or used external help you should skip it with ;nogud
+        - If you can't solve the problem or used external help you should skip it with ;nogud (Available after 2 hours)
         - The all-time ranklist can be found with ;gitgudders
         - A monthly ranklist is shown when you type ;monthlygitgudders
         - Another way to gather gitgud points is ;gitgud (only works if you have no active gitgud-Challenge)
@@ -302,7 +302,7 @@ class Codeforces(commands.Cog):
         - Filter problems by division with [+divX] [~divX], possible values are [div1, div2, div3, div4, edu]
         - Request problems with/without certain tags with ;gitgud <rating> [+tags] [~tags]
         - After solving the problem you can claim gitgud points for it with ;gotgud
-        - If you can't solve the problem for 2 hours you can skip it with ;nogud
+        - If you can't solve the problem or used external help you should skip it with ;nogud (Available after 2 hours)
         - The all-time ranklist can be found with ;gitgudders
         - A monthly ranklist is shown when you type ;monthlygitgudders
         - Another way to gather gitgud points is ;upsolve (only works if you have no active gitgud-Challenge)
