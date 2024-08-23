@@ -330,6 +330,8 @@ class Codeforces(commands.Cog):
         erating = user_rating 
         hidden = False
         for arg in args:
+            if arg[0] == "-":
+                raise CodeforcesCogError('Wrong rating requested. Remember gitgud now uses rating (800-3500) instead of delta.')    
             if arg[0:3].isdigit():
                 ratings = arg.split("-")
                 srating = int(ratings[0])
@@ -340,7 +342,7 @@ class Codeforces(commands.Cog):
                     erating = srating
         
         if erating < 800 or srating > 3500:
-            raise CodeforcesCogError('Wrong rating requested. Remember gitgud: uses now rating (800-3500) instead of delta.')
+            raise CodeforcesCogError('Wrong rating requested. Remember gitgud now uses rating (800-3500) instead of delta.')
 
         await self._validate_gitgud_status(ctx)
 
