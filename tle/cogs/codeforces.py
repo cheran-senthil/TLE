@@ -99,14 +99,14 @@ class Codeforces(commands.Cog):
         - Type ;upsolve for listing all available problems.
         - Type ;upsolve <nr> for choosing the problem <nr> as gitgud problem (only possible if you have no active gitgud challenge)
         - After solving the problem you can claim gitgud points for it with ;gotgud
-        - If you can't solve the problem for 2 hours you can skip it with ;nogud
+        - If you can't solve the problem for 2 hours or used external help you should skip it with ;nogud
         - The all-time ranklist can be found with ;gitgudders
         - A monthly ranklist is shown when you type ;monthlygitgudders
         - Another way to gather gitgud points is ;gitgud (only works if you have no active gitgud-Challenge)
         - For help with each of the commands you can type ;help <command> (e.g. ;help gitgudders)
         
         Point distribution:
-        delta  | <-300| -300 | -200 | -100 |  0  | +100 | +200 |>=300
+        delta  | <-300| -300 | -200 | -100 |  0  |  100 |  200 |>=300
         points |   1  |   2  |   3  |   5  |  8  |  12  |  17  |  23 
         """
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
@@ -129,7 +129,7 @@ class Codeforces(commands.Cog):
         if choice > 0 and choice <= len(problems):
             await self._validate_gitgud_status(ctx,delta=None)
             problem = problems[choice - 1]
-            await self._gitgud(ctx, handle, problem, problem.rating - rating)
+            await self._gitgud(ctx, handle, problem, problem.rating - rating, False)
         else:
             problems = problems[:500]
               
@@ -297,9 +297,10 @@ class Codeforces(commands.Cog):
                       usage='[rating|rating1-rating2] [+tags] [~tags] [+divX] [~divX]')
     @cf_common.user_guard(group='gitgud')
     async def gitgud(self, ctx, *args):
-        """Gitgud: You can request a problem from the bots relative to your current rating with ;gitgud <delta>
+        """Gitgud: You can request a problem with a specific rating with ;gitgud <rating> or within a rating range with ;gitgud <rating1>-<rating2>
+        - Points are assigned by the difference of problem rating and your current rating (rounded to nearest 100)
         - Filter problems by division with [+divX] [~divX], possible values are [div1, div2, div3, div4, edu]
-        - Request problems with/without certain tags with ;gitgud <delta>|r=<rating> [+tags] [~tags]
+        - Request problems with/without certain tags with ;gitgud <rating> [+tags] [~tags]
         - After solving the problem you can claim gitgud points for it with ;gotgud
         - If you can't solve the problem for 2 hours you can skip it with ;nogud
         - The all-time ranklist can be found with ;gitgudders
@@ -308,10 +309,10 @@ class Codeforces(commands.Cog):
         - For help with each of the commands you can type ;help <command> (e.g. ;help gitgudders)
         
         Point distribution:
-        delta  | <-300| -300 | -200 | -100 |   0  |  100 |  200 |>=300
-        no tags|   1  |   2  |   3  |   5  |   8  |  12  |  17  |  23 
-        delta  | <-100| -100 |   0  |  100 |  200 |  300 |  400 |>=500
-        tags   |   1  |   2  |   3  |   5  |   8  |  12  |  17  |  23 
+        rating diff | <-300| -300 | -200 | -100 |   0  |  100 |  200 |>=300
+        no tags     |   1  |   2  |   3  |   5  |   8  |  12  |  17  |  23 
+        rating diff | <-100| -100 |   0  |  100 |  200 |  300 |  400 |>=500
+        tags        |   1  |   2  |   3  |   5  |   8  |  12  |  17  |  23 
         """
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         user = cf_common.user_db.fetch_cf_user(handle)
