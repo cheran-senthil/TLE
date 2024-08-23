@@ -62,7 +62,7 @@ class Codeforces(commands.Cog):
             url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
             raise CodeforcesCogError(f'You have an active challenge {name} at {url}')
 
-    async def _gitgud(self, ctx, handle, problem, delta):
+    async def _gitgud(self, ctx, handle, problem, delta, hidden):
         # The caller of this function is responsible for calling `_validate_gitgud_status` first.
         user_id = ctx.author.id
 
@@ -83,10 +83,13 @@ class Codeforces(commands.Cog):
 
         title = f'{problem.index}. {problem.name}'
         desc = cf_common.cache2.contest_cache.get_contest(problem.contestId).name
+        ratingStr = problem.rating if not hidden else '||'+str(problem.rating)+'||'
+        pointsStr = points if not hidden else '||'+str(points)+'||'
+        monthlyPointsStr = monthlypoints if not hidden else '||'+str(monthlypoints)+'||'
         embed = discord.Embed(title=title, url=problem.url, description=desc)
-        embed.add_field(name='Rating', value=problem.rating)
-        embed.add_field(name='Alltime points', value=(points))
-        embed.add_field(name='Monthly points', value=(monthlypoints))
+        embed.add_field(name='Rating', value=ratingStr)
+        embed.add_field(name='Alltime points', value=pointsStr)
+        embed.add_field(name='Monthly points', value=monthlyPointsStr)
         await ctx.send(f'Challenge problem for `{handle}`', embed=embed)
 
     @commands.command(brief='Upsolve a problem')
@@ -321,38 +324,25 @@ class Codeforces(commands.Cog):
         submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions}
         noguds = cf_common.user_db.get_noguds(ctx.message.author.id)
-        delta = 0
         tags = cf_common.parse_tags(args, prefix='+')
         bantags = cf_common.parse_tags(args, prefix='~')
         srating = user_rating
         erating = user_rating 
+        hidden = False
         for arg in args:
             if arg[0:3].isdigit():
                 ratings = arg.split("-")
                 srating = int(ratings[0])
                 if (len(ratings) > 1): 
                     erating = int(ratings[1])
+                    hidden = True
                 else:
                     erating = srating
         
         if erating < 800 or srating > 3500:
             raise CodeforcesCogError('Wrong rating requested. Remember gitgud: uses now rating (800-3500) instead of delta.')
-        # for arg in args:
-        #     if arg[0] == '-':
-        #         if arg[1:].isdigit():
-        #             delta = int(arg)
-        #     else:
-        #         if arg[0:].isdigit():
-        #             delta = int(arg)
-        #     if arg.startswith('r='):
-        #         if arg[2:].isdigit():
-        #             delta = int(arg[2:]) - rating
 
-
-        await self._validate_gitgud_status(ctx, delta)
-        # @@@
-        if delta is not None and delta % 100 != 0:
-            raise CodeforcesCogError('Delta must be a multiple of 100.')
+        await self._validate_gitgud_status(ctx)
 
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
                     if prob.rating >= srating and prob.rating <= erating
@@ -382,7 +372,7 @@ class Codeforces(commands.Cog):
         delta = problems[choice].rating - rating
         if tags or bantags:
             delta = delta - 200
-        await self._gitgud(ctx, handle, problems[choice], delta)
+        await self._gitgud(ctx, handle, problems[choice], delta, hidden)
 
     @commands.command(brief='Print user gitgud history')
     async def gitlog(self, ctx, member: discord.Member = None):
