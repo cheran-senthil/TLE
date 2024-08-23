@@ -54,10 +54,7 @@ class Codeforces(commands.Cog):
             morePointsActive = True
         return morePointsActive
 
-    async def _validate_gitgud_status(self, ctx, delta):
-        if delta is not None and delta % 100 != 0:
-            raise CodeforcesCogError('Delta must be a multiple of 100.')
-
+    async def _validate_gitgud_status(self, ctx):
         user_id = ctx.message.author.id
         active = cf_common.user_db.check_challenge(user_id)
         if active is not None:
@@ -294,7 +291,7 @@ class Codeforces(commands.Cog):
         await ctx.send(f'Mashup contest for `{str_handles}`', embed=embed)
 
     @commands.command(brief='Challenge', aliases=['gitbad'],
-                      usage='[delta=0|r=rating] [+tags] [~tags] [+divX] [~divX]')
+                      usage='[rating|rating1-rating2] [+tags] [~tags] [+divX] [~divX]')
     @cf_common.user_guard(group='gitgud')
     async def gitgud(self, ctx, *args):
         """Gitgud: You can request a problem from the bots relative to your current rating with ;gitgud <delta>
@@ -308,14 +305,17 @@ class Codeforces(commands.Cog):
         - For help with each of the commands you can type ;help <command> (e.g. ;help gitgudders)
         
         Point distribution:
-        delta  | <-300| -300 | -200 | -100 |   0  | +100 | +200 |>=300
+        delta  | <-300| -300 | -200 | -100 |   0  |  100 |  200 |>=300
         no tags|   1  |   2  |   3  |   5  |   8  |  12  |  17  |  23 
-        delta  | <-100| -100 |   0  | +100 | +200 | +300 | +400 |>=500
+        delta  | <-100| -100 |   0  |  100 |  200 |  300 |  400 |>=500
         tags   |   1  |   2  |   3  |   5  |   8  |  12  |  17  |  23 
         """
         handle, = await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         user = cf_common.user_db.fetch_cf_user(handle)
-        rating = round(user.effective_rating, -2)
+        user_rating = round(user.effective_rating, -2)
+        user_rating = max(800, user_rating)
+        user_rating = min(3500, user_rating)        
+        rating = user_rating
         rating = max(1100, rating)
         rating = min(3000, rating)
         submissions = await cf.user.status(handle=handle)
@@ -324,25 +324,40 @@ class Codeforces(commands.Cog):
         delta = 0
         tags = cf_common.parse_tags(args, prefix='+')
         bantags = cf_common.parse_tags(args, prefix='~')
-        
+        srating = user_rating
+        erating = user_rating 
         for arg in args:
-            if arg[0] == '-':
-                if arg[1:].isdigit():
-                    delta = int(arg)
-            else:
-                if arg[0:].isdigit():
-                    delta = int(arg)
-            if arg.startswith('r='):
-                if arg[2:].isdigit():
-                    delta = int(arg[2:]) - rating
+            if arg[0:3].isdigit():
+                ratings = arg.split("-")
+                srating = int(ratings[0])
+                if (len(ratings) > 1): 
+                    erating = int(ratings[1])
+                else:
+                    erating = srating
+        
+        if erating < 800 or srating > 3500:
+            raise CodeforcesCogError('Wrong rating requested. Remember gitgud: uses now rating (800-3500) instead of delta.')
+        # for arg in args:
+        #     if arg[0] == '-':
+        #         if arg[1:].isdigit():
+        #             delta = int(arg)
+        #     else:
+        #         if arg[0:].isdigit():
+        #             delta = int(arg)
+        #     if arg.startswith('r='):
+        #         if arg[2:].isdigit():
+        #             delta = int(arg[2:]) - rating
 
 
         await self._validate_gitgud_status(ctx, delta)
-        
+        # @@@
+        if delta is not None and delta % 100 != 0:
+            raise CodeforcesCogError('Delta must be a multiple of 100.')
+
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
-                    if (prob.rating == rating + delta 
+                    if prob.rating >= srating and prob.rating <= erating
                     and prob.name not in solved 
-                    and prob.name not in noguds)
+                    and prob.name not in noguds
                     and prob.matches_all_tags(tags)
                     and not prob.matches_any_tag(bantags)]
                         
@@ -364,6 +379,7 @@ class Codeforces(commands.Cog):
         tags = [tag for tag in tags if tag not in cache_system2._DIV_TAGS]
         bantags = [tag for tag in bantags if tag not in cache_system2._DIV_TAGS]
 
+        delta = problems[choice].rating - rating
         if tags or bantags:
             delta = delta - 200
         await self._gitgud(ctx, handle, problems[choice], delta)
