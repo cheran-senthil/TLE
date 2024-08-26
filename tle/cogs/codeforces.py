@@ -127,7 +127,7 @@ class Codeforces(commands.Cog):
         problems.sort(key=lambda problem: problem.rating)
 
         if choice > 0 and choice <= len(problems):
-            await self._validate_gitgud_status(ctx,delta=None)
+            await self._validate_gitgud_status(ctx)
             problem = problems[choice - 1]
             await self._gitgud(ctx, handle, problem, problem.rating - rating, False)
         else:
