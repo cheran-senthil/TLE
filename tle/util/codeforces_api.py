@@ -32,7 +32,8 @@ RATED_RANKS = (
     Rank(2300, 2400, 'International Master', 'IM', '#FFBB55', 0xf57500),
     Rank(2400, 2600, 'Grandmaster', 'GM', '#FF7777', 0xff3030),
     Rank(2600, 3000, 'International Grandmaster', 'IGM', '#FF3333', 0xff0000),
-    Rank(3000, 10 ** 9, 'Legendary Grandmaster', 'LGM', '#AA0000', 0xcc0000)
+    Rank(3000, 4000, 'Legendary Grandmaster', 'LGM', '#AA0000', 0xcc0000),
+    Rank(4000, 10 ** 9, 'Tourist', 'T', '#CC0000', 0x000000)
 )
 UNRATED_RANK = Rank(None, None, 'Unrated', None, None, None)
 

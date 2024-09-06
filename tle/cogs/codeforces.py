@@ -297,16 +297,16 @@ class Codeforces(commands.Cog):
                       usage='[rating|rating1-rating2] [+tags] [~tags] [+divX] [~divX]')
     @cf_common.user_guard(group='gitgud')
     async def gitgud(self, ctx, *args):
-        """Gitgud: You can request a problem with a specific rating with ;gitgud <rating> or within a rating range with ;gitgud <rating1>-<rating2>
-        - Points are assigned by the difference of problem rating and your current rating (rounded to nearest 100)
-        - Filter problems by division with [+divX] [~divX], possible values are [div1, div2, div3, div4, edu]
-        - Request problems with/without certain tags with ;gitgud <rating> [+tags] [~tags]
-        - After solving the problem you can claim gitgud points for it with ;gotgud
+        """Gitgud: Request a problem with a specific rating with ;gitgud <rating> or within a rating range with ;gitgud <rating1>-<rating2>
+        - Points are assigned by difference between problem rating and your current rating (rounded to nearest 100)
+        - Filter problems by division with [+divX] [~divX] possible values are div1, div2, div3, div4, edu
+        - Filter problems by tags with [+tags] [~tags]
+        - Claim gitgud points once problem is solved with ;gotgud
         - If you can't solve the problem or used external help you should skip it with ;nogud (Available after 2 hours)
-        - The all-time ranklist can be found with ;gitgudders
-        - A monthly ranklist is shown when you type ;monthlygitgudders
-        - Another way to gather gitgud points is ;upsolve (only works if you have no active gitgud-Challenge)
-        - For help with each of the commands you can type ;help <command> (e.g. ;help gitgudders)
+        - All-time ranklist: ;gitgudders
+        - Monthly ranklist: ;monthlygitgudders
+        - Another way to gather gitgud points is ;upsolve (only works if there is no active gitgud-Challenge)
+        - Get more help with ;help <command> (e.g. ;help gitgudders)
         
         Point distribution:
         rating diff | <-300| -300 | -200 | -100 |   0  |  100 |  200 |>=300
