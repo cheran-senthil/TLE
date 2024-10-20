@@ -792,8 +792,10 @@ class Dueling(commands.Cog):
             raise DuelCogError(f'Unable to invalidate duel {duelid}.')
 
         challenger = ctx.guild.get_member(challenger_id)
+        challenger_mention = challenger.mention if challenger is not None else str(challenger_id)
         challengee = ctx.guild.get_member(challengee_id)
-        await ctx.send(f'Duel between {challenger.mention} and {challengee.mention} has been invalidated.')
+        challengee_mention = challengee.mention if challengee is not None else str(challengee_id)
+        await ctx.send(f'Duel between {challenger_mention} and {challengee_mention} has been invalidated.')
 
     @duel.command(brief='Invalidate the duel. Can be used within 5 minutes after the duel has been started.')
     async def invalidate(self, ctx): # @@@ TODO: broken with new duel types
