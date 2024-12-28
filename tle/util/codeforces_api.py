@@ -503,6 +503,7 @@ class user:
         count = 0
         for chunk in chunks:
             params = {'handles': ';'.join(chunk)}
+            params += "&checkHistoricHandles=false"
             try:
                 resp = await _query_api('user.info', params)
             except TrueApiError as e:
