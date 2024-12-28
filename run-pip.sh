@@ -13,8 +13,9 @@ fi
 
 while true; do
     git pull
-    poetry install
-    FONTCONFIG_FILE=$PWD/extra/fonts.conf poetry run python -m tle
+    poetry export --without-hashes > requirements.txt
+    python -m pip install --requirement requirements.txt
+    FONTCONFIG_FILE=$PWD/extra/fonts.conf python -m tle
 
     (( $? != 42 )) && break
 

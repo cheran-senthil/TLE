@@ -30,6 +30,15 @@ Clone the repository
 git clone https://github.com/Denjell/TLE
 ```
 
+### Optional: venv
+
+If you want to isolate the TLE python environment from your system one, now would be the time to do it.
+See the [venv documentation](https://docs.python.org/3/library/venv.html) for details.
+
+If you decide to use a venv there is some convenience logic in the startup
+script to automatically active your venv when running the bot.
+See [Environment Variables](#environment-variables) for details.
+
 ### Dependencies
 
 Now all dependencies need to be installed. TLE uses [Poetry](https://poetry.eustace.io/) to manage its python dependencies. After installing Poetry navigate to the root of the repo and run
@@ -47,6 +56,8 @@ apt-get install python3.8-venv libpython3.8-dev
 python3.8 -m pip install poetry
 python3.8 -m poetry install
 ```
+
+On some systems, Poetry is not able to install TLE's dependencies correctly. If you are unable to run `poetry install` without errors after completing the steps below, see the note at the end of the *final steps* section.
 
 ---
 
@@ -82,11 +93,20 @@ Fill in appropriate variables in new "environment" file.
 - **LOGGING_COG_CHANNEL_ID**: the [Discord Channel ID](https://support.discord.com/hc/en-us/articles/206346498-Where-can-I-find-my-User-Server-Message-ID-) of a Discord Channel where you want error messages sent to.
 - **TLE_ADMIN**: the name of the role that can run admin commands of the bot. If this is not set, the role name will default to "Admin".
 - **TLE_MODERATOR**: the name of the role that can run moderator commands of the bot. If this is not set, the role name will default to "Moderator".
+- **VENV_DIR**: If non-empty, automatically activate this venv when running the bot.
 
 To start TLE just run:
 
 ```bash
 ./run.sh
+```
+
+On some systems, Poetry is unable to correctly install TLE's dependencies even after completing the above steps. In this case, using Pip to manage the dependencies instead may work. Note that Poetry still must be installed.
+
+To install dependencies in a virtual environment using Pip and start TLE, just run:
+
+```bash
+./run-pip.sh
 ```
 
 ### Notes
