@@ -503,7 +503,7 @@ class user:
         count = 0
         for chunk in chunks:
             params = {'handles': ';'.join(chunk)}
-            params['checkHistoricHandles']='false'
+            #params['checkHistoricHandles']='false'
             try:
                 resp = await _query_api('user.info', params)
             except TrueApiError as e:
@@ -623,7 +623,6 @@ async def _resolve_handles(handles: Iterable[str]) -> Dict[str, Optional[User]]:
                 # but capitalization might be wrong still.
                 for handle, cf_user in zip(handle_chunk, cf_users):
                     # Only difference left should be capitalization.
-                    assert handle.lower() == cf_user.handle.lower(),f"{handle.lower()} differs from {cf_user.handle.lower()}"
                     if handle != cf_user.handle:
                         resolved_handles[handle] = cf_user
                 break
