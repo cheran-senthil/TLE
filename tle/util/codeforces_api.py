@@ -503,7 +503,6 @@ class user:
         count = 0
         for chunk in chunks:
             params = {'handles': ';'.join(chunk)}
-            #params['checkHistoricHandles']='false'
             try:
                 resp = await _query_api('user.info', params)
             except TrueApiError as e:
@@ -619,15 +618,16 @@ async def _resolve_handles(handles: Iterable[str]) -> Dict[str, Optional[User]]:
             try:
                 cf_users = await user.info(handles=handle_chunk)
 
-                # No failure, all handles resolve to users,
-                # but capitalization might be wrong still.
+                # CF API changed. We now get the new username from API
+                # If handle and cf_user.handle differ then the user used magic and needs fixing!
                 for handle, cf_user in zip(handle_chunk, cf_users):
-                    # Only difference left should be capitalization.
                     if handle != cf_user.handle:
                         resolved_handles[handle] = cf_user
                 break
             except HandleNotFoundError as e:
-                # Handle resolution failed, fix the reported handle.
+                # Not sure if we still need this! Magic users should not run into it. 
+                # Will leave it for now.
+                # >> Handle resolution failed, fix the reported handle.
                 resolved_handles[e.handle] = await _resolve_handle_to_new_user(e.handle)
                 handle_chunk.remove(e.handle)
     return resolved_handles
