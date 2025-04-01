@@ -52,7 +52,7 @@ class ReactionBoards(commands.Cog):
                 
                 try:
                     await self.check_and_add_to_board(board_name, board_channel.id, payload, 
-                                                     emoji, color, threshold)
+                                                     color, threshold)
                 except ReactionBoardError as e:
                     self.logger.info(f'Failed to add to {board_name}board: {e!r}')
                 break
@@ -69,15 +69,15 @@ class ReactionBoards(commands.Cog):
             
             if board_channel and payload.channel_id == board_channel.id:
                 # This is a message in a board channel that was deleted
-                if name == 'star':
-                    # Use existing starboard function for star emoji
-                    cf_common.user_db.remove_starboard_message(starboard_msg_id=payload.message_id)
-                elif name == 'pill':
-                    # Add a similar function for pill emoji if needed
-                    if hasattr(cf_common.user_db, 'remove_pillboard_message'):
-                        cf_common.user_db.remove_pillboard_message(pillboard_msg_id=payload.message_id)
-                
+                cf_common.user_db.remove_reaction_board_message(board_type=name, board_msg_id=payload.message_id)
                 self.logger.info(f'Removed message {payload.message_id} from {name}board')
+
+    def get_board_emoji(self, board_name):
+        """Get the emoji for a board type"""
+        for emoji, name, _, _ in REACTION_BOARDS:
+            if name == board_name:
+                return emoji
+        return None
 
     def prepare_embed(self, message, color):
         """Prepare an embed for the reaction board."""
@@ -103,8 +103,10 @@ class ReactionBoards(commands.Cog):
         embed.set_footer(text=str(message.author), icon_url=message.author.avatar_url)
         return embed
 
-    async def check_and_add_to_board(self, board_name, board_channel_id, payload, emoji, color, threshold):
+    async def check_and_add_to_board(self, board_name, board_channel_id, payload, color, threshold):
         """Process reactions and add messages to the appropriate board."""
+        emoji = self.get_board_emoji(board_name)
+        
         guild = self.bot.get_guild(payload.guild_id)
         board_channel = guild.get_channel(board_channel_id)
         if board_channel is None:
@@ -128,29 +130,20 @@ class ReactionBoards(commands.Cog):
 
         async with lock:
             # Check if message already exists in the board's database
-            if board_name == 'star':
-                # Use existing starboard function
-                if cf_common.user_db.check_exists_starboard_message(message.id):
-                    return
-            elif board_name == 'pill':
-                # Add a similar function for pill if needed
-                if hasattr(cf_common.user_db, 'check_exists_pillboard_message'):
-                    if cf_common.user_db.check_exists_pillboard_message(message.id):
-                        return
-                # If the function doesn't exist, proceed anyway
+            if cf_common.user_db.check_exists_reaction_board_message(board_type=board_name, original_msg_id=message.id):
+                return
             
             # Create and send the embed
             embed = self.prepare_embed(message, color)
             board_message = await board_channel.send(embed=embed)
             
-            # Store the message in the appropriate database
-            if board_name == 'star':
-                # Use existing starboard function
-                cf_common.user_db.add_starboard_message(message.id, board_message.id, guild.id)
-            elif board_name == 'pill':
-                # Add a similar function for pill if needed
-                if hasattr(cf_common.user_db, 'add_pillboard_message'):
-                    cf_common.user_db.add_pillboard_message(message.id, board_message.id, guild.id)
+            # Store the message in the database
+            cf_common.user_db.add_reaction_board_message(
+                board_type=board_name, 
+                original_msg_id=message.id, 
+                board_msg_id=board_message.id, 
+                guild_id=guild.id
+            )
             
             self.logger.info(f'Added message {message.id} to {board_name}board')
 
@@ -180,20 +173,11 @@ class ReactionBoards(commands.Cog):
             await ctx.send(f"Unknown board: '{board_name}'. Available boards: {', '.join(board_names)}")
             return
             
-        # Handle removal based on board type
-        if board_name == 'star':
-            # Use existing starboard function
-            removed = cf_common.user_db.remove_starboard_message(original_msg_id=message_id)
-        elif board_name == 'pill':
-            # Add a similar function for pill if needed
-            if hasattr(cf_common.user_db, 'remove_pillboard_message'):
-                removed = cf_common.user_db.remove_pillboard_message(original_msg_id=message_id)
-            else:
-                await ctx.send(f"The remove_pillboard_message function doesn't exist yet.")
-                return
-        else:
-            await ctx.send(f"No removal function for {board_name}board yet.")
-            return
+        # Remove the message
+        removed = cf_common.user_db.remove_reaction_board_message(
+            board_type=board_name, 
+            original_msg_id=message_id
+        )
         
         if removed:
             await ctx.send(embed=discord_common.embed_success("Message removed successfully"))
