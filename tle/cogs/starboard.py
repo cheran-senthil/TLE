@@ -8,51 +8,80 @@ from tle import constants
 from tle.util import codeforces_common as cf_common
 from tle.util import discord_common
 
-_STAR = '\N{WHITE MEDIUM STAR}'
-_STAR_ORANGE = 0xffaa10
-_STAR_THRESHOLD = 5
+# Define all reaction boards here
+# Format: (emoji, name, color, threshold)
+REACTION_BOARDS = [
+    ('\N{WHITE MEDIUM STAR}', 'star', 0xffaa10, 5),  # Starboard
+    ('\N{PILL}', 'pill', 0x1068da, 5)                # Pillboard
+    # Add more boards here as needed:
+    # ('\N{FIRE}', 'fire', 0xff4500, 5),             # Fireboard example
+]
 
 
-class StarboardCogError(commands.CommandError):
+class ReactionBoardError(commands.CommandError):
     pass
 
 
-class Starboard(commands.Cog):
+class ReactionBoards(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.locks = {}
         self.logger = logging.getLogger(self.__class__.__name__)
+        
+        # Initialize locks for each board type
+        for _, name, _, _ in REACTION_BOARDS:
+            self.locks[name] = {}
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload):
-        if str(payload.emoji) != _STAR or payload.guild_id is None:
+        if payload.guild_id is None:
             return
-        res = cf_common.user_db.get_starboard(payload.guild_id)
-        if res is None:
-            return
-        starboard_channel_id = int(res[0])
-        try:
-            await self.check_and_add_to_starboard(starboard_channel_id, payload)
-        except StarboardCogError as e:
-            self.logger.info(f'Failed to starboard: {e!r}')
+
+        emoji = str(payload.emoji)
+        
+        # Check if this emoji matches any configured boards
+        for react_emoji, board_name, color, threshold in REACTION_BOARDS:
+            if emoji == react_emoji:
+                # Find channel with the corresponding name
+                guild = self.bot.get_guild(payload.guild_id)
+                board_channel = discord.utils.get(guild.text_channels, name=f"{board_name}board")
+                
+                if board_channel is None:
+                    # No channel found for this board
+                    continue
+                
+                try:
+                    await self.check_and_add_to_board(board_name, board_channel.id, payload, 
+                                                     emoji, color, threshold)
+                except ReactionBoardError as e:
+                    self.logger.info(f'Failed to add to {board_name}board: {e!r}')
+                break
 
     @commands.Cog.listener()
     async def on_raw_message_delete(self, payload):
         if payload.guild_id is None:
             return
-        res = cf_common.user_db.get_starboard(payload.guild_id)
-        if res is None:
-            return
-        starboard_channel_id = int(res[0])
-        if payload.channel_id != starboard_channel_id:
-            return
-        cf_common.user_db.remove_starboard_message(starboard_msg_id=payload.message_id)
-        self.logger.info(f'Removed message {payload.message_id} from starboard')
+            
+        # Check if this is a message in any reaction board channel
+        guild = self.bot.get_guild(payload.guild_id)
+        for _, name, _, _ in REACTION_BOARDS:
+            board_channel = discord.utils.get(guild.text_channels, name=f"{name}board")
+            
+            if board_channel and payload.channel_id == board_channel.id:
+                # This is a message in a board channel that was deleted
+                if name == 'star':
+                    # Use existing starboard function for star emoji
+                    cf_common.user_db.remove_starboard_message(starboard_msg_id=payload.message_id)
+                elif name == 'pill':
+                    # Add a similar function for pill emoji if needed
+                    if hasattr(cf_common.user_db, 'remove_pillboard_message'):
+                        cf_common.user_db.remove_pillboard_message(pillboard_msg_id=payload.message_id)
+                
+                self.logger.info(f'Removed message {payload.message_id} from {name}board')
 
-    @staticmethod
-    def prepare_embed(message):
-        # Adapted from https://github.com/Rapptz/RoboDanny/blob/rewrite/cogs/stars.py
-        embed = discord.Embed(color=_STAR_ORANGE, timestamp=message.created_at)
+    def prepare_embed(self, message, color):
+        """Prepare an embed for the reaction board."""
+        embed = discord.Embed(color=color, timestamp=message.created_at)
         embed.add_field(name='Channel', value=message.channel.mention)
         embed.add_field(name='Jump to', value=f'[Original]({message.jump_url})')
 
@@ -74,75 +103,107 @@ class Starboard(commands.Cog):
         embed.set_footer(text=str(message.author), icon_url=message.author.avatar_url)
         return embed
 
-    async def check_and_add_to_starboard(self, starboard_channel_id, payload):
+    async def check_and_add_to_board(self, board_name, board_channel_id, payload, emoji, color, threshold):
+        """Process reactions and add messages to the appropriate board."""
         guild = self.bot.get_guild(payload.guild_id)
-        starboard_channel = guild.get_channel(starboard_channel_id)
-        if starboard_channel is None:
-            raise StarboardCogError('Starboard channel not found')
+        board_channel = guild.get_channel(board_channel_id)
+        if board_channel is None:
+            raise ReactionBoardError(f'{board_name.capitalize()}board channel not found')
 
         channel = self.bot.get_channel(payload.channel_id)
         message = await channel.fetch_message(payload.message_id)
         if (message.type != discord.MessageType.default or
                 len(message.content) == 0 and len(message.attachments) == 0):
-            raise StarboardCogError('Cannot starboard this message')
+            raise ReactionBoardError(f'Cannot add to {board_name}board: Invalid message type')
 
         reaction_count = sum(reaction.count for reaction in message.reactions
-                             if str(reaction) == _STAR)
-        if reaction_count < _STAR_THRESHOLD:
+                             if str(reaction) == emoji)
+        if reaction_count < threshold:
             return
 
-        lock = self.locks.get(payload.guild_id)
-        if lock is None:
-            self.locks[payload.guild_id] = lock = asyncio.Lock()
+        # Get or create lock for this guild and board
+        if guild.id not in self.locks[board_name]:
+            self.locks[board_name][guild.id] = asyncio.Lock()
+        lock = self.locks[board_name][guild.id]
 
         async with lock:
-            if cf_common.user_db.check_exists_starboard_message(message.id):
+            # Check if message already exists in the board's database
+            if board_name == 'star':
+                # Use existing starboard function
+                if cf_common.user_db.check_exists_starboard_message(message.id):
+                    return
+            elif board_name == 'pill':
+                # Add a similar function for pill if needed
+                if hasattr(cf_common.user_db, 'check_exists_pillboard_message'):
+                    if cf_common.user_db.check_exists_pillboard_message(message.id):
+                        return
+                # If the function doesn't exist, proceed anyway
+            
+            # Create and send the embed
+            embed = self.prepare_embed(message, color)
+            board_message = await board_channel.send(embed=embed)
+            
+            # Store the message in the appropriate database
+            if board_name == 'star':
+                # Use existing starboard function
+                cf_common.user_db.add_starboard_message(message.id, board_message.id, guild.id)
+            elif board_name == 'pill':
+                # Add a similar function for pill if needed
+                if hasattr(cf_common.user_db, 'add_pillboard_message'):
+                    cf_common.user_db.add_pillboard_message(message.id, board_message.id, guild.id)
+            
+            self.logger.info(f'Added message {message.id} to {board_name}board')
+
+    @commands.command(brief='Remove a message from a reaction board')
+    @commands.has_role(constants.TLE_ADMIN)
+    async def remove_from_board(self, ctx, board_name: str, message_id: int):
+        """Remove a message from a reaction board.
+        
+        Example:
+        !remove_from_board star 123456789
+        !remove_from_board pill 123456789
+        """
+        # Normalize board name
+        board_name = board_name.lower().strip()
+        if board_name.endswith('board'):
+            board_name = board_name[:-5]  # Remove 'board' suffix
+            
+        # Check if this board exists in our config
+        valid_board = False
+        for _, name, _, _ in REACTION_BOARDS:
+            if name == board_name:
+                valid_board = True
+                break
+                
+        if not valid_board:
+            board_names = [name for _, name, _, _ in REACTION_BOARDS]
+            await ctx.send(f"Unknown board: '{board_name}'. Available boards: {', '.join(board_names)}")
+            return
+            
+        # Handle removal based on board type
+        if board_name == 'star':
+            # Use existing starboard function
+            removed = cf_common.user_db.remove_starboard_message(original_msg_id=message_id)
+        elif board_name == 'pill':
+            # Add a similar function for pill if needed
+            if hasattr(cf_common.user_db, 'remove_pillboard_message'):
+                removed = cf_common.user_db.remove_pillboard_message(original_msg_id=message_id)
+            else:
+                await ctx.send(f"The remove_pillboard_message function doesn't exist yet.")
                 return
-            embed = self.prepare_embed(message)
-            starboard_message = await starboard_channel.send(embed=embed)
-            cf_common.user_db.add_starboard_message(message.id, starboard_message.id, guild.id)
-            self.logger.info(f'Added message {message.id} to starboard')
-
-    @commands.group(brief='Starboard commands',
-                    invoke_without_command=True)
-    async def starboard(self, ctx):
-        """Group for commands involving the starboard."""
-        await ctx.send_help(ctx.command)
-
-    @starboard.command(brief='Set starboard to current channel')
-    @commands.has_role(constants.TLE_ADMIN)
-    async def here(self, ctx):
-        """Set the current channel as starboard."""
-        res = cf_common.user_db.get_starboard(ctx.guild.id)
-        if res is not None:
-            raise StarboardCogError('The starboard channel is already set. Use `clear` before '
-                                    'attempting to set a different channel as starboard.')
-        cf_common.user_db.set_starboard(ctx.guild.id, ctx.channel.id)
-        await ctx.send(embed=discord_common.embed_success('Starboard channel set'))
-
-    @starboard.command(brief='Clear starboard settings')
-    @commands.has_role(constants.TLE_ADMIN)
-    async def clear(self, ctx):
-        """Stop tracking starboard messages and remove the currently set starboard channel
-        from settings."""
-        cf_common.user_db.clear_starboard(ctx.guild.id)
-        cf_common.user_db.clear_starboard_messages_for_guild(ctx.guild.id)
-        await ctx.send(embed=discord_common.embed_success('Starboard channel cleared'))
-
-    @starboard.command(brief='Remove a message from starboard')
-    @commands.has_role(constants.TLE_ADMIN)
-    async def remove(self, ctx, original_message_id: int):
-        """Remove a particular message from the starboard database."""
-        rc = cf_common.user_db.remove_starboard_message(original_msg_id=original_message_id)
-        if rc:
-            await ctx.send(embed=discord_common.embed_success('Successfully removed'))
         else:
-            await ctx.send(embed=discord_common.embed_alert('Not found in database'))
+            await ctx.send(f"No removal function for {board_name}board yet.")
+            return
+        
+        if removed:
+            await ctx.send(embed=discord_common.embed_success("Message removed successfully"))
+        else:
+            await ctx.send(embed=discord_common.embed_alert("Message not found in that board"))
 
-    @discord_common.send_error_if(StarboardCogError)
+    @discord_common.send_error_if(ReactionBoardError)
     async def cog_command_error(self, ctx, error):
         pass
 
 
 def setup(bot):
-    bot.add_cog(Starboard(bot))
+    bot.add_cog(ReactionBoards(bot))
