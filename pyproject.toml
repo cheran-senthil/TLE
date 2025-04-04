@@ -5,17 +5,17 @@ description = ""
 authors = ["meooow25 <soumiksarkar.3120@gmail.com>"]
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "3.9.21"
 "discord.py" = "^2.1.1"
-seaborn = "^0.10.1"
-lxml = "^4.6"
-pillow = "^9.0"
-pycairo = "^1.19.1"
-PyGObject = "^3.34.0"
-aiocache = "^0.11.1"
+seaborn = "^0.13.2"
+lxml = "^5.3"
+pillow = "^11.1.0"
+pycairo = "^1.27.0"
+PyGObject = "^3.52.3"
+aiocache = "^0.12.3"
 
-[tool.poetry.dev-dependencies]
-pytest = "^3.0"
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.5"
 
 [build-system]
 requires = ["poetry>=0.12"]

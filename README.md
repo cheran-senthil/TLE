@@ -47,14 +47,14 @@ Now all dependencies need to be installed. TLE uses [Poetry](https://poetry.eust
 poetry install
 ```
 
-> :warning: **TLE requires Python 3.8 or later!**
+> :warning: **TLE requires Python 3.9 or later!**
 
 If you are using Ubuntu with older versions of python, then do the following:
 
 ```bash
-apt-get install python3.8-venv libpython3.8-dev
-python3.8 -m pip install poetry
-python3.8 -m poetry install
+apt-get install python3.9-venv libpython3.9-dev
+python3.9 -m pip install poetry
+python3.9 -m poetry install
 ```
 
 On some systems, Poetry is not able to install TLE's dependencies correctly. If you are unable to run `poetry install` without errors after completing the steps below, see the note at the end of the *final steps* section.
