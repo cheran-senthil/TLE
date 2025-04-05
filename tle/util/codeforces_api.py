@@ -1,19 +1,16 @@
 import asyncio
 from collections import defaultdict
 from collections import deque
+from collections.abc import Iterable
+from collections.abc import Iterator
+from collections.abc import Sequence
 import functools
 import itertools
 import logging
 import time
 from typing import Any
-from typing import Dict
-from typing import Iterable
-from typing import Iterator
-from typing import List
 from typing import NamedTuple
 from typing import Optional
-from typing import Sequence
-from typing import Tuple
 
 import aiohttp
 from discord.ext import commands
@@ -157,7 +154,7 @@ class Member(NamedTuple):
 class Party(NamedTuple):
     """Codeforces party."""
     contestId: Optional[int]
-    members: List[Member]
+    members: list[Member]
     participantType: str
     teamId: Optional[int]
     teamName: Optional[str]
@@ -176,7 +173,7 @@ class Problem(NamedTuple):
     type: str
     points: Optional[float]
     rating: Optional[int]
-    tags: List[str]
+    tags: list[str]
 
     @property
     def contest_identifier(self) -> str:
@@ -196,7 +193,7 @@ class Problem(NamedTuple):
         """Returns whether the problem has metadata."""
         return self.contestId is not None and self.rating is not None
 
-    def _matching_tags_dict(self, match_tags: Iterable[str]) -> Dict[str, List[str]]:
+    def _matching_tags_dict(self, match_tags: Iterable[str]) -> dict[str, list[str]]:
         """Returns a dict with matching tags."""
         tags = defaultdict(list)
         for match_tag in match_tags:
@@ -215,7 +212,7 @@ class Problem(NamedTuple):
         match_tags = set(match_tags)
         return len(self._matching_tags_dict(match_tags)) > 0
 
-    def get_matched_tags(self, match_tags: Iterable[str]) -> List[str]:
+    def get_matched_tags(self, match_tags: Iterable[str]) -> list[str]:
         """Returns a list of tags that match any of the given tags."""
         return [
             tag for tags in self._matching_tags_dict(match_tags).values()
@@ -245,7 +242,7 @@ class RanklistRow(NamedTuple):
     rank: int
     points: float
     penalty: int
-    problemResults: List['ProblemResult']
+    problemResults: list['ProblemResult']
 
 class ProblemResult(NamedTuple):
     """Codeforces problem result."""
@@ -404,7 +401,7 @@ async def _query_api(path: str, data: Any=None):
 
 class contest:
     @staticmethod
-    async def list(*, gym: Optional[bool] = None) -> List[Contest]:
+    async def to_list(*, gym: Optional[bool] = None) -> list[Contest]:
         """Returns a list of contests."""
         params = {}
         if gym is not None:
@@ -413,7 +410,7 @@ class contest:
         return [make_from_dict(Contest, contest_dict) for contest_dict in resp]
 
     @staticmethod
-    async def ratingChanges(*, contest_id: Any) -> List[RatingChange]:
+    async def ratingChanges(*, contest_id: Any) -> list[RatingChange]:
         """Returns a list of rating changes for a contest."""
         params = {'contestId': contest_id}
         try:
@@ -432,10 +429,10 @@ class contest:
         contest_id: Any,
         from_: Optional[int] = None,
         count: Optional[int] = None,
-        handles: Optional[List[str]] = None,
+        handles: Optional[list[str]] = None,
         room: Optional[Any] = None,
         show_unofficial: Optional[bool] = None,
-    ) -> Tuple[Contest, List[Problem], List[RanklistRow]]:
+    ) -> tuple[Contest, list[Problem], list[RanklistRow]]:
         params = {'contestId': contest_id}
         if from_ is not None:
             params['from'] = from_
@@ -469,7 +466,7 @@ class problemset:
     @staticmethod
     async def problems(
         *, tags=None, problemset_name=None
-    ) -> Tuple[List[Problem], List[ProblemStatistics]]:
+    ) -> tuple[list[Problem], list[ProblemStatistics]]:
         """Returns a list of problems."""
         params = {}
         if tags is not None:
@@ -482,7 +479,7 @@ class problemset:
                         resp['problemStatistics']]
         return problems, problemstats
 
-def user_info_chunkify(handles: Iterable[str]) -> Iterator[List[str]]:
+def user_info_chunkify(handles: Iterable[str]) -> Iterator[list[str]]:
     """Yields chunks of handles that can be queried with user.info."""
     # Querying user.info using POST requests is limited to 10000 handles or 2**16
     # bytes, so requests might need to be split into chunks
@@ -502,7 +499,7 @@ def user_info_chunkify(handles: Iterable[str]) -> Iterator[List[str]]:
 
 class user:
     @staticmethod
-    async def info(*, handles: Sequence[str]) -> List[User]:
+    async def info(*, handles: Sequence[str]) -> list[User]:
         """Returns a list of user info."""
         chunks = list(user_info_chunkify(handles))
         if len(chunks) > 1:
@@ -560,7 +557,7 @@ class user:
         return [make_from_dict(RatingChange, ratingchange_dict) for ratingchange_dict in resp]
 
     @staticmethod
-    async def ratedList(*, activeOnly: bool = None) -> List[User]:
+    async def ratedList(*, activeOnly: bool = None) -> list[User]:
         """Returns a list of rated users."""
         params = {}
         if activeOnly is not None:
@@ -571,9 +568,9 @@ class user:
     @staticmethod
     async def status(
         *, handle: str, from_: Optional[int] = None, count: Optional[int] = None
-    ) -> List[Submission]:
+    ) -> list[Submission]:
         """Returns a list of submissions for a user."""
-        params: Dict[str, Any] = {'handle': handle}
+        params: dict[str, Any] = {'handle': handle}
         if from_ is not None:
             params['from'] = from_
         if count is not None:
@@ -638,7 +635,7 @@ async def _resolve_handles(handles: Iterable[str]) -> dict[str, User]:
     return resolved_handles
 
 
-async def resolve_redirects(handles: Iterable[str], skip_filter: bool = False) -> Dict[str, User]:
+async def resolve_redirects(handles: Iterable[str], skip_filter: bool = False) -> dict[str, User]:
     """Returns a mapping of handles to their resolved CF users."""
     resolved_handles = await _resolve_handles(handles)
     if skip_filter:

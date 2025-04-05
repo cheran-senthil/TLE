@@ -2,7 +2,6 @@ from collections import defaultdict
 import datetime
 import logging
 import random
-from typing import List
 
 import discord
 from discord.ext import commands
@@ -607,7 +606,7 @@ class Codeforces(commands.Cog):
         return 1.0 / (1 + 10**((rb - ra) / 400.0))
 
     @staticmethod
-    def composeRatings(left: float, right: float, ratings: List[float]) -> int:
+    def composeRatings(left: float, right: float, ratings: list[float]) -> int:
         for tt in range(20):
             r = (left + right) / 2.0
 
