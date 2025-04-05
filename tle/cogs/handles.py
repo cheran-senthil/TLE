@@ -462,6 +462,25 @@ class Handles(commands.Cog):
             rev_lookup[handle] = member
         await self._unmagic_handles(ctx, handles, rev_lookup)
 
+    @handle.command(brief='Show handle resolution for the given handles')
+    @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
+    async def unmagic_debug(self, ctx: commands.Context, *args: str) -> None:
+        """See what the resolve logic would do."""
+        handles = list(args)
+        skip_filter = False
+        if '+skip_filter' in handles:
+            handles.remove('+skip_filter')
+            skip_filter = True
+        handle_cf_user_mapping = await cf.resolve_redirects(handles, skip_filter)
+
+        lines = ['Resolved handles:']
+        for handle, cf_user in handle_cf_user_mapping.items():
+            if cf_user:
+                lines.append(f'{handle} -> {cf_user.handle}')
+            else:
+                lines.append(f'{handle} -> None')
+        await ctx.send(embed=discord_common.embed_success('\n'.join(lines)))
+
     async def _unmagic_handles(self, ctx, handles, rev_lookup):
         handle_cf_user_mapping = await cf.resolve_redirects(handles)
         mapping = {(rev_lookup[handle], handle): cf_user
