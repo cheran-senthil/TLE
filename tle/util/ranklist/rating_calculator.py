@@ -7,7 +7,8 @@ Updated to use the current rating formula.
 from dataclasses import dataclass
 
 import numpy as np
-from numpy.fft import fft, ifft
+from numpy.fft import fft
+from numpy.fft import ifft
 
 
 def intdiv(x, y):

@@ -1,13 +1,14 @@
+from collections import defaultdict
+import datetime
 import functools
+import itertools
 import json
 import logging
 import math
 import time
-import datetime
-from collections import defaultdict
-import itertools
-from discord.ext import commands
+
 import discord
+from discord.ext import commands
 
 from tle import constants
 from tle.util import cache_system2

@@ -1,6 +1,6 @@
-import sqlite3
-from enum import IntEnum
 from collections import namedtuple
+from enum import IntEnum
+import sqlite3
 
 from discord.ext import commands
 

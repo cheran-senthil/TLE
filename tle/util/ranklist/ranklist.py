@@ -1,8 +1,9 @@
 from discord.ext import commands
 
-from tle.util.ranklist.rating_calculator import CodeforcesRatingCalculator
+from tle.util.codeforces_api import RanklistRow
+from tle.util.codeforces_api import make_from_dict
 from tle.util.handledict import HandleDict
-from tle.util.codeforces_api import make_from_dict, RanklistRow
+from tle.util.ranklist.rating_calculator import CodeforcesRatingCalculator
 
 
 class RanklistError(commands.CommandError):

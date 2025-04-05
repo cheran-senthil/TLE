@@ -3,7 +3,6 @@ import logging
 
 from discord.ext import commands
 
-
 # Event types
 
 class Event:

@@ -1,21 +1,23 @@
-import random
-import datetime
-import discord
 import asyncio
-import itertools
+from collections import defaultdict
+from collections import namedtuple
+import datetime
+import random
 
+import discord
 from discord.ext import commands
-from collections import defaultdict, namedtuple
 from matplotlib import pyplot as plt
 
 from tle import constants
-from tle.util.db.user_db_conn import Duel, DuelType, Winner
 from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
-from tle.util import paginator
 from tle.util import discord_common
-from tle.util import table
 from tle.util import graph_common as gc
+from tle.util import paginator
+from tle.util import table
+from tle.util.db.user_db_conn import Duel
+from tle.util.db.user_db_conn import DuelType
+from tle.util.db.user_db_conn import Winner
 
 _DUEL_INVALIDATE_TIME = 2 * 60
 _DUEL_EXPIRY_TIME = 5 * 60

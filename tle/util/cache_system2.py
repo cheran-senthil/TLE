@@ -1,16 +1,16 @@
 import asyncio
+from collections import defaultdict
 import logging
 import time
-from aiocache import cached
 
-from collections import defaultdict
+from aiocache import cached
 from discord.ext import commands
 
-from tle.util import codeforces_common as cf_common
 from tle.util import codeforces_api as cf
+from tle.util import codeforces_common as cf_common
 from tle.util import events
-from tle.util import tasks
 from tle.util import paginator
+from tle.util import tasks
 from tle.util.ranklist import Ranklist
 
 logger = logging.getLogger(__name__)

@@ -1,6 +1,5 @@
 import functools
 import time
-import traceback
 
 from discord.ext import commands
 
