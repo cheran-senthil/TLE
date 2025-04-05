@@ -1,0 +1,16 @@
+target-version = "py311"
+extend-exclude = [".cache"]
+line-length = 88
+indent-width = 4
+
+[format]
+line-ending = "lf"
+preview = true
+quote-style = "single"
+
+[lint.isort]
+order-by-type = true
+case-sensitive = true
+combine-as-imports = true
+force-single-line = true
+force-sort-within-sections = true
