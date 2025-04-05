@@ -113,7 +113,7 @@ class ContestCache:
         self.next_delay = self._EXCEPTION_CONTEST_RELOAD_DELAY
 
     async def _reload_contests(self):
-        contests = await cf.contest.list()
+        contests = await cf.contest.to_list()
         delay = await self._update(contests)
         return delay
 
