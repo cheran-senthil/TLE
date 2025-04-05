@@ -1,15 +1,17 @@
-import os
 import io
-import discord
+import os
 import time
-import matplotlib.font_manager
+
+import discord
 import matplotlib
+import matplotlib.font_manager
+
 matplotlib.use('agg') # Explicitly set the backend to avoid issues
 
-from tle import constants
-from matplotlib import pyplot as plt
-from matplotlib import rcParams
 from cycler import cycler
+from matplotlib import pyplot as plt
+
+from tle import constants
 
 rating_color_cycler = cycler('color', ['#5d4dff',
                                        '#009ccc',

@@ -1,6 +1,6 @@
 import asyncio
-import logging
 import functools
+import logging
 import random
 
 import discord
