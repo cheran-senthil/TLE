@@ -585,31 +585,34 @@ async def _resolve_handle_to_new_user(
     return cf_user
 
 
-async def _resolve_handles(handles: Iterable[str]) -> Dict[str, Optional[User]]:
+async def _resolve_handles(handles: Iterable[str]) -> dict[str, User]:
     chunks = user_info_chunkify(handles)
 
-    resolved_handles: Dict[str, Optional[User]] = {}
-
+    resolved_handles: dict[str, User] = {}
     for handle_chunk in chunks:
         while handle_chunk:
             try:
                 cf_users = await user.info(handles=handle_chunk)
-
                 # No failure, all handles resolve to users,
-                # but capitalization might be wrong still.
                 for handle, cf_user in zip(handle_chunk, cf_users):
-                    # Only difference left should be capitalization.
-                    assert handle.lower() == cf_user.handle.lower()
-                    if handle != cf_user.handle:
-                        resolved_handles[handle] = cf_user
+                  if cf_user is not None:
+                    resolved_handles[handle] = cf_user
                 break
             except HandleNotFoundError as e:
-                # Handle resolution failed, fix the reported handle.
-                resolved_handles[e.handle] = await _resolve_handle_to_new_user(e.handle)
+                # Handle not found, drop it.
+                logger.warning(f'Handle {e.handle} not found, dropping it.')
                 handle_chunk.remove(e.handle)
     return resolved_handles
 
 
-async def resolve_redirects(handles: Iterable[str]) -> Dict[str, Optional[User]]:
+async def resolve_redirects(handles: Iterable[str], skip_filter: bool = False) -> Dict[str, User]:
     """Returns a mapping of handles to their resolved CF users."""
-    return await _resolve_handles(handles)
+    resolved_handles = await _resolve_handles(handles)
+    if skip_filter:
+        return resolved_handles
+
+    return {
+        handle: cf_user
+        for handle, cf_user in resolved_handles.items()
+        if cf_user is not None and handle != cf_user.handle
+    }
