@@ -1,23 +1,20 @@
+from collections import defaultdict
 import datetime
+import logging
 import random
 from typing import List
-import math
-import time
-from collections import defaultdict
-import logging
 
 import discord
 from discord.ext import commands
 
 
 from tle import constants
+from tle.util import cache_system2
 from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
 from tle.util import discord_common
-from tle.util.db.user_db_conn import Gitgud
 from tle.util import paginator
-from tle.util import cache_system2
-
+from tle.util.db.user_db_conn import Gitgud
 
 _GITGUD_NO_SKIP_TIME = 2 * 60 * 60
 _GITGUD_SCORE_DISTRIB = (1, 2, 3, 5, 8, 12, 17, 23)

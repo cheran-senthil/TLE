@@ -1,10 +1,20 @@
 import asyncio
-from collections import defaultdict, deque, namedtuple
+from collections import defaultdict
+from collections import deque
 import functools
 import itertools
 import logging
 import time
-from typing import Any, Dict, Iterable, Iterator, List, NamedTuple, Optional, Sequence, Tuple
+from typing import Any
+from typing import Dict
+from typing import Iterable
+from typing import Iterator
+from typing import List
+from typing import NamedTuple
+from typing import Optional
+from typing import Sequence
+from typing import Tuple
+
 import aiohttp
 from discord.ext import commands
 

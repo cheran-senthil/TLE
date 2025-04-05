@@ -1,36 +1,36 @@
-import io
 import asyncio
 import contextlib
+import datetime
+import html
+import io
 import logging
 import math
-import html
-import cairo
-import gi
-import datetime
-gi.require_version('Pango', '1.0')
-gi.require_version('PangoCairo', '1.0')
-from gi.repository import Pango, PangoCairo
-
-import discord
 import random
+
+from PIL import Image
+from PIL import ImageDraw
+from PIL import ImageFont
+import cairo
+import discord
 from discord.ext import commands
+import gi
 
 from tle import constants
+from tle.cogs import codeforces as cfc
 from tle.util import cache_system2
 from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
+from tle.util import db
 from tle.util import discord_common
 from tle.util import events
 from tle.util import paginator
 from tle.util import table
 from tle.util import tasks
-from tle.util import db
-from tle import constants
-from tle.cogs import codeforces as cfc
 
-from discord.ext import commands
-
-from PIL import Image, ImageFont, ImageDraw
+gi.require_version('Pango', '1.0')
+gi.require_version('PangoCairo', '1.0')
+from gi.repository import Pango
+from gi.repository import PangoCairo
 
 _HANDLES_PER_PAGE = 15
 _NAME_MAX_LEN = 20

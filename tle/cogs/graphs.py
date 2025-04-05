@@ -1,25 +1,21 @@
 import bisect
 import collections
 import datetime as dt
-import time
 import itertools
 import math
-import datetime
-
-from typing import List
+import time
 
 import discord
+from discord.ext import commands
+from matplotlib import dates as mdates
+from matplotlib import lines as mlines
+from matplotlib import patches as patches
+from matplotlib import pyplot as plt
+from matplotlib.ticker import MultipleLocator
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from discord.ext import commands
-from matplotlib import pyplot as plt
-from matplotlib import patches as patches
-from matplotlib import lines as mlines
-from matplotlib import dates as mdates
-from matplotlib.ticker import MultipleLocator
 
-from tle import constants
 from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
 from tle.util import discord_common

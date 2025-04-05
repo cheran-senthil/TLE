@@ -1,8 +1,7 @@
 import os
 import subprocess
-import sys
-import time
 import textwrap
+import time
 
 from discord.ext import commands
 

@@ -1,20 +1,20 @@
 import argparse
 import asyncio
-import distutils.util
 import logging
-import os
-import discord
 from logging.handlers import TimedRotatingFileHandler
+import os
 from os import environ
 from pathlib import Path
 
-import seaborn as sns
+import discord
 from discord.ext import commands
 from matplotlib import pyplot as plt
+import seaborn as sns
 
 from tle import constants
 from tle.util import codeforces_common as cf_common
-from tle.util import discord_common, font_downloader
+from tle.util import discord_common
+from tle.util import font_downloader
 
 
 
@@ -43,6 +43,19 @@ def setup():
     # Download fonts if necessary
     font_downloader.maybe_download()
 
+def strtobool(value: str) -> bool:
+    """
+    Convert a string representation of truth to true (1) or false (0).
+
+    True values are y, yes, t, true, on and 1; false values are n, no, f,
+    false, off and 0. Raises ValueError if val is anything else.
+    """
+    value = value.lower()
+    if value in ('y', 'yes', 't', 'true', 'on', '1'):
+        return True
+    if value in ('n', 'no', 'f', 'false', 'off', '0'):
+        return False
+    raise ValueError(f'Invalid truth value {value!r}.')
 
 async def main():
     parser = argparse.ArgumentParser()
@@ -55,7 +68,7 @@ async def main():
         return
 
     setup()
-    
+
     intents = discord.Intents.default()
     intents.members = True
     intents.message_content = True

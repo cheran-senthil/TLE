@@ -1,7 +1,7 @@
-import asyncio
 from collections import defaultdict
 
 from discord.ext import commands
+
 from tle.util import cses_scraper as cses
 from tle.util import discord_common
 from tle.util import table

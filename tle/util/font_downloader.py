@@ -1,9 +1,8 @@
+from io import BytesIO
 import logging
 import os
 import urllib.request
-
 from zipfile import ZipFile
-from io import BytesIO
 
 from tle import constants
 

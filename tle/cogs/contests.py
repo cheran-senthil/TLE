@@ -1,27 +1,28 @@
 import asyncio
+from collections import defaultdict
+from collections import namedtuple
+import datetime as dt
 import functools
 import json
 import logging
 import time
-import datetime as dt
-from collections import defaultdict, namedtuple
 
 import discord
 from discord.ext import commands
 from matplotlib import pyplot as plt
 
 from tle import constants
-from tle.util import codeforces_common as cf_common
 from tle.util import cache_system2
 from tle.util import codeforces_api as cf
+from tle.util import codeforces_common as cf_common
 from tle.util import db
 from tle.util import discord_common
 from tle.util import events
+from tle.util import graph_common as gc
 from tle.util import paginator
 from tle.util import ranklist as rl
 from tle.util import table
 from tle.util import tasks
-from tle.util import graph_common as gc
 
 _CONTESTS_PER_PAGE = 5
 _CONTEST_PAGINATE_WAIT_TIME = 5 * 60
