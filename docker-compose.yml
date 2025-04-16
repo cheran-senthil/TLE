@@ -1,0 +1,6 @@
+version: "3.8"
+
+services:
+  corona-discord-bot:
+    build: ./
+    env_file: .env
