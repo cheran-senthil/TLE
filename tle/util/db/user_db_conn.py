@@ -152,19 +152,6 @@ class UserDbConn:
             )
         ''')
         self.conn.execute(
-            'CREATE TABLE IF NOT EXISTS starboard ('
-            'guild_id     TEXT PRIMARY KEY,'
-            'channel_id   TEXT'
-            ')'
-        )
-        self.conn.execute(
-            'CREATE TABLE IF NOT EXISTS starboard_message ('
-            'original_msg_id    TEXT PRIMARY KEY,'
-            'starboard_msg_id   TEXT,'
-            'guild_id           TEXT'
-            ')'
-        )
-        self.conn.execute(
             'CREATE TABLE IF NOT EXISTS rankup ('
             'guild_id     TEXT PRIMARY KEY,'
             'channel_id   TEXT'
