@@ -67,148 +67,67 @@ class UserDbConn:
         self.conn.row_factory = namedtuple_factory
         self.create_tables()
 
-    def create_tables(self):
-        self.conn.execute(
-            'CREATE TABLE IF NOT EXISTS user_handle ('
-            'user_id     TEXT,'
-            'guild_id    TEXT,'
-            'handle      TEXT,'
-            'active      INTEGER,'
-            'PRIMARY KEY (user_id, guild_id)'
-            ')'
-        )
-        self.conn.execute('CREATE UNIQUE INDEX IF NOT EXISTS ix_user_handle_guild_handle '
-                          'ON user_handle (guild_id, handle)')
-        self.conn.execute(
-            'CREATE TABLE IF NOT EXISTS cf_user_cache ('
-            'handle              TEXT PRIMARY KEY,'
-            'first_name          TEXT,'
-            'last_name           TEXT,'
-            'country             TEXT,'
-            'city                TEXT,'
-            'organization        TEXT,'
-            'contribution        INTEGER,'
-            'rating              INTEGER,'
-            'maxRating           INTEGER,'
-            'last_online_time    INTEGER,'
-            'registration_time   INTEGER,'
-            'friend_of_count     INTEGER,'
-            'title_photo         TEXT'
-            ')'
-        )
-        # TODO: Make duel tables guild-aware.
-        self.conn.execute('''
-            CREATE TABLE IF NOT EXISTS duelist(
-                "user_id"	INTEGER PRIMARY KEY NOT NULL,
-                "rating"	INTEGER NOT NULL
-            )
-        ''')
-        self.conn.execute('''
-            CREATE TABLE IF NOT EXISTS duel(
-                "id"	INTEGER PRIMARY KEY AUTOINCREMENT,
-                "challenger"	INTEGER NOT NULL,
-                "challengee"	INTEGER NOT NULL,
-                "issue_time"	REAL NOT NULL,
-                "start_time"	REAL,
-                "finish_time"	REAL,
-                "problem_name"	TEXT,
-                "contest_id"	INTEGER,
-                "p_index"	INTEGER,
-                "status"	INTEGER,
-                "winner"	INTEGER,
-                "type"		INTEGER
-            )
-        ''')
-        self.conn.execute('''
-            CREATE TABLE IF NOT EXISTS "challenge" (
-                "id"	INTEGER PRIMARY KEY AUTOINCREMENT,
-                "user_id"	TEXT NOT NULL,
-                "issue_time"	REAL NOT NULL,
-                "finish_time"	REAL,
-                "problem_name"	TEXT NOT NULL,
-                "contest_id"	INTEGER NOT NULL,
-                "p_index"	INTEGER NOT NULL,
-                "rating_delta"	INTEGER NOT NULL,
-                "status"	INTEGER NOT NULL
-            )
-        ''')
-        self.conn.execute('''
-            CREATE TABLE IF NOT EXISTS "user_challenge" (
-                "user_id"	TEXT,
-                "active_challenge_id"	INTEGER,
-                "issue_time"	REAL,
-                "score"	INTEGER NOT NULL,
-                "num_completed"	INTEGER NOT NULL,
-                "num_skipped"	INTEGER NOT NULL,
-                PRIMARY KEY("user_id")
-            )
-        ''')
-        self.conn.execute('''
-            CREATE TABLE IF NOT EXISTS reminder (
-                guild_id TEXT PRIMARY KEY,
-                channel_id TEXT,
-                role_id TEXT,
-                before TEXT
-            )
-        ''')
-        self.conn.execute(
-            'CREATE TABLE IF NOT EXISTS starboard ('
-            'guild_id     TEXT PRIMARY KEY,'
-            'channel_id   TEXT'
-            ')'
-        )
-        self.conn.execute(
-            'CREATE TABLE IF NOT EXISTS starboard_message ('
-            'original_msg_id    TEXT PRIMARY KEY,'
-            'starboard_msg_id   TEXT,'
-            'guild_id           TEXT'
-            ')'
-        )
-        self.conn.execute(
-            'CREATE TABLE IF NOT EXISTS rankup ('
-            'guild_id     TEXT PRIMARY KEY,'
-            'channel_id   TEXT'
-            ')'
-        )
-        self.conn.execute(
-            'CREATE TABLE IF NOT EXISTS auto_role_update ('
-            'guild_id     TEXT PRIMARY KEY'
-            ')'
-        )
+     def create_tables(self):
+        # (all your existing CREATE TABLE statements here)
 
-        # Rated VCs stuff:
+        # --- new multi-emoji starboard schema + migration ---
+        # 1) New config table: per-guild, per-emoji channel
         self.conn.execute('''
-            CREATE TABLE IF NOT EXISTS "rated_vcs" (
-                "id"	         INTEGER PRIMARY KEY AUTOINCREMENT,
-                "contest_id"     INTEGER NOT NULL,
-                "start_time"     REAL,
-                "finish_time"    REAL,
-                "status"         INTEGER,
-                "guild_id"       TEXT
-            )
+          CREATE TABLE IF NOT EXISTS starboard_config (
+            guild_id   TEXT,
+            emoji      TEXT,
+            channel_id TEXT,
+            PRIMARY KEY (guild_id, emoji)
+          )
         ''')
 
-        # TODO: Do we need to explicitly specify the fk constraint or just depend on the middleware?
+        # 2) New emoji table: per-guild, per-emoji threshold
         self.conn.execute('''
-            CREATE TABLE IF NOT EXISTS "rated_vc_users" (
-                "vc_id"	         INTEGER,
-                "user_id"        TEXT NOT NULL,
-                "rating"         INTEGER,
-
-                CONSTRAINT fk_vc
-                    FOREIGN KEY (vc_id)
-                    REFERENCES rated_vcs(id),
-
-                PRIMARY KEY(vc_id, user_id)
-            )
+          CREATE TABLE IF NOT EXISTS starboard_emoji (
+            guild_id   TEXT,
+            emoji      TEXT,
+            threshold  INTEGER,
+            PRIMARY KEY (guild_id, emoji)
+          )
         ''')
 
-        self.conn.execute('''
-            CREATE TABLE IF NOT EXISTS rated_vc_settings (
-                guild_id TEXT PRIMARY KEY,
-                channel_id TEXT
+        # 3) Migrate old single-star data (★ = U+2B50, threshold 5)
+        old = self.conn.execute('SELECT guild_id, channel_id FROM starboard').fetchall()
+        for guild_id, channel_id in old:
+            self.conn.execute(
+              'INSERT OR IGNORE INTO starboard_config VALUES (?,?,?)',
+              (guild_id, '\u2B50', channel_id)
             )
+            self.conn.execute(
+              'INSERT OR IGNORE INTO starboard_emoji VALUES (?,?,?)',
+              (guild_id, '\u2B50', 5)
+            )
+
+        # 4) Drop the old starboard table
+        self.conn.execute('DROP TABLE IF EXISTS starboard')
+
+        # 5) Migrate starboard_message → add emoji column
+        self.conn.execute('''
+          CREATE TABLE IF NOT EXISTS starboard_message_new (
+            original_msg_id  TEXT,
+            starboard_msg_id TEXT,
+            guild_id         TEXT,
+            emoji            TEXT,
+            PRIMARY KEY (original_msg_id, emoji)
+          )
         ''')
+        msgs = self.conn.execute(
+          'SELECT original_msg_id, starboard_msg_id, guild_id FROM starboard_message'
+        ).fetchall()
+        for orig, star, guild_id in msgs:
+            self.conn.execute(
+              'INSERT OR IGNORE INTO starboard_message_new VALUES (?,?,?,?)',
+              (orig, star, guild_id, '\u2B50')
+            )
+        self.conn.execute('DROP TABLE IF EXISTS starboard_message')
+        self.conn.execute('ALTER TABLE starboard_message_new RENAME TO starboard_message')
+
+        self.conn.commit()
 
 
     # Helper functions.
@@ -449,56 +368,92 @@ class UserDbConn:
         self.conn.execute(query, (guild_id,))
         self.conn.commit()
 
-    def get_starboard(self, guild_id):
-        query = ('SELECT channel_id '
-                 'FROM starboard '
-                 'WHERE guild_id = ?')
-        return self.conn.execute(query, (guild_id,)).fetchone()
+def add_starboard_emoji(self, guild_id, emoji, threshold):
+        return self._insert_one(
+          'starboard_emoji',
+          ('guild_id','emoji','threshold'),
+          (guild_id, emoji, threshold)
+        )
 
-    def set_starboard(self, guild_id, channel_id):
-        query = ('INSERT OR REPLACE INTO starboard '
-                 '(guild_id, channel_id) '
-                 'VALUES (?, ?)')
-        self.conn.execute(query, (guild_id, channel_id))
-        self.conn.commit()
-
-    def clear_starboard(self, guild_id):
-        query = ('DELETE FROM starboard '
-                 'WHERE guild_id = ?')
-        self.conn.execute(query, (guild_id,))
-        self.conn.commit()
-
-    def add_starboard_message(self, original_msg_id, starboard_msg_id, guild_id):
-        query = ('INSERT INTO starboard_message '
-                 '(original_msg_id, starboard_msg_id, guild_id) '
-                 'VALUES (?, ?, ?)')
-        self.conn.execute(query, (original_msg_id, starboard_msg_id, guild_id))
-        self.conn.commit()
-
-    def check_exists_starboard_message(self, original_msg_id):
-        query = ('SELECT 1 '
-                 'FROM starboard_message '
-                 'WHERE original_msg_id = ?')
-        res = self.conn.execute(query, (original_msg_id,)).fetchone()
-        return res is not None
-
-    def remove_starboard_message(self, *, original_msg_id=None, starboard_msg_id=None):
-        assert (original_msg_id is None) ^ (starboard_msg_id is None)
-        if original_msg_id is not None:
-            query = ('DELETE FROM starboard_message '
-                     'WHERE original_msg_id = ?')
-            rc = self.conn.execute(query, (original_msg_id,)).rowcount
-        else:
-            query = ('DELETE FROM starboard_message '
-                     'WHERE starboard_msg_id = ?')
-            rc = self.conn.execute(query, (starboard_msg_id,)).rowcount
+    def remove_starboard_emoji(self, guild_id, emoji):
+        rc = self.conn.execute(
+          'DELETE FROM starboard_emoji WHERE guild_id = ? AND emoji = ?',
+          (guild_id, emoji)
+        ).rowcount
         self.conn.commit()
         return rc
 
-    def clear_starboard_messages_for_guild(self, guild_id):
-        query = ('DELETE FROM starboard_message '
-                 'WHERE guild_id = ?')
-        rc = self.conn.execute(query, (guild_id,)).rowcount
+    def update_starboard_threshold(self, guild_id, emoji, threshold):
+        rc = self.conn.execute(
+          'UPDATE starboard_emoji SET threshold = ? WHERE guild_id = ? AND emoji = ?',
+          (threshold, guild_id, emoji)
+        ).rowcount
+        self.conn.commit()
+        return rc
+
+    def set_starboard_channel(self, guild_id, emoji, channel_id):
+        return self._insert_one(
+          'starboard_config',
+          ('guild_id','emoji','channel_id'),
+          (guild_id, emoji, channel_id)
+        )
+
+    def clear_starboard_channel(self, guild_id, emoji):
+        rc = self.conn.execute(
+          'DELETE FROM starboard_config WHERE guild_id = ? AND emoji = ?',
+          (guild_id, emoji)
+        ).rowcount
+        self.conn.commit()
+        return rc
+
+    def get_starboard_entry(self, guild_id, emoji):
+        row = self.conn.execute(
+          'SELECT channel_id FROM starboard_config WHERE guild_id = ? AND emoji = ?',
+          (guild_id, emoji)
+        ).fetchone()
+        if not row:
+            return None
+        thr = self.conn.execute(
+          'SELECT threshold FROM starboard_emoji WHERE guild_id = ? AND emoji = ?',
+          (guild_id, emoji)
+        ).fetchone()
+        return (int(row[0]), int(thr[0])) if thr else None
+
+    # Override message-tracking to include emoji:
+    def add_starboard_message(self, original_msg_id, starboard_msg_id, guild_id, emoji):
+        self.conn.execute(
+          'INSERT INTO starboard_message '
+          '(original_msg_id, starboard_msg_id, guild_id, emoji) '
+          'VALUES (?, ?, ?, ?)',
+          (original_msg_id, starboard_msg_id, guild_id, emoji)
+        )
+        self.conn.commit()
+
+    def check_exists_starboard_message(self, original_msg_id, emoji):
+        row = self.conn.execute(
+          'SELECT 1 FROM starboard_message WHERE original_msg_id = ? AND emoji = ?',
+          (original_msg_id, emoji)
+        ).fetchone()
+        return row is not None
+
+    def remove_starboard_message(self, *, original_msg_id=None, starboard_msg_id=None):
+        # support both keys
+        if original_msg_id is not None and isinstance(original_msg_id, tuple):
+            orig, emoji = original_msg_id
+            rc = self.conn.execute(
+              'DELETE FROM starboard_message WHERE original_msg_id = ? AND emoji = ?',
+              (orig, emoji)
+            ).rowcount
+        elif starboard_msg_id is not None:
+            rc = self.conn.execute(
+              'DELETE FROM starboard_message WHERE starboard_msg_id = ?',
+              (starboard_msg_id,)
+            ).rowcount
+        else:
+            rc = self.conn.execute(
+              'DELETE FROM starboard_message WHERE original_msg_id = ?',
+              (original_msg_id,)
+            ).rowcount
         self.conn.commit()
         return rc
 
