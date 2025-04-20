@@ -942,7 +942,7 @@ class Handles(commands.Cog):
         skipped_join_date = 0
         processed_count = 0
 
-        status_message = await ctx.send(f"Processing members for grandfathering {trusted_role.mention}...")
+        status_message = await ctx.send(f"Processing members for grandfathering Trusted...")
 
         members_to_process = list(guild.members) # Create a list to avoid issues if members leave/join during processing
         total_members = len(members_to_process)
@@ -954,7 +954,15 @@ class Handles(commands.Cog):
                 await status_message.edit(content=f"Processing members... ({i}/{total_members})")
 
             # Check join date
-            if member.joined_at is None or member.joined_at >= cutoff_date:
+            if member.joined_at is None:
+                # Cannot determine join date, skip
+                skipped_join_date += 1
+                continue
+
+            # Make member.joined_at timezone-aware (assuming it's UTC, which discord.py uses)
+            member_joined_at_aware = member.joined_at.replace(tzinfo=dt.timezone.utc)
+
+            if member_joined_at_aware >= cutoff_date:
                 skipped_join_date += 1
                 continue
 
@@ -986,12 +994,12 @@ class Handles(commands.Cog):
         summary_message = (
             f"Grandfathering complete.\n"
             f"- Processed: {processed_count} members\n"
-            f"- Granted {trusted_role.mention}: {added_count} members\n"
+            f"- Granted Trusted: {added_count} members\n"
             f"- Skipped (Joined after cutoff): {skipped_join_date}\n"
             f"- Skipped (Already Trusted): {skipped_already_trusted}\n"
         )
         if purgatory_role:
-            summary_message += f"- Skipped (Has {purgatory_role.mention}): {skipped_purgatory}\n"
+            summary_message += f"- Skipped (Has Purgatory): {skipped_purgatory}\n"
 
         await status_message.edit(content=summary_message)
 
