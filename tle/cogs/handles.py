@@ -10,6 +10,7 @@ from PIL import Image
 from PIL import ImageDraw
 from PIL import ImageFont
 import cairo
+import datetime as dt
 import discord
 from discord.ext import commands
 import gi
@@ -329,6 +330,9 @@ class Handles(commands.Cog):
         on the member will be removed.
         """
         role_names_to_remove = {rank.title for rank in cf.RATED_RANKS}
+        # Ensure 'Trusted' is never removed by this process
+        role_names_to_remove.discard('Trusted')
+
         if role_to_assign is not None:
             role_names_to_remove.discard(role_to_assign.name)
             if role_to_assign.name not in ['Newbie', 'Pupil', 'Specialist', 'Expert']:
@@ -336,6 +340,46 @@ class Handles(commands.Cog):
         to_remove = [role for role in member.roles if role.name in role_names_to_remove]
         if to_remove:
             await member.remove_roles(*to_remove, reason=reason)
+
+        # --- Grant 'Trusted' Role based on historical rating ---
+        handle = cf_common.user_db.get_handle(member.id, member.guild.id)
+        if handle:
+            try:
+                # Define cutoff date (August 1, 2024 00:00 UTC)
+                cutoff_timestamp = dt.datetime(2024, 8, 1, tzinfo=dt.timezone.utc).timestamp()
+                rating_changes = await cf.user.rating(handle=handle)
+
+                is_trusted_candidate = False
+                for change in rating_changes:
+                    # Check if rating reached 1900+ before the cutoff date
+                    if change.newRating >= 1900 and change.ratingUpdateTimeSeconds < cutoff_timestamp:
+                        is_trusted_candidate = True
+                        break # Found one instance, no need to check further
+
+                if is_trusted_candidate:
+                    trusted_role = discord.utils.get(member.guild.roles, name='Trusted')
+                    if trusted_role and trusted_role not in member.roles:
+                        try:
+                            await member.add_roles(trusted_role, reason='Historical rating >= 1900 before Aug 2024')
+                        except discord.Forbidden:
+                             print(f"WARN: Missing permissions to add Trusted role to {member.display_name} in {member.guild.name}")
+                        except discord.HTTPException as e:
+                             print(f"WARN: Failed to add Trusted role to {member.display_name} in {member.guild.name}: {e}")
+
+                    elif not trusted_role:
+                        # Log this warning appropriately in a real scenario
+                        print(f"WARN: 'Trusted' role not found in guild {member.guild.name} ({member.guild.id})")
+
+            except cf.NotFoundError:
+                # User rating info not found via API, ignore for trusted check
+                print(f"INFO: Rating history not found for handle {handle} during trusted check.")
+            except cf.CodeforcesApiError as e:
+                # Log API errors appropriately in a real scenario
+                print(f"WARN: API Error fetching rating for {handle} during trusted check: {e}")
+            except Exception as e:
+                # Log other unexpected errors appropriately in a real scenario
+                print(f"ERROR: Unexpected error checking trusted status for {member.display_name} ({handle}): {e}")
+
         if role_to_assign is not None and role_to_assign not in member.roles:
             await member.add_roles(role_to_assign, reason=reason)
 
