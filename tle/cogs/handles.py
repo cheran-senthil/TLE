@@ -872,6 +872,54 @@ class Handles(commands.Cog):
     async def cog_command_error(self, ctx, error):
         pass
 
+    @handle.command(brief='Give the Trusted role to another user')
+    @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR, constants.TLE_TRUSTED)
+    async def refer(self, ctx, target_user: discord.Member):
+        """Allows Trusted users to grant the Trusted role to other users.
+
+        The command fails if the target user has the Purgatory role.
+        """
+        guild = ctx.guild
+        trusted_role_name = constants.TLE_TRUSTED
+        purgatory_role_name = 'Purgatory' 
+
+        # Check if target user is the invoker
+        if target_user == ctx.author:
+            raise HandleCogError("You cannot refer yourself.")
+
+        # Find the Purgatory role
+        purgatory_role = discord.utils.get(guild.roles, name=purgatory_role_name)
+        if purgatory_role is None:
+            # This case might indicate a server setup issue, but we proceed as if the user is not in purgatory
+            self.logger.warning(f"Role '{purgatory_role_name}' not found in guild {guild.name} ({guild.id}).")
+        elif purgatory_role in target_user.roles:
+            await ctx.send(embed=discord_common.embed_alert(
+                f"Cannot grant Trusted role to {target_user.mention}. User is currently in Purgatory."
+            ))
+            return
+
+        # Find the Trusted role
+        trusted_role = discord.utils.get(guild.roles, name=trusted_role_name)
+        if trusted_role is None:
+            raise HandleCogError(f"The role '{trusted_role_name}' does not exist in this server.")
+
+        # Check if target user already has the role
+        if trusted_role in target_user.roles:
+             await ctx.send(embed=discord_common.embed_neutral(
+                f"{target_user.mention} already has the {trusted_role.mention} role."
+            ))
+             return
+
+        # Grant the Trusted role
+        try:
+            await target_user.add_roles(trusted_role, reason=f"Referred by {ctx.author.name} ({ctx.author.id})")
+            await ctx.send(
+                f"{trusted_role.mention} role granted to {target_user.mention} by {ctx.author.mention}."
+            )
+        except discord.Forbidden:
+            raise HandleCogError(f"I lack the permissions to assign the '{trusted_role_name}' role.")
+        except discord.HTTPException as e:
+            raise HandleCogError(f"Failed to assign the role due to an unexpected error: {e}")
 
 def setup(bot):
     bot.add_cog(Handles(bot))

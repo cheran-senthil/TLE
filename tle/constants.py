@@ -27,3 +27,4 @@ ALLOW_DUEL_SELF_REGISTER = False
 
 TLE_ADMIN = os.environ.get('TLE_ADMIN', 'Admin')
 TLE_MODERATOR = os.environ.get('TLE_MODERATOR', 'Moderator')
+TLE_TRUSTED = os.environ.get('TLE_TRUSTED', 'Trusted')
