@@ -217,7 +217,8 @@ class UserDbConn:
             )
           ''')
 
-        # 3) Migrate old single-star data (★ = U+2B50, threshold 5)
+        # We’ll stage messages in a temporary table if we detect an old schema…
+        # The real starboard_message will be created (or recreated) at the end.
         old_exists = bool(self.conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='starboard'"
         ).fetchone())
@@ -226,7 +227,7 @@ class UserDbConn:
         ).fetchone())
 
         if old_exists and not already_migrated:
-            # 1) lift old starboard → starboard_config + starboard_emoji
+            # 1) Lift channel & threshold from old single‐star
             rows = self.conn.execute('SELECT guild_id, channel_id FROM starboard').fetchall()
             for guild_id, channel_id in rows:
                 self.conn.execute(
@@ -238,23 +239,46 @@ class UserDbConn:
                     (guild_id, '\u2B50', 5)
                 )
 
-            # 2) rename old tables as a marker
+            # 2) Rename old tables as a safe marker
             self.conn.execute('ALTER TABLE starboard RENAME TO starboard_old')
             self.conn.execute('ALTER TABLE starboard_message RENAME TO starboard_message_old')
 
-            # 3) migrate messages
+            # 3) Create staging for new messages (+ emoji column)
+            self.conn.execute('''
+            CREATE TABLE IF NOT EXISTS starboard_message_new (
+              original_msg_id  TEXT,
+              starboard_msg_id TEXT,
+              guild_id         TEXT,
+              emoji            TEXT,
+              PRIMARY KEY (original_msg_id, emoji)
+            )
+          ''')
             old_msgs = self.conn.execute(
                 'SELECT original_msg_id, starboard_msg_id, guild_id '
                 'FROM starboard_message_old'
             ).fetchall()
             for orig, star, guild_id in old_msgs:
                 self.conn.execute(
-                    'INSERT OR IGNORE INTO starboard_message VALUES (?,?,?,?)',
+                    'INSERT OR IGNORE INTO starboard_message_new VALUES (?,?,?,?)',
                     (orig, star, guild_id, '\u2B50')
                 )
 
-        # 4) commit and you’re done
-        self.conn.commit()
+            # 4) Swap in the new table
+            self.conn.execute('ALTER TABLE starboard_message_new RENAME TO starboard_message')
+
+            # 5) Commit only once
+            self.conn.commit()
+
+        # === ensure final starboard_message exists for new or already‐migrated installs ===
+        self.conn.execute('''
+          CREATE TABLE IF NOT EXISTS starboard_message (
+            original_msg_id  TEXT,
+            starboard_msg_id TEXT,
+            guild_id         TEXT,
+            emoji            TEXT,
+            PRIMARY KEY (original_msg_id, emoji)
+          )
+        ''')
 
     # Helper functions.
 
