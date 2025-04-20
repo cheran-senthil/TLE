@@ -250,7 +250,7 @@ class UserDbConn:
         self.conn.execute('ALTER TABLE starboard_message_new RENAME TO starboard_message')
 
         self.conn.commit()
-
+        print ("MIGRAITON COMPLETE")
 
     # Helper functions.
 
