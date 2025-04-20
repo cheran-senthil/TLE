@@ -68,7 +68,7 @@ class UserDbConn:
         self.create_tables()
 
     def create_tables(self):
-        self.conn.execute(
+                self.conn.execute(
             'CREATE TABLE IF NOT EXISTS user_handle ('
             'user_id     TEXT,'
             'guild_id    TEXT,'
@@ -152,6 +152,19 @@ class UserDbConn:
             )
         ''')
         self.conn.execute(
+            'CREATE TABLE IF NOT EXISTS starboard ('
+            'guild_id     TEXT PRIMARY KEY,'
+            'channel_id   TEXT'
+            ')'
+        )
+        self.conn.execute(
+            'CREATE TABLE IF NOT EXISTS starboard_message ('
+            'original_msg_id    TEXT PRIMARY KEY,'
+            'starboard_msg_id   TEXT,'
+            'guild_id           TEXT'
+            ')'
+        )
+        self.conn.execute(
             'CREATE TABLE IF NOT EXISTS rankup ('
             'guild_id     TEXT PRIMARY KEY,'
             'channel_id   TEXT'
@@ -189,7 +202,7 @@ class UserDbConn:
                 PRIMARY KEY(vc_id, user_id)
             )
         ''')
-
+        
         self.conn.execute('''
             CREATE TABLE IF NOT EXISTS rated_vc_settings (
                 guild_id TEXT PRIMARY KEY,
