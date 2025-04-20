@@ -246,7 +246,7 @@ class UserDbConn:
               'INSERT OR IGNORE INTO starboard_message_new VALUES (?,?,?,?)',
               (orig, star, guild_id, '\u2B50')
             )
-        self.conn.execute('ALTER TABLE starboard_message RENAME TO starboard_message_old')
+        self.conn.execute('DROP TABLE IF EXISTS starboard_message')
         self.conn.execute('ALTER TABLE starboard_message_new RENAME TO starboard_message')
 
         self.conn.commit()
