@@ -913,6 +913,89 @@ class Handles(commands.Cog):
             raise HandleCogError(f"No permissions to assign the '{trusted_role_name}' role.")
         except discord.HTTPException as e:
             raise HandleCogError(f"Failed to assign the role due to an unexpected error: {e}")
+        
+    @handle.command(brief='Grant Trusted role to old members without Purgatory role.')
+    @commands.has_role(constants.TLE_ADMIN)
+    async def grandfather(self, ctx):
+        """Grants the Trusted role to all members who joined before April 21, 2025,
+        and do not currently have the Purgatory role.
+        """
+        guild = ctx.guild
+        trusted_role_name = constants.TLE_TRUSTED
+        purgatory_role_name = 'Purgatory'
+
+        trusted_role = discord.utils.get(guild.roles, name=trusted_role_name)
+        if trusted_role is None:
+            raise HandleCogError(f"The role '{trusted_role_name}' does not exist in this server.")
+
+        purgatory_role = discord.utils.get(guild.roles, name=purgatory_role_name)
+        # If Purgatory role doesn't exist, we assume no one has it.
+        if purgatory_role is None:
+            self.logger.warning(f"Role '{purgatory_role_name}' not found in guild {guild.name} ({guild.id}). Proceeding without Purgatory check.")
+
+        # Cutoff date: April 21, 2025, 00:00:00 UTC
+        cutoff_date = dt.datetime(2025, 4, 21, 0, 0, 0, tzinfo=dt.timezone.utc)
+
+        added_count = 0
+        skipped_purgatory = 0
+        skipped_already_trusted = 0
+        skipped_join_date = 0
+        processed_count = 0
+
+        status_message = await ctx.send(f"Processing members for grandfathering {trusted_role.mention}...")
+
+        members_to_process = list(guild.members) # Create a list to avoid issues if members leave/join during processing
+        total_members = len(members_to_process)
+
+        for i, member in enumerate(members_to_process):
+            processed_count += 1
+            # Update status periodically
+            if i % 100 == 0 and i > 0:
+                await status_message.edit(content=f"Processing members... ({i}/{total_members})")
+
+            # Check join date
+            if member.joined_at is None or member.joined_at >= cutoff_date:
+                skipped_join_date += 1
+                continue
+
+            # Check if user already has the Trusted role
+            if trusted_role in member.roles:
+                skipped_already_trusted += 1
+                continue
+
+            # Check if user has the Purgatory role (only if the role exists)
+            if purgatory_role is not None and purgatory_role in member.roles:
+                skipped_purgatory += 1
+                continue
+
+            # Grant the Trusted role
+            try:
+                await member.add_roles(trusted_role, reason='Grandfather clause: Joined before 2025-04-21 and not in Purgatory')
+                added_count += 1
+                # Optional: Short delay to avoid hitting rate limits on large servers
+                await asyncio.sleep(0.1)
+            except discord.Forbidden:
+                await ctx.send(embed=discord_common.embed_alert(
+                    f"Missing permissions to assign the '{trusted_role_name}' role to {member.mention}. Stopping."
+                ))
+                return # Stop processing if permissions are missing
+            except discord.HTTPException as e:
+                self.logger.warning(f"Failed to assign {trusted_role_name} role to {member.display_name} ({member.id}): {e}")
+                # Decide whether to continue or stop on other HTTP errors
+
+        summary_message = (
+            f"Grandfathering complete.\n"
+            f"- Processed: {processed_count} members\n"
+            f"- Granted {trusted_role.mention}: {added_count} members\n"
+            f"- Skipped (Joined after cutoff): {skipped_join_date}\n"
+            f"- Skipped (Already Trusted): {skipped_already_trusted}\n"
+        )
+        if purgatory_role:
+            summary_message += f"- Skipped (Has {purgatory_role.mention}): {skipped_purgatory}\n"
+
+        await status_message.edit(content=summary_message)
+
+
 
 def setup(bot):
     bot.add_cog(Handles(bot))
