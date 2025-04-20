@@ -343,7 +343,8 @@ class Handles(commands.Cog):
 
         # --- Grant 'Trusted' Role based on historical rating ---
         handle = cf_common.user_db.get_handle(member.id, member.guild.id)
-        if handle:
+        trusted_role = discord.utils.get(member.guild.roles, name='Trusted')
+        if handle and trusted_role and trusted_role not in member.roles: # only check if not already trusted
             try:
                 # Define cutoff date (August 1, 2024 00:00 UTC)
                 cutoff_timestamp = dt.datetime(2024, 8, 1, tzinfo=dt.timezone.utc).timestamp()
@@ -357,18 +358,12 @@ class Handles(commands.Cog):
                         break # Found one instance, no need to check further
 
                 if is_trusted_candidate:
-                    trusted_role = discord.utils.get(member.guild.roles, name='Trusted')
-                    if trusted_role and trusted_role not in member.roles:
                         try:
                             await member.add_roles(trusted_role, reason='Historical rating >= 1900 before Aug 2024')
                         except discord.Forbidden:
                              print(f"WARN: Missing permissions to add Trusted role to {member.display_name} in {member.guild.name}")
                         except discord.HTTPException as e:
                              print(f"WARN: Failed to add Trusted role to {member.display_name} in {member.guild.name}: {e}")
-
-                    elif not trusted_role:
-                        # Log this warning appropriately in a real scenario
-                        print(f"WARN: 'Trusted' role not found in guild {member.guild.name} ({member.guild.id})")
 
             except cf.NotFoundError:
                 # User rating info not found via API, ignore for trusted check
@@ -379,6 +374,9 @@ class Handles(commands.Cog):
             except Exception as e:
                 # Log other unexpected errors appropriately in a real scenario
                 print(f"ERROR: Unexpected error checking trusted status for {member.display_name} ({handle}): {e}")
+        elif not trusted_role:
+            # Log this warning appropriately in a real scenario
+            print(f"WARN: 'Trusted' role not found in guild {member.guild.name} ({member.guild.id})")
 
         if role_to_assign is not None and role_to_assign not in member.roles:
             await member.add_roles(role_to_assign, reason=reason)
