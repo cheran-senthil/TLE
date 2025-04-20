@@ -68,7 +68,7 @@ class UserDbConn:
         self.create_tables()
 
     def create_tables(self):
-                self.conn.execute(
+        self.conn.execute(
             'CREATE TABLE IF NOT EXISTS user_handle ('
             'user_id     TEXT,'
             'guild_id    TEXT,'
@@ -99,47 +99,47 @@ class UserDbConn:
         # TODO: Make duel tables guild-aware.
         self.conn.execute('''
             CREATE TABLE IF NOT EXISTS duelist(
-                "user_id" INTEGER PRIMARY KEY NOT NULL,
-                "rating"  INTEGER NOT NULL
+                "user_id"	INTEGER PRIMARY KEY NOT NULL,
+                "rating"	INTEGER NOT NULL
             )
         ''')
         self.conn.execute('''
             CREATE TABLE IF NOT EXISTS duel(
-                "id"  INTEGER PRIMARY KEY AUTOINCREMENT,
-                "challenger"  INTEGER NOT NULL,
-                "challengee"  INTEGER NOT NULL,
-                "issue_time"  REAL NOT NULL,
-                "start_time"  REAL,
-                "finish_time" REAL,
-                "problem_name"  TEXT,
-                "contest_id"  INTEGER,
-                "p_index" INTEGER,
-                "status"  INTEGER,
-                "winner"  INTEGER,
-                "type"    INTEGER
+                "id"	INTEGER PRIMARY KEY AUTOINCREMENT,
+                "challenger"	INTEGER NOT NULL,
+                "challengee"	INTEGER NOT NULL,
+                "issue_time"	REAL NOT NULL,
+                "start_time"	REAL,
+                "finish_time"	REAL,
+                "problem_name"	TEXT,
+                "contest_id"	INTEGER,
+                "p_index"	INTEGER,
+                "status"	INTEGER,
+                "winner"	INTEGER,
+                "type"		INTEGER
             )
         ''')
         self.conn.execute('''
             CREATE TABLE IF NOT EXISTS "challenge" (
-                "id"  INTEGER PRIMARY KEY AUTOINCREMENT,
-                "user_id" TEXT NOT NULL,
-                "issue_time"  REAL NOT NULL,
-                "finish_time" REAL,
-                "problem_name"  TEXT NOT NULL,
-                "contest_id"  INTEGER NOT NULL,
-                "p_index" INTEGER NOT NULL,
-                "rating_delta"  INTEGER NOT NULL,
-                "status"  INTEGER NOT NULL
+                "id"	INTEGER PRIMARY KEY AUTOINCREMENT,
+                "user_id"	TEXT NOT NULL,
+                "issue_time"	REAL NOT NULL,
+                "finish_time"	REAL,
+                "problem_name"	TEXT NOT NULL,
+                "contest_id"	INTEGER NOT NULL,
+                "p_index"	INTEGER NOT NULL,
+                "rating_delta"	INTEGER NOT NULL,
+                "status"	INTEGER NOT NULL
             )
         ''')
         self.conn.execute('''
             CREATE TABLE IF NOT EXISTS "user_challenge" (
-                "user_id" TEXT,
-                "active_challenge_id" INTEGER,
-                "issue_time"  REAL,
-                "score" INTEGER NOT NULL,
-                "num_completed" INTEGER NOT NULL,
-                "num_skipped" INTEGER NOT NULL,
+                "user_id"	TEXT,
+                "active_challenge_id"	INTEGER,
+                "issue_time"	REAL,
+                "score"	INTEGER NOT NULL,
+                "num_completed"	INTEGER NOT NULL,
+                "num_skipped"	INTEGER NOT NULL,
                 PRIMARY KEY("user_id")
             )
         ''')
@@ -179,7 +179,7 @@ class UserDbConn:
         # Rated VCs stuff:
         self.conn.execute('''
             CREATE TABLE IF NOT EXISTS "rated_vcs" (
-                "id"           INTEGER PRIMARY KEY AUTOINCREMENT,
+                "id"	         INTEGER PRIMARY KEY AUTOINCREMENT,
                 "contest_id"     INTEGER NOT NULL,
                 "start_time"     REAL,
                 "finish_time"    REAL,
@@ -191,7 +191,7 @@ class UserDbConn:
         # TODO: Do we need to explicitly specify the fk constraint or just depend on the middleware?
         self.conn.execute('''
             CREATE TABLE IF NOT EXISTS "rated_vc_users" (
-                "vc_id"          INTEGER,
+                "vc_id"	         INTEGER,
                 "user_id"        TEXT NOT NULL,
                 "rating"         INTEGER,
 
@@ -202,7 +202,7 @@ class UserDbConn:
                 PRIMARY KEY(vc_id, user_id)
             )
         ''')
-        
+
         self.conn.execute('''
             CREATE TABLE IF NOT EXISTS rated_vc_settings (
                 guild_id TEXT PRIMARY KEY,
