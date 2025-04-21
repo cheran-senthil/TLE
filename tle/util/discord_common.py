@@ -6,6 +6,7 @@ import random
 import discord
 from discord.ext import commands
 
+from tle import constants
 from tle.util import codeforces_api as cf
 from tle.util import db
 from tle.util import tasks
@@ -130,7 +131,7 @@ async def presence(bot):
         while True:
             target = random.choice([
                 member for member in bot.get_all_members()
-                if 'Purgatory' not in {role.name for role in member.roles}
+                if constants.TLE_PURGATORY not in {role.name for role in member.roles}
             ])
             await bot.change_presence(activity=discord.Game(
                 name=f'{target.display_name} orz'))

@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
+from tle import constants
 from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
 from tle.util import discord_common
@@ -622,7 +623,7 @@ class Graphs(commands.Cog):
         """Plots rating distribution of users in this server"""
         def in_purgatory(userid):
             member = ctx.guild.get_member(int(userid))
-            return not member or 'Purgatory' in {role.name for role in member.roles}
+            return not member or constants.TLE_PURGATORY in {role.name for role in member.roles}
 
         res = cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)
         ratings = [cf_user.rating for user_id, cf_user in res

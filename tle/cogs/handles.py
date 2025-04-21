@@ -329,7 +329,7 @@ class Handles(commands.Cog):
         if not handle:
             self.logger.warning(f"WARN: handle not found in guild {member.guild.name} ({member.guild.id})")
             return
-        trusted_role = discord.utils.get(member.guild.roles, name='Trusted')
+        trusted_role = discord.utils.get(member.guild.roles, name=constants.TLE_TRUSTED)
         if not trusted_role:
             self.logger.warning(f"WARN: 'Trusted' role not found in guild {member.guild.name} ({member.guild.id})")
             return
@@ -342,9 +342,11 @@ class Handles(commands.Cog):
             except cf.NotFoundError:
                 # User rating info not found via API, ignore for trusted check
                 self.logger.info(f"INFO: Rating history not found for handle {handle} during trusted check.")
+                return
             except cf.CodeforcesApiError as e:
                 # Log API errors appropriately in a real scenario
                 self.logger.warning(f"WARN: API Error fetching rating for {handle} during trusted check: {e}")
+                return
 
             if any(
                 change.newRating >= 1900 and change.ratingUpdateTimeSeconds < cutoff_timestamp
@@ -366,7 +368,7 @@ class Handles(commands.Cog):
         if role_to_assign is not None:
             role_names_to_remove.discard(role_to_assign.name)
             if role_to_assign.name not in ['Newbie', 'Pupil', 'Specialist', 'Expert']:
-                role_names_to_remove.add('Purgatory')
+                role_names_to_remove.add(constants.TLE_PURGATORY)
                 await self.maybe_add_trusted_role(member)
         to_remove = [role for role in member.roles if role.name in role_names_to_remove]
         if to_remove:
@@ -684,7 +686,7 @@ class Handles(commands.Cog):
                                for user_id, handle in user_id_handle_pairs]
         def ispurg(member):
             # TODO: temporary code, todo properly later
-            return any(role.name == 'Purgatory' for role in member.roles)
+            return any(role.name == constants.TLE_PURGATORY for role in member.roles)
 
         member_change_pairs = [(member, change_by_handle[handle])
                                for member, handle in member_handle_pairs
@@ -874,7 +876,7 @@ class Handles(commands.Cog):
         """
         guild = ctx.guild
         trusted_role_name = constants.TLE_TRUSTED
-        purgatory_role_name = 'Purgatory' 
+        purgatory_role_name = constants.TLE_PURGATORY 
 
         if target_user == ctx.author:
             raise HandleCogError("You cannot refer yourself.")
@@ -921,7 +923,7 @@ class Handles(commands.Cog):
         """
         guild = ctx.guild
         trusted_role_name = constants.TLE_TRUSTED
-        purgatory_role_name = 'Purgatory'
+        purgatory_role_name = constants.TLE_PURGATORY
 
         trusted_role = discord.utils.get(guild.roles, name=trusted_role_name)
         if trusted_role is None:
@@ -940,16 +942,22 @@ class Handles(commands.Cog):
         skipped_already_trusted = 0
         skipped_join_date = 0
         processed_count = 0
+        http_failure_count = 0
 
         status_message = await ctx.send(f"Processing members for grandfathering Trusted...")
 
-        members_to_process = list(guild.members) # Create a list to avoid issues if members leave/join during processing
-        total_members = len(members_to_process)
+        # Create a list to avoid issues if members leave/join during processing
+        members_to_process = list(guild.members) 
 
         for i, member in enumerate(members_to_process):
             processed_count += 1
             if i % 100 == 0 and i > 0:
-                await status_message.edit(content=f"Processing members... ({i}/{total_members})")
+                await status_message.edit(content=f"Processing members... ({i}/{len(members_to_process)})")
+
+            if purgatory_role is not None and purgatory_role in member.roles:
+                # User has purgatory role so is not eligible, skip
+                skipped_purgatory += 1
+                continue
 
             if member.joined_at is None:
                 # Cannot determine join date, skip
@@ -969,16 +977,11 @@ class Handles(commands.Cog):
                 skipped_already_trusted += 1
                 continue
 
-            if purgatory_role is not None and purgatory_role in member.roles:
-                # User has purgatory role so is not eligible, skip
-                skipped_purgatory += 1
-                continue
-
             # Eligible for Trusted role, try to grant it
             try:
                 await member.add_roles(trusted_role, reason='Grandfather clause: Joined before 2025-04-21 and not in Purgatory')
                 added_count += 1
-                # Optional: Short delay to avoid hitting rate limits on large servers
+                # Short delay to avoid hitting rate limits on large servers
                 await asyncio.sleep(0.1)
             except discord.Forbidden:
                 await ctx.send(embed=discord_common.embed_alert(
@@ -987,7 +990,7 @@ class Handles(commands.Cog):
                 return # Stop processing if permissions are missing
             except discord.HTTPException as e:
                 self.logger.warning(f"Failed to assign {trusted_role_name} role to {member.display_name} ({member.id}): {e}")
-                # Decide whether to continue or stop on other HTTP errors
+                http_failure_count += 1
 
         summary_message = (
             f"Grandfathering complete.\n"
@@ -995,6 +998,7 @@ class Handles(commands.Cog):
             f"- Granted Trusted: {added_count} members\n"
             f"- Skipped (Joined after cutoff): {skipped_join_date}\n"
             f"- Skipped (Already Trusted): {skipped_already_trusted}\n"
+            f"- HTTP failure granting role: {http_failure_count}\n"
         )
         if purgatory_role:
             summary_message += f"- Skipped (Has Purgatory): {skipped_purgatory}\n"
