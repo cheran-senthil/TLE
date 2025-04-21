@@ -951,7 +951,6 @@ class Handles(commands.Cog):
             if i % 100 == 0 and i > 0:
                 await status_message.edit(content=f"Processing members... ({i}/{total_members})")
 
-            # Check join date
             if member.joined_at is None:
                 # Cannot determine join date, skip
                 skipped_join_date += 1
