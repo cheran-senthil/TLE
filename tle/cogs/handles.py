@@ -969,8 +969,8 @@ class Handles(commands.Cog):
                 skipped_already_trusted += 1
                 continue
 
-            # Check if user has the Purgatory role (only if the role exists)
             if purgatory_role is not None and purgatory_role in member.roles:
+                # User has purgatory role so is not eligible, skip
                 skipped_purgatory += 1
                 continue
 
