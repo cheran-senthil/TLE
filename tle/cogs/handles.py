@@ -974,7 +974,7 @@ class Handles(commands.Cog):
                 skipped_purgatory += 1
                 continue
 
-            # Grant the Trusted role
+            # Eligible for Trusted role, try to grant it
             try:
                 await member.add_roles(trusted_role, reason='Grandfather clause: Joined before 2025-04-21 and not in Purgatory')
                 added_count += 1
