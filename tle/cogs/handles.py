@@ -961,6 +961,7 @@ class Handles(commands.Cog):
             member_joined_at_aware = member.joined_at.replace(tzinfo=dt.timezone.utc)
 
             if member_joined_at_aware >= cutoff_date:
+                # User joined too late to be eligible, skip
                 skipped_join_date += 1
                 continue
 
