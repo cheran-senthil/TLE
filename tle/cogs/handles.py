@@ -919,7 +919,7 @@ class Handles(commands.Cog):
     @commands.has_role(constants.TLE_ADMIN)
     async def grandfather(self, ctx):
         """Grants the Trusted role to all members who joined before April 21, 2025,
-        and do not currently have the Purgatory role.
+        and do not currently have the Purgatory role. April 20 was o3's first contest.
         """
         guild = ctx.guild
         trusted_role_name = constants.TLE_TRUSTED
@@ -934,7 +934,8 @@ class Handles(commands.Cog):
         if purgatory_role is None:
             self.logger.warning(f"Role '{purgatory_role_name}' not found in guild {guild.name} ({guild.id}). Proceeding without Purgatory check.")
 
-        # The date when this code was added. 
+        # The date when this code was added.
+        # April 20 was o3's first contest. 
         cutoff_date = dt.datetime(2025, 4, 21, 0, 0, 0, tzinfo=dt.timezone.utc)
 
         added_count = 0
