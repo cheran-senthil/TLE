@@ -876,7 +876,6 @@ class Handles(commands.Cog):
         trusted_role_name = constants.TLE_TRUSTED
         purgatory_role_name = 'Purgatory' 
 
-        # Check if target user is the invoker
         if target_user == ctx.author:
             raise HandleCogError("You cannot refer yourself.")
 
