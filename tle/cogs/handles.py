@@ -932,7 +932,7 @@ class Handles(commands.Cog):
         if purgatory_role is None:
             self.logger.warning(f"Role '{purgatory_role_name}' not found in guild {guild.name} ({guild.id}). Proceeding without Purgatory check.")
 
-        # Cutoff date: April 21, 2025, 00:00:00 UTC
+        # The date when this code was added. 
         cutoff_date = dt.datetime(2025, 4, 21, 0, 0, 0, tzinfo=dt.timezone.utc)
 
         added_count = 0
