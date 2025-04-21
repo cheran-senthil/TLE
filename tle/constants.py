@@ -27,3 +27,6 @@ ALLOW_DUEL_SELF_REGISTER = False
 
 TLE_ADMIN = os.environ.get('TLE_ADMIN', 'Admin')
 TLE_MODERATOR = os.environ.get('TLE_MODERATOR', 'Moderator')
+
+_DEFAULT_COLOR = 0xffaa10
+_DEFAULT_STAR = '\N{WHITE MEDIUM STAR}'
