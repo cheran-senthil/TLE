@@ -6,6 +6,7 @@ from discord.ext import commands
 
 from tle.util import codeforces_api as cf
 from tle.util import codeforces_common as cf_common
+from tle import constants
 
 _DEFAULT_VC_RATING = 1500
 
@@ -175,19 +176,6 @@ class UserDbConn:
             )
         ''')
         self.conn.execute(
-            'CREATE TABLE IF NOT EXISTS starboard ('
-            'guild_id     TEXT PRIMARY KEY,'
-            'channel_id   TEXT'
-            ')'
-        )
-        self.conn.execute(
-            'CREATE TABLE IF NOT EXISTS starboard_message ('
-            'original_msg_id    TEXT PRIMARY KEY,'
-            'starboard_msg_id   TEXT,'
-            'guild_id           TEXT'
-            ')'
-        )
-        self.conn.execute(
             'CREATE TABLE IF NOT EXISTS rankup ('
             'guild_id     TEXT PRIMARY KEY,'
             'channel_id   TEXT'
@@ -304,6 +292,70 @@ class UserDbConn:
                 "end_time" INT
             )
             ''')
+ 
+        self.conn.execute(f'''
+          CREATE TABLE IF NOT EXISTS starboard_config_v1 (
+            guild_id   TEXT,
+            emoji      TEXT,
+            channel_id TEXT,
+            PRIMARY KEY (guild_id, emoji)
+          )
+        ''')
+
+        # 1b) emoji holds threshold + color
+        self.conn.execute(f'''
+          CREATE TABLE IF NOT EXISTS starboard_emoji_v1 (
+            guild_id   TEXT,
+            emoji      TEXT,
+            threshold  INTEGER,
+            color      INTEGER,
+            PRIMARY KEY (guild_id, emoji)
+          )
+        ''')
+        self.conn.execute('''
+           CREATE TABLE IF NOT EXISTS starboard_message_v1 (
+             original_msg_id  TEXT,
+             starboard_msg_id TEXT,
+             guild_id         TEXT,
+             emoji            TEXT,
+             PRIMARY KEY (original_msg_id, emoji)
+           )
+         ''')
+
+        # === one‑time migration from old tables ===
+        old_exists = bool(self.conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='starboard'"
+        ).fetchone())
+        migrated = self.conn.execute(
+            "SELECT COUNT(*) AS cnt FROM starboard_config_v1"
+        ).fetchone().cnt > 0
+
+        if old_exists and not migrated:
+            for guild_id, channel_id in self.conn.execute(
+                    'SELECT guild_id, channel_id FROM starboard'
+            ):
+                self.conn.execute(
+                    'INSERT OR IGNORE INTO starboard_config_v1 '
+                    '(guild_id, emoji, channel_id) VALUES (?,?,?)',
+                    (guild_id, constants._DEFAULT_STAR, channel_id)
+                )
+                self.conn.execute(
+                    'INSERT OR IGNORE INTO starboard_emoji_v1 '
+                    '(guild_id, emoji, threshold, color) VALUES (?,?,?,?)',
+                    (guild_id, constants._DEFAULT_STAR, 5, constants._DEFAULT_COLOR)
+                )
+
+            # lift old ★ messages
+            for orig, star, guild_id in self.conn.execute(
+                    'SELECT original_msg_id, starboard_msg_id, guild_id FROM starboard_message'
+            ):
+                self.conn.execute(
+                    'INSERT OR IGNORE INTO starboard_message_v1 '
+                    '(original_msg_id, starboard_msg_id, guild_id, emoji) '
+                    'VALUES (?,?,?,?)',
+                    (orig, star, guild_id, constants._DEFAULT_STAR)
+                )
+            self.conn.commit()
 
     # Helper functions.
 
@@ -555,56 +607,97 @@ class UserDbConn:
         self.conn.execute(query, (guild_id,))
         self.conn.commit()
 
-    def get_starboard(self, guild_id):
-        query = ('SELECT channel_id '
-                 'FROM starboard '
-                 'WHERE guild_id = ?')
-        return self.conn.execute(query, (guild_id,)).fetchone()
+    def get_starboard_entry(self, guild_id, emoji):
+        cfg = self.conn.execute(
+            'SELECT channel_id FROM starboard_config_v1 WHERE guild_id=? AND emoji=?',
+            (guild_id, emoji)
+        ).fetchone()
+        if not cfg:
+            return None
+        emo = self.conn.execute(
+            'SELECT threshold, color FROM starboard_emoji_v1 WHERE guild_id=? AND emoji=?',
+            (guild_id, emoji)
+        ).fetchone()
+        return (int(cfg[0]), int(emo[0]), int(emo[1]))
 
-    def set_starboard(self, guild_id, channel_id):
-        query = ('INSERT OR REPLACE INTO starboard '
-                 '(guild_id, channel_id) '
-                 'VALUES (?, ?)')
-        self.conn.execute(query, (guild_id, channel_id))
-        self.conn.commit()
+    def add_starboard_emoji(self, guild_id, emoji, threshold, color):
+        return self._insert_one(
+          'starboard_emoji_v1',
+          ('guild_id','emoji','threshold', 'color'),
+          (guild_id, emoji, threshold, color)
+        )
 
-    def clear_starboard(self, guild_id):
-        query = ('DELETE FROM starboard '
-                 'WHERE guild_id = ?')
-        self.conn.execute(query, (guild_id,))
-        self.conn.commit()
-
-    def add_starboard_message(self, original_msg_id, starboard_msg_id, guild_id):
-        query = ('INSERT INTO starboard_message '
-                 '(original_msg_id, starboard_msg_id, guild_id) '
-                 'VALUES (?, ?, ?)')
-        self.conn.execute(query, (original_msg_id, starboard_msg_id, guild_id))
-        self.conn.commit()
-
-    def check_exists_starboard_message(self, original_msg_id):
-        query = ('SELECT 1 '
-                 'FROM starboard_message '
-                 'WHERE original_msg_id = ?')
-        res = self.conn.execute(query, (original_msg_id,)).fetchone()
-        return res is not None
-
-    def remove_starboard_message(self, *, original_msg_id=None, starboard_msg_id=None):
-        assert (original_msg_id is None) ^ (starboard_msg_id is None)
-        if original_msg_id is not None:
-            query = ('DELETE FROM starboard_message '
-                     'WHERE original_msg_id = ?')
-            rc = self.conn.execute(query, (original_msg_id,)).rowcount
-        else:
-            query = ('DELETE FROM starboard_message '
-                     'WHERE starboard_msg_id = ?')
-            rc = self.conn.execute(query, (starboard_msg_id,)).rowcount
+    def remove_starboard_emoji(self, guild_id, emoji):
+        rc = self.conn.execute(
+          'DELETE FROM starboard_emoji_v1 WHERE guild_id = ? AND emoji = ?',
+          (guild_id, emoji)
+        ).rowcount
         self.conn.commit()
         return rc
 
-    def clear_starboard_messages_for_guild(self, guild_id):
-        query = ('DELETE FROM starboard_message '
-                 'WHERE guild_id = ?')
-        rc = self.conn.execute(query, (guild_id,)).rowcount
+    def update_starboard_threshold(self, guild_id, emoji, threshold):
+        rc = self.conn.execute(
+            'UPDATE starboard_emoji_v1 SET threshold=? WHERE guild_id=? AND emoji=?',
+            (threshold, guild_id, emoji)
+        ).rowcount
+        self.conn.commit()
+        return rc
+
+    def update_starboard_color(self, guild_id, emoji, color):
+        rc = self.conn.execute(
+            'UPDATE starboard_emoji_v1 SET color=? WHERE guild_id=? AND emoji=?',
+            (color, guild_id, emoji)
+        ).rowcount
+        self.conn.commit()
+        return rc
+
+    def set_starboard_channel(self, guild_id, emoji, channel_id):
+        return self._insert_one(
+            'starboard_config_v1',
+            ('guild_id', 'emoji', 'channel_id'),
+            (guild_id, emoji, channel_id)
+        )
+
+    def clear_starboard_channel(self, guild_id, emoji):
+        rc = self.conn.execute(
+          'DELETE FROM starboard_config_v1 WHERE guild_id = ? AND emoji = ?',
+          (guild_id, emoji)
+        ).rowcount
+        self.conn.commit()
+        return rc
+
+    def add_starboard_message(self, original_msg_id, starboard_msg_id, guild_id, emoji):
+        self.conn.execute(
+          'INSERT INTO starboard_message_v1 '
+          '(original_msg_id, starboard_msg_id, guild_id, emoji) '
+          'VALUES (?,?,?,?)',
+          (original_msg_id, starboard_msg_id, guild_id, emoji)
+        )
+        self.conn.commit()
+
+    def check_exists_starboard_message(self, original_msg_id, emoji):
+        row = self.conn.execute(
+          'SELECT 1 FROM starboard_message_v1 '
+          'WHERE original_msg_id = ? AND emoji = ?',
+          (original_msg_id, emoji)
+        ).fetchone()
+        return bool(row)
+
+    def remove_starboard_message(self, *, original_msg_id=None, emoji=None, starboard_msg_id=None):
+        if original_msg_id is not None and emoji is not None:
+            rc = self.conn.execute(
+              'DELETE FROM starboard_message_v1 '
+              'WHERE original_msg_id = ? AND emoji = ?',
+              (original_msg_id, emoji)
+            ).rowcount
+        elif starboard_msg_id is not None:
+            rc = self.conn.execute(
+              'DELETE FROM starboard_message_v1 '
+              'WHERE starboard_msg_id = ?',
+              (starboard_msg_id,)
+            ).rowcount
+        else:
+            rc = 0
         self.conn.commit()
         return rc
 
