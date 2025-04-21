@@ -964,8 +964,8 @@ class Handles(commands.Cog):
                 skipped_join_date += 1
                 continue
 
-            # Check if user already has the Trusted role
             if trusted_role in member.roles:
+                # User already trusted, skip
                 skipped_already_trusted += 1
                 continue
 
