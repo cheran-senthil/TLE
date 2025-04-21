@@ -948,7 +948,6 @@ class Handles(commands.Cog):
 
         for i, member in enumerate(members_to_process):
             processed_count += 1
-            # Update status periodically
             if i % 100 == 0 and i > 0:
                 await status_message.edit(content=f"Processing members... ({i}/{total_members})")
 
