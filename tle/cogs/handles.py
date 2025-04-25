@@ -10,6 +10,7 @@ from PIL import Image
 from PIL import ImageDraw
 from PIL import ImageFont
 import cairo
+import datetime as dt
 import discord
 from discord.ext import commands
 import gi
@@ -322,8 +323,43 @@ class Handles(commands.Cog):
         """Change or collect information about specific handles on Codeforces"""
         await ctx.send_help(ctx.command)
 
-    @staticmethod
-    async def update_member_rank_role(member, role_to_assign, *, reason):
+    async def maybe_add_trusted_role(self, member):
+        '''If the `member` has been 1900+ for any amount of time before o1 release, add the trusted role.'''
+        handle = cf_common.user_db.get_handle(member.id, member.guild.id)
+        if not handle:
+            self.logger.warning(f"WARN: handle not found in guild {member.guild.name} ({member.guild.id})")
+            return
+        trusted_role = discord.utils.get(member.guild.roles, name=constants.TLE_TRUSTED)
+        if not trusted_role:
+            self.logger.warning(f"WARN: 'Trusted' role not found in guild {member.guild.name} ({member.guild.id})")
+            return
+        
+        if trusted_role not in member.roles:
+            # o1 released sept 12 2024
+            cutoff_timestamp = dt.datetime(2024, 9, 11, tzinfo=dt.timezone.utc).timestamp()
+            try:
+                rating_changes = await cf.user.rating(handle=handle)
+            except cf.NotFoundError:
+                # User rating info not found via API, ignore for trusted check
+                self.logger.info(f"INFO: Rating history not found for handle {handle} during trusted check.")
+                return
+            except cf.CodeforcesApiError as e:
+                # Log API errors appropriately in a real scenario
+                self.logger.warning(f"WARN: API Error fetching rating for {handle} during trusted check: {e}")
+                return
+
+            if any(
+                change.newRating >= 1900 and change.ratingUpdateTimeSeconds < cutoff_timestamp
+                for change in rating_changes
+            ):
+                try:
+                    await member.add_roles(trusted_role, reason='Historical rating >= 1900 before Aug 2024')
+                except discord.Forbidden:
+                    self.logger.warning(f"WARN: Missing permissions to add Trusted role to {member.display_name} in {member.guild.name}")
+                except discord.HTTPException as e:
+                    self.logger.warning(f"WARN: Failed to add Trusted role to {member.display_name} in {member.guild.name}: {e}")
+        
+    async def update_member_rank_role(self, member, role_to_assign, *, reason):
         """Sets the `member` to only have the rank role of `role_to_assign`. All other rank roles
         on the member, if any, will be removed. If `role_to_assign` is None all existing rank roles
         on the member will be removed.
@@ -332,7 +368,8 @@ class Handles(commands.Cog):
         if role_to_assign is not None:
             role_names_to_remove.discard(role_to_assign.name)
             if role_to_assign.name not in ['Newbie', 'Pupil', 'Specialist', 'Expert']:
-                role_names_to_remove.add('Purgatory')
+                role_names_to_remove.add(constants.TLE_PURGATORY)
+                await self.maybe_add_trusted_role(member)
         to_remove = [role for role in member.roles if role.name in role_names_to_remove]
         if to_remove:
             await member.remove_roles(*to_remove, reason=reason)
@@ -649,7 +686,7 @@ class Handles(commands.Cog):
                                for user_id, handle in user_id_handle_pairs]
         def ispurg(member):
             # TODO: temporary code, todo properly later
-            return any(role.name == 'Purgatory' for role in member.roles)
+            return any(role.name == constants.TLE_PURGATORY for role in member.roles)
 
         member_change_pairs = [(member, change_by_handle[handle])
                                for member, handle in member_handle_pairs
@@ -829,6 +866,146 @@ class Handles(commands.Cog):
     @discord_common.send_error_if(HandleCogError, cf_common.HandleIsVjudgeError)
     async def cog_command_error(self, ctx, error):
         pass
+
+    @handle.command(brief='Give the Trusted role to another user')
+    @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR, constants.TLE_TRUSTED)
+    async def refer(self, ctx, target_user: discord.Member):
+        """Allows Trusted users to grant the Trusted role to other users.
+
+        The command fails if the target user has the Purgatory role.
+        """
+        guild = ctx.guild
+        trusted_role_name = constants.TLE_TRUSTED
+        purgatory_role_name = constants.TLE_PURGATORY 
+
+        if target_user == ctx.author:
+            raise HandleCogError("You cannot refer yourself.")
+
+        # Find the Purgatory role
+        purgatory_role = discord.utils.get(guild.roles, name=purgatory_role_name)
+        if purgatory_role is None:
+            # This case might indicate a server setup issue, but we proceed as if the user is not in purgatory
+            self.logger.warning(f"Role '{purgatory_role_name}' not found in guild {guild.name} ({guild.id}).")
+        elif purgatory_role in target_user.roles:
+            await ctx.send(embed=discord_common.embed_alert(
+                f"Cannot grant Trusted role to {target_user.mention}. User is currently in Purgatory."
+            ))
+            return
+
+        # Find the Trusted role
+        trusted_role = discord.utils.get(guild.roles, name=trusted_role_name)
+        if trusted_role is None:
+            raise HandleCogError(f"The role '{trusted_role_name}' does not exist in this server.")
+
+        # Check if target user already has the role
+        if trusted_role in target_user.roles:
+             await ctx.send(embed=discord_common.embed_neutral(
+                f"{target_user.mention} already has the {trusted_role.mention} role."
+            ))
+             return
+
+        # Grant the Trusted role
+        try:
+            await target_user.add_roles(trusted_role, reason=f"Referred by {ctx.author.name} ({ctx.author.id})")
+            await ctx.send(
+                f"{trusted_role.mention} role granted to {target_user.mention} by {ctx.author.mention}."
+            )
+        except discord.Forbidden:
+            raise HandleCogError(f"No permissions to assign the '{trusted_role_name}' role.")
+        except discord.HTTPException as e:
+            raise HandleCogError(f"Failed to assign the role due to an unexpected error: {e}")
+        
+    @handle.command(brief='Grant Trusted role to old members without Purgatory role.')
+    @commands.has_role(constants.TLE_ADMIN)
+    async def grandfather(self, ctx):
+        """Grants the Trusted role to all members who joined before April 21, 2025,
+        and do not currently have the Purgatory role. April 20 was o3's first contest.
+        """
+        guild = ctx.guild
+        trusted_role_name = constants.TLE_TRUSTED
+        purgatory_role_name = constants.TLE_PURGATORY
+
+        trusted_role = discord.utils.get(guild.roles, name=trusted_role_name)
+        if trusted_role is None:
+            raise HandleCogError(f"The role '{trusted_role_name}' does not exist in this server.")
+
+        purgatory_role = discord.utils.get(guild.roles, name=purgatory_role_name)
+        # If Purgatory role doesn't exist, we assume no one has it.
+        if purgatory_role is None:
+            self.logger.warning(f"Role '{purgatory_role_name}' not found in guild {guild.name} ({guild.id}). Proceeding without Purgatory check.")
+
+        # The date when this code was added.
+        # April 20 was o3's first contest. 
+        cutoff_date = dt.datetime(2025, 4, 21, 0, 0, 0, tzinfo=dt.timezone.utc)
+
+        added_count = 0
+        skipped_purgatory = 0
+        skipped_already_trusted = 0
+        skipped_join_date = 0
+        processed_count = 0
+        http_failure_count = 0
+
+        status_message = await ctx.send(f"Processing members for grandfathering Trusted...")
+
+        # Create a list to avoid issues if members leave/join during processing
+        members_to_process = list(guild.members) 
+
+        for i, member in enumerate(members_to_process):
+            processed_count += 1
+            if i % 100 == 0 and i > 0:
+                await status_message.edit(content=f"Processing members... ({i}/{len(members_to_process)})")
+
+            if purgatory_role is not None and purgatory_role in member.roles:
+                # User has purgatory role so is not eligible, skip
+                skipped_purgatory += 1
+                continue
+
+            if member.joined_at is None:
+                # Cannot determine join date, skip
+                skipped_join_date += 1
+                continue
+
+            # Make member.joined_at timezone-aware (assuming it's UTC, which discord.py uses)
+            member_joined_at_aware = member.joined_at.replace(tzinfo=dt.timezone.utc)
+
+            if member_joined_at_aware >= cutoff_date:
+                # User joined too late to be eligible, skip
+                skipped_join_date += 1
+                continue
+
+            if trusted_role in member.roles:
+                # User already trusted, skip
+                skipped_already_trusted += 1
+                continue
+
+            # Eligible for Trusted role, try to grant it
+            try:
+                await member.add_roles(trusted_role, reason='Grandfather clause: Joined before 2025-04-21 and not in Purgatory')
+                added_count += 1
+                # Short delay to avoid hitting rate limits on large servers
+                await asyncio.sleep(0.1)
+            except discord.Forbidden:
+                await ctx.send(embed=discord_common.embed_alert(
+                    f"Missing permissions to assign the '{trusted_role_name}' role to {member.mention}. Stopping."
+                ))
+                return # Stop processing if permissions are missing
+            except discord.HTTPException as e:
+                self.logger.warning(f"Failed to assign {trusted_role_name} role to {member.display_name} ({member.id}): {e}")
+                http_failure_count += 1
+
+        summary_message = (
+            f"Grandfathering complete.\n"
+            f"- Processed: {processed_count} members\n"
+            f"- Granted Trusted: {added_count} members\n"
+            f"- Skipped (Joined after cutoff): {skipped_join_date}\n"
+            f"- Skipped (Already Trusted): {skipped_already_trusted}\n"
+            f"- HTTP failure granting role: {http_failure_count}\n"
+        )
+        if purgatory_role:
+            summary_message += f"- Skipped (Has Purgatory): {skipped_purgatory}\n"
+
+        await status_message.edit(content=summary_message)
+
 
 
 def setup(bot):
