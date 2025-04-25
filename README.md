@@ -66,7 +66,7 @@ On some systems, Poetry is not able to install TLE's dependencies correctly. If 
 TLE also depends on cairo and pango for graphics and text rendering, which you need to install. For Ubuntu, the relevant packages can be installed with:
 
 ```bash
-apt-get install libcairo2-dev libgirepository1.0-dev libpango1.0-dev pkg-config python3-dev gir1.2-pango-1.0
+apt-get install libcairo2-dev libgirepository1.0-dev libpango1.0-dev pkg-config python3-dev gir1.2-pango-1.0 libgirepository-2.0-dev
 ```
 
 Additionally TLE uses pillow for graphics, which requires the following packages:

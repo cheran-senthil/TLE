@@ -25,6 +25,8 @@ ALL_DIRS = (attrib_value for attrib_name, attrib_value in list(globals().items()
 
 TLE_ADMIN = os.environ.get('TLE_ADMIN', 'Admin')
 TLE_MODERATOR = os.environ.get('TLE_MODERATOR', 'Moderator')
+TLE_TRUSTED = os.environ.get('TLE_TRUSTED', 'Trusted')
+TLE_PURGATORY = os.environ.get('TLE_PURGATORY', 'Purgatory')
 
 _DEFAULT_COLOR = 0xffaa10
 _DEFAULT_STAR = '\N{WHITE MEDIUM STAR}'
