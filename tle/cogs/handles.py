@@ -1035,7 +1035,7 @@ class Handles(commands.Cog):
         # Check if target user already has the role
         if trusted_role in target_user.roles:
              await ctx.send(embed=discord_common.embed_neutral(
-                f"{target_user.mention} already has the {trusted_role.mention} role."
+                f"{target_user.mention} already has the Trusted role."
             ))
              return
 
@@ -1043,7 +1043,7 @@ class Handles(commands.Cog):
         try:
             await target_user.add_roles(trusted_role, reason=f"Referred by {ctx.author.name} ({ctx.author.id})")
             await ctx.send(
-                f"{trusted_role.mention} role granted to {target_user.mention} by {ctx.author.mention}."
+                f"Trusted role granted to {target_user.mention} by {ctx.author.mention}."
             )
         except discord.Forbidden:
             raise HandleCogError(f"No permissions to assign the '{trusted_role_name}' role.")
