@@ -728,7 +728,7 @@ class Graphs(commands.Cog):
         colors = []
         low, high = 0, binsize * bins
         for rank in cf.RATED_RANKS:
-            for r in range(max(rank.low, low), min(rank.high, high), binsize):
+            for _r in range(max(rank.low, low), min(rank.high, high), binsize):
                 colors.append('#' + '%06x' % rank.color_embed)
         assert len(colors) == bins, f'Expected {bins} colors, got {len(colors)}'
 
@@ -746,22 +746,22 @@ class Graphs(commands.Cog):
         x = [k * binsize for k in range(bins)]
         label = [f'{r} ({c})' for r, c in zip(x, cent, strict=False)]
 
-        l, r = 0, bins - 1
-        while not height[l]:
-            l += 1
-        while not height[r]:
-            r -= 1
-        x = x[l : r + 1]
-        cent = cent[l : r + 1]
-        label = label[l : r + 1]
-        colors = colors[l : r + 1]
-        height = height[l : r + 1]
+        left, right = 0, bins - 1
+        while not height[left]:
+            left += 1
+        while not height[right]:
+            right -= 1
+        x = x[left : right + 1]
+        cent = cent[left : right + 1]
+        label = label[left : right + 1]
+        colors = colors[left : right + 1]
+        height = height[left : right + 1]
 
         plt.clf()
         fig = plt.figure(figsize=(15, 5))
 
         plt.xticks(rotation=45)
-        plt.xlim(l * binsize - binsize // 2, r * binsize + binsize // 2)
+        plt.xlim(left * binsize - binsize // 2, right * binsize + binsize // 2)
         plt.bar(
             x,
             height,
@@ -886,10 +886,10 @@ class Graphs(commands.Cog):
         # Color intervals by rank
         for interval, color in zip(intervals, colors, strict=False):
             alpha = '99'
-            l, r = interval
+            left, right = interval
             col = color + alpha
             rect = patches.Rectangle(
-                (l, -50), r - l, 200, edgecolor='none', facecolor=col
+                (left, -50), right - left, 200, edgecolor='none', facecolor=col
             )
             ax.add_patch(rect)
 
@@ -943,12 +943,12 @@ class Graphs(commands.Cog):
         inf = 10000
 
         def horz_line(y):
-            l = mlines.Line2D([-inf, inf], [y, y], color=linecolor)
-            ax.add_line(l)
+            line = mlines.Line2D([-inf, inf], [y, y], color=linecolor)
+            ax.add_line(line)
 
         def vert_line(x):
-            l = mlines.Line2D([x, x], [-inf, inf], color=linecolor)
-            ax.add_line(l)
+            line = mlines.Line2D([x, x], [-inf, inf], color=linecolor)
+            ax.add_line(line)
 
         for y in ax.get_yticks():
             horz_line(y)

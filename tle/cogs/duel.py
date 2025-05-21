@@ -551,18 +551,18 @@ class Dueling(commands.Cog):
 
         member2 = member2 or ctx.author
         data = cf_common.user_db.get_pair_duels(member1.id, member2.id)
-        w, l, d = 0, 0, 0
+        wins, losses, draws = 0, 0, 0
         for _, _, _, _, challenger, challengee, winner in data:
             if winner != Winner.DRAW:
                 winnerid = challenger if winner == Winner.CHALLENGER else challengee
                 if winnerid == member1.id:
-                    w += 1
+                    wins += 1
                 else:
-                    l += 1
+                    losses += 1
             else:
-                d += 1
+                draws += 1
         message = discord.utils.escape_mentions(
-            f'`{member1.display_name}` ({w}/{d}/{l}) `{member2.display_name}`'
+            f'`{member1.display_name}` ({wins}/{draws}/{losses}) `{member2.display_name}`'
         )
         pages = self._paginate_duels(data, message, ctx.guild.id, False)
         paginator.paginate(
@@ -712,7 +712,7 @@ class Dueling(commands.Cog):
         rating = dict()
         plot_data = defaultdict(list)
         time_tick = 0
-        for challenger, challengee, winner, finish_time in duels:
+        for challenger, challengee, winner, _finish_time in duels:
             challenger_r = rating.get(challenger, 1500)
             challengee_r = rating.get(challengee, 1500)
             if winner == Winner.CHALLENGER:
@@ -739,7 +739,7 @@ class Dueling(commands.Cog):
         min_rating = 1350
         max_rating = 1550
         for rating_data in plot_data.values():
-            for tick, rating in rating_data:
+            for _tick, rating in rating_data:
                 min_rating = min(min_rating, rating)
                 max_rating = max(max_rating, rating)
 
