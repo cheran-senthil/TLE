@@ -1,15 +1,13 @@
-# ---- core async / discord ----
-discord.py               # wrapper for Discord API
-aiohttp                  # HTTP client used by discord.py
-aiocache                 # async cache used by TLE
+# Discord bot core
+discord.py==1.7.3          # codebase was written for 1.x
+aiohttp<3.8                # 1.7.3 requires <3.8
+aiocache
 
-# ---- data / plotting ----
+# Data & plotting
 numpy
 pandas
 matplotlib
 seaborn
 
-# ---- image / font handling ----
-pillow                   # starboard thumbnails etc.
-pycairo                  # vector drawing
-pygobject                # Pango text layout, needed by graphs
+# Images
+pillow
