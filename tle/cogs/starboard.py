@@ -29,9 +29,7 @@ class Starboard(commands.Cog):
             return
         channel_id, threshold, color = entry
         try:
-            await self.check_and_add_to_starboard(
-                channel_id, threshold, color, emoji, payload
-            )
+            await self.check_and_add_to_starboard(channel_id, threshold, color, emoji, payload)
         except StarboardCogError as e:
             self.logger.info(f'Failed to starboard: {e!r}')
 
@@ -39,13 +37,9 @@ class Starboard(commands.Cog):
     async def on_raw_message_delete(self, payload):
         if payload.guild_id is None:
             return
-        removed = cf_common.user_db.remove_starboard_message(
-            starboard_msg_id=payload.message_id
-        )
+        removed = cf_common.user_db.remove_starboard_message(starboard_msg_id=payload.message_id)
         if removed:
-            self.logger.info(
-                f'Removed starboard record for deleted message {payload.message_id}'
-            )
+            self.logger.info(f'Removed starboard record for deleted message {payload.message_id}')
 
     @staticmethod
     def prepare_embed(message, color):
@@ -75,9 +69,7 @@ class Starboard(commands.Cog):
         embed.set_footer(text=str(message.author), icon_url=message.author.avatar_url)
         return embed
 
-    async def check_and_add_to_starboard(
-        self, channel_id, threshold, color, emoji, payload
-    ):
+    async def check_and_add_to_starboard(self, channel_id, threshold, color, emoji, payload):
         guild = self.bot.get_guild(payload.guild_id)
         starboard_channel = guild.get_channel(channel_id)
         if starboard_channel is None:
@@ -85,9 +77,7 @@ class Starboard(commands.Cog):
 
         channel = self.bot.get_channel(payload.channel_id)
         message = await channel.fetch_message(payload.message_id)
-        if message.type != discord.MessageType.default or (
-            not message.content and not message.attachments
-        ):
+        if message.type != discord.MessageType.default or (not message.content and not message.attachments):
             raise StarboardCogError('Cannot starboard this message')
 
         count = sum(r.count for r in message.reactions if str(r) == emoji)
@@ -100,9 +90,7 @@ class Starboard(commands.Cog):
                 return
             embed = self.prepare_embed(message, color or constants._DEFAULT_COLOR)
             star_msg = await starboard_channel.send(embed=embed)
-            cf_common.user_db.add_starboard_message(
-                message.id, star_msg.id, payload.guild_id, emoji
-            )
+            cf_common.user_db.add_starboard_message(message.id, star_msg.id, payload.guild_id, emoji)
             self.logger.info(f'Added message {message.id} to starboard under {emoji}')
 
     @commands.group(brief='Starboard commands', invoke_without_command=True)
@@ -116,11 +104,7 @@ class Starboard(commands.Cog):
         """Register an emoji with a reaction threshold and optional hex color."""
         clr = int(color, 16) if color else constants._DEFAULT_COLOR
         cf_common.user_db.add_starboard_emoji(ctx.guild.id, emoji, threshold, clr)
-        await ctx.send(
-            embed=discord_common.embed_success(
-                f'Added {emoji}: threshold={threshold}, color={hex(clr)}'
-            )
-        )
+        await ctx.send(embed=discord_common.embed_success(f'Added {emoji}: threshold={threshold}, color={hex(clr)}'))
 
     @starboard.command(brief='Delete an emoji from starboard list')
     @commands.has_role(constants.TLE_ADMIN)
@@ -135,11 +119,7 @@ class Starboard(commands.Cog):
     async def edit_threshold(self, ctx, emoji: str, threshold: int):
         """Update reaction threshold for an emoji."""
         cf_common.user_db.update_starboard_threshold(ctx.guild.id, emoji, threshold)
-        await ctx.send(
-            embed=discord_common.embed_success(
-                f'Updated {emoji} threshold to {threshold}'
-            )
-        )
+        await ctx.send(embed=discord_common.embed_success(f'Updated {emoji} threshold to {threshold}'))
 
     @starboard.command(brief='Edit embed color for an emoji')
     @commands.has_role(constants.TLE_ADMIN)
@@ -147,9 +127,7 @@ class Starboard(commands.Cog):
         """Update embed color (hex) for an emoji."""
         clr = int(color, 16)
         cf_common.user_db.update_starboard_color(ctx.guild.id, emoji, clr)
-        await ctx.send(
-            embed=discord_common.embed_success(f'Updated {emoji} color to {hex(clr)}')
-        )
+        await ctx.send(embed=discord_common.embed_success(f'Updated {emoji} color to {hex(clr)}'))
 
     @starboard.command(brief='Set starboard channel (and optional color) for an emoji')
     @commands.has_role(constants.TLE_ADMIN)
@@ -164,17 +142,13 @@ class Starboard(commands.Cog):
     async def clear(self, ctx, emoji: str):
         """Remove the starboard channel (and color) setting for an emoji."""
         cf_common.user_db.clear_starboard_channel(ctx.guild.id, emoji)
-        await ctx.send(
-            embed=discord_common.embed_success(f'Cleared channel for {emoji}')
-        )
+        await ctx.send(embed=discord_common.embed_success(f'Cleared channel for {emoji}'))
 
     @starboard.command(brief='Remove a message from starboard')
     @commands.has_role(constants.TLE_ADMIN)
     async def remove(self, ctx, emoji: str, original_message_id: int):
         """Remove a particular message from the starboard database."""
-        rc = cf_common.user_db.remove_starboard_message(
-            original_msg_id=original_message_id, emoji=emoji
-        )
+        rc = cf_common.user_db.remove_starboard_message(original_msg_id=original_message_id, emoji=emoji)
         if rc:
             await ctx.send(embed=discord_common.embed_success('Successfully removed'))
         else:

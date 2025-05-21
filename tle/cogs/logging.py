@@ -36,19 +36,13 @@ class Logging(commands.Cog, logging.Handler):
             if channel is None:
                 # Channel no longer exists.
                 root_logger.removeHandler(self)
-                self.logger.warning(
-                    'Logging channel not available, disabling Discord log handler.'
-                )
+                self.logger.warning('Logging channel not available, disabling Discord log handler.')
                 break
             try:
                 msg = self.format(record)
                 # Not all errors will have message_contents or jump urls.
                 try:
-                    await channel.send(
-                        'Original Command: {}\nJump Url: {}'.format(
-                            record.message_content, record.jump_url
-                        )
-                    )
+                    await channel.send('Original Command: {}\nJump Url: {}'.format(record.message_content, record.jump_url))
                 except AttributeError:
                     pass
                 discord_msg_char_limit = 2000
@@ -74,9 +68,7 @@ class Logging(commands.Cog, logging.Handler):
 def setup(bot):
     logging_cog_channel_id = os.environ.get('LOGGING_COG_CHANNEL_ID')
     if logging_cog_channel_id is None:
-        logger.info(
-            'Skipping installation of logging cog as logging channel is not provided.'
-        )
+        logger.info('Skipping installation of logging cog as logging channel is not provided.')
         return
 
     logging_cog = Logging(bot, int(logging_cog_channel_id))

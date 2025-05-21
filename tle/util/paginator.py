@@ -50,9 +50,7 @@ class Paginated:
 
     async def paginate(self, bot, channel, wait_time, delete_after: float = None):
         content, embed = self.pages[0]
-        self.message = await channel.send(
-            content, embed=embed, delete_after=delete_after
-        )
+        self.message = await channel.send(content, embed=embed, delete_after=delete_after)
 
         if len(self.pages) == 1:
             # No need to paginate.
@@ -63,17 +61,11 @@ class Paginated:
             await self.message.add_reaction(react)
 
         def check(reaction, user):
-            return (
-                bot.user != user
-                and reaction.message.id == self.message.id
-                and reaction.emoji in self.reaction_map
-            )
+            return bot.user != user and reaction.message.id == self.message.id and reaction.emoji in self.reaction_map
 
         while True:
             try:
-                reaction, user = await bot.wait_for(
-                    'reaction_add', timeout=wait_time, check=check
-                )
+                reaction, user = await bot.wait_for('reaction_add', timeout=wait_time, check=check)
                 await reaction.remove(user)
                 await self.reaction_map[reaction.emoji]()
             except asyncio.TimeoutError:

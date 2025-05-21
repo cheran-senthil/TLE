@@ -25,9 +25,7 @@ class CacheControl(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.group(
-        brief='Commands to force reload of cache', invoke_without_command=True
-    )
+    @commands.group(brief='Commands to force reload of cache', invoke_without_command=True)
     @commands.has_role(constants.TLE_ADMIN)
     async def cache(self, ctx):
         await ctx.send_help('cache')
@@ -63,9 +61,7 @@ class CacheControl(commands.Cog):
             await ctx.send('This may take a while')
             count = await cf_common.cache2.rating_changes_cache.fetch_missing_contests()
         else:
-            count = await cf_common.cache2.rating_changes_cache.fetch_contest(
-                contest_id
-            )
+            count = await cf_common.cache2.rating_changes_cache.fetch_contest(contest_id)
         await ctx.send(f'Done, fetched {count} changes and recached handle ratings')
 
     @cache.command(usage='contest_id|all')
@@ -83,9 +79,7 @@ class CacheControl(commands.Cog):
                 contest_id = int(contest_id)
             except ValueError:
                 return
-            count = await cf_common.cache2.problemset_cache.update_for_contest(
-                contest_id
-            )
+            count = await cf_common.cache2.problemset_cache.update_for_contest(contest_id)
         await ctx.send(f'Done, fetched {count} problems')
 
 

@@ -18,9 +18,7 @@ logger = logging.getLogger(__name__)
 def _unzip(font, archive):
     with ZipFile(archive) as zipfile:
         if font not in zipfile.namelist():
-            raise KeyError(
-                f'Expected font file {font} not present in downloaded zip archive.'
-            )
+            raise KeyError(f'Expected font file {font} not present in downloaded zip archive.')
         zipfile.extract(font, constants.FONTS_DIR)
 
 

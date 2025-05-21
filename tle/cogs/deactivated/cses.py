@@ -23,9 +23,7 @@ class CSES(commands.Cog):
     async def on_ready(self):
         self._cache_data.start()
 
-    @tasks.task_spec(
-        name='ProblemsetCacheUpdate', waiter=tasks.Waiter.fixed_delay(30 * 60)
-    )
+    @tasks.task_spec(name='ProblemsetCacheUpdate', waiter=tasks.Waiter.fixed_delay(30 * 60))
     async def _cache_data(self, _):
         await self._reload()
 
@@ -108,30 +106,12 @@ class CSES(commands.Cog):
     async def cses(self, ctx, *handles: str):
         """Shows compiled CSES leaderboard. If handles are given, leaderboard will contain only those indicated handles, otherwise leaderboard will contain overall top ten."""
         if not handles:
-            await ctx.send(
-                '```\n'
-                'Fastest\n'
-                + self.fastest
-                + '\n\n'
-                + 'Shortest\n'
-                + self.shortest
-                + '\n'
-                + '```'
-            )
+            await ctx.send('```\nFastest\n' + self.fastest + '\n\n' + 'Shortest\n' + self.shortest + '\n' + '```')
         elif len(handles) > 10:
             await ctx.send('```Please indicate at most 10 users```')
         else:
             handles = set(handles)
-            await ctx.send(
-                '```\n'
-                'Fastest\n'
-                + self.fastest_individual(handles)
-                + '\n\n'
-                + 'Shortest\n'
-                + self.shortest_individual(handles)
-                + '\n'
-                + '```'
-            )
+            await ctx.send('```\nFastest\n' + self.fastest_individual(handles) + '\n\n' + 'Shortest\n' + self.shortest_individual(handles) + '\n' + '```')
 
     @commands.command(brief='Force update the CSES leaderboard')
     async def _updatecses(self, ctx):

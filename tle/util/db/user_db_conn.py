@@ -74,19 +74,8 @@ class UserDbConn:
         self.create_tables()
 
     def create_tables(self):
-        self.conn.execute(
-            'CREATE TABLE IF NOT EXISTS user_handle ('
-            'user_id     TEXT,'
-            'guild_id    TEXT,'
-            'handle      TEXT,'
-            'active      INTEGER,'
-            'PRIMARY KEY (user_id, guild_id)'
-            ')'
-        )
-        self.conn.execute(
-            'CREATE UNIQUE INDEX IF NOT EXISTS ix_user_handle_guild_handle '
-            'ON user_handle (guild_id, handle)'
-        )
+        self.conn.execute('CREATE TABLE IF NOT EXISTS user_handle (user_id     TEXT,guild_id    TEXT,handle      TEXT,active      INTEGER,PRIMARY KEY (user_id, guild_id))')
+        self.conn.execute('CREATE UNIQUE INDEX IF NOT EXISTS ix_user_handle_guild_handle ON user_handle (guild_id, handle)')
         self.conn.execute(
             'CREATE TABLE IF NOT EXISTS cf_user_cache ('
             'handle              TEXT PRIMARY KEY,'
@@ -159,17 +148,8 @@ class UserDbConn:
                 before TEXT
             )
         """)
-        self.conn.execute(
-            'CREATE TABLE IF NOT EXISTS rankup ('
-            'guild_id     TEXT PRIMARY KEY,'
-            'channel_id   TEXT'
-            ')'
-        )
-        self.conn.execute(
-            'CREATE TABLE IF NOT EXISTS auto_role_update ('
-            'guild_id     TEXT PRIMARY KEY'
-            ')'
-        )
+        self.conn.execute('CREATE TABLE IF NOT EXISTS rankup (guild_id     TEXT PRIMARY KEY,channel_id   TEXT)')
+        self.conn.execute('CREATE TABLE IF NOT EXISTS auto_role_update (guild_id     TEXT PRIMARY KEY)')
 
         # Rated VCs stuff:
         self.conn.execute("""
@@ -235,41 +215,24 @@ class UserDbConn:
          """)
 
         # === one‑time migration from old tables ===
-        old_exists = bool(
-            self.conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='starboard'"
-            ).fetchone()
-        )
-        migrated = (
-            self.conn.execute('SELECT COUNT(*) AS cnt FROM starboard_config_v1')
-            .fetchone()
-            .cnt
-            > 0
-        )
+        old_exists = bool(self.conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='starboard'").fetchone())
+        migrated = self.conn.execute('SELECT COUNT(*) AS cnt FROM starboard_config_v1').fetchone().cnt > 0
 
         if old_exists and not migrated:
-            for guild_id, channel_id in self.conn.execute(
-                'SELECT guild_id, channel_id FROM starboard'
-            ):
+            for guild_id, channel_id in self.conn.execute('SELECT guild_id, channel_id FROM starboard'):
                 self.conn.execute(
-                    'INSERT OR IGNORE INTO starboard_config_v1 '
-                    '(guild_id, emoji, channel_id) VALUES (?,?,?)',
+                    'INSERT OR IGNORE INTO starboard_config_v1 (guild_id, emoji, channel_id) VALUES (?,?,?)',
                     (guild_id, constants._DEFAULT_STAR, channel_id),
                 )
                 self.conn.execute(
-                    'INSERT OR IGNORE INTO starboard_emoji_v1 '
-                    '(guild_id, emoji, threshold, color) VALUES (?,?,?,?)',
+                    'INSERT OR IGNORE INTO starboard_emoji_v1 (guild_id, emoji, threshold, color) VALUES (?,?,?,?)',
                     (guild_id, constants._DEFAULT_STAR, 5, constants._DEFAULT_COLOR),
                 )
 
             # lift old ★ messages
-            for orig, star, guild_id in self.conn.execute(
-                'SELECT original_msg_id, starboard_msg_id, guild_id FROM starboard_message'
-            ):
+            for orig, star, guild_id in self.conn.execute('SELECT original_msg_id, starboard_msg_id, guild_id FROM starboard_message'):
                 self.conn.execute(
-                    'INSERT OR IGNORE INTO starboard_message_v1 '
-                    '(original_msg_id, starboard_msg_id, guild_id, emoji) '
-                    'VALUES (?,?,?,?)',
+                    'INSERT OR IGNORE INTO starboard_message_v1 (original_msg_id, starboard_msg_id, guild_id, emoji) VALUES (?,?,?,?)',
                     (orig, star, guild_id, constants._DEFAULT_STAR),
                 )
             self.conn.commit()
@@ -322,9 +285,7 @@ class UserDbConn:
             WHERE user_id = ? AND active_challenge_id IS NULL
         """
         cur = self.conn.cursor()
-        cur.execute(
-            query1, (user_id, issue_time, prob.name, prob.contestId, prob.index, delta)
-        )
+        cur.execute(query1, (user_id, issue_time, prob.name, prob.contestId, prob.index, delta))
         last_id, rc = cur.lastrowid, cur.rowcount
         if rc != 1:
             self.conn.rollback()
@@ -368,11 +329,7 @@ class UserDbConn:
         return self.conn.execute(query, (user_id,)).fetchall()
 
     def get_noguds(self, user_id):
-        query = (
-            'SELECT problem_name '
-            'FROM challenge '
-            f'WHERE user_id = ? AND status = {Gitgud.NOGUD}'
-        )
+        query = f'SELECT problem_name FROM challenge WHERE user_id = ? AND status = {Gitgud.NOGUD}'
         return {name for (name,) in self.conn.execute(query, (user_id,)).fetchall()}
 
     def gitlog(self, user_id):
@@ -448,11 +405,7 @@ class UserDbConn:
         if existing and int(existing[0]) != user_id:
             raise UniqueConstraintFailed
 
-        query = (
-            'INSERT OR REPLACE INTO user_handle '
-            '(user_id, guild_id, handle, active) '
-            'VALUES (?, ?, ?, 1)'
-        )
+        query = 'INSERT OR REPLACE INTO user_handle (user_id, guild_id, handle, active) VALUES (?, ?, ?, 1)'
         with self.conn:
             return self.conn.execute(query, (user_id, guild_id, handle)).rowcount
 
@@ -467,25 +420,17 @@ class UserDbConn:
         return res[0] if res else None
 
     def get_user_id(self, handle, guild_id):
-        query = (
-            'SELECT user_id '
-            'FROM user_handle '
-            'WHERE UPPER(handle) = UPPER(?) AND guild_id = ?'
-        )
+        query = 'SELECT user_id FROM user_handle WHERE UPPER(handle) = UPPER(?) AND guild_id = ?'
         res = self.conn.execute(query, (handle, guild_id)).fetchone()
         return int(res[0]) if res else None
 
     def remove_handle(self, handle, guild_id):
-        query = (
-            'DELETE FROM user_handle WHERE UPPER(handle) = UPPER(?) AND guild_id = ?'
-        )
+        query = 'DELETE FROM user_handle WHERE UPPER(handle) = UPPER(?) AND guild_id = ?'
         with self.conn:
             return self.conn.execute(query, (handle, guild_id)).rowcount
 
     def get_handles_for_guild(self, guild_id):
-        query = (
-            'SELECT user_id, handle FROM user_handle WHERE guild_id = ? AND active = 1'
-        )
+        query = 'SELECT user_id, handle FROM user_handle WHERE guild_id = ? AND active = 1'
         res = self.conn.execute(query, (guild_id,)).fetchall()
         return [(int(user_id), handle) for user_id, handle in res]
 
@@ -584,28 +529,22 @@ class UserDbConn:
 
     def add_starboard_message(self, original_msg_id, starboard_msg_id, guild_id, emoji):
         self.conn.execute(
-            'INSERT INTO starboard_message_v1 '
-            '(original_msg_id, starboard_msg_id, guild_id, emoji) '
-            'VALUES (?,?,?,?)',
+            'INSERT INTO starboard_message_v1 (original_msg_id, starboard_msg_id, guild_id, emoji) VALUES (?,?,?,?)',
             (original_msg_id, starboard_msg_id, guild_id, emoji),
         )
         self.conn.commit()
 
     def check_exists_starboard_message(self, original_msg_id, emoji):
         row = self.conn.execute(
-            'SELECT 1 FROM starboard_message_v1 '
-            'WHERE original_msg_id = ? AND emoji = ?',
+            'SELECT 1 FROM starboard_message_v1 WHERE original_msg_id = ? AND emoji = ?',
             (original_msg_id, emoji),
         ).fetchone()
         return bool(row)
 
-    def remove_starboard_message(
-        self, *, original_msg_id=None, emoji=None, starboard_msg_id=None
-    ):
+    def remove_starboard_message(self, *, original_msg_id=None, emoji=None, starboard_msg_id=None):
         if original_msg_id is not None and emoji is not None:
             rc = self.conn.execute(
-                'DELETE FROM starboard_message_v1 '
-                'WHERE original_msg_id = ? AND emoji = ?',
+                'DELETE FROM starboard_message_v1 WHERE original_msg_id = ? AND emoji = ?',
                 (original_msg_id, emoji),
             ).rowcount
         elif starboard_msg_id is not None:
@@ -912,16 +851,10 @@ class UserDbConn:
         user_ids: [str],
     ):
         """Creates a rated vc and returns its id."""
-        query = (
-            'INSERT INTO rated_vcs '
-            '(contest_id, start_time, finish_time, status, guild_id) '
-            'VALUES ( ?, ?, ?, ?, ?)'
-        )
+        query = 'INSERT INTO rated_vcs (contest_id, start_time, finish_time, status, guild_id) VALUES ( ?, ?, ?, ?, ?)'
         id = None
         with self.conn:
-            id = self.conn.execute(
-                query, (contest_id, start_time, finish_time, RatedVC.ONGOING, guild_id)
-            ).lastrowid
+            id = self.conn.execute(query, (contest_id, start_time, finish_time, RatedVC.ONGOING, guild_id)).lastrowid
             for user_id in user_ids:
                 query = 'INSERT INTO rated_vc_users (vc_id, user_id) VALUES (? , ?)'
                 self.conn.execute(query, (id, user_id))
@@ -934,9 +867,7 @@ class UserDbConn:
 
     def get_ongoing_rated_vc_ids(self):
         query = 'SELECT id FROM rated_vcs WHERE status = ? '
-        vcs = self._fetchall(
-            query, params=(RatedVC.ONGOING,), row_factory=namedtuple_factory
-        )
+        vcs = self._fetchall(query, params=(RatedVC.ONGOING,), row_factory=namedtuple_factory)
         vc_ids = [vc.id for vc in vcs]
         return vc_ids
 
@@ -953,24 +884,14 @@ class UserDbConn:
             self.conn.execute(query, (RatedVC.FINISHED, vc_id))
 
     def update_vc_rating(self, vc_id: int, user_id: str, rating: int):
-        query = (
-            'INSERT OR REPLACE INTO rated_vc_users '
-            '(vc_id, user_id, rating) '
-            'VALUES (?, ?, ?) '
-        )
+        query = 'INSERT OR REPLACE INTO rated_vc_users (vc_id, user_id, rating) VALUES (?, ?, ?) '
 
         with self.conn:
             self.conn.execute(query, (vc_id, user_id, rating))
 
     def get_vc_rating(self, user_id: str, default_if_not_exist: bool = True):
-        query = (
-            'SELECT MAX(vc_id) AS latest_vc_id, rating '
-            'FROM rated_vc_users '
-            'WHERE user_id = ? AND rating IS NOT NULL'
-        )
-        rating = self._fetchone(
-            query, params=(user_id,), row_factory=namedtuple_factory
-        ).rating
+        query = 'SELECT MAX(vc_id) AS latest_vc_id, rating FROM rated_vc_users WHERE user_id = ? AND rating IS NOT NULL'
+        rating = self._fetchone(query, params=(user_id,), row_factory=namedtuple_factory).rating
         if rating is None:
             if default_if_not_exist:
                 return _DEFAULT_VC_RATING
@@ -979,21 +900,12 @@ class UserDbConn:
 
     def get_vc_rating_history(self, user_id: str):
         """Return [vc_id, rating]."""
-        query = (
-            'SELECT vc_id, rating '
-            'FROM rated_vc_users '
-            'WHERE user_id = ? AND rating IS NOT NULL'
-        )
-        ratings = self._fetchall(
-            query, params=(user_id,), row_factory=namedtuple_factory
-        )
+        query = 'SELECT vc_id, rating FROM rated_vc_users WHERE user_id = ? AND rating IS NOT NULL'
+        ratings = self._fetchall(query, params=(user_id,), row_factory=namedtuple_factory)
         return ratings
 
     def set_rated_vc_channel(self, guild_id, channel_id):
-        query = (
-            'INSERT OR REPLACE INTO rated_vc_settings '
-            ' (guild_id, channel_id) VALUES (?, ?)'
-        )
+        query = 'INSERT OR REPLACE INTO rated_vc_settings  (guild_id, channel_id) VALUES (?, ?)'
         with self.conn:
             self.conn.execute(query, (guild_id, channel_id))
 
@@ -1004,9 +916,7 @@ class UserDbConn:
 
     def remove_last_ratedvc_participation(self, user_id: str):
         query = 'SELECT MAX(vc_id) AS vc_id FROM rated_vc_users WHERE user_id = ? '
-        vc_id = self._fetchone(
-            query, params=(user_id,), row_factory=namedtuple_factory
-        ).vc_id
+        vc_id = self._fetchone(query, params=(user_id,), row_factory=namedtuple_factory).vc_id
         query = 'DELETE FROM rated_vc_users WHERE user_id = ? AND vc_id = ? '
         with self.conn:
             return self.conn.execute(query, (user_id, vc_id)).rowcount
