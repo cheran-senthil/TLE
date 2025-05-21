@@ -102,7 +102,9 @@ async def _send_reminder_at(channel, role, contests, before_secs, send_time):
 
     labels = 'day hr min sec'.split()
     before_str = ' '.join(
-        make(value, label) for label, value in zip(labels, values, strict=False) if value > 0
+        make(value, label)
+        for label, value in zip(labels, values, strict=True)
+        if value > 0
     )
     desc = f'About to start in {before_str}'
     embed = discord_common.cf_color_embed(description=desc)
@@ -797,7 +799,8 @@ class Contests(commands.Cog):
             for member_id in member_ids
         ]
         handle_to_member_id = {
-            handle: member_id for handle, member_id in zip(handles, member_ids, strict=False)
+            handle: member_id
+            for handle, member_id in zip(handles, member_ids, strict=True)
         }
         now = time.time()
         ranklist = await cf_common.cache2.ranklist_cache.generate_vc_ranklist(

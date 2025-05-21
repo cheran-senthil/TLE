@@ -706,7 +706,7 @@ async def _resolve_handles(handles: Iterable[str]) -> dict[str, User]:
             try:
                 cf_users = await user.info(handles=handle_chunk)
                 # No failure, all handles resolve to users.
-                for handle, cf_user in zip(handle_chunk, cf_users, strict=False):
+                for handle, cf_user in zip(handle_chunk, cf_users, strict=True):
                     if cf_user is not None:
                         resolved_handles[handle] = cf_user
                 break

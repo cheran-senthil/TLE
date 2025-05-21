@@ -813,8 +813,12 @@ class Codeforces(commands.Cog):
                 ctx, self.converter, parsed_handles, mincnt=1, maxcnt=1000
             )
             cf_handles = normalize(cf_handles)
-            cf_to_original = {a: b for a, b in zip(cf_handles, parsed_handles, strict=False)}
-            original_to_cf = {a: b for a, b in zip(parsed_handles, cf_handles, strict=False)}
+            cf_to_original = {
+                a: b for a, b in zip(cf_handles, parsed_handles, strict=True)
+            }
+            original_to_cf = {
+                a: b for a, b in zip(parsed_handles, cf_handles, strict=True)
+            }
             users = await cf.user.info(handles=cf_handles)
             user_strs = []
             for a, b in handle_counts.items():

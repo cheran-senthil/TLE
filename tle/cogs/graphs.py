@@ -188,7 +188,7 @@ def _plot_extreme(
 
     plt.clf()
     if regular:
-        time_scatter, plot_min, plot_max = zip(*regular, strict=False)
+        time_scatter, plot_min, plot_max = zip(*regular, strict=True)
         if unsolved:
             scatter_outline(
                 time_scatter,
@@ -217,11 +217,19 @@ def _plot_extreme(
 
     if fullsolves:
         scatter_outline(
-            *zip(*fullsolves, strict=False), zorder=15, s=42, marker='*', color=solvedcolor
+            *zip(*fullsolves, strict=True),
+            zorder=15,
+            s=42,
+            marker='*',
+            color=solvedcolor,
         )
     if nosolves:
         scatter_outline(
-            *zip(*nosolves, strict=False), zorder=15, s=32, marker='X', color=unsolvedcolor
+            *zip(*nosolves, strict=True),
+            zorder=15,
+            s=32,
+            marker='X',
+            color=unsolvedcolor,
         )
 
     if not regular and not fullsolves and not nosolves:
@@ -595,7 +603,8 @@ class Graphs(commands.Cog):
 
             nice_names = nice_sub_type(filt.types)
             labels = [
-                name.format(len(times)) for name, times in zip(nice_names, all_times, strict=False)
+                name.format(len(times))
+                for name, times in zip(nice_names, all_times, strict=True)
             ]
 
             dlo = min(itertools.chain.from_iterable(all_times)).date()

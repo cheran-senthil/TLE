@@ -947,7 +947,7 @@ class Handles(commands.Cog):
                 f'Role{plural} for rank{plural} {roles_str} not present in the server'
             )
 
-        for member, user in zip(members, users, strict=False):
+        for member, user in zip(members, users, strict=True):
             role_to_assign = rank2role[user.rank.title]
             await self.update_member_rank_role(
                 member, role_to_assign, reason='Codeforces rank update'
