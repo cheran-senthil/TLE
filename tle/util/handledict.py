@@ -9,7 +9,7 @@ class HandleDict:
 
     @staticmethod
     def _getlower(key):
-        return key.lower() if type(key) == str else key
+        return key.lower() if isinstance(key, str) else key
 
     def __setitem__(self, key, value):
         # Use the lowercased key for lookups, but store the actual

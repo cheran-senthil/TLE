@@ -465,7 +465,7 @@ class Contests(commands.Cog):
                 self._get_cf_or_ioi_standings_table, mode='ioi'
             )
         else:
-            assert False, f'Unexpected contest type {contest.type}'
+            raise AssertionError(f'Unexpected contest type {contest.type}')
 
         num_pages = 1
         for handle_standings_chunk, delta_chunk in zip(

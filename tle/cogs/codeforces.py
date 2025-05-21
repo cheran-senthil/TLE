@@ -758,7 +758,7 @@ class Codeforces(commands.Cog):
 
     @staticmethod
     def composeRatings(left: float, right: float, ratings: list[float]) -> int:
-        for tt in range(20):
+        for _tt in range(20):
             r = (left + right) / 2.0
 
             rWinsProbability = 1.0
