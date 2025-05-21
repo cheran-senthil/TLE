@@ -1,0 +1,13 @@
+services:
+  tle:
+    build: .
+    image: tle-bot:latest
+
+    env_file: .env
+
+    volumes:
+      - ./data:/bot/data
+
+    restart: unless-stopped
+    environment:
+      - TZ=UTC

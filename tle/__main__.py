@@ -1,20 +1,20 @@
 import argparse
 import asyncio
-import distutils.util
 import logging
-import os
-import discord
 from logging.handlers import TimedRotatingFileHandler
+import os
 from os import environ
 from pathlib import Path
 
-import seaborn as sns
+import discord
 from discord.ext import commands
 from matplotlib import pyplot as plt
+import seaborn as sns
 
 from tle import constants
 from tle.util import codeforces_common as cf_common
-from tle.util import discord_common, font_downloader
+from tle.util import discord_common
+from tle.util import font_downloader
 
 
 def setup():
@@ -23,11 +23,18 @@ def setup():
         os.makedirs(path, exist_ok=True)
 
     # logging to console and file on daily interval
-    logging.basicConfig(format='{asctime}:{levelname}:{name}:{message}', style='{',
-                        datefmt='%d-%m-%Y %H:%M:%S', level=logging.INFO,
-                        handlers=[logging.StreamHandler(),
-                                  TimedRotatingFileHandler(constants.LOG_FILE_PATH, when='D',
-                                                           backupCount=3, utc=True)])
+    logging.basicConfig(
+        format='{asctime}:{levelname}:{name}:{message}',
+        style='{',
+        datefmt='%d-%m-%Y %H:%M:%S',
+        level=logging.INFO,
+        handlers=[
+            logging.StreamHandler(),
+            TimedRotatingFileHandler(
+                constants.LOG_FILE_PATH, when='D', backupCount=3, utc=True
+            ),
+        ],
+    )
 
     # matplotlib and seaborn
     plt.rcParams['figure.figsize'] = 7.0, 3.5
@@ -43,6 +50,21 @@ def setup():
     font_downloader.maybe_download()
 
 
+def strtobool(value: str) -> bool:
+    """
+    Convert a string representation of truth to true (1) or false (0).
+
+    True values are y, yes, t, true, on and 1; false values are n, no, f,
+    false, off and 0. Raises ValueError if val is anything else.
+    """
+    value = value.lower()
+    if value in ('y', 'yes', 't', 'true', 'on', '1'):
+        return True
+    if value in ('n', 'no', 'f', 'false', 'off', '0'):
+        return False
+    raise ValueError(f'Invalid truth value {value!r}.')
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--nodb', action='store_true')
@@ -55,10 +77,10 @@ def main():
 
     allow_self_register = environ.get('ALLOW_DUEL_SELF_REGISTER')
     if allow_self_register:
-        constants.ALLOW_DUEL_SELF_REGISTER = bool(distutils.util.strtobool(allow_self_register))
+        constants.ALLOW_DUEL_SELF_REGISTER = strtobool(allow_self_register)
 
     setup()
-    
+
     intents = discord.Intents.default()
     intents.members = True
 

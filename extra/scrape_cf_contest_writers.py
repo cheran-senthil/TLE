@@ -8,14 +8,16 @@ import urllib.request
 
 from lxml import html
 
-URL = 'https://codeforces.com/contests/page/{}'
+URL = 'https://codeforces.com/contests/page/{}?complete=true'
 JSONFILE = 'contest_writers.json'
+
 
 def get_page(pagenum):
     url = URL.format(pagenum)
     with urllib.request.urlopen(url) as f:
         text = f.read().decode()
     return html.fromstring(text)
+
 
 def get_contests(doc):
     contests = []

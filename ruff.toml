@@ -1,0 +1,23 @@
+target-version = "py311"
+line-length = 88
+indent-width = 4
+
+extend-exclude = [
+    ".cache",
+    ".venv",
+    "data",
+]
+
+[lint]
+select = ["E", "F", "W", "I", "B"]
+
+[format]
+line-ending = "lf"
+quote-style = "single"
+indent-style = "space"
+skip-magic-trailing-comma = false
+
+[lint.isort]
+case-sensitive = true
+combine-as-imports = true
+order-by-type = true

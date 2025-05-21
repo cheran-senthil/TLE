@@ -24,7 +24,7 @@ class Logging(commands.Cog, logging.Handler):
     async def on_ready(self):
         self.task = asyncio.create_task(self._log_task())
         width = 79
-        stars, msg = f'`{"*" * width}`', f'`***{"Bot running":^{width - 6}}***`'
+        stars, msg = f'{"*" * width}', f'***{"Bot running":^{width - 6}}***'
         self.logger.log(level=100, msg=stars)
         self.logger.log(level=100, msg=msg)
         self.logger.log(level=100, msg=stars)
@@ -36,11 +36,28 @@ class Logging(commands.Cog, logging.Handler):
             if channel is None:
                 # Channel no longer exists.
                 root_logger.removeHandler(self)
-                self.logger.warning('Logging channel not available, disabling Discord log handler.')
+                self.logger.warning(
+                    'Logging channel not available, disabling Discord log handler.'
+                )
                 break
             try:
                 msg = self.format(record)
-                await channel.send(msg)
+                # Not all errors will have message_contents or jump urls.
+                try:
+                    await channel.send(
+                        'Original Command: {}\nJump Url: {}'.format(
+                            record.message_content, record.jump_url
+                        )
+                    )
+                except AttributeError:
+                    pass
+                discord_msg_char_limit = 2000
+                char_limit = discord_msg_char_limit - 2 * len('```')
+                too_long = len(msg) > char_limit
+                msg = msg[:char_limit]
+                await channel.send('```{}```'.format(msg))
+                if too_long:
+                    await channel.send('`Check logs for full stack trace`')
             except:
                 self.handleError(record)
 
@@ -57,12 +74,19 @@ class Logging(commands.Cog, logging.Handler):
 def setup(bot):
     logging_cog_channel_id = os.environ.get('LOGGING_COG_CHANNEL_ID')
     if logging_cog_channel_id is None:
-        logger.info('Skipping installation of logging cog as logging channel is not provided.')
+        logger.info(
+            'Skipping installation of logging cog as logging channel is not provided.'
+        )
         return
 
     logging_cog = Logging(bot, int(logging_cog_channel_id))
     logging_cog.setLevel(logging.WARNING)
-    logging_cog.setFormatter(logging.Formatter(fmt='{asctime}:{levelname}:{name}:{message}',
-                                               style='{', datefmt='%d-%m-%Y %H:%M:%S'))
+    logging_cog.setFormatter(
+        logging.Formatter(
+            fmt='{asctime}:{levelname}:{name}:{message}',
+            style='{',
+            datefmt='%d-%m-%Y %H:%M:%S',
+        )
+    )
     root_logger.addHandler(logging_cog)
     bot.add_cog(logging_cog)

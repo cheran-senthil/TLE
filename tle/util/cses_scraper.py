@@ -1,5 +1,3 @@
-import logging
-
 import aiohttp
 from lxml import html
 
@@ -14,7 +12,7 @@ session = aiohttp.ClientSession()
 async def _fetch(url):
     async with session.get(url) as response:
         if response.status != 200:
-            raise CSESError(f"Bad response from CSES, status code {status}")
+            raise CSESError(f'Bad response from CSES, status code {response.status}')
         tree = html.fromstring(await response.read())
     return tree
 
@@ -29,7 +27,8 @@ async def get_problems():
 async def get_problem_leaderboard(num):
     tree = await _fetch(f'https://cses.fi/problemset/stats/{num}/')
     fastest_table, shortest_table = tree.xpath(
-        '//table[@class!="summary-table" and @class!="bot-killer"]')
+        '//table[@class!="summary-table" and @class!="bot-killer"]'
+    )
 
     fastest = [a.text for a in fastest_table.xpath('.//a')]
     shortest = [a.text for a in shortest_table.xpath('.//a')]

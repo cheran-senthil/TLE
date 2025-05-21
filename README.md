@@ -1,124 +1,131 @@
-# TLE
+# TLE ― The Competitive-Programming Discord Bot
 
-TLE is a Discord bot centered around Competitive Programming.
+TLE is a feature-packed Discord bot aimed at competitive programmers
+(Codeforces, CSES, …).  
+It can recommend problems, show stats & graphs, run duels on your server
+and manage starboards – all with a single prefix `;`.
 
-## Features
+If you have Docker ≥ 24 (or Docker Desktop on Win/Mac) you are ready to
+go.
 
-The features of the bot are split into a number of cogs, each handling their own set of commands.
+---
 
-### Codeforces cogs
+## 1 · Features (quick glance)
 
-- **Codeforces** Commands that can recommend problems or contests to users, taking their rating into account.
-- **Contests** Shows details of upcoming/running contests.
-- **Graphs** Plots various data gathered from Codeforces, e.g. rating distributions and user problem statistics.
-- **Handles** Gets or sets information about a specific user's Codeforces handle, or shows a list of Codeforces handles.
+| Cog | What it does |
+|-----|--------------|
+| **Codeforces** | problem / contest recommender, rating changes, user look-ups |
+| **Contests** | shows upcoming & live contests |
+| **Graphs** | rating distributions, solved-set histograms, etc. |
+| **Handles** | link Discord users to CF handles |
+| **CSES** | CSES leaderboard, problem info |
+| **Starboard** | pins popular messages to a channel |
+| **CacheControl** | warm-up & manage local caches |
 
-### CSES cog
+All graphs require cairo + pango; the Docker image already contains
+everything.
 
-- **CSES** Commands related to the [CSES problemset](https://cses.fi/problemset/), such as showing leaderboards.
+---
 
-### Other cogs
-
-- **Starboard** Commands related to the starboard, which adds messages to a specific channel when enough users react with a ⭐️.
-- **CacheControl** Commands related to data caching.
-
-## Installation
-
-Clone the repository
+## 2 · Quick start (production)
 
 ```bash
+# 1 · clone the repo
 git clone https://github.com/cheran-senthil/TLE
+cd TLE
+
+# 2 · create a config file
+cp .env.example .env          # then edit BOT_TOKEN, LOGGING_COG_CHANNEL_ID …
+
+# 3 · build & start the bot (first run takes ~2 min)
+docker compose up -d
 ```
 
-### Dependencies
+That’s it.  
+The bot will appear online in your Discord server; use
+`;help` inside Discord to explore commands.
 
-Now all dependencies need to be installed. TLE uses [Poetry](https://poetry.eustace.io/) to manage its python dependencies. After installing Poetry navigate to the root of the repo and run
+### Updating to a new release
 
-```bash
-poetry install
-```
-
-> :warning: **TLE requires Python 3.7 or later!**
-
-If you are using Ubuntu with older versions of python, then do the following:
-
-```bash
-apt-get install python3.7-venv libpython3.7-dev
-python3.7 -m pip install poetry
-python3.7 -m poetry install
+```sh
+git pull
+docker compose build --pull    # fetch newer base images
+docker compose up -d           # zero-downtime restart
 ```
 
 ---
 
-#### Library dependencies
+## 3 · Environment variables ( `.env` )
 
-TLE also depends on cairo and pango for graphics and text rendering, which you need to install. For Ubuntu, the relevant packages can be installed with:
+| Variable | Required | Example | Description |
+|----------|----------|---------|-------------|
+| `BOT_TOKEN` | ✅ | `MTEz…` | Discord bot token from the Dev Portal |
+| `LOGGING_COG_CHANNEL_ID` | ✅ | `123456789012345678` | channel where uncaught errors are sent |
+| `ALLOW_DUEL_SELF_REGISTER` | ❌ | `true` | let users self-register for duels |
+| `TLE_ADMIN` | ❌ | `Admin` | role name that can run admin cmds |
+| `TLE_MODERATOR` | ❌ | `Moderator` | role name that can run mod cmds |
 
-```bash
-apt-get install libcairo2-dev libgirepository1.0-dev libpango1.0-dev pkg-config python3-dev gir1.2-pango-1.0
-```
+Feel free to add any extra variables your cogs consume; Compose passes
+every key in `.env` to the container.
 
-Additionally TLE uses pillow for graphics, which requires the following packages:
+---
 
-```bash
-apt-get install libjpeg-dev zlib1g-dev
-```
+## 4 · Data & cache folder
 
-### Final steps
+`docker compose` mounts `./data` into the container.  
+It holds:
 
-You will need to setup a bot on your server before continuing, follow the directions [here](https://github.com/reactiflux/discord-irc/wiki/Creating-a-discord-bot-&-getting-a-token). Following this, you should have your bot appearing in your server and you should have the Discord bot token. Finally, go to the `Bot` settings in your App's Developer Portal (in the same page where you copied your Bot Token) and enable the `Server Members Intent`.
+* Codeforces caches & contest writers JSON  
+* downloaded CJK fonts (~36 MB, fetched automatically)  
 
-Create a new file `environment`.
+You can back this directory up or move it to a dedicated volume; wiping
+it only means the bot will re-download items on first run.
 
-```bash
-cp environment.template environment
-```
+---
 
-Fill in appropriate variables in new "environment" file.
+## 5 · Local development (optional)
 
-#### Environment Variables
-
-- **BOT_TOKEN**: the Discord Bot Token for your bot.
-- **LOGGING_COG_CHANNEL_ID**: the [Discord Channel ID](https://support.discord.com/hc/en-us/articles/206346498-Where-can-I-find-my-User-Server-Message-ID-) of a Discord Channel where you want error messages sent to.
-- **ALLOW_DUEL_SELF_REGISTER**: boolean value indicating if self registration for duels is enabled.
-
-To start TLE just run:
+You can hack on the code without touching your system Python:
 
 ```bash
-./run.sh
+# live-reload dev run (blocks & shows logs)
+docker compose up --build
 ```
 
-### Notes
+Lint & format (Ruff):
 
-- In order to run admin-only commands, you need to have the `Admin` role, which needs to be created in your Discord server and assign it to yourself/other administrators.
-- In order to prevent the bot suggesting an author's problems to the author, a python file needs to be run (since this can not be done through the Codeforces API) which will save the authors for specific contests to a file. To do this run `python extra/scrape_cf_contest_writers.py` which will generate a JSON file that should be placed in the `data/misc/` folder.
-- In order to display CJK (East Asian) characters for usernames, we need appropriate fonts. Their size is ~36MB, so we don't keep in the repo itself and it is gitignored. They will be downloaded automatically when the bot is run if not already present.
-- One of the bot's features is to assign roles to users based on their rating on Codeforces. In order for this functionality to work properly, the following roles need to exist in your Discord server
-  - Newbie
-  - Pupil
-  - Specialist
-  - Expert
-  - Candidate Master
-  - Master
-  - International Master
-  - Grandmaster
-  - International Grandmaster
-  - Legendary Grandmaster
+```bash
+docker run --rm -v $PWD:/app -w /app python:3.11-slim \
+       sh -c "pip install ruff && ruff check . && ruff format --check ."
+```
 
-## Usage
+---
 
-In order to run bot commands you can either ping the bot at the beginning of the command or prefix the command with a semicolon (;), e.g. `;handle pretty`.
+## 6 · Repository layout
 
-In order to find available commands, you can run `;help` which will bring a list of commands/groups of commands which are available. To get more details about a specific command you can type `;help <command-name>`.
+```sh
+.
+├─ Dockerfile              # 2-stage image, installs native cairo stack
+├─ compose.yaml            # single-service compose file
+├─ requirements.txt        # runtime Python deps (no pins)
+├─ .env.example            # template for your secrets
+├─ data/                   # persisted cache & fonts (git-ignored)
+├─ tle/ …                  # bot source code
+└─ extra/ fonts.conf …     # helper resources
+```
 
-## Contributing
+---
 
-Pull requests are welcome. For major changes please open an issue first to discuss what you would like to change.
+## 7 · Contributing
 
-Before submitting your PR, consider running some code formatter on the lines you touched or added. This will help reduce the time spent on fixing small styling issues in code review. Good options are [yapf](https://github.com/google/yapf) or [autopep8](https://github.com/hhatto/autopep8) which likely can be integrated into your favorite editor.
+Pull requests are welcome!  
+Before opening a PR, please
 
-Please refrain from formatting the whole file if you just change some small part of it. If you feel the need to tidy up some particularly egregious code, then do that in a separate PR.
+1. run `ruff check --fix .` (auto-formats touched lines),
+2. keep commits focused; large refactors in a separate PR.
 
-## License
+---
 
-[MIT](https://choosealicense.com/licenses/mit/)
+## 8 · License
+
+MIT ― see `LICENSE`.
