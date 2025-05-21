@@ -1,6 +1,6 @@
 # Discord bot core
-discord.py==1.7.3          # codebase was written for 1.x
-aiohttp<3.8                # 1.7.3 requires <3.8
+discord.py==1.7.3
+aiohttp<3.8
 aiocache
 
 # Data & plotting
@@ -10,4 +10,4 @@ matplotlib
 seaborn
 
 # Images
-pillow
+pillow<10

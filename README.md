@@ -132,4 +132,3 @@ MIT ― see `LICENSE`.
 
 Enjoy the bot! If you run into problems open an issue or ping the
 maintainers on Codeforces.
-
