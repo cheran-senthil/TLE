@@ -1,16 +1,23 @@
-target-version = "py311"
-extend-exclude = [".cache"]
-line-length = 88
-indent-width = 4
+target-version = "py312"
+line-length    = 88
+indent-width   = 4
+
+extend-exclude = [
+    ".cache",
+    ".venv",
+    "data",
+]
+
+[lint]            # deterministic rule-set
+select = ["E", "F", "W", "I", "B"]
 
 [format]
 line-ending = "lf"
-preview = true
 quote-style = "single"
 
 [lint.isort]
-order-by-type = true
-case-sensitive = true
-combine-as-imports = true
-force-single-line = true
+order-by-type            = true
+case-sensitive           = true
+combine-as-imports       = true
+force-single-line        = true
 force-sort-within-sections = true

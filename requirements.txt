@@ -1,0 +1,15 @@
+# ---- core async / discord ----
+discord.py               # wrapper for Discord API
+aiohttp                  # HTTP client used by discord.py
+aiocache                 # async cache used by TLE
+
+# ---- data / plotting ----
+numpy
+pandas
+matplotlib
+seaborn
+
+# ---- image / font handling ----
+pillow                   # starboard thumbnails etc.
+pycairo                  # vector drawing
+pygobject                # Pango text layout, needed by graphs

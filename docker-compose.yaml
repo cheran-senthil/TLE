@@ -1,0 +1,21 @@
+version: "3.9"
+
+services:
+  tle:
+    container_name: tle-bot
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: tle-bot:latest
+    env_file:
+      - .env
+    volumes:
+      - ./data:/bot/data
+    restart: unless-stopped
+    environment:
+      - TZ=UTC
+    healthcheck:
+      test: ["CMD", "python", "-m", "tle", "--version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
