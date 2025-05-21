@@ -1,5 +1,5 @@
 """
-    A case insensitive dictionay with bare minimum functions required for handling usernames.
+A case insensitive dictionay with bare minimum functions required for handling usernames.
 """
 
 

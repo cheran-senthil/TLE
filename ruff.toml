@@ -1,6 +1,6 @@
 target-version = "py311"
-line-length    = 88
-indent-width   = 4
+line-length = 88
+indent-width = 4
 
 extend-exclude = [
     ".cache",
@@ -8,16 +8,16 @@ extend-exclude = [
     "data",
 ]
 
-[lint]            # deterministic rule-set
+[lint]
 select = ["E", "F", "W", "I", "B"]
 
 [format]
 line-ending = "lf"
 quote-style = "single"
+indent-style = "space"
+skip-magic-trailing-comma = false
 
 [lint.isort]
-order-by-type            = true
-case-sensitive           = true
-combine-as-imports       = true
-force-single-line        = true
-force-sort-within-sections = true
+case-sensitive = true
+combine-as-imports = true
+order-by-type = true

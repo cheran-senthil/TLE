@@ -6,20 +6,20 @@ import discord
 import matplotlib
 import matplotlib.font_manager
 
-matplotlib.use('agg') # Explicitly set the backend to avoid issues
+matplotlib.use('agg')  # Explicitly set the backend to avoid issues
 
 from cycler import cycler
 from matplotlib import pyplot as plt
 
 from tle import constants
 
-rating_color_cycler = cycler('color', ['#5d4dff',
-                                       '#009ccc',
-                                       '#00ba6a',
-                                       '#b99d27',
-                                       '#cb2aff'])
+rating_color_cycler = cycler(
+    'color', ['#5d4dff', '#009ccc', '#00ba6a', '#b99d27', '#cb2aff']
+)
 
-fontprop = matplotlib.font_manager.FontProperties(fname=constants.NOTO_SANS_CJK_REGULAR_FONT_PATH)
+fontprop = matplotlib.font_manager.FontProperties(
+    fname=constants.NOTO_SANS_CJK_REGULAR_FONT_PATH
+)
 
 
 # String wrapper to avoid the underscore behavior in legends
@@ -30,12 +30,19 @@ fontprop = matplotlib.font_manager.FontProperties(fname=constants.NOTO_SANS_CJK_
 class StrWrap:
     def __init__(self, s):
         self.string = s
+
     def __str__(self):
         return self.string
 
+
 def get_current_figure_as_file():
     filename = os.path.join(constants.TEMP_DIR, f'tempplot_{time.time()}.png')
-    plt.savefig(filename, facecolor=plt.gca().get_facecolor(), bbox_inches='tight', pad_inches=0.25)
+    plt.savefig(
+        filename,
+        facecolor=plt.gca().get_facecolor(),
+        bbox_inches='tight',
+        pad_inches=0.25,
+    )
 
     with open(filename, 'rb') as file:
         discord_file = discord.File(io.BytesIO(file.read()), filename='plot.png')
@@ -43,11 +50,19 @@ def get_current_figure_as_file():
     os.remove(filename)
     return discord_file
 
+
 def plot_rating_bg(ranks):
     ymin, ymax = plt.gca().get_ylim()
     bgcolor = plt.gca().get_facecolor()
     for rank in ranks:
-        plt.axhspan(rank.low, rank.high, facecolor=rank.color_graph, alpha=0.8, edgecolor=bgcolor, linewidth=0.5)
+        plt.axhspan(
+            rank.low,
+            rank.high,
+            facecolor=rank.color_graph,
+            alpha=0.8,
+            edgecolor=bgcolor,
+            linewidth=0.5,
+        )
 
     locs, labels = plt.xticks()
     for loc in locs:

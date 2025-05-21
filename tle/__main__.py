@@ -23,11 +23,18 @@ def setup():
         os.makedirs(path, exist_ok=True)
 
     # logging to console and file on daily interval
-    logging.basicConfig(format='{asctime}:{levelname}:{name}:{message}', style='{',
-                        datefmt='%d-%m-%Y %H:%M:%S', level=logging.INFO,
-                        handlers=[logging.StreamHandler(),
-                                  TimedRotatingFileHandler(constants.LOG_FILE_PATH, when='D',
-                                                           backupCount=3, utc=True)])
+    logging.basicConfig(
+        format='{asctime}:{levelname}:{name}:{message}',
+        style='{',
+        datefmt='%d-%m-%Y %H:%M:%S',
+        level=logging.INFO,
+        handlers=[
+            logging.StreamHandler(),
+            TimedRotatingFileHandler(
+                constants.LOG_FILE_PATH, when='D', backupCount=3, utc=True
+            ),
+        ],
+    )
 
     # matplotlib and seaborn
     plt.rcParams['figure.figsize'] = 7.0, 3.5
@@ -42,6 +49,7 @@ def setup():
     # Download fonts if necessary
     font_downloader.maybe_download()
 
+
 def strtobool(value: str) -> bool:
     """
     Convert a string representation of truth to true (1) or false (0).
@@ -55,6 +63,7 @@ def strtobool(value: str) -> bool:
     if value in ('n', 'no', 'f', 'false', 'off', '0'):
         return False
     raise ValueError(f'Invalid truth value {value!r}.')
+
 
 def main():
     parser = argparse.ArgumentParser()
