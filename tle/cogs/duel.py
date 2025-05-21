@@ -1,23 +1,22 @@
 import asyncio
-from collections import defaultdict
-from collections import namedtuple
 import datetime
 import random
+from collections import defaultdict, namedtuple
 
 import discord
 from discord.ext import commands
 from matplotlib import pyplot as plt
 
 from tle import constants
-from tle.util import codeforces_api as cf
-from tle.util import codeforces_common as cf_common
-from tle.util import discord_common
-from tle.util import graph_common as gc
-from tle.util import paginator
-from tle.util import table
-from tle.util.db.user_db_conn import Duel
-from tle.util.db.user_db_conn import DuelType
-from tle.util.db.user_db_conn import Winner
+from tle.util import (
+    codeforces_api as cf,
+    codeforces_common as cf_common,
+    discord_common,
+    graph_common as gc,
+    paginator,
+    table,
+)
+from tle.util.db.user_db_conn import Duel, DuelType, Winner
 
 _DUEL_INVALIDATE_TIME = 2 * 60
 _DUEL_EXPIRY_TIME = 5 * 60
@@ -437,7 +436,7 @@ class Dueling(commands.Cog):
             )
             return
 
-        if not duelid in self.draw_offers:
+        if duelid not in self.draw_offers:
             self.draw_offers[duelid] = ctx.author.id
             offeree_id = (
                 challenger_id if ctx.author.id != challenger_id else challengee_id
@@ -548,7 +547,7 @@ class Dueling(commands.Cog):
         self, ctx, member1: discord.Member = None, member2: discord.Member = None
     ):
         if not member1:
-            raise DuelCogError(f'You need to specify one or two discord members.')
+            raise DuelCogError('You need to specify one or two discord members.')
 
         member2 = member2 or ctx.author
         data = cf_common.user_db.get_pair_duels(member1.id, member2.id)
@@ -604,7 +603,7 @@ class Dueling(commands.Cog):
             return f'[{challenger.handle}]({challenger.url}) vs [{challengee.handle}]({challengee.url}): [{name}]({problem.url}) [{problem.rating}] {when}'
 
         def make_page(chunk):
-            message = f'List of ongoing duels:'
+            message = 'List of ongoing duels:'
             log_str = '\n'.join(make_line(entry) for entry in chunk)
             embed = discord_common.cf_color_embed(description=log_str)
             return message, embed
@@ -706,7 +705,7 @@ class Dueling(commands.Cog):
         """Plot duelist's rating."""
         members = members or (ctx.author,)
         if len(members) > 5:
-            raise DuelCogError(f'Cannot plot more than 5 duelists at once.')
+            raise DuelCogError('Cannot plot more than 5 duelists at once.')
 
         duelists = [member.id for member in members]
         duels = cf_common.user_db.get_complete_official_duels()
@@ -733,7 +732,7 @@ class Dueling(commands.Cog):
                 time_tick += 1
 
         if time_tick == 0:
-            raise DuelCogError(f'Nothing to plot.')
+            raise DuelCogError('Nothing to plot.')
 
         plt.clf()
         # plot at least from mid gray to mid purple
@@ -744,7 +743,7 @@ class Dueling(commands.Cog):
                 min_rating = min(min_rating, rating)
                 max_rating = max(max_rating, rating)
 
-            x, y = zip(*rating_data)
+            x, y = zip(*rating_data, strict=False)
             plt.plot(
                 x,
                 y,

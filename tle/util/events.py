@@ -141,7 +141,7 @@ class ListenerSpec:
         if instance is None:
             return self
         try:
-            listeners = getattr(instance, '___listeners___')
+            listeners = instance.___listeners___
         except AttributeError:
             listeners = instance.___listeners___ = {}
         if self.name not in listeners:

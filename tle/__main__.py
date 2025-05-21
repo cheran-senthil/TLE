@@ -1,20 +1,18 @@
 import argparse
 import asyncio
 import logging
-from logging.handlers import TimedRotatingFileHandler
 import os
+from logging.handlers import TimedRotatingFileHandler
 from os import environ
 from pathlib import Path
 
 import discord
+import seaborn as sns
 from discord.ext import commands
 from matplotlib import pyplot as plt
-import seaborn as sns
 
 from tle import constants
-from tle.util import codeforces_common as cf_common
-from tle.util import discord_common
-from tle.util import font_downloader
+from tle.util import codeforces_common as cf_common, discord_common, font_downloader
 
 
 def setup():

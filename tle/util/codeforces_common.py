@@ -1,4 +1,3 @@
-from collections import defaultdict
 import datetime
 import functools
 import itertools
@@ -6,15 +5,13 @@ import json
 import logging
 import math
 import time
+from collections import defaultdict
 
 import discord
 from discord.ext import commands
 
 from tle import constants
-from tle.util import cache_system2
-from tle.util import codeforces_api as cf
-from tle.util import db
-from tle.util import events
+from tle.util import cache_system2, codeforces_api as cf, db, events
 
 logger = logging.getLogger(__name__)
 

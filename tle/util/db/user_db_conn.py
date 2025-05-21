@@ -1,12 +1,11 @@
+import sqlite3
 from collections import namedtuple
 from enum import IntEnum
-import sqlite3
 
 from discord.ext import commands
 
-from tle.util import codeforces_api as cf
-from tle.util import codeforces_common as cf_common
 from tle import constants
+from tle.util import codeforces_api as cf, codeforces_common as cf_common
 
 _DEFAULT_VC_RATING = 1500
 
@@ -206,7 +205,7 @@ class UserDbConn:
             )
         """)
 
-        self.conn.execute(f"""
+        self.conn.execute("""
           CREATE TABLE IF NOT EXISTS starboard_config_v1 (
             guild_id   TEXT,
             emoji      TEXT,
@@ -216,7 +215,7 @@ class UserDbConn:
         """)
 
         # 1b) emoji holds threshold + color
-        self.conn.execute(f"""
+        self.conn.execute("""
           CREATE TABLE IF NOT EXISTS starboard_emoji_v1 (
             guild_id   TEXT,
             emoji      TEXT,

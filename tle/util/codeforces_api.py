@@ -1,16 +1,11 @@
 import asyncio
-from collections import defaultdict
-from collections import deque
-from collections.abc import Iterable
-from collections.abc import Iterator
-from collections.abc import Sequence
 import functools
 import itertools
 import logging
 import time
-from typing import Any
-from typing import NamedTuple
-from typing import Optional
+from collections import defaultdict, deque
+from collections.abc import Iterable, Iterator, Sequence
+from typing import Any, NamedTuple, Optional
 
 import aiohttp
 from discord.ext import commands
@@ -660,7 +655,7 @@ async def _resolve_handles(handles: Iterable[str]) -> dict[str, User]:
             try:
                 cf_users = await user.info(handles=handle_chunk)
                 # No failure, all handles resolve to users,
-                for handle, cf_user in zip(handle_chunk, cf_users):
+                for handle, cf_user in zip(handle_chunk, cf_users, strict=False):
                     if cf_user is not None:
                         resolved_handles[handle] = cf_user
                 break

@@ -215,7 +215,7 @@ class TaskSpec:
         if instance is None:
             return self
         try:
-            tasks = getattr(instance, '___tasks___')
+            tasks = instance.___tasks___
         except AttributeError:
             tasks = instance.___tasks___ = {}
         if self.name not in tasks:

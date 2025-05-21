@@ -1,35 +1,34 @@
 import asyncio
 import contextlib
+import datetime as dt
 import html
 import io
 import logging
 import math
 import random
 
-from PIL import Image
-from PIL import ImageDraw
-from PIL import ImageFont
 import cairo
-import datetime as dt
 import discord
-from discord.ext import commands
 import gi
+from PIL import Image, ImageDraw, ImageFont
+from discord.ext import commands
 
 from tle import constants
-from tle.util import cache_system2
-from tle.util import codeforces_api as cf
-from tle.util import codeforces_common as cf_common
-from tle.util import db
-from tle.util import discord_common
-from tle.util import events
-from tle.util import paginator
-from tle.util import table
-from tle.util import tasks
+from tle.util import (
+    cache_system2,
+    codeforces_api as cf,
+    codeforces_common as cf_common,
+    db,
+    discord_common,
+    events,
+    paginator,
+    table,
+    tasks,
+)
 
 gi.require_version('Pango', '1.0')
 gi.require_version('PangoCairo', '1.0')
-from gi.repository import Pango
-from gi.repository import PangoCairo
+from gi.repository import Pango, PangoCairo
 
 _HANDLES_PER_PAGE = 15
 _NAME_MAX_LEN = 20
@@ -752,7 +751,7 @@ class Handles(commands.Cog):
         ]
         if not member_handles:
             raise HandleCogError('Handles not set for any user')
-        members, handles = zip(*member_handles)
+        members, handles = zip(*member_handles, strict=False)
         users = await cf.user.info(handles=handles)
         for user in users:
             cf_common.user_db.cache_cf_user(user)
@@ -771,7 +770,7 @@ class Handles(commands.Cog):
                 f'Role{plural} for rank{plural} {roles_str} not present in the server'
             )
 
-        for member, user in zip(members, users):
+        for member, user in zip(members, users, strict=False):
             role_to_assign = (
                 None if user.rank == cf.UNRATED_RANK else rank2role[user.rank.title]
             )
@@ -1124,7 +1123,7 @@ class Handles(commands.Cog):
         http_failure_count = 0
 
         status_message = await ctx.send(
-            f'Processing members for grandfathering Trusted...'
+            'Processing members for grandfathering Trusted...'
         )
 
         # Create a list to avoid issues if members leave/join during processing

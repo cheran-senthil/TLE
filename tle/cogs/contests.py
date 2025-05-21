@@ -1,28 +1,29 @@
 import asyncio
-from collections import defaultdict
-from collections import namedtuple
 import datetime as dt
 import functools
 import json
 import logging
 import time
+from collections import defaultdict, namedtuple
 
 import discord
 from discord.ext import commands
 from matplotlib import pyplot as plt
 
 from tle import constants
-from tle.util import cache_system2
-from tle.util import codeforces_api as cf
-from tle.util import codeforces_common as cf_common
-from tle.util import db
-from tle.util import discord_common
-from tle.util import events
-from tle.util import graph_common as gc
-from tle.util import paginator
-from tle.util import ranklist as rl
-from tle.util import table
-from tle.util import tasks
+from tle.util import (
+    cache_system2,
+    codeforces_api as cf,
+    codeforces_common as cf_common,
+    db,
+    discord_common,
+    events,
+    graph_common as gc,
+    paginator,
+    ranklist as rl,
+    table,
+    tasks,
+)
 
 _CONTESTS_PER_PAGE = 5
 _CONTEST_PAGINATE_WAIT_TIME = 5 * 60
@@ -101,7 +102,7 @@ async def _send_reminder_at(channel, role, contests, before_secs, send_time):
 
     labels = 'day hr min sec'.split()
     before_str = ' '.join(
-        make(value, label) for label, value in zip(labels, values) if value > 0
+        make(value, label) for label, value in zip(labels, values, strict=False) if value > 0
     )
     desc = f'About to start in {before_str}'
     embed = discord_common.cf_color_embed(description=desc)
@@ -161,7 +162,7 @@ class Contests(commands.Cog):
         # Keep most recent _FINISHED_LIMIT
         self.finished_contests = self.finished_contests[:_FINISHED_CONTESTS_LIMIT]
 
-        self.logger.info(f'Refreshed cache')
+        self.logger.info('Refreshed cache')
         self.start_time_map.clear()
         for contest in self.future_contests:
             if not cf_common.is_nonstandard_contest(contest):
@@ -394,7 +395,7 @@ class Contests(commands.Cog):
             body.append(tokens)
 
         if deltas:
-            for tokens, delta in zip(body, deltas):
+            for tokens, delta in zip(body, deltas, strict=False):
                 tokens.append('' if delta is None else f'{delta:+}')
         return header_style, body_style, header, body
 
@@ -433,7 +434,7 @@ class Contests(commands.Cog):
             body.append(tokens)
 
         if deltas:
-            for tokens, delta in zip(body, deltas):
+            for tokens, delta in zip(body, deltas, strict=False):
                 tokens.append('' if delta is None else f'{delta:+}')
         return header_style, body_style, header, body
 
@@ -466,7 +467,7 @@ class Contests(commands.Cog):
 
         num_pages = 1
         for handle_standings_chunk, delta_chunk in zip(
-            handle_standings_chunks, delta_chunks
+            handle_standings_chunks, delta_chunks, strict=False
         ):
             header_style, body_style, header, body = get_table(
                 problem_indices, handle_standings_chunk, delta_chunk
@@ -767,7 +768,7 @@ class Contests(commands.Cog):
             for member_id in member_ids
         ]
         handle_to_member_id = {
-            handle: member_id for handle, member_id in zip(handles, member_ids)
+            handle: member_id for handle, member_id in zip(handles, member_ids, strict=False)
         }
         now = time.time()
         ranklist = await cf_common.cache2.ranklist_cache.generate_vc_ranklist(
@@ -809,7 +810,7 @@ class Contests(commands.Cog):
             return
         rating_change_by_handle = {}
         RatingChange = namedtuple('RatingChange', 'handle oldRating newRating')
-        for handle, member_id in zip(handles, member_ids):
+        for handle, member_id in zip(handles, member_ids, strict=False):
             delta = ranklist.delta_by_handle.get(handle)
             if delta is None:  # The user did not participate.
                 cf_common.user_db.remove_last_ratedvc_participation(member_id)
@@ -955,7 +956,7 @@ class Contests(commands.Cog):
         plt.clf()
         # plot at least from mid gray to mid purple
         for rating_data in plot_data.values():
-            x, y = zip(*rating_data)
+            x, y = zip(*rating_data, strict=False)
             plt.plot(
                 x,
                 y,
