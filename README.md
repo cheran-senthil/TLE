@@ -47,7 +47,7 @@ The bot will appear online in your Discord server; use
 
 ### Updating to a new release
 
-```
+```sh
 git pull
 docker compose build --pull    # fetch newer base images
 docker compose up -d           # zero-downtime restart
@@ -95,7 +95,7 @@ docker compose up --build
 Lint & format (Ruff):
 
 ```bash
-docker run --rm -v $PWD:/app -w /app python:3.12-slim \
+docker run --rm -v $PWD:/app -w /app python:3.11-slim \
        sh -c "pip install ruff && ruff check . && ruff format --check ."
 ```
 
@@ -103,7 +103,7 @@ docker run --rm -v $PWD:/app -w /app python:3.12-slim \
 
 ## 6 · Repository layout
 
-```
+```sh
 .
 ├─ Dockerfile              # 2-stage image, installs native cairo stack
 ├─ compose.yaml            # single-service compose file
@@ -129,6 +129,3 @@ Before opening a PR, please
 ## 8 · License
 
 MIT ― see `LICENSE`.
-
-Enjoy the bot! If you run into problems open an issue or ping the
-maintainers on Codeforces.

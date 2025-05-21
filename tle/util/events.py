@@ -5,8 +5,10 @@ from discord.ext import commands
 
 # Event types
 
+
 class Event:
     """Base class for events."""
+
     pass
 
 
@@ -23,17 +25,21 @@ class RatingChangesUpdate(Event):
 
 # Event errors
 
+
 class EventError(commands.CommandError):
     pass
 
 
 class ListenerNotRegistered(EventError):
     def __init__(self, listener):
-        super().__init__(f'Listener {listener.name} is not registered for event '
-                         f'{listener.event_cls.__name__}.')
+        super().__init__(
+            f'Listener {listener.name} is not registered for event '
+            f'{listener.event_cls.__name__}.'
+        )
 
 
 # Event system
+
 
 class EventSystem:
     """Rudimentary event system."""
@@ -72,6 +78,7 @@ class EventSystem:
 
 # Listener
 
+
 def _ensure_coroutine_func(func):
     if not asyncio.iscoroutinefunction(func):
         raise TypeError('The listener function must be a coroutine function.')
@@ -81,6 +88,7 @@ class Listener:
     """A listener for a particular event. A listener must have a name, the event it should listen
     to and a coroutine function `func` that is called when the event is dispatched.
     """
+
     def __init__(self, name, event_cls, func, *, with_lock=False):
         """`with_lock` controls whether execution of `func` should be guarded by an asyncio.Lock."""
         _ensure_coroutine_func(func)
@@ -106,8 +114,10 @@ class Listener:
             self.logger.exception(f'Exception in listener `{self.name}`.')
 
     def __eq__(self, other):
-        return (isinstance(other, Listener)
-                and (self.event_cls, self.func) == (other.event_cls, other.func))
+        return isinstance(other, Listener) and (self.event_cls, self.func) == (
+            other.event_cls,
+            other.func,
+        )
 
     def __hash__(self):
         return hash((self.event_cls, self.func))
@@ -118,6 +128,7 @@ class ListenerSpec:
     the expected listener when `__get__` is called from an instance for the first time. No two
     listener specs in the same class should have the same name.
     """
+
     def __init__(self, name, event_cls, func, *, with_lock=False):
         """`with_lock` controls whether execution of `func` should be guarded by an asyncio.Lock."""
         _ensure_coroutine_func(func)
@@ -140,8 +151,9 @@ class ListenerSpec:
             async def wrapper(event):
                 return await self.func(instance, event)
 
-            listeners[self.name] = Listener(self.name, self.event_cls, wrapper,
-                                            with_lock=self.with_lock)
+            listeners[self.name] = Listener(
+                self.name, self.event_cls, wrapper, with_lock=self.with_lock
+            )
         return listeners[self.name]
 
 
