@@ -20,7 +20,11 @@ CONTEST_WRITERS_JSON_FILE_PATH = os.path.join(MISC_DIR, 'contest_writers.json')
 
 LOG_FILE_PATH = os.path.join(LOGS_DIR, 'tle.log')
 
-ALL_DIRS = (attrib_value for attrib_name, attrib_value in list(globals().items()) if attrib_name.endswith('DIR'))
+ALL_DIRS = (
+    attrib_value
+    for attrib_name, attrib_value in list(globals().items())
+    if attrib_name.endswith('DIR')
+)
 
 ALLOW_DUEL_SELF_REGISTER = False
 

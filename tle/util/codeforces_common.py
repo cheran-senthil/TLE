@@ -57,7 +57,9 @@ async def initialize(nodb):
     try:
         with open(constants.CONTEST_WRITERS_JSON_FILE_PATH) as f:
             data = json.load(f)
-        _contest_id_to_writers_map = {contest['id']: [s.lower() for s in contest['writers']] for contest in data}
+        _contest_id_to_writers_map = {
+            contest['id']: [s.lower() for s in contest['writers']] for contest in data
+        }
         logger.info('Contest writers loaded from JSON file')
     except FileNotFoundError:
         logger.warning('JSON file containing contest writers not found')
@@ -115,11 +117,15 @@ _NONSTANDARD_CONTEST_INDICATORS = [
 
 
 def is_nonstandard_contest(contest):
-    return any(string in contest.name.lower() for string in _NONSTANDARD_CONTEST_INDICATORS)
+    return any(
+        string in contest.name.lower() for string in _NONSTANDARD_CONTEST_INDICATORS
+    )
 
 
 def is_nonstandard_problem(problem):
-    return is_nonstandard_contest(cache2.contest_cache.get_contest(problem.contestId)) or problem.matches_all_tags(['*special'])
+    return is_nonstandard_contest(
+        cache2.contest_cache.get_contest(problem.contestId)
+    ) or problem.matches_all_tags(['*special'])
 
 
 async def get_visited_contests(handles: [str]):
@@ -172,11 +178,15 @@ class FindMemberFailedError(ResolveHandleError):
 
 class HandleNotRegisteredError(ResolveHandleError):
     def __init__(self, member):
-        super().__init__(f'Codeforces handle for {member.mention} not found in database')
+        super().__init__(
+            f'Codeforces handle for {member.mention} not found in database'
+        )
 
 
 class HandleIsVjudgeError(ResolveHandleError):
-    HANDLES = ('vjudge1 vjudge2 vjudge3 vjudge4 vjudge5 luogu_bot1 luogu_bot2 luogu_bot3 luogu_bot4 luogu_bot5').split()
+    HANDLES = (
+        'vjudge1 vjudge2 vjudge3 vjudge4 vjudge5 luogu_bot1 luogu_bot2 luogu_bot3 luogu_bot4 luogu_bot5'
+    ).split()
 
     def __init__(self, handle):
         super().__init__(f"`{handle}`? I'm not doing that!\n\n(╯°□°）╯︵ ┻━┻")
@@ -198,7 +208,9 @@ def time_format(seconds):
     return days, hours, minutes, seconds
 
 
-def pretty_time_format(seconds, *, shorten=False, only_most_significant=False, always_seconds=False):
+def pretty_time_format(
+    seconds, *, shorten=False, only_most_significant=False, always_seconds=False
+):
     days, hours, minutes, seconds = time_format(seconds)
     timespec = [
         (days, 'day', 'days'),
@@ -213,7 +225,11 @@ def pretty_time_format(seconds, *, shorten=False, only_most_significant=False, a
 
     def format_(triple):
         cnt, singular, plural = triple
-        return f'{cnt}{singular[0]}' if shorten else f'{cnt} {singular if cnt == 1 else plural}'
+        return (
+            f'{cnt}{singular[0]}'
+            if shorten
+            else f'{cnt} {singular if cnt == 1 else plural}'
+        )
 
     return ' '.join(map(format_, timeprint))
 
@@ -227,7 +243,9 @@ def days_ago(t):
     return f'{math.floor(days)} days ago'
 
 
-async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5, default_to_all_server=False):
+async def resolve_handles(
+    ctx, converter, handles, *, mincnt=1, maxcnt=5, default_to_all_server=False
+):
     """Convert an iterable of strings to CF handles. A string beginning with ! indicates Discord username,
     otherwise it is a raw CF handle to be left unchanged."""
     handles = set(handles)
@@ -235,7 +253,9 @@ async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5, defaul
         handles.add('+server')
     if '+server' in handles:
         handles.remove('+server')
-        guild_handles = {handle for discord_id, handle in user_db.get_handles_for_guild(ctx.guild.id)}
+        guild_handles = {
+            handle for discord_id, handle in user_db.get_handles_for_guild(ctx.guild.id)
+        }
         handles.update(guild_handles)
     if len(handles) < mincnt or (maxcnt and maxcnt < len(handles)):
         raise HandleCountOutOfBoundsError(mincnt, maxcnt)
@@ -412,20 +432,46 @@ class SubFilter:
             date_ok = self.dlo <= submission.creationTimeSeconds < self.dhi
             tag_ok = problem.matches_all_tags(self.tags)
             bantag_ok = not problem.matches_any_tag(self.bantags)
-            index_ok = not self.indices or any(index.lower() == problem.index.lower() for index in self.indices)
-            contest_ok = not self.contests or (contest and contest.matches(self.contests))
+            index_ok = not self.indices or any(
+                index.lower() == problem.index.lower() for index in self.indices
+            )
+            contest_ok = not self.contests or (
+                contest and contest.matches(self.contests)
+            )
             team_ok = self.team or len(submission.author.members) == 1
             if self.rated:
-                problem_ok = contest and contest.id < cf.GYM_ID_THRESHOLD and not is_nonstandard_problem(problem)
+                problem_ok = (
+                    contest
+                    and contest.id < cf.GYM_ID_THRESHOLD
+                    and not is_nonstandard_problem(problem)
+                )
                 rating_ok = problem.rating and self.rlo <= problem.rating <= self.rhi
             else:
                 # acmsguru and gym allowed
-                problem_ok = not contest or contest.id >= cf.GYM_ID_THRESHOLD or not is_nonstandard_problem(problem)
+                problem_ok = (
+                    not contest
+                    or contest.id >= cf.GYM_ID_THRESHOLD
+                    or not is_nonstandard_problem(problem)
+                )
                 rating_ok = True
-            if type_ok and date_ok and rating_ok and tag_ok and bantag_ok and team_ok and problem_ok and contest_ok and index_ok:
+            if (
+                type_ok
+                and date_ok
+                and rating_ok
+                and tag_ok
+                and bantag_ok
+                and team_ok
+                and problem_ok
+                and contest_ok
+                and index_ok
+            ):
                 filtered_subs.append(submission)
         return filtered_subs
 
     def filter_rating_changes(self, rating_changes):
-        rating_changes = [change for change in rating_changes if self.dlo <= change.ratingUpdateTimeSeconds < self.dhi]
+        rating_changes = [
+            change
+            for change in rating_changes
+            if self.dlo <= change.ratingUpdateTimeSeconds < self.dhi
+        ]
         return rating_changes

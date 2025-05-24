@@ -149,7 +149,10 @@ class Contest(NamedTuple):
         def filter_and_normalize(s: str) -> str:
             return ''.join(x for x in s.lower() if x.isalnum())
 
-        return any(filter_and_normalize(marker) in filter_and_normalize(self.name) for marker in markers)
+        return any(
+            filter_and_normalize(marker) in filter_and_normalize(self.name)
+            for marker in markers
+        )
 
 
 class Member(NamedTuple):
@@ -200,7 +203,9 @@ class Problem(NamedTuple):
     def url(self) -> str:
         """Returns the URL of the problem."""
         if self.contestId is None:
-            assert self.problemsetName == 'acmsguru', f'Unknown problemset {self.problemsetName}'
+            assert self.problemsetName == 'acmsguru', (
+                f'Unknown problemset {self.problemsetName}'
+            )
             return f'{ACMSGURU_BASE_URL}problem/99999/{self.index}'
         base = CONTEST_BASE_URL if self.contestId < GYM_ID_THRESHOLD else GYM_BASE_URL
         return f'{base}{self.contestId}/problem/{self.index}'
@@ -230,7 +235,11 @@ class Problem(NamedTuple):
 
     def get_matched_tags(self, match_tags: Iterable[str]) -> list[str]:
         """Returns a list of tags that match any of the given tags."""
-        return [tag for tags in self._matching_tags_dict(match_tags).values() for tag in tags]
+        return [
+            tag
+            for tags in self._matching_tags_dict(match_tags).values()
+            for tag in tags
+        ]
 
 
 class ProblemStatistics(NamedTuple):
@@ -332,14 +341,18 @@ class ContestNotFoundError(TrueApiError):
     """An error caused by a contest not being found on Codeforces."""
 
     def __init__(self, comment: str, contest_id: Any):
-        super().__init__(comment, f'Contest with ID `{contest_id}` not found on Codeforces')
+        super().__init__(
+            comment, f'Contest with ID `{contest_id}` not found on Codeforces'
+        )
 
 
 class RatingChangesUnavailableError(TrueApiError):
     """An error caused by rating changes being unavailable for a contest."""
 
     def __init__(self, comment: str, contest_id: Any):
-        super().__init__(comment, f'Rating changes unavailable for contest with ID `{contest_id}`')
+        super().__init__(
+            comment, f'Rating changes unavailable for contest with ID `{contest_id}`'
+        )
 
 
 # Codeforces API query methods
@@ -405,7 +418,9 @@ async def _query_api(path: str, data: Any = None):
             try:
                 respjson = await resp.json()
             except aiohttp.ContentTypeError:
-                logger.warning(f'CF API did not respond with JSON, status {resp.status}.')
+                logger.warning(
+                    f'CF API did not respond with JSON, status {resp.status}.'
+                )
                 raise CodeforcesApiError
             if resp.status == 200:
                 return respjson['result']
@@ -471,18 +486,27 @@ class contest:
                 raise ContestNotFoundError(e.comment, contest_id)
             raise
         contest_ = make_from_dict(Contest, resp['contest'])
-        problems = [make_from_dict(Problem, problem_dict) for problem_dict in resp['problems']]
+        problems = [
+            make_from_dict(Problem, problem_dict) for problem_dict in resp['problems']
+        ]
         for row in resp['rows']:
-            row['party']['members'] = [make_from_dict(Member, member) for member in row['party']['members']]
+            row['party']['members'] = [
+                make_from_dict(Member, member) for member in row['party']['members']
+            ]
             row['party'] = make_from_dict(Party, row['party'])
-            row['problemResults'] = [make_from_dict(ProblemResult, problem_result) for problem_result in row['problemResults']]
+            row['problemResults'] = [
+                make_from_dict(ProblemResult, problem_result)
+                for problem_result in row['problemResults']
+            ]
         ranklist = [make_from_dict(RanklistRow, row_dict) for row_dict in resp['rows']]
         return contest_, problems, ranklist
 
 
 class problemset:
     @staticmethod
-    async def problems(*, tags=None, problemset_name=None) -> tuple[list[Problem], list[ProblemStatistics]]:
+    async def problems(
+        *, tags=None, problemset_name=None
+    ) -> tuple[list[Problem], list[ProblemStatistics]]:
         """Returns a list of problems."""
         params = {}
         if tags is not None:
@@ -490,8 +514,13 @@ class problemset:
         if problemset_name is not None:
             params['problemsetName'] = problemset_name
         resp = await _query_api('problemset.problems', params)
-        problems = [make_from_dict(Problem, problem_dict) for problem_dict in resp['problems']]
-        problemstats = [make_from_dict(ProblemStatistics, problemstat_dict) for problemstat_dict in resp['problemStatistics']]
+        problems = [
+            make_from_dict(Problem, problem_dict) for problem_dict in resp['problems']
+        ]
+        problemstats = [
+            make_from_dict(ProblemStatistics, problemstat_dict)
+            for problemstat_dict in resp['problemStatistics']
+        ]
         return problems, problemstats
 
 
@@ -520,7 +549,9 @@ class user:
         """Returns a list of user info."""
         chunks = list(user_info_chunkify(handles))
         if len(chunks) > 1:
-            logger.warning(f'cf.info request with {len(handles)} handles,will be chunkified into {len(chunks)} requests.')
+            logger.warning(
+                f'cf.info request with {len(handles)} handles,will be chunkified into {len(chunks)} requests.'
+            )
 
         result = []
         for chunk in chunks:
@@ -548,7 +579,10 @@ class user:
             if 'should contain' in e.comment:
                 raise HandleInvalidError(e.comment, handle)
             raise
-        return [make_from_dict(RatingChange, ratingchange_dict) for ratingchange_dict in resp]
+        return [
+            make_from_dict(RatingChange, ratingchange_dict)
+            for ratingchange_dict in resp
+        ]
 
     @staticmethod
     async def ratedList(*, activeOnly: bool = None) -> list[User]:
@@ -560,7 +594,9 @@ class user:
         return [make_from_dict(User, user_dict) for user_dict in resp]
 
     @staticmethod
-    async def status(*, handle: str, from_: Optional[int] = None, count: Optional[int] = None) -> list[Submission]:
+    async def status(
+        *, handle: str, from_: Optional[int] = None, count: Optional[int] = None
+    ) -> list[Submission]:
         """Returns a list of submissions for a user."""
         params: dict[str, Any] = {'handle': handle}
         if from_ is not None:
@@ -577,7 +613,10 @@ class user:
             raise
         for submission in resp:
             submission['problem'] = make_from_dict(Problem, submission['problem'])
-            submission['author']['members'] = [make_from_dict(Member, member) for member in submission['author']['members']]
+            submission['author']['members'] = [
+                make_from_dict(Member, member)
+                for member in submission['author']['members']
+            ]
             submission['author'] = make_from_dict(Party, submission['author'])
         return [make_from_dict(Submission, submission_dict) for submission_dict in resp]
 
@@ -626,10 +665,16 @@ async def _resolve_handles(handles: Iterable[str]) -> dict[str, User]:
     return resolved_handles
 
 
-async def resolve_redirects(handles: Iterable[str], skip_filter: bool = False) -> dict[str, User]:
+async def resolve_redirects(
+    handles: Iterable[str], skip_filter: bool = False
+) -> dict[str, User]:
     """Returns a mapping of handles to their resolved CF users."""
     resolved_handles = await _resolve_handles(handles)
     if skip_filter:
         return resolved_handles
 
-    return {handle: cf_user for handle, cf_user in resolved_handles.items() if cf_user is not None and handle != cf_user.handle}
+    return {
+        handle: cf_user
+        for handle, cf_user in resolved_handles.items()
+        if cf_user is not None and handle != cf_user.handle
+    }

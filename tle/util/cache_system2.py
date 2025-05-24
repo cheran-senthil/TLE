@@ -120,7 +120,9 @@ class ContestCache:
         return delay
 
     async def _update(self, contests, from_api=True):
-        self.logger.info(f'{len(contests)} contests fetched from {"API" if from_api else "disk"}')
+        self.logger.info(
+            f'{len(contests)} contests fetched from {"API" if from_api else "disk"}'
+        )
         contests.sort(key=lambda contest: (contest.startTimeSeconds, contest.id))
 
         if from_api:
@@ -147,7 +149,9 @@ class ContestCache:
             else:
                 # The contest starts in <= _ACTIVATE_BEFORE.
                 # Reload at contest start, or after _ACTIVE_CONTEST_RELOAD_DELAY, whichever comes first.
-                delay = min(contest.startTimeSeconds - now, self._ACTIVE_CONTEST_RELOAD_DELAY)
+                delay = min(
+                    contest.startTimeSeconds - now, self._ACTIVE_CONTEST_RELOAD_DELAY
+                )
 
         if contests_by_phase['_RUNNING']:
             # If any contest is running, reload at an increased rate to detect FINISHED
@@ -206,7 +210,9 @@ class ProblemCache:
             self.problem_by_name = {problem.name: problem for problem in problems}
             self.logger.info(f'{len(self.problems)} problems fetched from disk')
 
-    @tasks.task_spec(name='ProblemCacheUpdate', waiter=tasks.Waiter.fixed_delay(_RELOAD_INTERVAL))
+    @tasks.task_spec(
+        name='ProblemCacheUpdate', waiter=tasks.Waiter.fixed_delay(_RELOAD_INTERVAL)
+    )
     async def _update_task(self, _):
         async with self.reload_lock:
             await self._reload_problems()
@@ -222,7 +228,12 @@ class ProblemCache:
 
     async def _update(self, problems):
         self.logger.info(f'{len(problems)} problems fetched from API')
-        contest_map = {problem.contestId: self.cache_master.contest_cache.contest_by_id.get(problem.contestId) for problem in problems}
+        contest_map = {
+            problem.contestId: self.cache_master.contest_cache.contest_by_id.get(
+                problem.contestId
+            )
+            for problem in problems
+        }
 
         def keep(problem):
             return contest_map[problem.contestId] and problem.has_metadata()
@@ -265,7 +276,9 @@ class ProblemsetCache:
 
     async def run(self):
         if self.cache_master.conn.problemset_empty():
-            self.logger.warning('Problemset cache on disk is empty. This must be populated manually before use.')
+            self.logger.warning(
+                'Problemset cache on disk is empty. This must be populated manually before use.'
+            )
         self._update_task.start()
 
     async def update_for_contest(self, contest_id):
@@ -286,14 +299,18 @@ class ProblemsetCache:
             self._save_problems(problemsets)
             return len(problemsets)
 
-    @tasks.task_spec(name='ProblemsetCacheUpdate', waiter=tasks.Waiter.fixed_delay(_RELOAD_DELAY))
+    @tasks.task_spec(
+        name='ProblemsetCacheUpdate', waiter=tasks.Waiter.fixed_delay(_RELOAD_DELAY)
+    )
     async def _update_task(self, _):
         async with self.update_lock:
             contests = self.cache_master.contest_cache.contests_by_phase['FINISHED']
             new_problems, updated_problems = await self._fetch_problemsets(contests)
             self._save_problems(new_problems + updated_problems)
             self._update_from_disk()
-            self.logger.info(f'{len(new_problems)} new problems saved and {len(updated_problems)} saved problems updated.')
+            self.logger.info(
+                f'{len(new_problems)} new problems saved and {len(updated_problems)} saved problems updated.'
+            )
 
     async def _fetch_problemsets(self, contests, *, force_fetch=False):
         # We assume it is possible for problems in the same contest to get assigned rating at
@@ -312,7 +329,9 @@ class ProblemsetCache:
                 if not problemset:
                     new_contest_ids.append(contest.id)
                     continue
-                rated_problem_idx = {prob.index for prob in problemset if prob.rating is not None}
+                rated_problem_idx = {
+                    prob.index for prob in problemset if prob.rating is not None
+                }
                 if len(rated_problem_idx) < len(problemset):
                     contests_to_refetch.append((contest.id, rated_problem_idx))
 
@@ -320,15 +339,23 @@ class ProblemsetCache:
         for contest_id in new_contest_ids:
             new_problems += await self._fetch_for_contest(contest_id)
         for contest_id, rated_problem_idx in contests_to_refetch:
-            updated_problems += [prob for prob in await self._fetch_for_contest(contest_id) if prob.rating is not None and prob.index not in rated_problem_idx]
+            updated_problems += [
+                prob
+                for prob in await self._fetch_for_contest(contest_id)
+                if prob.rating is not None and prob.index not in rated_problem_idx
+            ]
 
         return new_problems, updated_problems
 
     async def _fetch_for_contest(self, contest_id):
         try:
-            _, problemset, _ = await cf.contest.standings(contest_id=contest_id, from_=1, count=1)
+            _, problemset, _ = await cf.contest.standings(
+                contest_id=contest_id, from_=1, count=1
+            )
         except cf.CodeforcesApiError as er:
-            self.logger.warning(f'Problemset fetch failed for contest {contest_id}. {er!r}')
+            self.logger.warning(
+                f'Problemset fetch failed for contest {contest_id}. {er!r}'
+            )
             problemset = []
         return problemset
 
@@ -367,7 +394,9 @@ class RatingChangesCache:
     async def run(self):
         self._refresh_handle_cache()
         if not self.handle_rating_cache:
-            self.logger.warning('Rating changes cache on disk is empty. This must be populated manually before use.')
+            self.logger.warning(
+                'Rating changes cache on disk is empty. This must be populated manually before use.'
+            )
         self._update_task.start()
 
     async def fetch_contest(self, contest_id):
@@ -387,9 +416,15 @@ class RatingChangesCache:
         """Fetch rating changes for contests which are not saved in database. Intended for
         manual trigger."""
         contests = self.cache_master.contest_cache.contests_by_phase['FINISHED']
-        contests = [contest for contest in contests if not self.has_rating_changes_saved(contest.id)]
+        contests = [
+            contest
+            for contest in contests
+            if not self.has_rating_changes_saved(contest.id)
+        ]
         total_changes = 0
-        for contests_chunk in paginator.chunkify(contests, _CONTESTS_PER_BATCH_IN_CACHE_UPDATES):
+        for contests_chunk in paginator.chunkify(
+            contests, _CONTESTS_PER_BATCH_IN_CACHE_UPDATES
+        ):
             contests_chunk = await self._fetch(contests_chunk)
             self._save_changes(contests_chunk)
             total_changes += len(contests_chunk)
@@ -397,7 +432,11 @@ class RatingChangesCache:
 
     def is_newly_finished_without_rating_changes(self, contest):
         now = time.time()
-        return contest.phase == 'FINISHED' and now - contest.end_time < self._RATED_DELAY and not self.has_rating_changes_saved(contest.id)
+        return (
+            contest.phase == 'FINISHED'
+            and now - contest.end_time < self._RATED_DELAY
+            and not self.has_rating_changes_saved(contest.id)
+        )
 
     @tasks.task_spec(
         name='RatingChangesCacheUpdate',
@@ -411,7 +450,12 @@ class RatingChangesCache:
         # A contest also has empty list if it is unrated. We assume that is the case if
         # _RATED_DELAY time has passed since the contest end.
 
-        to_monitor = [contest for contest in self.cache_master.contest_cache.contests_by_phase['FINISHED'] if self.is_newly_finished_without_rating_changes(contest) and not _is_blacklisted(contest)]
+        to_monitor = [
+            contest
+            for contest in self.cache_master.contest_cache.contests_by_phase['FINISHED']
+            if self.is_newly_finished_without_rating_changes(contest)
+            and not _is_blacklisted(contest)
+        ]
 
         cur_ids = {contest.id for contest in self.monitored_contests}
         new_ids = {contest.id for contest in to_monitor}
@@ -428,10 +472,17 @@ class RatingChangesCache:
         waiter=tasks.Waiter.fixed_delay(_RELOAD_DELAY),
     )
     async def _monitor_task(self, _):
-        self.monitored_contests = [contest for contest in self.monitored_contests if self.is_newly_finished_without_rating_changes(contest) and not _is_blacklisted(contest)]
+        self.monitored_contests = [
+            contest
+            for contest in self.monitored_contests
+            if self.is_newly_finished_without_rating_changes(contest)
+            and not _is_blacklisted(contest)
+        ]
 
         if not self.monitored_contests:
-            self.logger.info('Rated changes fetched for contests that were being monitored.')
+            self.logger.info(
+                'Rated changes fetched for contests that were being monitored.'
+            )
             await self._monitor_task.stop()
             return
 
@@ -441,23 +492,31 @@ class RatingChangesCache:
         contest_changes_pairs.sort(key=lambda pair: pair[1][0].ratingUpdateTimeSeconds)
         self._save_changes(contest_changes_pairs)
         for contest, changes in contest_changes_pairs:
-            cf_common.event_sys.dispatch(events.RatingChangesUpdate, contest=contest, rating_changes=changes)
+            cf_common.event_sys.dispatch(
+                events.RatingChangesUpdate, contest=contest, rating_changes=changes
+            )
 
     async def _fetch(self, contests):
         all_changes = []
         for contest in contests:
             try:
                 changes = await cf.contest.ratingChanges(contest_id=contest.id)
-                self.logger.info(f'{len(changes)} rating changes fetched for contest {contest.id}')
+                self.logger.info(
+                    f'{len(changes)} rating changes fetched for contest {contest.id}'
+                )
                 if changes:
                     all_changes.append((contest, changes))
             except cf.CodeforcesApiError as er:
-                self.logger.warning(f'Fetch rating changes failed for contest {contest.id}, ignoring. {er!r}')
+                self.logger.warning(
+                    f'Fetch rating changes failed for contest {contest.id}, ignoring. {er!r}'
+                )
                 pass
         return all_changes
 
     def _save_changes(self, contest_changes_pairs):
-        flattened = [change for _, changes in contest_changes_pairs for change in changes]
+        flattened = [
+            change for _, changes in contest_changes_pairs for change in changes
+        ]
         if not flattened:
             return
         rc = self.cache_master.conn.save_rating_changes(flattened)
@@ -473,7 +532,9 @@ class RatingChangesCache:
         self.logger.info(f'Ratings for {len(handle_rating_cache)} handles cached')
 
     def get_users_with_more_than_n_contests(self, time_cutoff, n):
-        return self.cache_master.conn.get_users_with_more_than_n_contests(time_cutoff, n)
+        return self.cache_master.conn.get_users_with_more_than_n_contests(
+            time_cutoff, n
+        )
 
     def get_rating_changes_for_contest(self, contest_id):
         return self.cache_master.conn.get_rating_changes_for_contest(contest_id)
@@ -485,7 +546,9 @@ class RatingChangesCache:
         return self.cache_master.conn.get_rating_changes_for_handle(handle)
 
     def get_current_rating(self, handle, default_if_absent=False):
-        return self.handle_rating_cache.get(handle, cf.DEFAULT_RATING if default_if_absent else None)
+        return self.handle_rating_cache.get(
+            handle, cf.DEFAULT_RATING if default_if_absent else None
+        )
 
     def get_all_ratings(self):
         return list(self.handle_rating_cache.values())
@@ -529,7 +592,12 @@ class RanklistCache:
         running_contests = contests_by_phase['_RUNNING']
 
         rating_cache = self.cache_master.rating_changes_cache
-        finished_contests = [contest for contest in contests_by_phase['FINISHED'] if not _is_blacklisted(contest) and rating_cache.is_newly_finished_without_rating_changes(contest)]
+        finished_contests = [
+            contest
+            for contest in contests_by_phase['FINISHED']
+            if not _is_blacklisted(contest)
+            and rating_cache.is_newly_finished_without_rating_changes(contest)
+        ]
 
         to_monitor = running_contests + finished_contests
         cur_ids = {contest.id for contest in self.monitored_contests}
@@ -548,7 +616,15 @@ class RanklistCache:
     )
     async def _monitor_task(self, _):
         cache = self.cache_master.rating_changes_cache
-        self.monitored_contests = [contest for contest in self.monitored_contests if not _is_blacklisted(contest) and (contest.phase != 'FINISHED' or cache.is_newly_finished_without_rating_changes(contest))]
+        self.monitored_contests = [
+            contest
+            for contest in self.monitored_contests
+            if not _is_blacklisted(contest)
+            and (
+                contest.phase != 'FINISHED'
+                or cache.is_newly_finished_without_rating_changes(contest)
+            )
+        ]
 
         if not self.monitored_contests:
             self.ranklist_by_contest = {}
@@ -563,17 +639,26 @@ class RanklistCache:
 
     @staticmethod
     async def _get_contest_details(contest_id, show_unofficial):
-        contest, problems, standings = await cf.contest.standings(contest_id=contest_id, show_unofficial=show_unofficial)
+        contest, problems, standings = await cf.contest.standings(
+            contest_id=contest_id, show_unofficial=show_unofficial
+        )
 
         # Exclude PRACTICE and MANAGER
-        standings = [row for row in standings if row.party.participantType in ('CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL')]
+        standings = [
+            row
+            for row in standings
+            if row.party.participantType
+            in ('CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL')
+        ]
 
         return contest, problems, standings
 
     # Fetch final rating changes from CF.
     # For older contests.
     async def _get_ranklist_with_fetched_changes(self, contest_id, show_unofficial):
-        contest, problems, standings = await self._get_contest_details(contest_id, show_unofficial)
+        contest, problems, standings = await self._get_contest_details(
+            contest_id, show_unofficial
+        )
         now = time.time()
 
         is_rated = False
@@ -587,7 +672,9 @@ class RanklistCache:
         ranklist = None
         if is_rated:
             ranklist = Ranklist(contest, problems, standings, now, is_rated=is_rated)
-            delta_by_handle = {change.handle: change.newRating - change.oldRating for change in changes}
+            delta_by_handle = {
+                change.handle: change.newRating - change.oldRating for change in changes
+            }
             ranklist.set_deltas(delta_by_handle)
 
         return ranklist
@@ -595,7 +682,9 @@ class RanklistCache:
     # Rating changes have not been applied yet, predict rating changes.
     # For running/recent/unrated contests.
     async def _get_ranklist_with_predicted_changes(self, contest_id, show_unofficial):
-        contest, problems, standings = await self._get_contest_details(contest_id, show_unofficial)
+        contest, problems, standings = await self._get_contest_details(
+            contest_id, show_unofficial
+        )
         now = time.time()
 
         standings_official = None
@@ -610,11 +699,20 @@ class RanklistCache:
             ranklist = Ranklist(contest, problems, standings, now, is_rated=False)
         else:
             current_rating = await CacheSystem.getUsersEffectiveRating(activeOnly=False)
-            current_rating = {row.party.members[0].handle: current_rating.get(row.party.members[0].handle, 1500) for row in standings_official}
+            current_rating = {
+                row.party.members[0].handle: current_rating.get(
+                    row.party.members[0].handle, 1500
+                )
+                for row in standings_official
+            }
             if 'Educational' in contest.name:
                 # For some reason educational contests return all contestants in ranklist even
                 # when unofficial contestants are not requested.
-                current_rating = {handle: rating for handle, rating in current_rating.items() if rating < 2100}
+                current_rating = {
+                    handle: rating
+                    for handle, rating in current_rating.items()
+                    if rating < 2100
+                }
             ranklist = Ranklist(contest, problems, standings, now, is_rated=True)
             ranklist.predict(current_rating)
         return ranklist
@@ -631,10 +729,14 @@ class RanklistCache:
 
         ranklist = None
         if fetch_changes:
-            ranklist = await self._get_ranklist_with_fetched_changes(contest_id, show_unofficial)
+            ranklist = await self._get_ranklist_with_fetched_changes(
+                contest_id, show_unofficial
+            )
         if ranklist is None:
             # Either predict_changes was true or fetching rating changes failed
-            ranklist = await self._get_ranklist_with_predicted_changes(contest_id, show_unofficial)
+            ranklist = await self._get_ranklist_with_predicted_changes(
+                contest_id, show_unofficial
+            )
 
         # for some reason Educational contests also have div1 peeps in the official standings.
         # hence we need to manually weed them out
@@ -645,18 +747,36 @@ class RanklistCache:
 
     async def generate_vc_ranklist(self, contest_id, handle_to_member_id):
         handles = list(handle_to_member_id.keys())
-        contest, problems, standings = await cf.contest.standings(contest_id=contest_id, show_unofficial=True)
+        contest, problems, standings = await cf.contest.standings(
+            contest_id=contest_id, show_unofficial=True
+        )
         # Exclude PRACTICE, MANAGER and OUR_OF_COMPETITION
-        standings = [row for row in standings if row.party.participantType == 'CONTESTANT' or row.party.members[0].handle in handles]
+        standings = [
+            row
+            for row in standings
+            if row.party.participantType == 'CONTESTANT'
+            or row.party.members[0].handle in handles
+        ]
         standings.sort(key=lambda row: row.rank)
         standings = [row._replace(rank=i + 1) for i, row in enumerate(standings)]
         now = time.time()
         rating_changes = await cf.contest.ratingChanges(contest_id=contest_id)
-        current_official_rating = {rating_change.handle: rating_change.oldRating for rating_change in rating_changes}
+        current_official_rating = {
+            rating_change.handle: rating_change.oldRating
+            for rating_change in rating_changes
+        }
 
         # TODO: assert that none of the given handles are in the official standings.
-        handles = [row.party.members[0].handle for row in standings if row.party.members[0].handle in handles and row.party.participantType == 'VIRTUAL']
-        current_vc_rating = {handle: cf_common.user_db.get_vc_rating(handle_to_member_id.get(handle)) for handle in handles}
+        handles = [
+            row.party.members[0].handle
+            for row in standings
+            if row.party.members[0].handle in handles
+            and row.party.participantType == 'VIRTUAL'
+        ]
+        current_vc_rating = {
+            handle: cf_common.user_db.get_vc_rating(handle_to_member_id.get(handle))
+            for handle in handles
+        }
         ranklist = Ranklist(contest, problems, standings, now, is_rated=True)
         delta_by_handle = {}
         for handle in handles:
@@ -672,11 +792,15 @@ class RanklistCache:
         ranklist_by_contest = {}
         for contest in contests:
             try:
-                ranklist = await self.generate_ranklist(contest.id, predict_changes=True)
+                ranklist = await self.generate_ranklist(
+                    contest.id, predict_changes=True
+                )
                 ranklist_by_contest[contest.id] = ranklist
                 self.logger.info(f'Ranklist fetched for contest {contest.id}')
             except cf.CodeforcesApiError as er:
-                self.logger.warning(f'Ranklist fetch failed for contest {contest.id}. {er!r}')
+                self.logger.warning(
+                    f'Ranklist fetch failed for contest {contest.id}. {er!r}'
+                )
 
         return ranklist_by_contest
 
@@ -702,5 +826,7 @@ class CacheSystem:
     async def getUsersEffectiveRating(*, activeOnly=None):
         """Returns a dictionary mapping user handle to his effective rating for all the users."""
         ratedList = await cf.user.ratedList(activeOnly=activeOnly)
-        users_effective_rating_dict = {user.handle: user.effective_rating for user in ratedList}
+        users_effective_rating_dict = {
+            user.handle: user.effective_rating for user in ratedList
+        }
         return users_effective_rating_dict

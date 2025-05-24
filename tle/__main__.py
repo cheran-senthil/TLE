@@ -28,7 +28,9 @@ def setup():
         level=logging.INFO,
         handlers=[
             logging.StreamHandler(),
-            TimedRotatingFileHandler(constants.LOG_FILE_PATH, when='D', backupCount=3, utc=True),
+            TimedRotatingFileHandler(
+                constants.LOG_FILE_PATH, when='D', backupCount=3, utc=True
+            ),
         ],
     )
 
