@@ -550,7 +550,8 @@ class user:
         chunks = list(user_info_chunkify(handles))
         if len(chunks) > 1:
             logger.warning(
-                f'cf.info request with {len(handles)} handles,will be chunkified into {len(chunks)} requests.'
+                f'cf.info request with {len(handles)} handles,'
+                f' will be chunkified into {len(chunks)} requests.'
             )
 
         result = []

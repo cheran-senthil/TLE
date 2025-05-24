@@ -33,7 +33,8 @@ class EventError(commands.CommandError):
 class ListenerNotRegistered(EventError):
     def __init__(self, listener):
         super().__init__(
-            f'Listener {listener.name} is not registered for event {listener.event_cls.__name__}.'
+            f'Listener {listener.name} is not registered for event'
+            f' {listener.event_cls.__name__}.'
         )
 
 
@@ -84,12 +85,18 @@ def _ensure_coroutine_func(func):
 
 
 class Listener:
-    """A listener for a particular event. A listener must have a name, the event it should listen
-    to and a coroutine function `func` that is called when the event is dispatched.
+    """A listener for a particular event.
+
+    A listener must have a name, the event it should listen to and a coroutine
+    function `func` that is called when the event is dispatched.
     """
 
     def __init__(self, name, event_cls, func, *, with_lock=False):
-        """`with_lock` controls whether execution of `func` should be guarded by an asyncio.Lock."""
+        """Initialize the listener.
+
+        `with_lock` controls whether execution of `func` should be guarded by
+        an asyncio.Lock.
+        """
         _ensure_coroutine_func(func)
         self.name = name
         self.event_cls = event_cls
@@ -123,13 +130,19 @@ class Listener:
 
 
 class ListenerSpec:
-    """A descriptor intended to be an interface between an instance and its listeners. It creates
-    the expected listener when `__get__` is called from an instance for the first time. No two
-    listener specs in the same class should have the same name.
+    """A descriptor intended to be an interface between an instance and its listeners.
+
+    It creates the expected listener when `__get__` is called from an instance
+    for the first time. No two listener specs in the same class should have the
+    same name.
     """
 
     def __init__(self, name, event_cls, func, *, with_lock=False):
-        """`with_lock` controls whether execution of `func` should be guarded by an asyncio.Lock."""
+        """Initialize the listener spec.
+
+        `with_lock` controls whether execution of `func` should be guarded by
+        an asyncio.Lock.
+        """
         _ensure_coroutine_func(func)
         self.name = name
         self.event_cls = event_cls
@@ -144,8 +157,8 @@ class ListenerSpec:
         except AttributeError:
             listeners = instance.___listeners___ = {}
         if self.name not in listeners:
-            # In Python <=3.7 iscoroutinefunction returns False for async functions wrapped by
-            # functools.partial.
+            # In Python <=3.7 iscoroutinefunction returns False for async
+            # functions wrapped by functools.partial.
             # TODO: Use functools.partial when we move to Python 3.8.
             async def wrapper(event):
                 return await self.func(instance, event)

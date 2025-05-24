@@ -106,7 +106,11 @@ class CSES(commands.Cog):
 
     @commands.command(brief='Shows compiled CSES leaderboard', usage='[handles...]')
     async def cses(self, ctx, *handles: str):
-        """Shows compiled CSES leaderboard. If handles are given, leaderboard will contain only those indicated handles, otherwise leaderboard will contain overall top ten."""
+        """Shows compiled CSES leaderboard.
+
+        If handles are given, leaderboard will contain only those indicated
+        handles, otherwise leaderboard will contain overall top ten.
+        """
         if not handles:
             await ctx.send(
                 '```\nFastest\n'

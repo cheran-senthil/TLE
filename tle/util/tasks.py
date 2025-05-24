@@ -27,9 +27,11 @@ def _ensure_coroutine_func(func):
 
 class Waiter:
     def __init__(self, func, *, run_first=False, needs_instance=False):
-        """`run_first` denotes whether this waiter should be run before the task's `func` when
-        run for the first time. `needs_instance` indicates whether a self argument is required by
-        the `func`.
+        """Initializes a waiter with the given coroutine function `func`.
+
+        `run_first` indicates whether this waiter should be run before the task's `func`
+        when run for the first time. `needs_instance` indicates whether a self argument
+        is required by the `func`.
         """
         _ensure_coroutine_func(func)
         self.func = func
@@ -44,8 +46,9 @@ class Waiter:
 
     @staticmethod
     def fixed_delay(delay, run_first=False):
-        """Returns a waiter that always waits for the given time (in seconds) and returns the
-        time waited.
+        """Returns a waiter that always waits for a fixed time.
+
+        `delay` is in seconds and the waiter returns the time waited.
         """
 
         async def wait_func():
@@ -56,8 +59,9 @@ class Waiter:
 
     @staticmethod
     def for_event(event_cls, run_first=True):
-        """Returns a waiter that waits for the given event and returns the result of that
-        event.
+        """Returns a waiter that waits for the given event.
+
+        The waiter returns the result of the event.
         """
 
         async def wait_func():
@@ -68,7 +72,10 @@ class Waiter:
 
 class ExceptionHandler:
     def __init__(self, func, *, needs_instance=False):
-        """`needs_instance` indicates whether a self argument is required by the `func`."""
+        """Initializes an exception handler with the given coroutine function `func`.
+
+        `needs_instance` indicates whether a self argument is required by the `func`.
+        """
         _ensure_coroutine_func(func)
         self.func = func
         self.needs_instance = needs_instance
@@ -81,10 +88,13 @@ class ExceptionHandler:
 
 
 class Task:
-    """A task that repeats until stopped. A task must have a name, a coroutine function `func` to
-    execute periodically and another coroutine function `waiter` to wait on between calls to `func`.
-    The return value of `waiter` is passed to `func` in the next call. An optional coroutine
-    function `exception_handler` may be provided to which exceptions will be reported.
+    """A task that repeats until stopped.
+
+    A task must have a name, a coroutine function `func` to execute
+    periodically and another coroutine function `waiter` to wait on between
+    calls to `func`. The return value of `waiter` is passed to `func` in the
+    next call. An optional coroutine function `exception_handler` may be
+    provided to which exceptions will be reported.
     """
 
     def __init__(self, name, func, waiter, exception_handler=None, *, instance=None):
@@ -99,9 +109,7 @@ class Task:
         self.logger = logging.getLogger(self.__class__.__name__)
 
     def waiter(self, run_first=False):
-        """Returns a decorator that sets the decorated coroutine function as the waiter for this
-        Task.
-        """
+        """Decorator that sets the coroutine as the waiter for this Task."""
 
         def decorator(func):
             self._waiter = Waiter(func, run_first=run_first)
@@ -110,9 +118,7 @@ class Task:
         return decorator
 
     def exception_handler(self):
-        """Returns a decorator that sets the decorated coroutine function as the exception handler
-        for this Task.
-        """
+        """Decorator that sets the function as the exception handler for this Task."""
 
         def decorator(func):
             self._exception_handler = ExceptionHandler(func)
@@ -134,9 +140,7 @@ class Task:
         self.asyncio_task = asyncio.create_task(self._task())
 
     async def manual_trigger(self, arg=None):
-        """Manually triggers the `func` with the optionally provided `arg`, which defaults to
-        `None`.
-        """
+        """Manually triggers the `func` with the optionally provided `arg`."""
         self.logger.info(f'Manually triggering task `{self.name}`.')
         await self._execute_func(arg)
 
@@ -174,9 +178,12 @@ class Task:
 
 
 class TaskSpec:
-    """A descriptor intended to be an interface between an instance and its tasks. It creates
-    the expected task when `__get__` is called from an instance for the first time. No two task
-    specs in the same class should have the same name."""
+    """A descriptor intended to be an interface between an instance and its tasks.
+
+    It creates the expected task when `__get__` is called from an instance for
+    the first time. No two task specs in the same class should have the same
+    name.
+    """
 
     def __init__(self, name, func, waiter=None, exception_handler=None):
         _ensure_coroutine_func(func)
@@ -186,9 +193,7 @@ class TaskSpec:
         self._exception_handler = exception_handler
 
     def waiter(self, run_first=False, needs_instance=True):
-        """Returns a decorator that sets the decorated coroutine function as the waiter for this
-        TaskSpec.
-        """
+        """Decorator that sets the coroutine as the waiter for this TaskSpec."""
 
         def decorator(func):
             self._waiter = Waiter(
@@ -199,9 +204,7 @@ class TaskSpec:
         return decorator
 
     def exception_handler(self, needs_instance=True):
-        """Returns a decorator that sets the decorated coroutine function as the exception handler
-        for this TaskSpec.
-        """
+        """Decorator that sets the coroutine as the exception handler for this TaskSpec."""  # noqa: E501
 
         def decorator(func):
             self._exception_handler = ExceptionHandler(
@@ -239,7 +242,7 @@ def task(*, name, waiter=None, exception_handler=None):
 
 
 def task_spec(*, name, waiter=None, exception_handler=None):
-    """Returns a decorator that creates a `TaskSpec` descriptor with the given options."""
+    """Decorator that creates a `TaskSpec` descriptor with the given options."""
 
     def decorator(func):
         return TaskSpec(name, func, waiter, exception_handler)

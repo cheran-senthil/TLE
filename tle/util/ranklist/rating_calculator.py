@@ -27,8 +27,9 @@ class Contestant:
 
 
 class CodeforcesRatingCalculator:
+    """Class to calculate rating changes and seeds based on contest standings."""
+
     def __init__(self, standings):
-        """Calculate Codeforces rating changes and seeds given contest and user information."""
         self.contestants = [
             Contestant(handle, points, penalty, rating)
             for handle, points, penalty, rating in standings
