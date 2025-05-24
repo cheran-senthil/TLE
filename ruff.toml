@@ -1,5 +1,5 @@
 target-version = "py311"
-line-length = 220
+line-length = 88
 indent-width = 4
 
 extend-exclude = [
