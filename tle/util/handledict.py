@@ -1,9 +1,6 @@
-"""
-A case insensitive dictionay with bare minimum functions required for handling usernames.
-"""
-
-
 class HandleDict:
+    """A case insensitive dictionary for handling usernames."""
+
     def __init__(self):
         self._store = {}
 

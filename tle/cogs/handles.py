@@ -229,9 +229,15 @@ def get_prettyhandles_image(rows, font):
 def _make_profile_embed(member, user, *, mode):
     assert mode in ('set', 'get')
     if mode == 'set':
-        desc = f'Handle for {member.mention} successfully set to **[{user.handle}]({user.url})**'
+        desc = (
+            f'Handle for {member.mention} successfully set to'
+            f' **[{user.handle}]({user.url})**'
+        )
     else:
-        desc = f'Handle for {member.mention} is currently set to **[{user.handle}]({user.url})**'
+        desc = (
+            f'Handle for {member.mention} is currently set to'
+            f' **[{user.handle}]({user.url})**'
+        )
     if user.rating is None:
         embed = discord.Embed(description=desc)
         embed.add_field(name='Rating', value='Unrated', inline=True)
@@ -369,17 +375,22 @@ class Handles(commands.Cog):
         await ctx.send_help(ctx.command)
 
     async def maybe_add_trusted_role(self, member):
-        """If the `member` has been 1900+ for any amount of time before o1 release, add the trusted role."""
+        """Add trusted role for eligible users.
+
+        Condition: `member` has been 1900+ for any amount of time before o1 release.
+        """
         handle = cf_common.user_db.get_handle(member.id, member.guild.id)
         if not handle:
             self.logger.warning(
-                f'WARN: handle not found in guild {member.guild.name} ({member.guild.id})'
+                'WARN: handle not found in guild'
+                f' {member.guild.name} ({member.guild.id})'
             )
             return
         trusted_role = discord.utils.get(member.guild.roles, name=constants.TLE_TRUSTED)
         if not trusted_role:
             self.logger.warning(
-                f"WARN: 'Trusted' role not found in guild {member.guild.name} ({member.guild.id})"
+                "WARN: 'Trusted' role not found in guild"
+                f' {member.guild.name} ({member.guild.id})'
             )
             return
 
@@ -393,13 +404,15 @@ class Handles(commands.Cog):
             except cf.NotFoundError:
                 # User rating info not found via API, ignore for trusted check
                 self.logger.info(
-                    f'INFO: Rating history not found for handle {handle} during trusted check.'
+                    'INFO: Rating history not found for'
+                    f' handle {handle} during trusted check.'
                 )
                 return
             except cf.CodeforcesApiError as e:
                 # Log API errors appropriately in a real scenario
                 self.logger.warning(
-                    f'WARN: API Error fetching rating for {handle} during trusted check: {e}'
+                    f'WARN: API Error fetching rating for {handle}'
+                    f' during trusted check: {e}'
                 )
                 return
 
@@ -414,17 +427,21 @@ class Handles(commands.Cog):
                     )
                 except discord.Forbidden:
                     self.logger.warning(
-                        f'WARN: Missing permissions to add Trusted role to {member.display_name} in {member.guild.name}'
+                        f'WARN: Missing permissions to add Trusted role to'
+                        f' {member.display_name} in {member.guild.name}'
                     )
                 except discord.HTTPException as e:
                     self.logger.warning(
-                        f'WARN: Failed to add Trusted role to {member.display_name} in {member.guild.name}: {e}'
+                        f'WARN: Failed to add Trusted role to'
+                        f' {member.display_name} in {member.guild.name}: {e}'
                     )
 
     async def update_member_rank_role(self, member, role_to_assign, *, reason):
-        """Sets the `member` to only have the rank role of `role_to_assign`. All other rank roles
-        on the member, if any, will be removed. If `role_to_assign` is None all existing rank roles
-        on the member will be removed.
+        """Sets the `member` to only have the rank role of `role_to_assign`.
+
+        All other rank roles on the member, if any, will be removed. If
+        `role_to_assign` is None all existing rank roles on the member will be
+        removed.
         """
         if member is None:
             return
@@ -487,16 +504,20 @@ class Handles(commands.Cog):
         ),
     )
     async def identify(self, ctx, handle: str):
-        """Link a codeforces account to discord account by submitting a compile error to a random problem"""
+        """Link a codeforces account to discord account.
+
+        Confirmation is done by submitting a compile error to a random problem.
+        """
         if cf_common.user_db.get_handle(ctx.author.id, ctx.guild.id):
             raise HandleCogError(
-                f'{ctx.author.mention}, you cannot identify when your handle is '
-                'already set. Ask an Admin or Moderator if you wish to change it'
+                f'{ctx.author.mention}, you cannot identify when your handle'
+                ' is already set. Ask an Admin or Moderator if you wish to change it'
             )
 
         if cf_common.user_db.get_user_id(handle, ctx.guild.id):
             raise HandleCogError(
-                f'The handle `{handle}` is already associated with another user. Ask an Admin or Moderator in case of an inconsistency.'
+                f'The handle `{handle}` is already associated with another user.'
+                ' Ask an Admin or Moderator in case of an inconsistency.'
             )
 
         if handle in cf_common.HandleIsVjudgeError.HANDLES:
@@ -820,7 +841,8 @@ class Handles(commands.Cog):
 
         if not rankings:
             raise HandleCogError(
-                'No one has completed a gitgud challenge, send ;gitgud to request and ;gotgud to mark it as complete'
+                'No one has completed a gitgud challenge,'
+                ' send ;gitgud to request and ;gotgud to mark it as complete'
             )
         discord_file = get_gudgitters_image(rankings)
         await ctx.send(file=discord_file)
@@ -864,9 +886,8 @@ class Handles(commands.Cog):
 
     @handle.command(brief='Show handles, but prettier')
     async def pretty(self, ctx, page_no: int = None):
-        """Show members of the server who have registered their handles and their Codeforces
-        ratings, in color.
-        """
+        """Show members of the server who have registered their handles
+        and their Codeforces ratings, in color."""
         user_id_cf_user_pairs = cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)
         user_id_cf_user_pairs.sort(
             key=lambda p: p[1].rating if p[1].rating is not None else -1, reverse=True
@@ -913,8 +934,8 @@ class Handles(commands.Cog):
         await ctx.send(msg, file=discord.File(buffer, 'handles.png'))
 
     async def _update_ranks_all(self, guild):
-        """For each member in the guild, fetches their current ratings and updates their role if
-        required.
+        """For each member in the guild, fetches their current ratings and
+        updates their role if required.
         """
         res = cf_common.user_db.get_handles_for_guild(guild.id)
         await self._update_ranks(guild, res)
@@ -955,8 +976,8 @@ class Handles(commands.Cog):
 
     @staticmethod
     def _make_rankup_embeds(guild, contest, change_by_handle):
-        """Make an embed containing a list of rank changes and top rating increases for the members
-        of this guild.
+        """Make an embed containing a list of rank changes and top rating
+        increases for the members of this guild.
         """
         user_id_handle_pairs = cf_common.user_db.get_handles_for_guild(guild.id)
         member_handle_pairs = [
@@ -975,8 +996,8 @@ class Handles(commands.Cog):
         ]
         if not member_change_pairs:
             raise HandleCogError(
-                f'Contest `{contest.id} | {contest.name}` was not rated for any '
-                'member of this server.'
+                f'Contest `{contest.id} | {contest.name}`'
+                ' was not rated for any member of this server.'
             )
 
         member_change_pairs.sort(key=lambda pair: pair[1].newRating, reverse=True)
@@ -1001,8 +1022,9 @@ class Handles(commands.Cog):
             new_role = rating_to_displayable_rank(change.newRating)
             if new_role != old_role:
                 rank_change_str = (
-                    f'{member.mention} [{change.handle}]({cf.PROFILE_BASE_URL}{change.handle}): {old_role} '
-                    f'\N{LONG RIGHTWARDS ARROW} {new_role}'
+                    f'{member.mention}'
+                    f' [{change.handle}]({cf.PROFILE_BASE_URL}{change.handle}):'
+                    f' {old_role} \N{LONG RIGHTWARDS ARROW} {new_role}'
                 )
                 rank_changes_str.append(rank_change_str)
 
@@ -1012,10 +1034,13 @@ class Handles(commands.Cog):
         top_increases_str = []
         for member, change in member_change_pairs[:_TOP_DELTAS_COUNT]:
             delta = change.newRating - change.oldRating
+            if delta <= 0:
+                break
             increase_str = (
-                f'{member.mention} [{change.handle}]({cf.PROFILE_BASE_URL}{change.handle}): {change.oldRating} '
-                f'\N{HORIZONTAL BAR} **{delta:+}** \N{LONG RIGHTWARDS ARROW} '
-                f'{change.newRating}'
+                f'{member.mention}'
+                f' [{change.handle}]({cf.PROFILE_BASE_URL}{change.handle}):'
+                f' {change.oldRating} \N{HORIZONTAL BAR} **{delta:+}**'
+                f' \N{LONG RIGHTWARDS ARROW} {change.newRating}'
             )
             top_increases_str.append(increase_str)
 
@@ -1131,8 +1156,8 @@ class Handles(commands.Cog):
             changes = None
         if not changes:
             raise HandleCogError(
-                f'Rating changes are not available for contest `{contest_id} | '
-                f'{contest.name}`.'
+                'Rating changes are not available for contest'
+                f' `{contest_id} | {contest.name}`.'
             )
 
         change_by_handle = {change.handle: change for change in changes}
@@ -1216,14 +1241,17 @@ class Handles(commands.Cog):
         # Find the Purgatory role
         purgatory_role = discord.utils.get(guild.roles, name=purgatory_role_name)
         if purgatory_role is None:
-            # This case might indicate a server setup issue, but we proceed as if the user is not in purgatory
+            # This case might indicate a server setup issue, but we proceed as
+            # if the user is not in purgatory
             self.logger.warning(
-                f"Role '{purgatory_role_name}' not found in guild {guild.name} ({guild.id})."
+                f"Role '{purgatory_role_name}'"
+                f' not found in guild {guild.name} ({guild.id}).'
             )
         elif purgatory_role in target_user.roles:
             await ctx.send(
                 embed=discord_common.embed_alert(
-                    f'Cannot grant Trusted role to {target_user.mention}. User is currently in Purgatory.'
+                    f'Cannot grant Trusted role to {target_user.mention}.'
+                    f' User is currently in Purgatory.'
                 )
             )
             return
@@ -1250,7 +1278,8 @@ class Handles(commands.Cog):
                 trusted_role, reason=f'Referred by {ctx.author.name} ({ctx.author.id})'
             )
             await ctx.send(
-                f'Trusted role granted to {target_user.mention} by {ctx.author.mention}.'
+                f'Trusted role granted to {target_user.mention}'
+                f' by {ctx.author.mention}.'
             )
         except discord.Forbidden:
             raise HandleCogError(
@@ -1281,7 +1310,9 @@ class Handles(commands.Cog):
         # If Purgatory role doesn't exist, we assume no one has it.
         if purgatory_role is None:
             self.logger.warning(
-                f"Role '{purgatory_role_name}' not found in guild {guild.name} ({guild.id}). Proceeding without Purgatory check."
+                f"Role '{purgatory_role_name}'"
+                f' not found in guild {guild.name} ({guild.id}).'
+                f' Proceeding without Purgatory check.'
             )
 
         # The date when this code was added.
@@ -1319,7 +1350,8 @@ class Handles(commands.Cog):
                 skipped_join_date += 1
                 continue
 
-            # Make member.joined_at timezone-aware (assuming it's UTC, which discord.py uses)
+            # Make member.joined_at timezone-aware
+            # (assuming it's UTC, which discord.py uses)
             member_joined_at_aware = member.joined_at.replace(tzinfo=dt.timezone.utc)
 
             if member_joined_at_aware >= cutoff_date:
@@ -1336,7 +1368,7 @@ class Handles(commands.Cog):
             try:
                 await member.add_roles(
                     trusted_role,
-                    reason='Grandfather clause: Joined before 2025-04-21 and not in Purgatory',
+                    reason='Grandfather clause: Joined before 2025-04-21 and not in Purgatory',  # noqa: E501
                 )
                 added_count += 1
                 # Short delay to avoid hitting rate limits on large servers
@@ -1344,13 +1376,15 @@ class Handles(commands.Cog):
             except discord.Forbidden:
                 await ctx.send(
                     embed=discord_common.embed_alert(
-                        f"Missing permissions to assign the '{trusted_role_name}' role to {member.mention}. Stopping."
+                        f"Missing permissions to assign the '{trusted_role_name}'"
+                        f' role to {member.mention}. Stopping.'
                     )
                 )
                 return  # Stop processing if permissions are missing
             except discord.HTTPException as e:
                 self.logger.warning(
-                    f'Failed to assign {trusted_role_name} role to {member.display_name} ({member.id}): {e}'
+                    f'Failed to assign {trusted_role_name} role to'
+                    f' {member.display_name} ({member.id}): {e}'
                 )
                 http_failure_count += 1
 

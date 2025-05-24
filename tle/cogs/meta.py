@@ -77,8 +77,10 @@ class Meta(commands.Cog):
         end = time.perf_counter()
         duration = (end - start) * 1000
         await message.edit(
-            content=f'REST API latency: {int(duration)}ms\n'
-            f'Gateway API latency: {int(self.bot.latency * 1000)}ms'
+            content=(
+                f'REST API latency: {int(duration)}ms\n'
+                f'Gateway API latency: {int(self.bot.latency * 1000)}ms'
+            )
         )
 
     @meta.command(brief='Get git information')
@@ -99,7 +101,12 @@ class Meta(commands.Cog):
     async def guilds(self, ctx):
         "Replies with info on the bot's guilds"
         msg = [
-            f'Guild ID: {guild.id} | Name: {guild.name} | Owner: {guild.owner.id} | Icon: {guild.icon}'
+            ' | '.join([
+                f'Guild ID: {guild.id}',
+                f'Name: {guild.name}',
+                f'Owner: {guild.owner.id}',
+                f'Icon: {guild.icon}',
+            ])
             for guild in self.bot.guilds
         ]
         await ctx.send('```' + '\n'.join(msg) + '```')

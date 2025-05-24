@@ -114,7 +114,7 @@ async def _send_reminder_at(channel, role, contests, before_secs, send_time):
 
 
 def _get_ongoing_vc_participants():
-    """Returns a set containing the `member_id`s of users who are registered in an ongoing vc."""
+    """Returns `member_id` of users who are registered in an ongoing vc."""
     ongoing_vc_ids = cf_common.user_db.get_ongoing_rated_vc_ids()
     ongoing_vc_participants = set()
     for vc_id in ongoing_vc_ids:
@@ -248,8 +248,8 @@ class Contests(commands.Cog):
 
     @clist.command(brief='List active contests')
     async def active(self, ctx):
-        """List active contests on Codeforces, namely those in coding phase, pending system
-        test or in system test."""
+        """List active contests on Codeforces, namely those in coding phase,
+        pending system test or in system test."""
         await self._send_contest_list(
             ctx,
             self.active_contests,
@@ -274,8 +274,8 @@ class Contests(commands.Cog):
     @remind.command(brief='Set reminder settings')
     @commands.has_role(constants.TLE_ADMIN)
     async def here(self, ctx, role: discord.Role, *before: int):
-        """Sets reminder channel to current channel, role to the given role, and reminder
-        times to the given values in minutes."""
+        """Sets reminder channel to current channel, role to the given role,
+        and reminder times to the given values in minutes."""
         if not role.mentionable:
             raise ContestCogError('The role for reminders must be mentionable')
         if not before or any(before_mins <= 0 for before_mins in before):
@@ -332,8 +332,8 @@ class Contests(commands.Cog):
 
     @remind.command(brief='Subscribe to contest reminders')
     async def on(self, ctx):
-        """Subscribes you to contest reminders. Use ';remind settings' to see the current
-        settings.
+        """Subscribes you to contest reminders. Use ';remind settings' to see
+        the current settings.
         """
         role = self._get_remind_role(ctx.guild)
         if role in ctx.author.roles:
@@ -678,8 +678,9 @@ class Contests(commands.Cog):
             ]
         except (cf.RatingChangesUnavailableError, IndexError):
             error = (
-                f'`{contest.name}` was not rated for at least {_MIN_RATED_CONTESTANTS_FOR_RATED_VC} contestants'
-                ' or the ratings changes are not published yet.'
+                f'`{contest.name}` was not rated for at least'
+                f' {_MIN_RATED_CONTESTANTS_FOR_RATED_VC}'
+                ' contestants or the rating changes are not published yet.'
             )
             raise ContestCogError(error)
 
@@ -698,7 +699,8 @@ class Contests(commands.Cog):
         visited_contests = await cf_common.get_visited_contests(handles)
         if contest_id in visited_contests:
             raise ContestCogError(
-                f'Some of the handles: {", ".join(handles)} have submissions in the contest'
+                f'Some of the handles: {", ".join(handles)}'
+                ' have submissions in the contest'
             )
         start_time = time.time()
         finish_time = start_time + contest.durationSeconds + _RATED_VC_EXTRA_TIME
@@ -719,14 +721,15 @@ class Contests(commands.Cog):
         )
         await ctx.send(embed=embed)
         embed = discord_common.embed_alert(
-            f'You have {int(finish_time - start_time) // 60} minutes to complete the vc!'
+            f'You have {int(finish_time - start_time) // 60}'
+            ' minutes to complete the vc!'
         )
         embed.set_footer(text='GL & HF')
         await ctx.send(embed=embed)
 
     @staticmethod
     def _make_vc_rating_changes_embed(guild, contest_id, change_by_handle):
-        """Make an embed containing a list of rank changes and rating changes for ratedvc participants."""
+        """Make an embed containing a list of rank changes and rating changes for ratedvc participants."""  # noqa: E501
         contest = cf_common.cache2.contest_cache.get_contest(contest_id)
         user_id_handle_pairs = cf_common.user_db.get_handles_for_guild(guild.id)
         member_handle_pairs = [
@@ -759,7 +762,7 @@ class Contests(commands.Cog):
                 rank_change_str = (
                     f'{member.mention} [{discord.utils.escape_markdown(change.handle)}]({cf.PROFILE_BASE_URL}{change.handle}): {old_role} '
                     f'\N{LONG RIGHTWARDS ARROW} {new_role}'
-                )
+                )  # noqa: E501
                 rank_changes_str.append(rank_change_str)
 
         member_change_pairs.sort(
@@ -772,7 +775,7 @@ class Contests(commands.Cog):
                 f'{member.mention} [{discord.utils.escape_markdown(change.handle)}]({cf.PROFILE_BASE_URL}{change.handle}): {change.oldRating} '
                 f'\N{HORIZONTAL BAR} **{delta:+}** \N{LONG RIGHTWARDS ARROW} '
                 f'{change.newRating}'
-            )
+            )  # noqa: E501
             rating_changes_str.append(rating_change_str)
 
         desc = '\n'.join(rank_changes_str) or 'No rank changes'

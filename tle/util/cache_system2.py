@@ -149,7 +149,8 @@ class ContestCache:
                 delay = min(delay, at - now)
             else:
                 # The contest starts in <= _ACTIVATE_BEFORE.
-                # Reload at contest start, or after _ACTIVE_CONTEST_RELOAD_DELAY, whichever comes first.
+                # Reload at contest start, or after
+                # _ACTIVE_CONTEST_RELOAD_DELAY, whichever comes first.
                 delay = min(
                     contest.startTimeSeconds - now, self._ACTIVE_CONTEST_RELOAD_DELAY
                 )
@@ -290,8 +291,8 @@ class ProblemsetCache:
     async def run(self):
         if self.cache_master.conn.problemset_empty():
             self.logger.warning(
-                'Problemset cache on disk is empty. This must be populated '
-                'manually before use.'
+                'Problemset cache on disk is empty.'
+                ' This must be populated manually before use.'
             )
         self._update_task.start()
 
@@ -323,15 +324,16 @@ class ProblemsetCache:
             self._save_problems(new_problems + updated_problems)
             self._update_from_disk()
             self.logger.info(
-                f'{len(new_problems)} new problems saved and {len(updated_problems)} '
-                'saved problems updated.'
+                f'{len(new_problems)} new problems saved and'
+                f' {len(updated_problems)} saved problems updated.'
             )
 
     async def _fetch_problemsets(self, contests, *, force_fetch=False):
-        # We assume it is possible for problems in the same contest to get assigned rating at
-        # different times.
+        # We assume it is possible for problems in the same contest to get
+        # assigned rating at different times.
         new_contest_ids = []
-        contests_to_refetch = []  # List of (id, set of saved rated problem indices) pairs.
+        # List of (id, set of saved rated problem indices) pairs.
+        contests_to_refetch = []
         if force_fetch:
             new_contest_ids = [contest.id for contest in contests]
         else:
@@ -418,13 +420,16 @@ class RatingChangesCache:
         self._refresh_handle_cache()
         if not self.handle_rating_cache:
             self.logger.warning(
-                'Rating changes cache on disk is empty. This must be populated '
-                'manually before use.'
+                'Rating changes cache on disk is empty.'
+                ' This must be populated manually before use.'
             )
         self._update_task.start()
 
     async def fetch_contest(self, contest_id):
-        """Fetch rating changes for a particular contest. Intended for manual trigger."""
+        """Fetch rating changes for a specific contest.
+
+        Intended for manual trigger.
+        """
         contest = self.cache_master.contest_cache.contest_by_id[contest_id]
         changes = await self._fetch([contest])
         self.cache_master.conn.clear_rating_changes(contest_id=contest_id)
@@ -432,13 +437,18 @@ class RatingChangesCache:
         return len(changes)
 
     async def fetch_all_contests(self):
-        """Fetch rating changes for all contests. Intended for manual trigger."""
+        """Fetch rating changes for all contests.
+
+        Intended for manual trigger.
+        """
         self.cache_master.conn.clear_rating_changes()
         return await self.fetch_missing_contests()
 
     async def fetch_missing_contests(self):
-        """Fetch rating changes for contests which are not saved in database. Intended for
-        manual trigger."""
+        """Fetch rating changes for contests which are not saved in database.
+
+        Intended for manual trigger.
+        """
         contests = self.cache_master.contest_cache.contests_by_phase['FINISHED']
         contests = [
             contest
@@ -468,11 +478,12 @@ class RatingChangesCache:
     )
     async def _update_task(self, _):
         # Some notes:
-        # A hack phase is tagged as FINISHED with empty list of rating changes. After the hack
-        # phase, the phase changes to systest then again FINISHED. Since we cannot differentiate
-        # between the two FINISHED phases, we are forced to fetch during both.
-        # A contest also has empty list if it is unrated. We assume that is the case if
-        # _RATED_DELAY time has passed since the contest end.
+        # A hack phase is tagged as FINISHED with empty list of rating changes.
+        # After the hack phase, the phase changes to systest then again
+        # FINISHED. Since we cannot differentiate between the two FINISHED
+        # phases, we are forced to fetch during both.
+        # A contest also has empty list if it is unrated. We assume that is the
+        # case if _RATED_DELAY time has passed since the contest end.
 
         to_monitor = [
             contest
@@ -511,8 +522,8 @@ class RatingChangesCache:
             return
 
         contest_changes_pairs = await self._fetch(self.monitored_contests)
-        # Sort by the rating update time of the first change in the list of changes, assuming
-        # every change in the list has the same time.
+        # Sort by the rating update time of the first change in the list of
+        # changes, assuming every change in the list has the same time.
         contest_changes_pairs.sort(key=lambda pair: pair[1][0].ratingUpdateTimeSeconds)
         self._save_changes(contest_changes_pairs)
         for contest, changes in contest_changes_pairs:
@@ -532,7 +543,8 @@ class RatingChangesCache:
                     all_changes.append((contest, changes))
             except cf.CodeforcesApiError as er:
                 self.logger.warning(
-                    f'Fetch rating changes failed for contest {contest.id}, ignoring. {er!r}'
+                    f'Fetch rating changes failed for contest {contest.id},'
+                    f' ignoring. {er!r}'
                 )
                 pass
         return all_changes
@@ -691,7 +703,8 @@ class RanklistCache:
         is_rated = False
         try:
             changes = await cf.contest.ratingChanges(contest_id=contest_id)
-            # For contests intended to be rated but declared unrated, an empty list is returned.
+            # For contests intended to be rated but declared unrated
+            # an empty list is returned.
             is_rated = len(changes) > 0
         except cf.RatingChangesUnavailableError:
             pass
@@ -733,8 +746,9 @@ class RanklistCache:
                 for row in standings_official
             }
             if 'Educational' in contest.name:
-                # For some reason educational contests return all contestants in ranklist even
-                # when unofficial contestants are not requested.
+                # For some reason educational contests return all contestants
+                # in ranklist even when unofficial contestants are not
+                # requested.
                 current_rating = {
                     handle: rating
                     for handle, rating in current_rating.items()
@@ -765,8 +779,8 @@ class RanklistCache:
                 contest_id, show_unofficial
             )
 
-        # for some reason Educational contests also have div1 peeps in the official standings.
-        # hence we need to manually weed them out
+        # For some reason Educational contests also have div1 peeps in the
+        # official standings. hence we need to manually weed them out
         if not show_unofficial and 'Educational' in ranklist.contest.name:
             ranklist.remove_unofficial_contestants()
 
@@ -851,7 +865,7 @@ class CacheSystem:
     @staticmethod
     @cached(ttl=30 * 60)
     async def getUsersEffectiveRating(*, activeOnly=None):
-        """Returns a dictionary mapping user handle to his effective rating for all the users."""
+        """Returns a mapping from user handles to their effective rating."""
         ratedList = await cf.user.ratedList(activeOnly=activeOnly)
         users_effective_rating_dict = {
             user.handle: user.effective_rating for user in ratedList

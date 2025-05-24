@@ -52,8 +52,10 @@ def set_author_footer(embed, user):
 
 
 def send_error_if(*error_cls):
-    """Decorator for `cog_command_error` methods. Decorated methods send the error in an alert embed
-    when the error is an instance of one of the specified errors, otherwise the wrapped function is
+    """Decorator for `cog_command_error` methods.
+
+    Decorated methods send the error in an alert embed when the error is an
+    instance of one of the specified errors, otherwise the wrapped function is
     invoked.
     """
 
@@ -99,7 +101,7 @@ async def bot_error_handler(ctx, exception):
 
 
 def once(func):
-    """Decorator that wraps the given async function such that it is executed only once."""
+    """Decorator that wraps a corouting asuch that it is executed only once."""
     first = True
 
     @functools.wraps(func)
@@ -113,9 +115,7 @@ def once(func):
 
 
 def on_ready_event_once(bot):
-    """Decorator that uses bot.event to set the given function as the bot's on_ready event handler,
-    but does not execute it more than once.
-    """
+    """Decorator to run a corouting only once when the bot is ready."""
 
     def register_on_ready(func):
         @bot.event

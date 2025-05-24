@@ -62,7 +62,8 @@ class Codeforces(commands.Cog):
             raise CodeforcesCogError(f'You have an active challenge {name} at {url}')
 
     async def _gitgud(self, ctx, handle, problem, delta, hidden):
-        # The caller of this function is responsible for calling `_validate_gitgud_status` first.
+        # The caller of this function is responsible for calling
+        # `_validate_gitgud_status` first.
         user_id = ctx.author.id
 
         issue_time = datetime.datetime.now().timestamp()
@@ -227,7 +228,7 @@ class Codeforces(commands.Cog):
 
     @commands.command(
         brief='List solved problems',
-        usage='[handles] [+hardest] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [~tag..] [r>=rating] [r<=rating] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy] [c+marker..] [i+index..]',
+        usage='[handles] [+hardest] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [~tag..] [r>=rating] [r<=rating] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy] [c+marker..] [i+index..]',  # noqa: E501
     )
     async def stalk(self, ctx, *args):
         """Print problems solved by user sorted by time (default) or rating.
@@ -288,7 +289,11 @@ class Codeforces(commands.Cog):
         usage='[handles] [+tag..] [~tag..] [+divX] [~divX] [?[-]delta]',
     )
     async def mashup(self, ctx, *args):
-        """Create a mashup contest using problems within -200 and +400 of average rating of handles provided.
+        """Create a mashup contest.
+
+        The contest uses problems within -200 and +400 average rating of handles
+        provided.
+
         Add tags with "+" before them.
         Ban tags with "~" before them.
         """
@@ -462,8 +467,9 @@ class Codeforces(commands.Cog):
 
     @commands.command(brief='Print user gitgud history')
     async def gitlog(self, ctx, member: discord.Member = None):
-        """Displays the list of gitgud problems issued to the specified member, excluding those noguded by admins.
-        If the challenge was completed, time of completion and amount of points gained will also be displayed.
+        """Displays the list of gitgud problems issued to the specified member,
+        excluding those noguded by admins. If the challenge was completed, time
+        of completion and amount of points gained will also be displayed.
         """
 
         def make_line(entry):
@@ -685,7 +691,8 @@ class Codeforces(commands.Cog):
     )
     async def fullsolve(self, ctx, *args: str):
         """Displays a list of contests, sorted by number of unsolved problems.
-        Contest names matching any of the provided tags will be considered. e.g ;fullsolve +edu"""
+        Contest names matching any of the provided tags will be considered. e.g
+        ;fullsolve +edu"""
         (handle,) = await cf_common.resolve_handles(
             ctx, self.converter, ('!' + str(ctx.author),)
         )
@@ -773,9 +780,9 @@ class Codeforces(commands.Cog):
 
     @commands.command(brief='Calculate team rating', usage='[handles] [+peak]')
     async def teamrate(self, ctx, *args: str):
-        """Provides the combined rating of the entire team.
-        If +server is provided as the only handle, will display the rating of the entire server.
-        Supports multipliers. e.g: ;teamrate gamegame*1000"""
+        """Provides the combined rating of the entire team. If +server is
+        provided as the only handle, will display the rating of the entire
+        server. Supports multipliers. e.g: ;teamrate gamegame*1000"""
 
         (is_entire_server, peak), handles = cf_common.filter_flags(
             args, ['+server', '+peak']

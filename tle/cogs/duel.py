@@ -97,7 +97,10 @@ def complete_duel(
 
     winner_cf = get_cf_user(winner.id, guild_id)
     loser_cf = get_cf_user(loser.id, guild_id)
-    desc = f'Rating change after **[{winner_cf.handle}]({winner_cf.url})** vs **[{loser_cf.handle}]({loser_cf.url})**:'
+    desc = (
+        f'Rating change after **[{winner_cf.handle}]({winner_cf.url})**'
+        f' vs **[{loser_cf.handle}]({loser_cf.url})**:'
+    )
     embed = discord_common.cf_color_embed(description=desc)
     embed.add_field(
         name=f'{winner.display_name}',
@@ -242,10 +245,14 @@ class Dueling(commands.Cog):
         usage='opponent [rating] [+tag..] [~tag..] [+divX] [~divX] [nohandicap]',
     )
     async def challenge(self, ctx, opponent: discord.Member, *args):
-        """Challenge another server member to a duel. Problem difficulty will be the lesser of duelist ratings minus 400. You can alternatively specify a different rating.
+        """Challenge another server member to a duel.
+
+        Problem difficulty will be the lesser of duelist ratings minus 400.
+        You can alternatively specify a different rating.
         All duels will be rated. The challenge expires if ignored for 5 minutes.
         The bot will allow the lower rated duelist to take more time for the duel.
-        If the keyword 'nohandicap' is added there will be no handicap for the higher rated duelist."""
+        If the keyword 'nohandicap' is added there will be no handicap for the
+        higher rated duelist."""
         # check if we are in the correct channel
         self._checkIfCorrectChannel(ctx)
 
@@ -324,7 +331,8 @@ class Dueling(commands.Cog):
         rstr = f'{rating} rated ' if rating else ''
         if not problems:
             raise DuelCogError(
-                f'No unsolved {rstr}problems left for {ctx.author.mention} vs {opponent.mention}.'
+                f'No unsolved {rstr} problems left for'
+                f' {ctx.author.mention} vs {opponent.mention}.'
             )
 
         problems.sort(
@@ -398,7 +406,10 @@ class Dueling(commands.Cog):
             )
         await asyncio.sleep(_DUEL_EXPIRY_TIME)
         if cf_common.user_db.cancel_duel(duelid, ctx.guild.id, Duel.EXPIRED):
-            message = f'{ctx.author.mention}, your request to duel {opponent.mention} has expired!'
+            message = (
+                f'{ctx.author.mention}, your request to duel'
+                f' {opponent.mention} has expired!'
+            )
             embed = discord_common.embed_alert(message)
             await ctx.send(embed=embed)
 
@@ -448,7 +459,8 @@ class Dueling(commands.Cog):
         duelid, challenger_id, name = active
         challenger = ctx.guild.get_member(challenger_id)
         await ctx.send(
-            f'Duel between {challenger.mention} and {ctx.author.mention} starting in 15 seconds!'
+            f'Duel between {challenger.mention} and'
+            f' {ctx.author.mention} starting in 15 seconds!'
         )
         await asyncio.sleep(15)
 
@@ -456,7 +468,8 @@ class Dueling(commands.Cog):
         rc = cf_common.user_db.start_duel(duelid, ctx.guild.id, start_time)
         if rc != 1:
             raise DuelCogError(
-                f'Unable to start the duel between {challenger.mention} and {ctx.author.mention}.'
+                f'Unable to start the duel between {challenger.mention}'
+                f' and {ctx.author.mention}.'
             )
 
         problem = cf_common.cache2.problem_cache.problem_by_name[name]
@@ -692,12 +705,15 @@ class Dueling(commands.Cog):
                 )
                 if adjusted:
                     await channel.send(
-                        f'Both {challenger.mention} and {challengee.mention} solved it. But {winner.mention} was {diff} faster than the adjusted time limit!',
+                        f'Both {challenger.mention} and {challengee.mention} solved it'
+                        f' but {winner.mention} was {diff} faster'
+                        ' than the adjusted time limit!',
                         embed=embed,
                     )
                 else:
                     await channel.send(
-                        f'Both {challenger.mention} and {challengee.mention} solved it but {winner.mention} was {diff} faster!',
+                        f'Both {challenger.mention} and {challengee.mention} solved it'
+                        f' but {winner.mention} was {diff} faster!',
                         embed=embed,
                     )
             else:
@@ -713,12 +729,14 @@ class Dueling(commands.Cog):
                 )
                 if adjusted:
                     await channel.send(
-                        f"{challenger.mention} and {challengee.mention} solved the problem with the same adjusted time! It's a draw!",
+                        f'{challenger.mention} and {challengee.mention} solved the'
+                        " problem with the same adjusted time! It's a draw!",
                         embed=embed,
                     )
                 else:
                     await channel.send(
-                        f"{challenger.mention} and {challengee.mention} solved the problem in the exact same amount of time! It's a draw!",
+                        f'{challenger.mention} and {challengee.mention} solved the'
+                        " problem in the exact same amount of time! It's a draw!",
                         embed=embed,
                     )
         elif highrated_timestamp:  # special handling since we cant know if lowrated will still solve within time
@@ -833,7 +851,10 @@ class Dueling(commands.Cog):
 
         user = get_cf_user(member.id, ctx.guild.id)
         rating = cf_common.user_db.get_duel_rating(member.id, ctx.guild.id)
-        desc = f'Duelist profile of {rating2rank(rating).title} {member.mention} aka **[{user.handle}]({user.url})**'
+        desc = (
+            f'Duelist profile of {rating2rank(rating).title} {member.mention}'
+            f' aka **[{user.handle}]({user.url})**'
+        )
         embed = discord.Embed(description=desc, color=rating2rank(rating).color_embed)
         embed.add_field(name='Rating', value=rating, inline=True)
 
@@ -860,7 +881,10 @@ class Dueling(commands.Cog):
             loser_id = challenger if member.id != challenger else challengee
             loser = get_cf_user(loser_id, ctx.guild.id)
             problem = cf_common.cache2.problem_cache.problem_by_name[problem_name]
-            return f'**[{problem.name}]({problem.url})** [{problem.rating}] versus [{loser.handle}]({loser.url}) {when} in {duel_time}'
+            return (
+                f'**[{problem.name}]({problem.url})** [{problem.rating}]'
+                f' versus [{loser.handle}]({loser.url}) {when} in {duel_time}'
+            )
 
         if wins:
             # sort by finish_time - start_time
@@ -876,6 +900,11 @@ class Dueling(commands.Cog):
         await ctx.send(embed=embed)
 
     def _paginate_duels(self, data, message, guild_id, show_id):
+        def user_text(user):
+            if user is None:
+                return '[unknown]'
+            return f'[{user.handle}]({user.url})'
+
         def make_line(entry):
             duelid, start_time, finish_time, name, challenger, challengee, winner = (
                 entry
@@ -890,26 +919,28 @@ class Dueling(commands.Cog):
                 loser = get_cf_user(
                     challenger if winner == Winner.CHALLENGEE else challengee, guild_id
                 )
+                loser_text = user_text(loser)
                 winner = get_cf_user(
                     challenger if winner == Winner.CHALLENGER else challengee, guild_id
                 )
-                if winner == None and loser == None:
-                    return f'{idstr if show_id else str()}[{name}]({problem.url}) [{problem.rating}] won by [unknown] vs [unknown] {when} in {duel_time}'
-                if loser == None:
-                    return f'{idstr if show_id else str()}[{name}]({problem.url}) [{problem.rating}] won by [{winner.handle}]({winner.url}) vs [unknown] {when} in {duel_time}'
-                if winner == None:
-                    return f'{idstr if show_id else str()}[{name}]({problem.url}) [{problem.rating}] won by [unknown] vs [{loser.handle}]({loser.url}) {when} in {duel_time}'
-                return f'{idstr if show_id else str()}[{name}]({problem.url}) [{problem.rating}] won by [{winner.handle}]({winner.url}) vs [{loser.handle}]({loser.url}) {when} in {duel_time}'
+                winner_text = user_text(winner)
+                return (
+                    f'{idstr if show_id else str()}[{name}]({problem.url})'
+                    f' [{problem.rating}] won by'
+                    f' {winner_text} vs {loser_text}'
+                    f' {when} in {duel_time}'
+                )
             else:
                 challenger = get_cf_user(challenger, guild_id)
+                challenger_text = user_text(challenger)
                 challengee = get_cf_user(challengee, guild_id)
-                if challenger == None and challengee == None:
-                    return f'{idstr if show_id else str()}[{name}]({problem.url}) [{problem.rating}] drawn by [unknown] vs [unknown] {when} after {duel_time}'
-                if challenger == None:
-                    return f'{idstr if show_id else str()}[{name}]({problem.url}) [{problem.rating}] drawn by [unknown] vs [{challengee.handle}]({challengee.url}) {when} after {duel_time}'
-                if challengee == None:
-                    return f'{idstr if show_id else str()}[{name}]({problem.url}) [{problem.rating}] drawn by [{challenger.handle}]({challenger.url}) vs [unknown] {when} after {duel_time}'
-                return f'{idstr if show_id else str()}[{name}]({problem.url}) [{problem.rating}] drawn by [{challenger.handle}]({challenger.url}) and [{challengee.handle}]({challengee.url}) {when} after {duel_time}'
+                challengee_text = user_text(challengee)
+                return (
+                    f'{idstr if show_id else str()}[{name}]({problem.url})'
+                    f' [{problem.rating}] drawn by'
+                    f' {challenger_text} vs {challengee_text}'
+                    f' {when} after {duel_time}'
+                )
 
         def make_page(chunk):
             log_str = '\n'.join(make_line(entry) for entry in chunk)
@@ -941,7 +972,8 @@ class Dueling(commands.Cog):
             else:
                 draws += 1
         message = discord.utils.escape_mentions(
-            f'`{member1.display_name}` ({wins}/{draws}/{losses}) `{member2.display_name}`'
+            f'`{member1.display_name}` ({wins}/{draws}/{losses})'
+            f' `{member2.display_name}`'
         )
         pages = self._paginate_duels(data, message, ctx.guild.id, False)
         paginator.paginate(
@@ -979,7 +1011,11 @@ class Dueling(commands.Cog):
             )
             challenger = get_cf_user(challenger, ctx.guild.id)
             challengee = get_cf_user(challengee, ctx.guild.id)
-            return f'[{challenger.handle}]({challenger.url}) vs [{challengee.handle}]({challengee.url}): [{name}]({problem.url}) [{problem.rating}] {when}'
+            return (
+                f'[{challenger.handle}]({challenger.url})'
+                f' vs [{challengee.handle}]({challengee.url}):'
+                f' [{name}]({problem.url}) [{problem.rating}] {when}'
+            )
 
         def make_page(chunk):
             message = 'List of ongoing duels:'
@@ -1060,15 +1096,20 @@ class Dueling(commands.Cog):
             challengee.mention if challengee is not None else str(challengee_id)
         )
         await ctx.send(
-            f'Duel between {challenger_mention} and {challengee_mention} has been invalidated.'
+            f'Duel between {challenger_mention} and'
+            f' {challengee_mention} has been invalidated.'
         )
 
     @duel.command(
-        brief='Invalidate the duel. Can be used within 5 minutes after the duel has been started.'
+        brief=(
+            'Invalidate the duel.'
+            ' Can be used within 5 minutes after the duel has been started.'
+        )
     )
     async def invalidate(self, ctx):  # @@@ TODO: broken with new duel types
-        """Declare your duel invalid. Use this if you've solved the problem prior to the duel.
-        You can only use this functionality during the first 120 seconds of the duel."""
+        """Declare your duel invalid. Use this if you've solved the problem
+        prior to the duel. You can only use this functionality during the first
+        120 seconds of the duel."""
         # check if we are in the correct channel
         self._checkIfCorrectChannel(ctx)
 
