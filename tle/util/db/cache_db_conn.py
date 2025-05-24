@@ -51,8 +51,12 @@ class CacheDbConn:
             'UNIQUE (contest_id, handle)'
             ')'
         )
-        self.conn.execute('CREATE INDEX IF NOT EXISTS ix_rating_change_contest_id ON rating_change (contest_id)')
-        self.conn.execute('CREATE INDEX IF NOT EXISTS ix_rating_change_handle ON rating_change (handle)')
+        self.conn.execute(
+            'CREATE INDEX IF NOT EXISTS ix_rating_change_contest_id ON rating_change (contest_id)'
+        )
+        self.conn.execute(
+            'CREATE INDEX IF NOT EXISTS ix_rating_change_handle ON rating_change (handle)'
+        )
 
         # Table for problems fetched from contest.standings endpoint for every contest.
         # This is separate from table problem as it contains the same problem twice if it
@@ -70,7 +74,9 @@ class CacheDbConn:
             'PRIMARY KEY (contest_id, [index])'
             ')'
         )
-        self.conn.execute('CREATE INDEX IF NOT EXISTS ix_problem2_contest_id ON problem2 (contest_id)')
+        self.conn.execute(
+            'CREATE INDEX IF NOT EXISTS ix_problem2_contest_id ON problem2 (contest_id)'
+        )
 
     def cache_contests(self, contests):
         query = 'INSERT OR REPLACE INTO contest (id, name, start_time, duration, type, phase, prepared_by) VALUES (?, ?, ?, ?, ?, ?, ?)'
@@ -98,7 +104,9 @@ class CacheDbConn:
 
     def cache_problems(self, problems):
         query = 'INSERT OR REPLACE INTO problem (contest_id, problemset_name, [index], name, type, points, rating, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-        rc = self.conn.executemany(query, list(map(self._squish_tags, problems))).rowcount
+        rc = self.conn.executemany(
+            query, list(map(self._squish_tags, problems))
+        ).rowcount
         self.conn.commit()
         return rc
 
@@ -171,7 +179,9 @@ class CacheDbConn:
 
     def cache_problemset(self, problemset):
         query = 'INSERT OR REPLACE INTO problem2 (contest_id, problemset_name, [index], name, type, points, rating, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-        rc = self.conn.executemany(query, list(map(self._squish_tags, problemset))).rowcount
+        rc = self.conn.executemany(
+            query, list(map(self._squish_tags, problemset))
+        ).rowcount
         self.conn.commit()
         return rc
 

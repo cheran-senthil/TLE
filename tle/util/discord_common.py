@@ -76,7 +76,11 @@ async def bot_error_handler(ctx, exception):
         return
 
     if isinstance(exception, db.DatabaseDisabledError):
-        await ctx.send(embed=embed_alert('Sorry, the database is not available. Some features are disabled.'))
+        await ctx.send(
+            embed=embed_alert(
+                'Sorry, the database is not available. Some features are disabled.'
+            )
+        )
     elif isinstance(exception, commands.NoPrivateMessage):
         await ctx.send(embed=embed_alert('Commands are disabled in private channels'))
     elif isinstance(exception, commands.DisabledCommand):
@@ -122,14 +126,27 @@ def on_ready_event_once(bot):
 
 
 async def presence(bot):
-    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name='your commands'))
+    await bot.change_presence(
+        activity=discord.Activity(
+            type=discord.ActivityType.listening, name='your commands'
+        )
+    )
     await asyncio.sleep(60)
 
     @tasks.task(name='OrzUpdate', waiter=tasks.Waiter.fixed_delay(5 * 60))
     async def presence_task(_):
         while True:
-            target = random.choice([member for member in bot.get_all_members() if constants.TLE_PURGATORY not in {role.name for role in member.roles}])
-            await bot.change_presence(activity=discord.Game(name=f'{target.display_name} orz'))
+            target = random.choice(
+                [
+                    member
+                    for member in bot.get_all_members()
+                    if constants.TLE_PURGATORY
+                    not in {role.name for role in member.roles}
+                ]
+            )
+            await bot.change_presence(
+                activity=discord.Game(name=f'{target.display_name} orz')
+            )
             await asyncio.sleep(10 * 60)
 
     presence_task.start()

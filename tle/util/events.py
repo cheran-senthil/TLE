@@ -32,7 +32,9 @@ class EventError(commands.CommandError):
 
 class ListenerNotRegistered(EventError):
     def __init__(self, listener):
-        super().__init__(f'Listener {listener.name} is not registered for event {listener.event_cls.__name__}.')
+        super().__init__(
+            f'Listener {listener.name} is not registered for event {listener.event_cls.__name__}.'
+        )
 
 
 # Event system
@@ -148,7 +150,9 @@ class ListenerSpec:
             async def wrapper(event):
                 return await self.func(instance, event)
 
-            listeners[self.name] = Listener(self.name, self.event_cls, wrapper, with_lock=self.with_lock)
+            listeners[self.name] = Listener(
+                self.name, self.event_cls, wrapper, with_lock=self.with_lock
+            )
         return listeners[self.name]
 
 
