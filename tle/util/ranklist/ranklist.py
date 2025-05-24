@@ -51,9 +51,11 @@ class Ranklist:
             self.standing_by_id[id_] = row
 
     def remove_unofficial_contestants(self):
-        """
-        To be used for cases when official ranklist contains unofficial contestants
-        Currently this is seen is Educational Contests ranklist where div1 contestants are marked official in api result
+        """Remove unofficial contestants from the ranklist.
+
+        To be used for cases when official ranklist contains unofficial
+        contestants Currently this is seen is Educational Contests ranklist
+        where div1 contestants are marked official in api result
         """
 
         if self.delta_by_handle is None:

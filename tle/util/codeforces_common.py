@@ -39,8 +39,8 @@ async def initialize(nodb):
     global _initialize_done
 
     if _initialize_done:
-        # This happens if the bot loses connection to Discord and on_ready is triggered again
-        # when it reconnects.
+        # This happens if the bot loses connection to Discord and on_ready is
+        # triggered again when it reconnects.
         return
 
     await cf.initialize()
@@ -148,9 +148,9 @@ async def get_visited_contests(handles: [str]):
     return set(contest_ids)
 
 
-# These are special rated-for-all contests which have a combined ranklist for onsite and online
-# participants. The onsite participants have their submissions marked as out of competition. Just
-# Codeforces things.
+# These are special rated-for-all contests which have a combined ranklist for
+# onsite and online participants. The onsite participants have their
+# submissions marked as out of competition. Just Codeforces things.
 _RATED_FOR_ONSITE_CONTEST_IDS = [
     86,  # Yandex.Algorithm 2011 Round 2 https://codeforces.com/contest/86
     173,  # Croc Champ 2012 - Round 1 https://codeforces.com/contest/173
@@ -184,9 +184,10 @@ class HandleNotRegisteredError(ResolveHandleError):
 
 
 class HandleIsVjudgeError(ResolveHandleError):
-    HANDLES = (
-        'vjudge1 vjudge2 vjudge3 vjudge4 vjudge5 luogu_bot1 luogu_bot2 luogu_bot3 luogu_bot4 luogu_bot5'
-    ).split()
+    HANDLES = """
+        vjudge1 vjudge2 vjudge3 vjudge4 vjudge5
+        luogu_bot1 luogu_bot2 luogu_bot3 luogu_bot4 luogu_bot5
+    """.split()
 
     def __init__(self, handle):
         super().__init__(f"`{handle}`? I'm not doing that!\n\n(╯°□°）╯︵ ┻━┻")
@@ -246,8 +247,11 @@ def days_ago(t):
 async def resolve_handles(
     ctx, converter, handles, *, mincnt=1, maxcnt=5, default_to_all_server=False
 ):
-    """Convert an iterable of strings to CF handles. A string beginning with ! indicates Discord username,
-    otherwise it is a raw CF handle to be left unchanged."""
+    """Convert an iterable of strings to CF handles.
+
+    A string beginning with ! indicates Discord username, otherwise it is a raw
+    CF handle to be left unchanged.
+    """
     handles = set(handles)
     if default_to_all_server and not handles:
         handles.add('+server')
@@ -404,8 +408,11 @@ class SubFilter:
 
     @staticmethod
     def filter_solved(submissions):
-        """Filters and keeps only solved submissions. If a problem is solved multiple times the first
-        accepted submission is kept. The unique id for a problem is (problem name, contest start time).
+        """Filters and keeps only solved submissions.
+
+        If a problem is solved multiple times the first accepted submission is
+        kept. The unique id for a problem is
+        (problem name, contest start time).
         """
         submissions.sort(key=lambda sub: sub.creationTimeSeconds)
         problems = set()
