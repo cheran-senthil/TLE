@@ -670,7 +670,7 @@ class UserDbConn:
 
     def get_reminder_settings(self, guild_id):
         query = """
-            SELECT channel_id, role_id, befor
+            SELECT channel_id, role_id, before
             FROM reminder
             WHERE guild_id = ?
         """
