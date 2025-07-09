@@ -11,8 +11,8 @@ ENV FONTCONFIG_FILE=/bot/extra/fonts.conf
 ENV PYTHONUNBUFFERED=1
 
 WORKDIR /bot
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY pyproject.toml .
+RUN pip install --no-cache-dir .
 
 COPY . .
 
