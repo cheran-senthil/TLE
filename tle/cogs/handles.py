@@ -480,6 +480,7 @@ class Handles(commands.Cog):
             cf_common.user_db.set_handle(member.id, ctx.guild.id, handle)
         except db.UniqueConstraintFailed:
             raise HandleCogError(
+                f'When setting handle for {member}: '
                 f'The handle `{handle}` is already associated with another user.'
             )
         rc = cf_common.user_db.cache_cf_user(user)
