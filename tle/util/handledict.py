@@ -1,5 +1,5 @@
 """
-    A case insensitive dictionay with bare minimum functions required for handling usernames.
+A case insensitive dictionay with bare minimum functions required for handling usernames.
 """
 
 
@@ -24,7 +24,7 @@ class HandleDict:
         try:
             return self._store[self._getlower(key)][0]
         except KeyError:
-            return ""
+            return ''
 
     def __delitem__(self, key):
         del self._store[self._getlower(key)]

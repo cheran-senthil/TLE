@@ -4,9 +4,10 @@ import math
 
 _ELO_CONSTANT = 60
 
+
 class ELOPlayer:
     def __init__(self):
-        self.name = ""
+        self.name = ''
         self.place = 0
         self.eloPre = 0
         self.eloPost = 0
@@ -71,4 +72,3 @@ class ELOMatch:
                     # add accumulated change to initial ELO for final ELO
 
             self.players[i].eloPost = self.players[i].eloPre + self.players[i].eloChange
-

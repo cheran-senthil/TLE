@@ -1,21 +1,18 @@
 import argparse
 import asyncio
 import logging
-from logging.handlers import TimedRotatingFileHandler
 import os
+from logging.handlers import TimedRotatingFileHandler
 from os import environ
 from pathlib import Path
 
 import discord
+import seaborn as sns
 from discord.ext import commands
 from matplotlib import pyplot as plt
-import seaborn as sns
 
 from tle import constants
-from tle.util import codeforces_common as cf_common
-from tle.util import discord_common
-from tle.util import font_downloader
-
+from tle.util import codeforces_common as cf_common, discord_common, font_downloader
 
 
 def setup():
@@ -24,11 +21,18 @@ def setup():
         os.makedirs(path, exist_ok=True)
 
     # logging to console and file on daily interval
-    logging.basicConfig(format='{asctime}:{levelname}:{name}:{message}', style='{',
-                        datefmt='%d-%m-%Y %H:%M:%S', level=logging.INFO,
-                        handlers=[logging.StreamHandler(),
-                                  TimedRotatingFileHandler(constants.LOG_FILE_PATH, when='D',
-                                                           backupCount=3, utc=True)])
+    logging.basicConfig(
+        format='{asctime}:{levelname}:{name}:{message}',
+        style='{',
+        datefmt='%d-%m-%Y %H:%M:%S',
+        level=logging.INFO,
+        handlers=[
+            logging.StreamHandler(),
+            TimedRotatingFileHandler(
+                constants.LOG_FILE_PATH, when='D', backupCount=3, utc=True
+            ),
+        ],
+    )
 
     # matplotlib and seaborn
     plt.rcParams['figure.figsize'] = 7.0, 3.5
@@ -43,6 +47,7 @@ def setup():
     # Download fonts if necessary
     font_downloader.maybe_download()
 
+
 def strtobool(value: str) -> bool:
     """
     Convert a string representation of truth to true (1) or false (0).
@@ -56,6 +61,7 @@ def strtobool(value: str) -> bool:
     if value in ('n', 'no', 'f', 'false', 'off', '0'):
         return False
     raise ValueError(f'Invalid truth value {value!r}.')
+
 
 async def main():
     parser = argparse.ArgumentParser()
@@ -73,7 +79,10 @@ async def main():
     intents.members = True
     intents.message_content = True
 
-    bot = commands.Bot(command_prefix=commands.when_mentioned_or(discord_common._BOT_PREFIX), intents=intents)
+    bot = commands.Bot(
+        command_prefix=commands.when_mentioned_or(discord_common._BOT_PREFIX),
+        intents=intents,
+    )
     bot.help_command = discord_common.TleHelp()
     cogs = [file.stem for file in Path('tle', 'cogs').glob('*.py')]
     for extension in cogs:
@@ -100,4 +109,4 @@ async def main():
 
 
 if __name__ == '__main__':
-     asyncio.run(main())
+    asyncio.run(main())
