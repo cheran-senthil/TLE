@@ -588,7 +588,7 @@ class UserDbConn:
         cfg = self.conn.execute(
             """
             SELECT channel_id
-            FROM starboard_config_v1 WHERE guild_id=? AND emoji=?,
+            FROM starboard_config_v1 WHERE guild_id=? AND emoji=?
             """,
             (guild_id, emoji),
         ).fetchone()
@@ -597,7 +597,7 @@ class UserDbConn:
         emo = self.conn.execute(
             """
             SELECT threshold, color
-            FROM starboard_emoji_v1 WHERE guild_id=? AND emoji=?,
+            FROM starboard_emoji_v1 WHERE guild_id=? AND emoji=?
             """,
             (guild_id, emoji),
         ).fetchone()
