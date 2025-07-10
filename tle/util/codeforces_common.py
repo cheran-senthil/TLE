@@ -160,7 +160,8 @@ class FindMemberFailedError(ResolveHandleError):
 
 class HandleNotRegisteredError(ResolveHandleError):
     def __init__(self, member):
-        super().__init__(f'Codeforces handle for {member.mention} not found in database')
+        super().__init__(f'Codeforces handle for {member.mention} not found in database. '
+                          'Use ;handle identify <cfhandle> (where <cfhandle> needs to be replaced with your codeforces handle, e.g. ;handle identify tourist) to add yourself to the database')
 
 
 class HandleIsVjudgeError(ResolveHandleError):
@@ -203,6 +204,16 @@ def pretty_time_format(seconds, *, shorten=False, only_most_significant=False, a
         return f'{cnt}{singular[0]}' if shorten else f'{cnt} {singular if cnt == 1 else plural}'
 
     return ' '.join(map(format_, timeprint))
+
+def get_start_and_end_of_month(time):
+    time = time.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    start_time = int(time.timestamp())
+    if time.month == 12:
+        time = time.replace(month=1,year=time.year+1)
+    else:
+        time = time.replace(month=time.month+1)
+    end_time = int(time.timestamp())
+    return start_time, end_time
 
 
 def days_ago(t):

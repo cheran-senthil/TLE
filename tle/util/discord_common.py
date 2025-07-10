@@ -15,9 +15,10 @@ logger = logging.getLogger(__name__)
 _CF_COLORS = (0xFFCA1F, 0x198BCC, 0xFF2020)
 _SUCCESS_GREEN = 0x28A745
 _ALERT_AMBER = 0xFFBF00
+_BOT_PREFIX = ';'
 
 
-def embed_neutral(desc, color=discord.Embed.Empty):
+def embed_neutral(desc, color=None):
     return discord.Embed(description=str(desc), color=color)
 
 
@@ -48,7 +49,7 @@ def attach_image(embed, img_file):
 
 
 def set_author_footer(embed, user):
-    embed.set_footer(text=f'Requested by {user}', icon_url=user.avatar_url)
+    embed.set_footer(text=f'Requested by {user}', icon_url=user.avatar)
 
 
 def send_error_if(*error_cls):
@@ -137,3 +138,33 @@ async def presence(bot):
             await asyncio.sleep(10 * 60)
 
     presence_task.start()
+
+class TleHelp(commands.DefaultHelpCommand):
+    def add_command_formatting(self, command):
+        """A utility function to format the non-indented block of commands and groups.
+
+        Parameters
+        ------------
+        command: :class:`Command`
+            The command to format.
+        """
+
+        if command.description:
+            self.paginator.add_line(command.description, empty=True)
+
+        signature = _BOT_PREFIX + command.qualified_name
+        if len(command.aliases) > 0:
+            aliases = '|'.join(command.aliases)
+            signature += '|'+aliases
+        if command.usage:
+            signature += " "+command.usage
+        self.paginator.add_line(signature, empty=True)
+
+        if command.help:
+            try:
+                self.paginator.add_line(command.help, empty=True)
+            except RuntimeError:
+                for line in command.help.splitlines():
+                    self.paginator.add_line(line)
+                self.paginator.add_line()
+

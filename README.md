@@ -12,10 +12,9 @@ The features of the bot are split into a number of cogs, each handling their own
 - **Contests** Shows details of upcoming/running contests.
 - **Graphs** Plots various data gathered from Codeforces, e.g. rating distributions and user problem statistics.
 - **Handles** Gets or sets information about a specific user's Codeforces handle, or shows a list of Codeforces handles.
-
-### CSES cog
-
-- **CSES** Commands related to the [CSES problemset](https://cses.fi/problemset/), such as showing leaderboards.
+- **Duel** Commands to set up a duel between two users.
+- **Training** Start a training session that gets harder and harder.
+- **Lockout** Integration of the round command of the Lockout Bot.
 
 ### Other cogs
 
@@ -28,7 +27,7 @@ The features of the bot are split into a number of cogs, each handling their own
 Clone the repository
 
 ```bash
-git clone https://github.com/cheran-senthil/TLE
+git clone https://github.com/Denjell/TLE
 ```
 
 ### Optional: venv
@@ -48,14 +47,14 @@ Now all dependencies need to be installed. TLE uses [Poetry](https://poetry.eust
 poetry install
 ```
 
-> :warning: **TLE requires Python 3.7 or later!**
+> :warning: **TLE requires Python 3.8 or later!**
 
 If you are using Ubuntu with older versions of python, then do the following:
 
 ```bash
-apt-get install python3.7-venv libpython3.7-dev
-python3.7 -m pip install poetry
-python3.7 -m poetry install
+apt-get install python3.8-venv libpython3.8-dev
+python3.8 -m pip install poetry
+python3.8 -m poetry install
 ```
 
 On some systems, Poetry is not able to install TLE's dependencies correctly. If you are unable to run `poetry install` without errors after completing the steps below, see the note at the end of the *final steps* section.
@@ -78,7 +77,7 @@ apt-get install libjpeg-dev zlib1g-dev
 
 ### Final steps
 
-You will need to setup a bot on your server before continuing, follow the directions [here](https://github.com/reactiflux/discord-irc/wiki/Creating-a-discord-bot-&-getting-a-token). Following this, you should have your bot appearing in your server and you should have the Discord bot token. Finally, go to the `Bot` settings in your App's Developer Portal (in the same page where you copied your Bot Token) and enable the `Server Members Intent`.
+You will need to setup a bot on your server before continuing, follow the directions [here](https://github.com/reactiflux/discord-irc/wiki/Creating-a-discord-bot-&-getting-a-token). Following this, you should have your bot appearing in your server and you should have the Discord bot token. Finally, go to the `Bot` settings in your App's Developer Portal (in the same page where you copied your Bot Token) and enable the `Server Members Intent` and `Message Content Intent`.
 
 Create a new file `environment`.
 
@@ -92,7 +91,6 @@ Fill in appropriate variables in new "environment" file.
 
 - **BOT_TOKEN**: the Discord Bot Token for your bot.
 - **LOGGING_COG_CHANNEL_ID**: the [Discord Channel ID](https://support.discord.com/hc/en-us/articles/206346498-Where-can-I-find-my-User-Server-Message-ID-) of a Discord Channel where you want error messages sent to.
-- **ALLOW_DUEL_SELF_REGISTER**: boolean value indicating if self registration for duels is enabled.
 - **TLE_ADMIN**: the name of the role that can run admin commands of the bot. If this is not set, the role name will default to "Admin".
 - **TLE_MODERATOR**: the name of the role that can run moderator commands of the bot. If this is not set, the role name will default to "Moderator".
 - **VENV_DIR**: If non-empty, automatically activate this venv when running the bot.
@@ -117,6 +115,7 @@ To install dependencies in a virtual environment using Pip and start TLE, just r
 - In order to prevent the bot suggesting an author's problems to the author, a python file needs to be run (since this can not be done through the Codeforces API) which will save the authors for specific contests to a file. To do this run `python extra/scrape_cf_contest_writers.py` which will generate a JSON file that should be placed in the `data/misc/` folder.
 - In order to display CJK (East Asian) characters for usernames, we need appropriate fonts. Their size is ~36MB, so we don't keep in the repo itself and it is gitignored. They will be downloaded automatically when the bot is run if not already present.
 - One of the bot's features is to assign roles to users based on their rating on Codeforces. In order for this functionality to work properly, the following roles need to exist in your Discord server
+  - Unrated
   - Newbie
   - Pupil
   - Specialist

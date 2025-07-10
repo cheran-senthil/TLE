@@ -71,7 +71,7 @@ class Starboard(commands.Cog):
             else:
                 embed.add_field(name='Attachment', value=f'[{file.filename}]({file.url})', inline=False)
 
-        embed.set_footer(text=str(message.author), icon_url=message.author.avatar_url)
+        embed.set_footer(text=str(message.author), icon_url=message.author.avatar)
         return embed
 
     async def check_and_add_to_starboard(self, starboard_channel_id, payload):
@@ -82,15 +82,14 @@ class Starboard(commands.Cog):
 
         channel = self.bot.get_channel(payload.channel_id)
         message = await channel.fetch_message(payload.message_id)
-        if (message.type != discord.MessageType.default or
-                len(message.content) == 0 and len(message.attachments) == 0):
+        if ((message.type != discord.MessageType.default and message.type != discord.MessageType.reply)
+            or (len(message.content) == 0 and len(message.attachments) == 0)):
             raise StarboardCogError('Cannot starboard this message')
 
         reaction_count = sum(reaction.count for reaction in message.reactions
                              if str(reaction) == _STAR)
         if reaction_count < _STAR_THRESHOLD:
             return
-
         lock = self.locks.get(payload.guild_id)
         if lock is None:
             self.locks[payload.guild_id] = lock = asyncio.Lock()
@@ -101,7 +100,7 @@ class Starboard(commands.Cog):
             embed = self.prepare_embed(message)
             starboard_message = await starboard_channel.send(embed=embed)
             cf_common.user_db.add_starboard_message(message.id, starboard_message.id, guild.id)
-            self.logger.info(f'Added message {message.id} to starboard')
+            self.logger.info(f'Added message {message.id} to starboard (Last reaction by {payload.user_id})')
 
     @commands.group(brief='Starboard commands',
                     invoke_without_command=True)
@@ -144,5 +143,5 @@ class Starboard(commands.Cog):
         pass
 
 
-def setup(bot):
-    bot.add_cog(Starboard(bot))
+async def setup(bot):
+    await bot.add_cog(Starboard(bot))

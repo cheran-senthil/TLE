@@ -441,6 +441,30 @@ class Contests(commands.Cog):
             embed.add_field(name='Tick tock', value=msg, inline=False)
         return embed
 
+    @staticmethod
+    def _filter_rated_only_contestant_data(handles, ranklist):
+
+        # Keep only rated contestants
+        rated_contestants = [handle for handle in handles
+                             if ranklist.standing_by_id.get_correct_handle(handle) in ranklist.delta_by_handle]
+
+        # fix the actual ranks for cases like Edu rounds where unofficial ranks are also included in official standings
+        current_rank = 0
+        last_rank = 0
+        last_score = (-1, -1)
+        for contestant in ranklist.standings:
+            handle = contestant.party.teamName or contestant.party.members[0].handle
+            if handle in ranklist.delta_by_handle:
+                current_score = (contestant.points, contestant.penalty)
+                current_rank += 1
+                dict = ranklist.standing_by_id[handle]._asdict()
+                dict['rank'] = current_rank if current_score != last_score else last_rank
+                last_rank = dict['rank']
+                last_score = current_score
+                ranklist.standing_by_id[handle] = cf.make_from_dict(cf.RanklistRow, dict)
+
+        return rated_contestants, ranklist
+
     @commands.command(brief='Show ranklist for given handles and/or server members')
     async def ranklist(self, ctx, contest_id: int, *args: str):
         """
@@ -466,7 +490,7 @@ class Contests(commands.Cog):
         await ctx.channel.send(embed=self._make_contest_embed_for_ranklist(ranklist))
         await self._show_ranklist(channel=ctx.channel, contest_id=contest_id, handles=handles, ranklist=ranklist)
 
-    async def _show_ranklist(self, channel, contest_id: int, handles: [str], ranklist, vc: bool = False, delete_after: float = None):
+    async def _show_ranklist(self, channel, contest_id: int, handles: list[str], ranklist, vc: bool = False, delete_after: float = None):
         contest = cf_common.cache2.contest_cache.get_contest(contest_id)
         if ranklist is None:
             raise ContestCogError('No ranklist to show')
@@ -758,6 +782,171 @@ class Contests(commands.Cog):
     async def cog_command_error(self, ctx, error):
         pass
 
+    @commands.command(brief='Plot vc performance for a list of at most 5 users', aliases=['vcperf'], usage='@user1 @user2 ..')
+    async def vcperformance(self, ctx, *members: discord.Member):
+        """Plots VC performance for at most 5 users."""
+        members = members or (ctx.author, )
+        if len(members) > 5:
+            raise ContestCogError('Cannot plot more than 5 VCers at once.')
+        plot_data = defaultdict(list)
 
-def setup(bot):
-    bot.add_cog(Contests(bot))
+        min_rating = 1100
+        max_rating = 1800
+
+        for member in members:
+            rating_history = cf_common.user_db.get_vc_rating_history(member.id)
+            if not rating_history:
+                raise ContestCogError(f'{member.mention} has no vc history.')
+            ratingbefore = 1500
+            for vc_id, rating in rating_history:
+                vc = cf_common.user_db.get_rated_vc(vc_id)
+                perf = ratingbefore + (rating - ratingbefore)*4
+                date = dt.datetime.fromtimestamp(vc.finish_time)
+                plot_data[member.display_name].append((date, perf))
+                min_rating = min(min_rating, perf)
+                max_rating = max(max_rating, perf)
+                ratingbefore = rating
+
+        plt.clf()
+        # plot at least from mid gray to mid purple
+        for rating_data in plot_data.values():
+            x, y = zip(*rating_data)
+            plt.plot(x, y,
+                     linestyle='-',
+                     marker='o',
+                     markersize=4,
+                     markerfacecolor='white',
+                     markeredgewidth=0.5)
+
+        gc.plot_rating_bg(cf.RATED_RANKS)
+        plt.gcf().autofmt_xdate()
+
+        plt.ylim(min_rating - 100, max_rating + 200)
+        labels = [
+            gc.StrWrap('{} ({})'.format(
+                member_display_name,
+                ratingbefore))
+            for member_display_name, rating_data in plot_data.items()
+        ]
+        plt.legend(labels, loc='upper left', prop=gc.fontprop)
+
+        discord_file = gc.get_current_figure_as_file()
+        embed = discord_common.cf_color_embed(title='VC performance graph')
+        discord_common.attach_image(embed, discord_file)
+        discord_common.set_author_footer(embed, ctx.author)
+        await ctx.send(embed=embed, file=discord_file)
+
+
+    @commands.command(brief='Estimation of contest problem ratings', aliases=['probrat'], usage='contest_id')
+    async def problemratings(self, ctx, contest_id: int):
+        """Estimation of contest problem ratings
+        """
+        await ctx.send('This will take a while')
+        contests = await cf.contest.list()
+        reqcontest = [contest for contest in contests if contest.id == contest_id]
+        combined = [contest for contest in contests if reqcontest[0].startTimeSeconds == contest.startTimeSeconds]
+
+
+        # get ranklist of all contests in separate lists
+        # get rating_changes of all contests in separate lists
+        # for each problem name of original contest
+            # find in each ranklist the handles and ratings that had a chance to do the problem
+            # calculate rating from these values
+
+        problems = []
+        ranklists = []
+        rating_cache = dict()
+        for contest in combined:
+            _, problem, ranklist = await cf.contest.standings(contest_id=contest.id, show_unofficial=False)
+            problems.append(problem)
+            ranklists.append(ranklist)
+
+            if contest.id == contest_id:
+                officialRatings = [prob.rating for prob in problem]
+                indicies = [prob.index for prob in problem]
+                problemNames = [prob.name for prob in problem]
+
+            #build ratingCache that has all old_rating for all contestants
+            try:
+                rating_change = await cf.contest.ratingChanges(contest_id=contest.id)
+            except cf.RatingChangesUnavailableError as e:
+                rating_change = []
+            from_cache = False
+            if len(rating_change) == 0:
+                # get rating of contestants from cache
+                # we want to have the rating before the contest we query for
+                from_cache = True
+                cached_ratings = await cf_common.cache2.rating_changes_cache.get_all_ratings_before_timestamp(reqcontest[0].startTimeSeconds)
+                for row in ranklist:
+                    member = row.party.members[0].handle
+                    # members not in cache are considered new (Unrated)
+                    if member in cached_ratings:
+                        rating_cache[member] = cached_ratings[member].newRating
+                    else:
+                        rating_cache[member] = 0
+            else:
+                for change in rating_change:
+                    rating_cache[change.handle] = change.oldRating
+
+        def calculateDifficulty(ratings, solved):
+            ans = -1000
+
+            def calcProb(dif):
+                prob = 1
+                d = 0
+                for (r, s) in zip(ratings, solved):
+                    p = 1/(1+10**((dif-r)/400))
+                    d += p
+                    if s:
+                        d -= 1
+                    prob *= p if s else (1-p)
+                return d > 0 and prob < 0.95
+            jump = 4096
+            while jump >= 1:
+                if calcProb(ans+jump):
+                    ans += jump
+                jump /= 2
+            ans = round(ans+1)
+            return ans
+
+        predicted = []
+        for name in problemNames:
+            ratings = []
+            solves = []
+
+            for i in range(len(problems)):
+                #get index of name in problem list of each contest
+                idx = -1
+                for j in range(len(problems[i])):
+                    if problems[i][j].name == name:
+                        idx = j
+                if idx == -1: continue
+                for row in ranklists[i]:
+                    member = row.party.members[0].handle
+                    if member in rating_cache:
+                        solves.append(min(row.problemResults[idx].points, 1))
+                        ratings.append(rating_cache[member])
+            predicted.append(calculateDifficulty(ratings,solves))
+
+        # Output results
+        style = table.Style('{:<}  {:>}  {:>}')
+        t = table.Table(style)
+        t += table.Header('#', 'Official', 'Predicted (C)' if from_cache else 'Predicted')
+        t += table.Line()
+        for i, index in enumerate(indicies):
+            t += table.Data(f'{index}', f'{officialRatings[i]}', f'{predicted[i]}')
+        table_str = f'```\n{t}\n```'
+        url = f'{cf.CONTEST_BASE_URL}{contest_id}'
+        title = reqcontest[0].name
+        embed = discord_common.cf_color_embed(description=table_str, title=title, url=url)
+        await ctx.send(embed=embed)
+
+    @discord_common.send_error_if(ContestCogError, rl.RanklistError,
+                                  cache_system2.CacheError, cf_common.ResolveHandleError)
+    async def cog_command_error(self, ctx, error):
+        pass
+
+
+
+async def setup(bot):
+    await bot.add_cog(Contests(bot))

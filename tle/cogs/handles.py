@@ -5,9 +5,8 @@ import logging
 import math
 import html
 import cairo
-import os
-import time
 import gi
+import datetime
 gi.require_version('Pango', '1.0')
 gi.require_version('PangoCairo', '1.0')
 from gi.repository import Pango, PangoCairo
@@ -27,6 +26,9 @@ from tle.util import table
 from tle.util import tasks
 from tle.util import db
 from tle import constants
+from tle.cogs import codeforces as cfc
+
+from discord.ext import commands
 
 from PIL import Image, ImageFont, ImageDraw
 
@@ -37,6 +39,9 @@ _PRETTY_HANDLES_PER_PAGE = 10
 _TOP_DELTAS_COUNT = 10
 _MAX_RATING_CHANGES_PER_EMBED = 15
 _UPDATE_HANDLE_STATUS_INTERVAL = 6 * 60 * 60  # 6 hours
+
+_DIVISION_RATING_LOW  = (2100, 1600, -1000)
+_DIVISION_RATING_HIGH = (9999, 2099,  1599)
 
 
 class HandleCogError(commands.CommandError):
@@ -89,14 +94,14 @@ def get_gudgitters_image(rankings):
     ROW_COLORS = ((0.95, 0.95, 0.95), (0.9, 0.9, 0.9))
 
     WIDTH = 900
-    HEIGHT = 450
+    #HEIGHT = 900
     BORDER_MARGIN = 20
     COLUMN_MARGIN = 10
     HEADER_SPACING = 1.25
     WIDTH_RANK = 0.08*WIDTH
     WIDTH_NAME = 0.38*WIDTH
-    LINE_HEIGHT = (HEIGHT - 2*BORDER_MARGIN)/(10 + HEADER_SPACING)
-
+    LINE_HEIGHT = 40#(HEIGHT - 2*BORDER_MARGIN)/(20 + HEADER_SPACING)
+    HEIGHT = int((len(rankings) + HEADER_SPACING) * LINE_HEIGHT + 2*BORDER_MARGIN)
     # Cairo+Pango setup
     surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, WIDTH, HEIGHT)
     context = cairo.Context(surface)
@@ -149,7 +154,7 @@ def get_gudgitters_image(rankings):
     for i, (pos, name, handle, rating, score) in enumerate(rankings):
         color = rating_to_color(rating)
         draw_bg(y, i%2)
-        draw_row(str(pos), f'{name} ({rating if rating else "N/A"})', handle, str(score), color, y)
+        draw_row(str(pos+1), f'{name}', f'{handle} ({rating if rating else "N/A"})' , str(score), color, y)
         if rating and rating >= 3000:  # nutella
             draw_row('', name[0], handle[0], '', BLACK, y)
         y += LINE_HEIGHT
@@ -250,6 +255,18 @@ def _make_pages(users, title):
     return pages
 
 
+def parse_date(arg):
+    try:
+        if len(arg) == 6:
+            fmt = '%m%Y'
+        # elif len(arg) == 4:
+            # fmt = '%Y'
+        else:
+            raise ValueError
+        return datetime.datetime.strptime(arg, fmt)
+    except ValueError:
+        raise HandleCogError(f'{arg} is an invalid date argument')
+
 class Handles(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -328,10 +345,13 @@ class Handles(commands.Cog):
         on the member, if any, will be removed. If `role_to_assign` is None all existing rank roles
         on the member will be removed.
         """
+        if member is None: 
+            return
         role_names_to_remove = {rank.title for rank in cf.RATED_RANKS}
+        role_names_to_remove.add(cf.UNRATED_RANK.title)
         if role_to_assign is not None:
             role_names_to_remove.discard(role_to_assign.name)
-            if role_to_assign.name not in ['Newbie', 'Pupil', 'Specialist', 'Expert']:
+            if role_to_assign.name not in ['Unrated', 'Newbie', 'Pupil', 'Specialist', 'Expert']:
                 role_names_to_remove.add('Purgatory')
         to_remove = [role for role in member.roles if role.name in role_names_to_remove]
         if to_remove:
@@ -355,15 +375,15 @@ class Handles(commands.Cog):
             cf_common.user_db.set_handle(member.id, ctx.guild.id, handle)
         except db.UniqueConstraintFailed:
             raise HandleCogError(f'The handle `{handle}` is already associated with another user.')
-        cf_common.user_db.cache_cf_user(user)
+        rc = cf_common.user_db.cache_cf_user(user)
+        if rc != 1:
+            raise HandleCogError('DB update for user {user.handle} failed.')
 
-        if user.rank == cf.UNRATED_RANK:
-            role_to_assign = None
-        else:
-            roles = [role for role in ctx.guild.roles if role.name == user.rank.title]
-            if not roles:
-                raise HandleCogError(f'Role for rank `{user.rank.title}` not present in the server')
-            role_to_assign = roles[0]
+
+        roles = [role for role in ctx.guild.roles if role.name == user.rank.title]
+        if not roles:
+            raise HandleCogError(f'Role for rank `{user.rank.title}` not present in the server')
+        role_to_assign = roles[0]
         await self.update_member_rank_role(member, role_to_assign,
                                            reason='New handle set for user')
 
@@ -388,17 +408,18 @@ class Handles(commands.Cog):
         problems = [prob for prob in cf_common.cache2.problem_cache.problems
                     if prob.rating <= 1200]
         problem = random.choice(problems)
-        await ctx.send(f'`{invoker}`, submit a compile error to <{problem.url}> within 60 seconds')
-        await asyncio.sleep(60)
+        await ctx.send(f'`{invoker}`, submit a compile error to <{problem.url}> within 60 seconds (this will show the bot that you have access to the account)')
+        for i in range(4):
+            await asyncio.sleep(15)
 
-        subs = await cf.user.status(handle=handle, count=5)
-        if any(sub.problem.name == problem.name and sub.verdict == 'COMPILATION_ERROR' for sub in subs):
-            user, = await cf.user.info(handles=[handle])
-            await self._set(ctx, ctx.author, user)
-            embed = _make_profile_embed(ctx.author, user, mode='set')
-            await ctx.send(embed=embed)
-        else:
-            await ctx.send(f'Sorry `{invoker}`, can you try again?')
+            subs = await cf.user.status(handle=handle, count=5)
+            if any(sub.problem.name == problem.name and sub.verdict == 'COMPILATION_ERROR' for sub in subs):
+                user, = await cf.user.info(handles=[handle])
+                await self._set(ctx, ctx.author, user)
+                embed = _make_profile_embed(ctx.author, user, mode='set')
+                await ctx.send(embed=embed)
+                return
+        await ctx.send(f'Sorry `{invoker}`, can you try again? Remember: The identification process needs you to submit a Compilation error to the mentioned problem!')
 
     @handle.command(brief='Get handle by Discord username')
     async def get(self, ctx, member: discord.Member):
@@ -423,6 +444,7 @@ class Handles(commands.Cog):
         embed = _make_profile_embed(member, user, mode='get')
         await ctx.send(embed=embed)
 
+
     @handle.command(brief='Unlink handle', aliases=["unlink"])
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
     async def remove(self, ctx, handle: str):
@@ -438,6 +460,7 @@ class Handles(commands.Cog):
                                            reason='Handle unlinked')
         embed = discord_common.embed_success(f'Removed {handle} from database')
         await ctx.send(embed=embed)
+    
 
     @handle.command(brief='Resolve redirect of a user\'s handle')
     async def unmagic(self, ctx):
@@ -491,28 +514,140 @@ class Handles(commands.Cog):
             lines += failed
         return discord_common.embed_success('\n'.join(lines))
 
-    @commands.command(brief="Show gudgitters", aliases=["gitgudders"])
-    async def gudgitters(self, ctx):
+    @commands.command(brief="Show gudgitters", aliases=["gitgudders", "gitbadders", "gg"], usage="[div1|div2|div3] [+all]")
+    async def gudgitters(self, ctx, *args):
         """Show the list of users of gitgud with their scores."""
         res = cf_common.user_db.get_gudgitters()
         res.sort(key=lambda r: r[1], reverse=True)
+        
+        division = None
+        showall = False
+        for arg in args:
+            if arg[0:3] == 'div':
+                try:
+                    division = int(arg[3])
+                    if division < 1 or division > 3: 
+                        raise HandleCogError('Division number must be within range [1-3]')
+                except ValueError:
+                    raise HandleCogError(f'{arg} is an invalid div argument')
+            if arg == "+all":
+                showall = True
 
         rankings = []
         index = 0
         for user_id, score in res:
             member = ctx.guild.get_member(int(user_id))
-            if member is None:
+            if not showall and member is None:
                 continue
             if score > 0:
                 handle = cf_common.user_db.get_handle(user_id, ctx.guild.id)
                 user = cf_common.user_db.fetch_cf_user(handle)
                 if user is None:
                     continue
-                discord_handle = member.display_name
                 rating = user.rating
+
+                discord_handle = ""
+                if member is not None: 
+                    discord_handle = member.display_name
+                
+                
+                if division is not None:
+                    if rating is None: continue;
+                    if rating < _DIVISION_RATING_LOW[division-1] or rating > _DIVISION_RATING_HIGH[division-1]:
+                        continue
+                
                 rankings.append((index, discord_handle, handle, rating, score))
                 index += 1
-            if index == 10:
+            if index == 20:
+                break
+
+        if not rankings:
+            raise HandleCogError('No one has completed a gitgud challenge, send ;gitgud to request and ;gotgud to mark it as complete')
+        discord_file = get_gudgitters_image(rankings)
+        await ctx.send(file=discord_file)
+
+    def filter_rating_changes(self, rating_changes):
+        rating_changes = [change for change in rating_changes
+                    if self.dlo <= change.ratingUpdateTimeSeconds < self.dhi]
+        return rating_changes
+
+    @commands.command(brief="Show gudgitters of the month", aliases=["monthlygitgudders","monthlygg","monthlygitbadders", "mgg"], usage="[div1|div2|div3] [d=mmyyyy] [+all]")
+    async def monthlygudgitters(self, ctx, *args):
+        """Show the list of users of gitgud with their scores."""
+        
+        # Calculate time range of given month (d=) or current month
+        now = datetime.datetime.now()
+        for arg in args:
+            if arg[0:2] == 'd=':
+                now = parse_date(arg[2:])
+
+        start_time, end_time = cf_common.get_start_and_end_of_month(now)
+        
+        # more points seasons start at April 1st 2023 (timestamp: 1680300000) and is only active in the last 7 days of the month
+        morePointsActive = False
+        morePointsTime = end_time - cfc._ONE_WEEK_DURATION
+        if start_time >= cfc._GITGUD_MORE_POINTS_START_TIME: 
+            morePointsActive = True
+
+        division = None
+        showall = False
+        for arg in args:
+            if arg[0:3] == 'div':
+                try:
+                    division = int(arg[3])
+                    if division < 1 or division > 3: 
+                        raise HandleCogError('Division number must be within range [1-3]')
+                except ValueError:
+                    raise HandleCogError(f'{arg} is an invalid div argument')
+            if arg == "+all":
+                showall = True                    
+       
+        # get gitgud of month and calculate scores
+        results = cf_common.user_db.get_gudgitters_timerange(start_time, end_time)
+        res = {}
+        for entry in results:
+            res[entry[0]] = 0
+        for entry in results:
+            if len(entry) >= 3:
+                score = cfc._calculateGitgudScoreForDelta(int(entry[1]))
+                # @@ add finish time constraint (both times need to be within the more points range)
+                res[entry[0]] += 2 * score if morePointsActive and int(entry[2]) >= morePointsTime else score
+            else:
+                raise HandleCogError(f'Tuple size {len(entry)} for entry {entry[0]}')
+        
+        rankings = []
+        index = 0
+        cache = cf_common.cache2.rating_changes_cache
+        for user_id, score in sorted(res.items(), key=lambda item: item[1], reverse=True):
+            member = ctx.guild.get_member(int(user_id))
+            if not showall and member is None:
+                continue
+            if score > 0:
+                handle = cf_common.user_db.get_handle(user_id, ctx.guild.id)
+                user = cf_common.user_db.fetch_cf_user(handle)
+                if user is None:
+                    continue
+                rating = user.rating
+                
+                discord_handle = ""
+                if member is not None: 
+                    discord_handle = member.display_name                
+                
+                #### Live checking of a rating is not working since we get rate limited
+                #### Taking stuff from cache instead
+                rating_changes = cache.get_rating_changes_for_handle(handle)
+                rating_changes = [change for change in rating_changes if change.ratingUpdateTimeSeconds < start_time]
+                rating_changes.sort(key=lambda a: a.ratingUpdateTimeSeconds)
+                if len(rating_changes) < 1: 
+                    continue
+                if rating_changes[-1] is None: continue
+                if division is not None:
+                    if rating_changes[-1].newRating < _DIVISION_RATING_LOW[division-1] or rating_changes[-1].newRating > _DIVISION_RATING_HIGH[division-1]:
+                        continue
+                rating = rating_changes[-1].newRating
+                rankings.append((index, discord_handle, handle, rating, score))
+                index += 1
+            if index == 20:
                 break
 
         if not rankings:
@@ -605,9 +740,11 @@ class Handles(commands.Cog):
         members, handles = zip(*member_handles)
         users = await cf.user.info(handles=handles)
         for user in users:
-            cf_common.user_db.cache_cf_user(user)
+            rc = cf_common.user_db.cache_cf_user(user)
+            if rc != 1:
+                raise HandleCogError('DB update for user {user.handle} failed.')
 
-        required_roles = {user.rank.title for user in users if user.rank != cf.UNRATED_RANK}
+        required_roles = {user.rank.title for user in users}
         rank2role = {role.name: role for role in guild.roles if role.name in required_roles}
         missing_roles = required_roles - rank2role.keys()
         if missing_roles:
@@ -616,7 +753,7 @@ class Handles(commands.Cog):
             raise HandleCogError(f'Role{plural} for rank{plural} {roles_str} not present in the server')
 
         for member, user in zip(members, users):
-            role_to_assign = None if user.rank == cf.UNRATED_RANK else rank2role[user.rank.title]
+            role_to_assign = rank2role[user.rank.title]
             await self.update_member_rank_role(member, role_to_assign,
                                                reason='Codeforces rank update')
 
@@ -667,8 +804,6 @@ class Handles(commands.Cog):
         top_increases_str = []
         for member, change in member_change_pairs[:_TOP_DELTAS_COUNT]:
             delta = change.newRating - change.oldRating
-            if delta <= 0:
-                break
             increase_str = (f'{member.mention} [{change.handle}]({cf.PROFILE_BASE_URL}{change.handle}): {change.oldRating} '
                             f'\N{HORIZONTAL BAR} **{delta:+}** \N{LONG RIGHTWARDS ARROW} '
                             f'{change.newRating}')
@@ -688,8 +823,8 @@ class Handles(commands.Cog):
             embeds.append(embed)
 
         top_rating_increases_embed = discord.Embed(description='\n'.join(
-            top_increases_str) or 'Nobody got a positive delta :(')
-        top_rating_increases_embed.set_author(name='Top rating increases')
+            top_increases_str) or 'Nobody got a delta :(')
+        top_rating_increases_embed.set_author(name='Top rating changes')
 
         embeds.append(top_rating_increases_embed)
         discord_common.set_same_cf_color(embeds)
@@ -812,5 +947,5 @@ class Handles(commands.Cog):
         pass
 
 
-def setup(bot):
-    bot.add_cog(Handles(bot))
+async def setup(bot):
+    await bot.add_cog(Handles(bot))
