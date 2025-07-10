@@ -396,7 +396,7 @@ class RatingChangesCache:
         self.logger = logging.getLogger(self.__class__.__name__)
 
     async def run(self):
-        self._refresh_handle_cache()
+        await asyncio.to_thread(self._refresh_handle_cache)
         if not self.handle_rating_cache:
             self.logger.warning(
                 'Rating changes cache on disk is empty.'
@@ -412,7 +412,7 @@ class RatingChangesCache:
         contest = self.cache_master.contest_cache.contest_by_id[contest_id]
         changes = await self._fetch([contest])
         self.cache_master.conn.clear_rating_changes(contest_id=contest_id)
-        self._save_changes(changes)
+        await self._save_changes(changes)
         return len(changes)
 
     async def fetch_all_contests(self):
@@ -439,7 +439,7 @@ class RatingChangesCache:
             contests, _CONTESTS_PER_BATCH_IN_CACHE_UPDATES
         ):
             contests_chunk = await self._fetch(contests_chunk)
-            self._save_changes(contests_chunk)
+            await self._save_changes(contests_chunk)
             total_changes += len(contests_chunk)
         return total_changes
 
@@ -504,7 +504,7 @@ class RatingChangesCache:
         # Sort by the rating update time of the first change in the list of
         # changes, assuming every change in the list has the same time.
         contest_changes_pairs.sort(key=lambda pair: pair[1][0].ratingUpdateTimeSeconds)
-        self._save_changes(contest_changes_pairs)
+        await self._save_changes(contest_changes_pairs)
         for contest, changes in contest_changes_pairs:
             cf_common.event_sys.dispatch(
                 events.RatingChangesUpdate, contest=contest, rating_changes=changes
@@ -528,7 +528,7 @@ class RatingChangesCache:
                 pass
         return all_changes
 
-    def _save_changes(self, contest_changes_pairs):
+    async def _save_changes(self, contest_changes_pairs):
         flattened = [
             change for _, changes in contest_changes_pairs for change in changes
         ]
@@ -536,7 +536,7 @@ class RatingChangesCache:
             return
         rc = self.cache_master.conn.save_rating_changes(flattened)
         self.logger.info(f'Saved {rc} changes to database.')
-        self._refresh_handle_cache()
+        await asyncio.to_thread(self._refresh_handle_cache)
 
     def _refresh_handle_cache(self):
         changes = self.cache_master.conn.get_all_rating_changes()
