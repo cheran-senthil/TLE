@@ -99,7 +99,7 @@ def _classify_submissions(submissions):
 def _plot_scatter(regular, practice, virtual, point_size):
     for contest in [practice, regular, virtual]:
         if contest:
-            times, ratings = zip(*contest)
+            times, ratings = zip(*contest, strict=False)
             plt.scatter(times, ratings, zorder=10, s=point_size)
 
 
@@ -188,7 +188,7 @@ def _plot_extreme(
 
     plt.clf()
     if regular:
-        time_scatter, plot_min, plot_max = zip(*regular)
+        time_scatter, plot_min, plot_max = zip(*regular, strict=False)
         if unsolved:
             scatter_outline(
                 time_scatter,
@@ -217,16 +217,16 @@ def _plot_extreme(
 
     if fullsolves:
         scatter_outline(
-            *zip(*fullsolves), zorder=15, s=42, marker='*', color=solvedcolor
+            *zip(*fullsolves, strict=False), zorder=15, s=42, marker='*', color=solvedcolor
         )
     if nosolves:
         scatter_outline(
-            *zip(*nosolves), zorder=15, s=32, marker='X', color=unsolvedcolor
+            *zip(*nosolves, strict=False), zorder=15, s=32, marker='X', color=unsolvedcolor
         )
 
     if not regular and not fullsolves and not nosolves:
         raise GraphCogError(
-            f'No plot extreme possible. User probably only participated in contests that have no problem ratings yet.'
+            'No plot extreme possible. User probably only participated in contests that have no problem ratings yet.'
         )
 
     if legend:
@@ -241,7 +241,7 @@ def _plot_extreme(
 
 def _plot_average(practice, bin_size, label: str = ''):
     if len(practice) > bin_size:
-        sub_times, ratings = map(list, zip(*practice))
+        sub_times, ratings = map(list, zip(*practice, strict=False))
 
         sub_timestamps = [sub_time.timestamp() for sub_time in sub_times]
         mean_sub_timestamps = _running_mean(sub_timestamps, bin_size)
@@ -327,7 +327,7 @@ class Graphs(commands.Cog):
         ]
         labels = [
             gc.StrWrap(f'{handle} ({rating})')
-            for handle, rating in zip(handles, current_ratings)
+            for handle, rating in zip(handles, current_ratings, strict=False)
         ]
         plt.legend(
             labels, bbox_to_anchor=(0, 1, 1, 0), loc='lower left', mode='expand', ncol=2
@@ -395,7 +395,7 @@ class Graphs(commands.Cog):
         _plot_rating_by_date(resp)
         labels = [
             gc.StrWrap(f'{handle} ({rating})')
-            for handle, rating in zip(handles, current_ratings)
+            for handle, rating in zip(handles, current_ratings, strict=False)
         ]
         plt.legend(
             labels, bbox_to_anchor=(0, 1, 1, 0), loc='lower left', mode='expand', ncol=2
@@ -486,7 +486,7 @@ class Graphs(commands.Cog):
 
         if not any(all_solved_subs):
             raise GraphCogError(
-                f'There are no problems within the specified parameters.'
+                'There are no problems within the specified parameters.'
             )
 
         plt.clf()
@@ -506,7 +506,7 @@ class Graphs(commands.Cog):
             nice_names = nice_sub_type(filt.types)
             labels = [
                 name.format(len(ratings))
-                for name, ratings in zip(nice_names, all_ratings)
+                for name, ratings in zip(nice_names, all_ratings, strict=False)
             ]
 
             step = 100
@@ -529,7 +529,7 @@ class Graphs(commands.Cog):
             ]
             labels = [
                 gc.StrWrap(f'{handle}: {len(ratings)}')
-                for handle, ratings in zip(handles, all_ratings)
+                for handle, ratings in zip(handles, all_ratings, strict=False)
             ]
 
             step = 200 if filt.rhi - filt.rlo > 3000 // len(handles) else 100
@@ -574,7 +574,7 @@ class Graphs(commands.Cog):
 
         if not any(all_solved_subs):
             raise GraphCogError(
-                f'There are no problems within the specified parameters.'
+                'There are no problems within the specified parameters.'
             )
 
         plt.clf()
@@ -595,7 +595,7 @@ class Graphs(commands.Cog):
 
             nice_names = nice_sub_type(filt.types)
             labels = [
-                name.format(len(times)) for name, times in zip(nice_names, all_times)
+                name.format(len(times)) for name, times in zip(nice_names, all_times, strict=False)
             ]
 
             dlo = min(itertools.chain.from_iterable(all_times)).date()
@@ -631,7 +631,7 @@ class Graphs(commands.Cog):
             # Add zero-width space to work around this
             labels = [
                 gc.StrWrap(f'{handle}: {len(times)}')
-                for handle, times in zip(handles, all_times)
+                for handle, times in zip(handles, all_times, strict=False)
             ]
 
             dlo = min(itertools.chain.from_iterable(all_times)).date()
@@ -678,7 +678,7 @@ class Graphs(commands.Cog):
 
         if not any(all_solved_subs):
             raise GraphCogError(
-                f'There are no problems within the specified parameters.'
+                'There are no problems within the specified parameters.'
             )
 
         plt.clf()
@@ -698,7 +698,7 @@ class Graphs(commands.Cog):
 
         labels = [
             gc.StrWrap(f'{handle}: {len(times)}')
-            for handle, times in zip(handles, all_times)
+            for handle, times in zip(handles, all_times, strict=False)
         ]
 
         plt.legend(labels)
@@ -824,7 +824,7 @@ class Graphs(commands.Cog):
             cent.append(round(100 * csum / users))
 
         x = [k * binsize for k in range(bins)]
-        label = [f'{r} ({c})' for r, c in zip(x, cent)]
+        label = [f'{r} ({c})' for r, c in zip(x, cent, strict=False)]
 
         l, r = 0, bins - 1
         while not height[l]:
@@ -964,7 +964,7 @@ class Graphs(commands.Cog):
         ax.tick_params(axis='both', which='both', length=0)
 
         # Color intervals by rank
-        for interval, color in zip(intervals, colors):
+        for interval, color in zip(intervals, colors, strict=False):
             alpha = '99'
             l, r = interval
             col = color + alpha
@@ -1037,7 +1037,7 @@ class Graphs(commands.Cog):
 
         # Discord stuff
         discord_file = gc.get_current_figure_as_file()
-        embed = discord_common.cf_color_embed(title=f'Rating/percentile relationship')
+        embed = discord_common.cf_color_embed(title='Rating/percentile relationship')
         discord_common.attach_image(embed, discord_file)
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
@@ -1053,7 +1053,7 @@ class Graphs(commands.Cog):
         ]
         labels = [
             gc.StrWrap(f'{member.display_name}: {len(delta)}')
-            for member, delta in zip(members, deltas)
+            for member, delta in zip(members, deltas, strict=False)
         ]
 
         # get bins dynamically
@@ -1090,7 +1090,7 @@ class Graphs(commands.Cog):
 
         if not countries:
             # list because seaborn complains for tuple.
-            countries, counts = map(list, zip(*counter.most_common()))
+            countries, counts = map(list, zip(*counter.most_common(), strict=False))
             plt.clf()
             fig = plt.figure(figsize=(15, 5))
             with sns.axes_style(rc={'xtick.bottom': True}):
@@ -1366,7 +1366,7 @@ class Graphs(commands.Cog):
             max_time = max(max_time, max(ys, default=0))
             plt.plot(xs, ys)
             if add_scatter:
-                plt.scatter(*zip(*scatter_points), s=point_size)
+                plt.scatter(*zip(*scatter_points, strict=False), s=point_size)
 
         labels = [gc.StrWrap(handle) for handle in handles]
         plt.legend(labels)

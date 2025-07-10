@@ -542,13 +542,13 @@ class Codeforces(commands.Cog):
         user_id = ctx.message.author.id
         active = cf_common.user_db.check_challenge(user_id)
         if not active:
-            raise CodeforcesCogError(f'You do not have an active challenge')
+            raise CodeforcesCogError('You do not have an active challenge')
 
         submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions if sub.verdict == 'OK'}
 
         challenge_id, issue_time, name, contestId, index, delta = active
-        if not name in solved:
+        if name not in solved:
             raise CodeforcesCogError("You haven't completed your challenge.")
 
         score = _calculateGitgudScoreForDelta(delta)
@@ -582,7 +582,7 @@ class Codeforces(commands.Cog):
         user_id = ctx.message.author.id
         active = cf_common.user_db.check_challenge(user_id)
         if not active:
-            raise CodeforcesCogError(f'You do not have an active challenge')
+            raise CodeforcesCogError('You do not have an active challenge')
 
         challenge_id, issue_time, name, contestId, index, delta = active
         finish_time = int(datetime.datetime.now().timestamp())
@@ -593,7 +593,7 @@ class Codeforces(commands.Cog):
             await ctx.send(f'Think more. You can skip your challenge in {skip_time}.')
             return
         cf_common.user_db.skip_challenge(user_id, challenge_id, Gitgud.NOGUD)
-        await ctx.send(f'Challenge skipped.')
+        await ctx.send('Challenge skipped.')
 
     @commands.command(brief='Force skip a challenge')
     @cf_common.user_guard(group='gitgud')
@@ -607,9 +607,9 @@ class Codeforces(commands.Cog):
             return
         rc = cf_common.user_db.skip_challenge(member.id, active[0], Gitgud.FORCED_NOGUD)
         if rc == 1:
-            await ctx.send(f'Challenge skip forced.')
+            await ctx.send('Challenge skip forced.')
         else:
-            await ctx.send(f'Failed to force challenge skip.')
+            await ctx.send('Failed to force challenge skip.')
 
     @commands.command(brief='Recommend a contest', usage='[handles...] [+pattern...]')
     async def vc(self, ctx, *args: str):
@@ -813,8 +813,8 @@ class Codeforces(commands.Cog):
                 ctx, self.converter, parsed_handles, mincnt=1, maxcnt=1000
             )
             cf_handles = normalize(cf_handles)
-            cf_to_original = {a: b for a, b in zip(cf_handles, parsed_handles)}
-            original_to_cf = {a: b for a, b in zip(parsed_handles, cf_handles)}
+            cf_to_original = {a: b for a, b in zip(cf_handles, parsed_handles, strict=False)}
+            original_to_cf = {a: b for a, b in zip(parsed_handles, cf_handles, strict=False)}
             users = await cf.user.info(handles=cf_handles)
             user_strs = []
             for a, b in handle_counts.items():

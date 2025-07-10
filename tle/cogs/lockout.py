@@ -85,14 +85,14 @@ class Round(commands.Cog):
         channel_id = cf_common.user_db.get_round_channel(guild.id)
         if channel_id == None:
             logger.warn(
-                f'_check_ongoing_rounds_for_guild: lockout round channel is not set.'
+                '_check_ongoing_rounds_for_guild: lockout round channel is not set.'
             )
             return
 
         channel = self.bot.get_channel(channel_id)
         if channel is None:
             logger.warn(
-                f'_check_ongoing_rounds_for_guild: lockout round channel is not found on the server.'
+                '_check_ongoing_rounds_for_guild: lockout round channel is not found on the server.'
             )
             return
 
@@ -163,7 +163,7 @@ class Round(commands.Cog):
 
         if not all_reacted:
             raise RoundCogError(
-                f'Unable to start round, some participant(s) did not react in time!'
+                'Unable to start round, some participant(s) did not react in time!'
             )
 
     def _check_if_any_member_is_already_in_round(self, ctx, members):
@@ -269,7 +269,7 @@ class Round(commands.Cog):
             desc += f'{emojis[user.rank - 1] if user.rank <= len(emojis) else user.rank} [{handle}](https://codeforces.com/profile/{handle}) **{user.points}** points\n'
 
         embed = discord.Embed(description=desc, color=discord.Color.magenta())
-        embed.set_author(name=f'Problems')
+        embed.set_author(name='Problems')
 
         embed.add_field(
             name='Points', value='\n'.join(round_info.points.split()), inline=True
@@ -302,7 +302,7 @@ class Round(commands.Cog):
         )
         embed.add_field(
             name='Based on Lockout bot',
-            value=f'[GitHub](https://github.com/pseudocoder10/Lockout-Bot)',
+            value='[GitHub](https://github.com/pseudocoder10/Lockout-Bot)',
             inline=True,
         )
         return embed
@@ -484,7 +484,7 @@ class Round(commands.Cog):
         ):
             raise RoundCogError(f'{member.mention} is not in a round')
         cf_common.user_db.delete_round(ctx.guild.id, member.id)
-        await ctx.send(f'Round deleted.')
+        await ctx.send('Round deleted.')
 
     @round.command(
         brief='View problems of your round or for a specific user', usage='[@user]'
@@ -556,7 +556,7 @@ class Round(commands.Cog):
         embed.add_field(name='Position', value=pos)
         embed.add_field(name='User', value=name)
         embed.add_field(name='Rating changes', value=ratingChange)
-        embed.set_author(name=f'Round over! Final standings')
+        embed.set_author(name='Round over! Final standings')
 
         await channel.send(embed=embed)
 
@@ -718,7 +718,7 @@ class Round(commands.Cog):
         data = cf_common.user_db.get_ongoing_rounds(ctx.guild.id)
 
         if not data:
-            raise RoundCogError(f'No ongoing rounds')
+            raise RoundCogError('No ongoing rounds')
 
         def _make_pages(data, title):
             chunks = paginator.chunkify(data, ROUNDS_PER_PAGE)
@@ -766,7 +766,7 @@ class Round(commands.Cog):
         )
 
         if not data:
-            raise RoundCogError(f'No recent rounds')
+            raise RoundCogError('No recent rounds')
 
         def _make_pages(data, title):
             chunks = paginator.chunkify(data, ROUNDS_PER_PAGE)

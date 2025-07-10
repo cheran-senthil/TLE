@@ -928,7 +928,7 @@ class Handles(commands.Cog):
         ]
         if not member_handles:
             raise HandleCogError('Handles not set for any user')
-        members, handles = zip(*member_handles)
+        members, handles = zip(*member_handles, strict=False)
         users = await cf.user.info(handles=handles)
         for user in users:
             rc = cf_common.user_db.cache_cf_user(user)
@@ -947,7 +947,7 @@ class Handles(commands.Cog):
                 f'Role{plural} for rank{plural} {roles_str} not present in the server'
             )
 
-        for member, user in zip(members, users):
+        for member, user in zip(members, users, strict=False):
             role_to_assign = rank2role[user.rank.title]
             await self.update_member_rank_role(
                 member, role_to_assign, reason='Codeforces rank update'
@@ -1296,7 +1296,7 @@ class Handles(commands.Cog):
         http_failure_count = 0
 
         status_message = await ctx.send(
-            f'Processing members for grandfathering Trusted...'
+            'Processing members for grandfathering Trusted...'
         )
 
         # Create a list to avoid issues if members leave/join during processing

@@ -301,7 +301,7 @@ class UserDbConn:
             )
             """)
 
-        self.conn.execute(f"""
+        self.conn.execute("""
           CREATE TABLE IF NOT EXISTS starboard_config_v1 (
             guild_id   TEXT,
             emoji      TEXT,
@@ -311,7 +311,7 @@ class UserDbConn:
         """)
 
         # 1b) emoji holds threshold + color
-        self.conn.execute(f"""
+        self.conn.execute("""
           CREATE TABLE IF NOT EXISTS starboard_emoji_v1 (
             guild_id   TEXT,
             emoji      TEXT,
@@ -1319,7 +1319,7 @@ class UserDbConn:
         return self.conn.execute(query, (training_id,)).fetchone()[0]
 
     def train_get_start_rating(self, training_id):
-        query = f"""
+        query = """
             SELECT rating FROM training_problems
             WHERE training_id = ?
         """
@@ -1360,7 +1360,7 @@ class UserDbConn:
     def create_ongoing_round(
         self, guild_id, timestamp, users, rating, points, problems, duration, repeat
     ):
-        query = f"""
+        query = """
             INSERT INTO lockout_ongoing_rounds (guild, users, rating, points, time, problems, status, duration, repeat, times)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
@@ -1384,7 +1384,7 @@ class UserDbConn:
         cur.close()
 
     def create_finished_round(self, round_info, timestamp):
-        query = f"""
+        query = """
                     INSERT INTO lockout_finished_rounds (guild, users, rating, points, time, problems, status, duration, repeat, times, end_time)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """
@@ -1409,7 +1409,7 @@ class UserDbConn:
         cur.close()
 
     def update_round_status(self, guild, user, status, problems, timestamp):
-        query = f"""
+        query = """
                     UPDATE lockout_ongoing_rounds 
                     SET
                     status = ?, 
@@ -1433,7 +1433,7 @@ class UserDbConn:
         cur.close()
 
     def get_round_info(self, guild_id, users):
-        query = f"""
+        query = """
                     SELECT * FROM lockout_ongoing_rounds
                     WHERE
                     guild = ? AND users LIKE ?
@@ -1460,7 +1460,7 @@ class UserDbConn:
         )
 
     def check_if_user_in_ongoing_round(self, guild, user):
-        query = f"""
+        query = """
                     SELECT * FROM lockout_ongoing_rounds
                     WHERE
                     users LIKE ? AND guild = ?
@@ -1474,7 +1474,7 @@ class UserDbConn:
         return False
 
     def delete_round(self, guild, user):
-        query = f"""
+        query = """
                     DELETE FROM lockout_ongoing_rounds
                     WHERE
                     guild = ? AND users LIKE ?
@@ -1485,7 +1485,7 @@ class UserDbConn:
         cur.close()
 
     def get_ongoing_rounds(self, guild):
-        query = f"""
+        query = """
                     SELECT * FROM lockout_ongoing_rounds WHERE guild = ?
                 """
         cur = self.conn.cursor()
@@ -1513,7 +1513,7 @@ class UserDbConn:
         ]
 
     def get_recent_rounds(self, guild, user=None):
-        query = f"""
+        query = """
                     SELECT * FROM lockout_finished_rounds 
                     WHERE guild = ? AND users LIKE ?
                     ORDER BY end_time DESC

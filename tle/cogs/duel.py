@@ -151,13 +151,13 @@ class Dueling(commands.Cog):
         data = cf_common.user_db.get_ongoing_duels(guild.id)
         channel_id = cf_common.user_db.get_duel_channel(guild.id)
         if channel_id == None:
-            logger.warn(f'_check_ongoing_duels_for_guild: duel channel is not set.')
+            logger.warn('_check_ongoing_duels_for_guild: duel channel is not set.')
             return
 
         channel = self.bot.get_channel(channel_id)
         if channel is None:
             logger.warn(
-                f'_check_ongoing_duels_for_guild: duel channel is not found on the server.'
+                '_check_ongoing_duels_for_guild: duel channel is not found on the server.'
             )
             return
 
@@ -552,7 +552,7 @@ class Dueling(commands.Cog):
 
         # only low rated user can invoke the command
         if ctx.author.id != lowerrated_id:
-            await ctx.send(f'Only the lower rated user can give up the duel.')
+            await ctx.send('Only the lower rated user can give up the duel.')
             return
 
         # no pending submissions allowed
@@ -568,7 +568,7 @@ class Dueling(commands.Cog):
         # only if the high rated has already finished
         if highrated_timestamp == _DUEL_STATUS_UNSOLVED:
             await ctx.send(
-                f"You can't give up the duel if the higher rated user has not finished the problem."
+                "You can't give up the duel if the higher rated user has not finished the problem."
             )
             return
 
@@ -643,7 +643,7 @@ class Dueling(commands.Cog):
             or lowrated_timestamp == _DUEL_STATUS_TESTING
         ):
             if not isAutoComplete:
-                await channel.send(f'Wait a bit. A submission is still being judged.')
+                await channel.send('Wait a bit. A submission is still being judged.')
             return
 
         # get problem including rating
@@ -800,7 +800,7 @@ class Dueling(commands.Cog):
             )
             return
 
-        if not duelid in self.draw_offers:
+        if duelid not in self.draw_offers:
             self.draw_offers[duelid] = ctx.author.id
             offeree_id = (
                 challenger_id if ctx.author.id != challenger_id else challengee_id
@@ -926,7 +926,7 @@ class Dueling(commands.Cog):
         self, ctx, member1: discord.Member = None, member2: discord.Member = None
     ):
         if not member1:
-            raise DuelCogError(f'You need to specify one or two discord members.')
+            raise DuelCogError('You need to specify one or two discord members.')
 
         member2 = member2 or ctx.author
         data = cf_common.user_db.get_pair_duels(member1.id, member2.id, ctx.guild.id)
@@ -982,7 +982,7 @@ class Dueling(commands.Cog):
             return f'[{challenger.handle}]({challenger.url}) vs [{challengee.handle}]({challengee.url}): [{name}]({problem.url}) [{problem.rating}] {when}'
 
         def make_page(chunk):
-            message = f'List of ongoing duels:'
+            message = 'List of ongoing duels:'
             log_str = '\n'.join(make_line(entry) for entry in chunk)
             embed = discord_common.cf_color_embed(description=log_str)
             return message, embed
@@ -1102,7 +1102,7 @@ class Dueling(commands.Cog):
         """Plot duelist's rating."""
         members = members or (ctx.author,)
         if len(members) > 5:
-            raise DuelCogError(f'Cannot plot more than 5 duelists at once.')
+            raise DuelCogError('Cannot plot more than 5 duelists at once.')
 
         duelists = [member.id for member in members]
         duels = cf_common.user_db.get_complete_official_duels(ctx.guild.id)
@@ -1129,7 +1129,7 @@ class Dueling(commands.Cog):
                 time_tick += 1
 
         if time_tick == 0:
-            raise DuelCogError(f'Nothing to plot.')
+            raise DuelCogError('Nothing to plot.')
 
         plt.clf()
         # plot at least from mid gray to mid purple
@@ -1140,7 +1140,7 @@ class Dueling(commands.Cog):
                 min_rating = min(min_rating, rating)
                 max_rating = max(max_rating, rating)
 
-            x, y = zip(*rating_data)
+            x, y = zip(*rating_data, strict=False)
             plt.plot(
                 x,
                 y,
