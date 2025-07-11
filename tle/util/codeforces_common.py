@@ -180,7 +180,10 @@ class HandleNotRegisteredError(ResolveHandleError):
     def __init__(self, member):
         super().__init__(
             f'Codeforces handle for {member.mention} not found in database. '
-            'Use ;handle identify <cfhandle> (where <cfhandle> needs to be replaced with your codeforces handle, e.g. ;handle identify tourist) to add yourself to the database'
+            'Use ;handle identify <cfhandle> '
+            '(where <cfhandle> needs to be replaced with your '
+            'codeforces handle, e.g. ;handle identify tourist) '
+            'to add yourself to the database'
         )
 
 

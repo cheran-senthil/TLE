@@ -140,7 +140,9 @@ class Dueling(commands.Cog):
             for guild in self.bot.guilds:
                 await self._check_ongoing_duels_for_guild(guild)
         except Exception as exception:
-            # we need to handle exceptions on our own -> put them into server log for now (TODO: logging channel would be better)
+            # we need to handle exceptions on our own
+            # -> put them into server log for now
+            # (TODO: logging channel would be better)
             msg = 'Ignoring exception in command {}:'.format('_check_round_complete')
             exc_info = type(exception), exception, exception.__traceback__
             extra = {}
@@ -153,14 +155,15 @@ class Dueling(commands.Cog):
         # check for ongoing duels that are older than _DUEL_MAX_DUEL_DURATION
         data = cf_common.user_db.get_ongoing_duels(guild.id)
         channel_id = cf_common.user_db.get_duel_channel(guild.id)
-        if channel_id == None:
+        if channel_id is None:
             logger.warn('_check_ongoing_duels_for_guild: duel channel is not set.')
             return
 
         channel = self.bot.get_channel(channel_id)
         if channel is None:
             logger.warn(
-                '_check_ongoing_duels_for_guild: duel channel is not found on the server.'
+                '_check_ongoing_duels_for_guild: duel channel is not found'
+                ' on the server.'
             )
             return
 
@@ -180,12 +183,14 @@ class Dueling(commands.Cog):
                 challenger = guild.get_member(challenger_id)
                 if challenger is None:
                     logger.warn(
-                        f'_check_ongoing_duels_for_guild: member with {challenger_id} could not be retrieved.'
+                        f'_check_ongoing_duels_for_guild: member with '
+                        f'{challenger_id} could not be retrieved.'
                     )
                 challengee = guild.get_member(challengee_id)
                 if challengee is None:
                     logger.warn(
-                        f'_check_ongoing_duels_for_guild: member with {challengee_id} could not be retrieved.'
+                        '_check_ongoing_duels_for_guild: member with '
+                        f'{challengee_id} could not be retrieved.'
                     )
 
                 embed = complete_duel(
@@ -200,7 +205,9 @@ class Dueling(commands.Cog):
                 )
                 timelimit = cf_common.pretty_time_format(_DUEL_MAX_DUEL_DURATION)
                 await channel.send(
-                    f'Auto draw of duel between {challenger.mention} and {challengee.mention} since it was active for more than {timelimit}.',
+                    f'Auto draw of duel between {challenger.mention} and '
+                    f'{challengee.mention} since it was active for more than '
+                    f'{timelimit}.',
                     embed=embed,
                 )
 
@@ -393,16 +400,24 @@ class Dueling(commands.Cog):
             diff = cf_common.pretty_time_format(600 * coeff - 600, always_seconds=True)
             if lowerrated_rating == higherrated_rating:
                 await ctx.send(
-                    f'{ctx.author.mention} is challenging {opponent.mention} to {ostr} {rstr}duel with handicap! Since {lowrated_member.mention} and {highrated_member.mention} have same rating no one will get a time bonus.'
+                    f'{ctx.author.mention} is challenging {opponent.mention} to '
+                    f'{ostr} {rstr}duel with handicap! '
+                    f'Since {lowrated_member.mention} and {highrated_member.mention} '
+                    'have same rating no one will get a time bonus.'
                 )
             else:
                 await ctx.send(
-                    f'{ctx.author.mention} is challenging {opponent.mention} to {ostr} {rstr}duel with handicap! {lowrated_member.mention} is lower rated and will get {percentage} % more time (bonus of {diff} for every 10 minutes of duel duration).'
+                    f'{ctx.author.mention} is challenging {opponent.mention} '
+                    f'to {ostr} {rstr}duel with handicap! '
+                    f'{lowrated_member.mention} is lower rated and will get '
+                    f'{percentage} % more time '
+                    f'(bonus of {diff} for every 10 minutes of duel duration).'
                 )
         else:
             ostr = 'an **unofficial**' if unofficial else 'a'
             await ctx.send(
-                f'{ctx.author.mention} is challenging {opponent.mention} to {ostr} {rstr}duel!'
+                f'{ctx.author.mention} is challenging {opponent.mention} '
+                f'to {ostr} {rstr}duel!'
             )
         await asyncio.sleep(_DUEL_EXPIRY_TIME)
         if cf_common.user_db.cancel_duel(duelid, ctx.guild.id, Duel.EXPIRED):
@@ -414,7 +429,10 @@ class Dueling(commands.Cog):
             await ctx.send(embed=embed)
 
     @duel.command(
-        brief='Decline a duel challenge. Can be used to decline a challenge as challengee.'
+        brief=(
+            'Decline a duel challenge.'
+            ' Can be used to decline a challenge as challengee.'
+        )
     )
     async def decline(self, ctx):
         active = cf_common.user_db.check_duel_decline(ctx.author.id, ctx.guild.id)
@@ -431,7 +449,10 @@ class Dueling(commands.Cog):
         await ctx.send(embed=embed)
 
     @duel.command(
-        brief='Withdraw a duel challenge. Can be used to revert the challenge as challenger.'
+        brief=(
+            'Withdraw a duel challenge.'
+            ' Can be used to revert the challenge as challenger.'
+        )
     )
     async def withdraw(self, ctx):
         active = cf_common.user_db.check_duel_withdraw(ctx.author.id, ctx.guild.id)
@@ -497,7 +518,11 @@ class Dueling(commands.Cog):
         return min(subs, key=lambda sub: sub.creationTimeSeconds).creationTimeSeconds
 
     @duel.command(
-        brief='Give up the duel (only for duels with handicap). Can only be used by the lower rated duelist after the higher rated duelist has solved the problem.'
+        brief=(
+            'Give up the duel (only for duels with handicap).'
+            ' Can only be used by the lower rated duelist after'
+            ' the higher rated duelist has solved the problem.'
+        )
     )
     async def giveup(self, ctx):
         # check if we are in the correct channel
@@ -581,7 +606,8 @@ class Dueling(commands.Cog):
         # only if the high rated has already finished
         if highrated_timestamp == _DUEL_STATUS_UNSOLVED:
             await ctx.send(
-                "You can't give up the duel if the higher rated user has not finished the problem."
+                "You can't give up the duel if the higher rated user"
+                ' has not finished the problem.'
             )
             return
 
@@ -594,7 +620,8 @@ class Dueling(commands.Cog):
             duelid, ctx.guild.id, win_status, winner, loser, win_time, 1, dtype
         )
         await ctx.send(
-            f'{loser.mention} gave up. {winner.mention} won the duel against {loser.mention}!',
+            f'{loser.mention} gave up.'
+            f' {winner.mention} won the duel against {loser.mention}!',
             embed=embed,
         )
 
@@ -678,8 +705,10 @@ class Dueling(commands.Cog):
 
         # if lower rated finished first -> win for him
         # if higher rated finished first
-        #       if lower rated is also done -> check times and announce winner
-        #       if lower rated is still missing -> make timer till his time is over and check again
+        #     if lower rated is also done
+        #       -> check times and announce winner
+        #     if lower rated is still missing
+        #       -> make timer till his time is over and check again
         if highrated_timestamp and lowrated_timestamp:
             highrated_duration = highrated_timestamp - start_timestamp
             lowerrated_duration = lowrated_timestamp - start_timestamp
@@ -739,7 +768,9 @@ class Dueling(commands.Cog):
                         " problem in the exact same amount of time! It's a draw!",
                         embed=embed,
                     )
-        elif highrated_timestamp:  # special handling since we cant know if lowrated will still solve within time
+        elif highrated_timestamp:
+            # special handling since we cant know if lowrated will still solve
+            # within time
             highrated_duration = highrated_timestamp - start_timestamp
             lowerrated_duration = highrated_duration * coeff
             current_duration = datetime.datetime.now().timestamp() - start_timestamp
@@ -765,7 +796,7 @@ class Dueling(commands.Cog):
                 )
                 if not isAutoComplete:
                     await channel.send(
-                        f'{highrated_member.mention} solved it but {lowrated_member.mention} still has {time_remaining_formatted} to solve the problem! Bot will check automatically if the problem has been solved or time is up. {lowrated_member.mention} can also invoke `;duel giveup` if they want to give up.'
+                        f'{highrated_member.mention} solved it but {lowrated_member.mention} still has {time_remaining_formatted} to solve the problem! Bot will check automatically if the problem has been solved or time is up. {lowrated_member.mention} can also invoke `;duel giveup` if they want to give up.'  # noqa: E501
                     )
 
         elif lowrated_timestamp:
@@ -786,7 +817,10 @@ class Dueling(commands.Cog):
                 await channel.send('Nobody solved the problem yet.')
 
     @duel.command(
-        brief='Complete a duel. Can be used after the problem was solved by one of the duelists.'
+        brief=(
+            'Complete a duel. '
+            'Can be used after the problem was solved by one of the duelists.'
+        )
     )
     async def complete(self, ctx):
         # check if we are in the correct channel

@@ -105,7 +105,8 @@ class Starboard(commands.Cog):
                 message.id, star_msg.id, payload.guild_id, emoji
             )
             self.logger.info(
-                f'Added message {message.id} to starboard under {emoji} (Last reaction by {payload.user_id})'
+                f'Added message {message.id} to starboard under {emoji}'
+                f' (Last reaction by {payload.user_id})'
             )
 
     @commands.group(brief='Starboard commands', invoke_without_command=True)

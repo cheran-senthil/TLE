@@ -65,8 +65,11 @@ class ELOMatch:
                     # work out EA
                     EA = 1 / (1.0 + math.pow(10.0, (opponentELO - curELO) / 400.0))
 
-                    # calculate ELO change vs this one opponent, add it to our change bucket
-                    # I currently round at this point, this keeps rounding changes symetrical between EA and EB, but changes K more than it should
+                    # calculate ELO change vs this one opponent, add it to
+                    # our change bucket
+                    # I currently round at this point, this keeps rounding
+                    # changes symetrical between EA and EB, but changes K
+                    # more than it should
                     self.players[i].eloChange += round(K * (S - EA))
 
                     # add accumulated change to initial ELO for final ELO

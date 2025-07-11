@@ -235,7 +235,8 @@ def _plot_extreme(
 
     if not regular and not fullsolves and not nosolves:
         raise GraphCogError(
-            'No plot extreme possible. User probably only participated in contests that have no problem ratings yet.'
+            'No plot extreme possible. User probably only participated'
+            ' in contests that have no problem ratings yet.'
         )
 
     if legend:
@@ -427,7 +428,7 @@ class Graphs(commands.Cog):
 
     @plot.command(
         brief='Plot Codeforces extremes graph',
-        usage='[handles] [+solved] [+unsolved] [+nolegend] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy]',
+        usage='[handles] [+solved] [+unsolved] [+nolegend] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy]',  # noqa: E501
     )
     async def extreme(self, ctx, *args: str):
         """Plots pairs of lowest rated unsolved problem and highest rated

@@ -534,9 +534,10 @@ class Handles(commands.Cog):
         ]
         problem = random.choice(problems)
         await ctx.send(
-            f'`{invoker}`, submit a compile error to <{problem.url}> within 60 seconds (this will show the bot that you have access to the account)'
+            f'`{invoker}`, submit a compile error to <{problem.url}> within 60 seconds'
+            ' (this will show the bot that you have access to the account)'
         )
-        for i in range(4):
+        for _ in range(4):
             await asyncio.sleep(15)
 
             subs = await cf.user.status(handle=handle, count=5)
@@ -550,7 +551,9 @@ class Handles(commands.Cog):
                 await ctx.send(embed=embed)
                 return
         await ctx.send(
-            f'Sorry `{invoker}`, can you try again? Remember: The identification process needs you to submit a Compilation error to the mentioned problem!'
+            f'Sorry `{invoker}`, can you try again?'
+            ' Remember: The identification process needs you to submit a'
+            ' Compilation error to the mentioned problem!'
         )
 
     @handle.command(brief='Get handle by Discord username')
@@ -726,7 +729,8 @@ class Handles(commands.Cog):
 
         if not rankings:
             raise HandleCogError(
-                'No one has completed a gitgud challenge, send ;gitgud to request and ;gotgud to mark it as complete'
+                'No one has completed a gitgud challenge, send ;gitgud to request'
+                ' and ;gotgud to mark it as complete'
             )
         discord_file = get_gudgitters_image(rankings)
         await ctx.send(file=discord_file)
@@ -755,7 +759,8 @@ class Handles(commands.Cog):
 
         start_time, end_time = cf_common.get_start_and_end_of_month(now)
 
-        # more points seasons start at April 1st 2023 (timestamp: 1680300000) and is only active in the last 7 days of the month
+        # more points seasons start at April 1st 2023 (timestamp: 1680300000)
+        # and is only active in the last 7 days of the month
         morePointsActive = False
         morePointsTime = end_time - cfc._ONE_WEEK_DURATION
         if start_time >= cfc._GITGUD_MORE_POINTS_START_TIME:
@@ -784,7 +789,8 @@ class Handles(commands.Cog):
         for entry in results:
             if len(entry) >= 3:
                 score = cfc._calculateGitgudScoreForDelta(int(entry[1]))
-                # @@ add finish time constraint (both times need to be within the more points range)
+                # @@ add finish time constraint
+                # (both times need to be within the more points range)
                 res[entry[0]] += (
                     2 * score
                     if morePointsActive and int(entry[2]) >= morePointsTime

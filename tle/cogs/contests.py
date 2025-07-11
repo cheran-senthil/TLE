@@ -545,11 +545,11 @@ class Contests(commands.Cog):
         rated_contestants = [
             handle
             for handle in handles
-            if ranklist.standing_by_id.get_correct_handle(handle)
-            in ranklist.delta_by_handle
+            if handle in ranklist.standing_by_id in ranklist.delta_by_handle
         ]
 
-        # fix the actual ranks for cases like Edu rounds where unofficial ranks are also included in official standings
+        # fix the actual ranks for cases like Edu rounds where unofficial ranks
+        # are also included in official standings
         current_rank = 0
         last_rank = 0
         last_score = (-1, -1)
@@ -760,9 +760,9 @@ class Contests(commands.Cog):
             new_role = rating_to_displayable_rank(change.newRating)
             if new_role != old_role:
                 rank_change_str = (
-                    f'{member.mention} [{discord.utils.escape_markdown(change.handle)}]({cf.PROFILE_BASE_URL}{change.handle}): {old_role} '
+                    f'{member.mention} [{discord.utils.escape_markdown(change.handle)}]({cf.PROFILE_BASE_URL}{change.handle}): {old_role} '  # noqa: E501
                     f'\N{LONG RIGHTWARDS ARROW} {new_role}'
-                )  # noqa: E501
+                )
                 rank_changes_str.append(rank_change_str)
 
         member_change_pairs.sort(
@@ -772,10 +772,10 @@ class Contests(commands.Cog):
         for member, change in member_change_pairs:
             delta = change.newRating - change.oldRating
             rating_change_str = (
-                f'{member.mention} [{discord.utils.escape_markdown(change.handle)}]({cf.PROFILE_BASE_URL}{change.handle}): {change.oldRating} '
+                f'{member.mention} [{discord.utils.escape_markdown(change.handle)}]({cf.PROFILE_BASE_URL}{change.handle}): {change.oldRating} '  # noqa: E501
                 f'\N{HORIZONTAL BAR} **{delta:+}** \N{LONG RIGHTWARDS ARROW} '
                 f'{change.newRating}'
-            )  # noqa: E501
+            )
             rating_changes_str.append(rating_change_str)
 
         desc = '\n'.join(rank_changes_str) or 'No rank changes'
@@ -1018,15 +1018,6 @@ class Contests(commands.Cog):
         discord_common.set_author_footer(embed, ctx.author)
         await ctx.send(embed=embed, file=discord_file)
 
-    @discord_common.send_error_if(
-        ContestCogError,
-        rl.RanklistError,
-        cache_system2.CacheError,
-        cf_common.ResolveHandleError,
-    )
-    async def cog_command_error(self, ctx, error):
-        pass
-
     @commands.command(
         brief='Plot vc performance for a list of at most 5 users',
         aliases=['vcperf'],
@@ -1102,11 +1093,12 @@ class Contests(commands.Cog):
             if reqcontest[0].startTimeSeconds == contest.startTimeSeconds
         ]
 
-        # get ranklist of all contests in separate lists
-        # get rating_changes of all contests in separate lists
-        # for each problem name of original contest
-        # find in each ranklist the handles and ratings that had a chance to do the problem
-        # calculate rating from these values
+        # * get ranklist of all contests in separate lists
+        # * get rating_changes of all contests in separate lists
+        # * for each problem name of original contest
+        # * find in each ranklist the handles and ratings that had a chance to
+        #   do the problem
+        # * calculate rating from these values
 
         problems = []
         ranklists = []
@@ -1133,7 +1125,7 @@ class Contests(commands.Cog):
                 # get rating of contestants from cache
                 # we want to have the rating before the contest we query for
                 from_cache = True
-                cached_ratings = await cf_common.cache2.rating_changes_cache.get_all_ratings_before_timestamp(
+                cached_ratings = await cf_common.cache2.rating_changes_cache.get_all_ratings_before_timestamp(  # noqa: E501
                     reqcontest[0].startTimeSeconds
                 )
                 for row in ranklist:

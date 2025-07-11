@@ -478,13 +478,17 @@ class UserDbConn:
 
     def get_gudgitters_last(self, timestamp):
         query = """
-            SELECT user_id, rating_delta FROM challenge WHERE finish_time >= ? ORDER BY user_id
+            SELECT user_id, rating_delta FROM challenge
+            WHERE finish_time >= ?
+            ORDER BY user_id
         """
         return self.conn.execute(query, (timestamp,)).fetchall()
 
     def get_gudgitters_timerange(self, timestampStart, timestampEnd):
         query = """
-            SELECT user_id, rating_delta, issue_time FROM challenge WHERE finish_time >= ? AND finish_time <= ? ORDER BY user_id
+            SELECT user_id, rating_delta, issue_time FROM challenge
+            WHERE finish_time >= ? AND finish_time <= ?
+            ORDER BY user_id
         """
         return self.conn.execute(query, (timestampStart, timestampEnd)).fetchall()
 
@@ -913,7 +917,8 @@ class UserDbConn:
 
     def cancel_duel(self, duelid, guild_id, status):
         query = f"""
-            UPDATE duel SET status = ? WHERE id = ? AND guild_id = ? AND status = {Duel.PENDING}
+            UPDATE duel SET status = ?
+            WHERE id = ? AND guild_id = ? AND status = {Duel.PENDING}
         """
         rc = self.conn.execute(query, (status, duelid, guild_id)).rowcount
         if rc != 1:
@@ -1053,7 +1058,8 @@ class UserDbConn:
         query = f"""
             SELECT COUNT(*)
             FROM duel
-            WHERE (challengee = ? OR challenger = ?) AND guild_id = ? AND status == {Duel.COMPLETE}
+            WHERE (challengee = ? OR challenger = ?)
+            AND guild_id = ? AND status == {Duel.COMPLETE}
         """
         return self.conn.execute(query, (userid, userid, guild_id)).fetchone()[0]
 
@@ -1196,7 +1202,7 @@ class UserDbConn:
         start_time: float,
         finish_time: float,
         guild_id: str,
-        user_ids: [str],
+        user_ids: list[str],
     ):
         """Creates a rated vc and returns its id."""
         query = """
@@ -1322,8 +1328,10 @@ class UserDbConn:
             (?, 0, ?, ?, ?, {Training.ACTIVE})
         """
         query2 = f"""
-            INSERT INTO training_problems (training_id, issue_time, problem_name, contest_id, p_index, rating, status)
-            VALUES (?, ?, ?, ?, ?, ?, {TrainingProblemStatus.ACTIVE})
+            INSERT INTO training_problems (
+                training_id, issue_time, problem_name,
+                contest_id, p_index, rating, status
+            ) VALUES (?, ?, ?, ?, ?, ?, {TrainingProblemStatus.ACTIVE})
         """
         cur = self.conn.cursor()
         cur.execute(query1, (user_id, lives, time_left, mode))
@@ -1358,7 +1366,8 @@ class UserDbConn:
             return None
         training_id, mode, score, lives, time_left = res
         query2 = f"""
-            SELECT issue_time, problem_name, contest_id, p_index, rating FROM training_problems
+            SELECT issue_time, problem_name, contest_id, p_index, rating
+            FROM training_problems
             WHERE training_id = ? AND status = {TrainingProblemStatus.ACTIVE}
         """
         res = self.conn.execute(query2, (training_id,)).fetchone()
@@ -1412,8 +1421,10 @@ class UserDbConn:
 
     def assign_training_problem(self, training_id, issue_time, prob):
         query1 = f"""
-            INSERT INTO training_problems (training_id, issue_time, problem_name, contest_id, p_index, rating, status)
-            VALUES (?, ?, ?, ?, ?, ?, {TrainingProblemStatus.ACTIVE})
+            INSERT INTO training_problems (
+                training_id, issue_time, problem_name,
+                contest_id, p_index, rating, status
+            ) VALUES (?, ?, ?, ?, ?, ?, {TrainingProblemStatus.ACTIVE})
         """
 
         cur = self.conn.cursor()
@@ -1451,8 +1462,10 @@ class UserDbConn:
             SELECT tp.problem_name
             FROM training_problems tp, trainings tr
             WHERE tp.training_id = tr.id
-            AND (tp.status = {TrainingProblemStatus.SKIPPED} OR tp.status = {TrainingProblemStatus.INVALIDATED})
-            AND tr.user_id = ?
+            AND (
+                tp.status = {TrainingProblemStatus.SKIPPED}
+                OR tp.status = {TrainingProblemStatus.INVALIDATED}
+            ) AND tr.user_id = ?
         """
         return {name for (name,) in self.conn.execute(query, (user_id,)).fetchall()}
 
@@ -1496,7 +1509,10 @@ class UserDbConn:
             SELECT tr.user_id, tp.rating, min(tp.finish_time-tp.issue_time)
             FROM training_problems tp, trainings tr
             WHERE tp.training_id = tr.id
-            AND (tp.status = {TrainingProblemStatus.SOLVED} OR tp.status = {TrainingProblemStatus.SOLVED_TOO_SLOW})
+            AND (
+                tp.status = {TrainingProblemStatus.SOLVED}
+                OR tp.status = {TrainingProblemStatus.SOLVED_TOO_SLOW}
+            )
             GROUP BY tp.rating
         """
         return self.conn.execute(query).fetchall()
@@ -1504,10 +1520,10 @@ class UserDbConn:
     ### Lockout round
 
     def set_round_channel(self, guild_id, channel_id):
-        query = (
-            'INSERT OR REPLACE INTO round_settings '
-            ' (guild_id, channel_id) VALUES (?, ?)'
-        )
+        query = """
+            INSERT OR REPLACE INTO round_settings
+            (guild_id, channel_id) VALUES (?, ?)
+        """
         with self.conn:
             self.conn.execute(query, (guild_id, channel_id))
 
@@ -1520,7 +1536,10 @@ class UserDbConn:
         self, guild_id, timestamp, users, rating, points, problems, duration, repeat
     ):
         query = """
-            INSERT INTO lockout_ongoing_rounds (guild, users, rating, points, time, problems, status, duration, repeat, times)
+            INSERT INTO lockout_ongoing_rounds (
+                guild, users, rating, points, time,
+                problems, status, duration, repeat, times
+            )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         cur = self.conn.cursor()
@@ -1544,9 +1563,12 @@ class UserDbConn:
 
     def create_finished_round(self, round_info, timestamp):
         query = """
-                    INSERT INTO lockout_finished_rounds (guild, users, rating, points, time, problems, status, duration, repeat, times, end_time)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """
+            INSERT INTO lockout_finished_rounds (
+                guild, users, rating, points, time, problems,
+                status, duration, repeat, times, end_time
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
         cur = self.conn.cursor()
         cur.execute(
             query,
@@ -1569,14 +1591,14 @@ class UserDbConn:
 
     def update_round_status(self, guild, user, status, problems, timestamp):
         query = """
-                    UPDATE lockout_ongoing_rounds 
-                    SET
-                    status = ?, 
-                    problems = ?,
-                    times = ?
-                    WHERE
-                    guild = ? AND users LIKE ? 
-                """
+            UPDATE lockout_ongoing_rounds
+            SET
+            status = ?,
+            problems = ?,
+            times = ?
+            WHERE
+            guild = ? AND users LIKE ?
+        """
         cur = self.conn.cursor()
         cur.execute(
             query,
@@ -1673,17 +1695,18 @@ class UserDbConn:
 
     def get_recent_rounds(self, guild, user=None):
         query = """
-                    SELECT * FROM lockout_finished_rounds 
-                    WHERE guild = ? AND users LIKE ?
-                    ORDER BY end_time DESC
-                """
+            SELECT * FROM lockout_finished_rounds
+            WHERE guild = ? AND users LIKE ?
+            ORDER BY end_time DESC
+        """
         cur = self.conn.cursor()
         cur.execute(query, (guild, '%' if user is None else f'%{user}%'))
         res = cur.fetchall()
         cur.close()
         Round = namedtuple(
             'Round',
-            'guild users rating points time problems status duration repeat times end_time',
+            'guild users rating points time problems status'
+            ' duration repeat times end_time',
         )
         return [
             Round(

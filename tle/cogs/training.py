@@ -1,6 +1,4 @@
 import datetime
-
-# stuff for drawing image
 import html
 import io
 import random
@@ -17,11 +15,14 @@ from tle.util import (
     codeforces_common as cf_common,
     discord_common,
 )
-from tle.util.db.user_db_conn import Training, TrainingProblemStatus
+from tle.util.db.user_db_conn import TrainingProblemStatus
 
 gi.require_version('Pango', '1.0')
 gi.require_version('PangoCairo', '1.0')
-from gi.repository import Pango, PangoCairo
+from gi.repository import Pango, PangoCairo  # noqa: E402
+
+# File from Denjell fork, needs cleanup.
+# ruff: noqa: E501
 
 FONTS = [
     'Noto Sans',
@@ -226,6 +227,7 @@ class Game:
             return int(30 * 60 + 1)
         if self.mode == TrainingMode.TIMED60:
             return int(60 * 60 + 1)
+        raise TrainingCogError(f'Unknown training mode: {self.mode}')
 
     def _newRating(self, success, rating):
         newRating = rating
@@ -243,7 +245,7 @@ class Game:
         if self.mode != TrainingMode.NORMAL and self.mode != TrainingMode.SURVIVAL:
             if duration > self.timeleft:
                 success = TrainingResult.TOOSLOW
-                self.lives -= 1
+                self.lives -= 1  # BUG: this fails if None
                 self.timeleft = self._getBaseTime()
                 if self.lives is not None and self.lives == 0:
                     self.alive = False
@@ -260,7 +262,7 @@ class Game:
         newRating = self._newRating(success, rating)
         return success, newRating
 
-    def doSkip(self, rating, duration):
+    def doSkip(self, rating, duration):  # BUG: duration is not used
         rating = int(rating)
         success = TrainingResult.SKIPPED
         if self.mode != TrainingMode.NORMAL:
@@ -272,7 +274,7 @@ class Game:
         newRating = self._newRating(success, rating)
         return success, newRating
 
-    def doFinish(self, rating, duration):
+    def doFinish(self, rating, duration):  # BUG: duration is not used
         success = TrainingResult.INVALIDATED
         self.alive = False
         return success, rating
@@ -285,17 +287,41 @@ class Training(commands.Cog):
 
     @commands.group(brief='Training commands', invoke_without_command=True)
     async def training(self, ctx):
-        """A training is a game played against the bot. In this game the bot will assign you a codeforces problem that you should solve. If you manage to solve the problem the bot will assign you a harder problem. If you need to skip the problem the bot will lower the difficulty.
-        You can start a game by using the ;training start command. The bot will assign you a codeforces problem that you should solve. If you manage to solve the problem you can do ;training solved and the bot will assign you a problem that is 100 points higher rated. If you need editorial / external help or have no idea how to solve it you can do ;training skip. The bot will reduce the difficulty of the next problem by 100 points.
+        """A training is a game played against the bot. In this game the bot
+        will assign you a codeforces problem that you should solve. If you
+        manage to solve the problem the bot will assign you a harder problem.
+        If you need to skip the problem the bot will lower the difficulty.
+
+        You can start a game by using the ;training start command. The bot will
+        assign you a codeforces problem that you should solve. If you manage to
+        solve the problem you can do ;training solved and the bot will assign
+        you a problem that is 100 points higher rated. If you need editorial /
+        external help or have no idea how to solve it you can do ;training
+        skip. The bot will reduce the difficulty of the next problem by 100
+        points.
+
         You may end your training at any time with ;training end
+
         The game is available in the following modes:
-        - infinite: Try to get as high as possible. You are allowed to skip any number of times.
-        - survival: Seeking for some thrill? In this mode you only have 3 lives (you can skip 3 problems). How far will you get?
-        - time trial: Still bored? Prepare for the ultimate challenge: In this mode you will only have limited time to solve each problem.
-                      If you need to skip a problem or if you are too slow at solving the problem you will lose one of your 3 lives.
-                      Available difficulty levels: timed15 (15 minutes for each problem), timed30 (30 minutes), timed60 (60 minutes)
-                      You get some bonus time if you manage to solve a problem within the time limit.
-        For further help on usage of a command do ;help training <command> (e.g. ;help training start)
+        - infinite:
+            Try to get as high as possible. You are allowed to skip any number
+            of times.
+        - survival:
+            Seeking for some thrill? In this mode you only have 3 lives
+            (you can skip 3 problems). How far will you get?
+        - time trial:
+            Still bored? Prepare for the ultimate challenge:
+            In this mode you will only have limited time to solve each problem.
+            If you need to skip a problem or if you are too slow at solving the
+            problem you will lose one of your 3 lives.
+            Available difficulty levels:
+                timed15 (15 minutes for each problem),
+                timed30 (30 minutes),
+                timed60 (60 minutes)
+            You get some bonus time if you manage to solve a problem within the
+            time limit.
+        For further help on usage of a command do ;help training <command>
+        (e.g. ;help training start)
         """
         await ctx.send_help(ctx.command)
 
@@ -366,7 +392,8 @@ class Training(commands.Cog):
             rating < _TRAINING_MIN_RATING_VALUE or rating > _TRAINING_MAX_RATING_VALUE
         ):
             raise TrainingCogError(
-                f'Start rating must range from {_TRAINING_MIN_RATING_VALUE} to {_TRAINING_MAX_RATING_VALUE}.'
+                'Start rating must range from '
+                f'{_TRAINING_MIN_RATING_VALUE} to {_TRAINING_MAX_RATING_VALUE}.'
             )
 
         if active is not None:
@@ -379,7 +406,8 @@ class Training(commands.Cog):
     def _checkTrainingActive(self, ctx, active):
         if not active:
             raise TrainingCogError(
-                'You do not have an active training. You can start one with ;training start'
+                'You do not have an active training.'
+                ' You can start one with ;training start'
             )
 
     async def _pickTrainingProblem(self, handle, rating, submissions, user_id):
@@ -456,7 +484,10 @@ class Training(commands.Cog):
             timeDiffFormatted = cf_common.pretty_time_format(
                 duration - timeleft, shorten=True, always_seconds=True
             )
-            desc = f'{handle} solved training problem but was {timeDiffFormatted} too slow.'
+            desc = (
+                f'{handle} solved training problem but was'
+                f' {timeDiffFormatted} too slow.'
+            )
             text = 'Problem solved but not fast enough.'
             color = 0xF98E1B
         if success == TrainingResult.SKIPPED:
@@ -549,7 +580,8 @@ class Training(commands.Cog):
             )
 
     async def _startTrainingAndAssignProblem(self, ctx, handle, problem, gamestate):
-        # The caller of this function is responsible for calling `_validate_training_status` first.
+        # The caller of this function is responsible for calling
+        # `_validate_training_status` first.
         user_id = ctx.author.id
         issue_time = datetime.datetime.now().timestamp()
         rc = cf_common.user_db.new_training(
@@ -647,10 +679,15 @@ class Training(commands.Cog):
     async def start(self, ctx, *args):
         """Start your training session
         - Game modes:
-          - infinite: Play the game in infinite mode (you can skip at any time) [DEFAULT]
-          - survival: Challenge mode with only 3 skips available
-          - timed15/timed30/timed60: Challenge mode similar to survival but u only have a limited time to solve your problem.
-                                     Slow solves will also reduce your life by 1. Fast solves will increase available time for the next problem.
+          - infinite:
+              Play the game in infinite mode (you can skip at any time) [DEFAULT]
+          - survival:
+              Challenge mode with only 3 skips available
+          - timed15/timed30/timed60:
+              Challenge mode similar to survival but u only have a limited time
+              to solve your problem.
+              Slow solves will also reduce your life by 1.
+              Fast solves will increase available time for the next problem.
         - It is possible to change the start rating from 800 to any other valid rating
         """
         # check if we are in the correct channel
@@ -684,7 +721,9 @@ class Training(commands.Cog):
     )
     @cf_common.user_guard(group='training')
     async def solved(self, ctx, *args):
-        """Use this command if you got AC on the training problem. If game continues the bot will assign a new problem."""
+        """Use this command if you got AC on the training problem.
+        If game continues the bot will assign a new problem.
+        """
 
         # check if we are in the correct channel
         self._checkIfCorrectChannel(ctx)
@@ -731,7 +770,9 @@ class Training(commands.Cog):
     )
     @cf_common.user_guard(group='training')
     async def skip(self, ctx):
-        """Use this command if you want to skip your current training problem. If not in infinite mode this will reduce your lives by 1."""
+        """Use this command if you want to skip your current training problem.
+        If not in infinite mode this will reduce your lives by 1.
+        """
         # check if we are in the correct channel
         self._checkIfCorrectChannel(ctx)
 
@@ -804,8 +845,10 @@ class Training(commands.Cog):
         brief='Shows current status of your training session.', usage='[username]'
     )
     async def status(self, ctx, member: discord.Member = None):
-        """Use this command to show the current status of your training session and the current assigned problem.
-        If you don't have an active training this will show the stats of your latest training session.
+        """Use this command to show the current status of your training session
+        and the current assigned problem.
+        If you don't have an active training this will show the stats of your
+        latest training session.
         You can add the discord name of a user to get his status instead.
         """
         member = member or ctx.author
@@ -837,7 +880,6 @@ class Training(commands.Cog):
         res = cf_common.user_db.train_get_fastest_solves()
 
         rankings = []
-        index = 0
         for user_id, rating, time in res:
             member = ctx.guild.get_member(int(user_id))
             handle = cf_common.user_db.get_handle(user_id, ctx.guild.id)

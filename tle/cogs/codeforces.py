@@ -43,9 +43,11 @@ class Codeforces(commands.Cog):
         self.converter = commands.MemberConverter()
         self.logger = logging.getLogger(self.__class__.__name__)
 
-    # more points seasons start at April 1st 2023 (timestamp: 1680300000) and is only active in the last 7 days of the month
+    # more points seasons start at April 1st 2023 (timestamp: 1680300000)
+    # and is only active in the last 7 days of the month
 
-    # @@@ add issue and finish time constraint (both times need to be within the more points range)
+    # @@@ add issue and finish time constraint
+    # (both times need to be within the more points range)
     def _check_more_points_active(self, now_time, start_time, end_time):
         morePointsActive = False
         morePointsTime = end_time - _ONE_WEEK_DURATION
@@ -77,7 +79,8 @@ class Codeforces(commands.Cog):
         now = datetime.datetime.now()
         start_time, end_time = cf_common.get_start_and_end_of_month(now)
         now_time = int(now.timestamp())
-        # more points seasons start at April 1st 2023 (timestamp: 1680300000) and is only active in the last 7 days of the month
+        # more points seasons start at April 1st 2023 (timestamp: 1680300000)
+        # and is only active in the last 7 days of the month
         morePointsActive = self._check_more_points_active(
             now_time, start_time, end_time
         )
@@ -114,7 +117,7 @@ class Codeforces(commands.Cog):
         Point distribution:
         delta  | <-300| -300 | -200 | -100 |  0  |  100 |  200 |>=300
         points |   1  |   2  |   3  |   5  |  8  |  12  |  17  |  23
-        """
+        """  # noqa: E501
         (handle,) = await cf_common.resolve_handles(
             ctx, self.converter, ('!' + str(ctx.author),)
         )
@@ -173,7 +176,6 @@ class Codeforces(commands.Cog):
         (handle,) = await cf_common.resolve_handles(
             ctx, self.converter, ('!' + str(ctx.author),)
         )
-        rating = round(cf_common.user_db.fetch_cf_user(handle).effective_rating, -2)
         tags = cf_common.parse_tags(args, prefix='+')
         bantags = cf_common.parse_tags(args, prefix='~')
 
@@ -388,7 +390,7 @@ class Codeforces(commands.Cog):
         no tags     |   1  |   2  |   3  |   5  |   8  |  12  |  17  |  23
         rating diff | <-100| -100 |   0  |  100 |  200 |  300 |  400 |>=500
         tags        |   1  |   2  |   3  |   5  |   8  |  12  |  17  |  23
-        """
+        """  # noqa: E501
         (handle,) = await cf_common.resolve_handles(
             ctx, self.converter, ('!' + str(ctx.author),)
         )
@@ -410,7 +412,8 @@ class Codeforces(commands.Cog):
         for arg in args:
             if arg[0] == '-':
                 raise CodeforcesCogError(
-                    'Wrong rating requested. Remember gitgud now uses rating (800-3500) instead of delta.'
+                    'Wrong rating requested. Remember gitgud now uses rating'
+                    ' (800-3500) instead of delta.'
                 )
             if arg[0:3].isdigit():
                 ratings = arg.split('-')
@@ -423,7 +426,8 @@ class Codeforces(commands.Cog):
 
         if erating < 800 or srating > 3500:
             raise CodeforcesCogError(
-                'Wrong rating requested. Remember gitgud now uses rating (800-3500) instead of delta.'
+                'Wrong rating requested. Remember gitgud now uses rating'
+                ' (800-3500) instead of delta.'
             )
 
         await self._validate_gitgud_status(ctx)
@@ -507,7 +511,9 @@ class Codeforces(commands.Cog):
 
     @commands.command(brief='Print user nogud history')
     async def nogudlog(self, ctx, member: discord.Member = None):
-        """Displays the list of nogud problems issued to the specified member, excluding those noguded by admins."""
+        """Displays the list of nogud problems issued to the specified member,
+        excluding those noguded by admins.
+        """
 
         def make_line(entry):
             issue, finish, name, contest, index, delta, status = entry
@@ -576,7 +582,9 @@ class Codeforces(commands.Cog):
         if rc == 1:
             duration = cf_common.pretty_time_format(finish_time - issue_time)
             await ctx.send(
-                f'Challenge completed in {duration}. {handle} gained {score} alltime ranklist points and {monthlyPoints} monthly ranklist points.'
+                f'Challenge completed in {duration}.'
+                f' {handle} gained {score} alltime ranklist points'
+                f' and {monthlyPoints} monthly ranklist points.'
             )
         else:
             await ctx.send('You have already claimed your points')

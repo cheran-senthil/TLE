@@ -61,7 +61,7 @@ class CacheDbConn:
             CREATE INDEX IF NOT EXISTS ix_rating_change_handle ON rating_change (handle)
         """)
         self.conn.execute("""
-            CREATE INDEX IF NOT EXISTS ix_rating_change_rating_update_time 
+            CREATE INDEX IF NOT EXISTS ix_rating_change_rating_update_time
             ON rating_change (handle ASC, rating_update_time DESC)
         """)
 
@@ -246,13 +246,15 @@ class CacheDbConn:
         return [cf.RatingChange._make(change) for change in res]
 
     def get_all_ratings_before_timestamp(self, timestamp):
-        query = (
-            'SELECT contest_id, "Dummy", handle, rank, rating_update_time, old_rating, new_rating '
-            'FROM rating_change '
-            'WHERE rating_update_time < ? '
-            'GROUP BY handle '
-            'HAVING MAX(rating_update_time)'
-        )
+        query = """
+            SELECT
+                contest_id, "Dummy", handle, rank, rating_update_time,
+                old_rating, new_rating
+            FROM rating_change
+            WHERE rating_update_time < ?
+            GROUP BY handle
+            HAVING MAX(rating_update_time)
+        """
         res = self.conn.execute(query, (timestamp,)).fetchall()
         return [cf.RatingChange._make(change) for change in res]
 

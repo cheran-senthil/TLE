@@ -299,7 +299,11 @@ class CodeforcesApiError(commands.CommandError):
     def __init__(self, message: Optional[str] = None):
         super().__init__(
             message
-            or 'Codeforces API error. There is nothing you or the Admins of the Discord server can do to fix it. We need to wait until Mike does his job.'
+            or (
+                'Codeforces API error.'
+                ' There is nothing you or the Admins of the Discord server'
+                ' can do to fix it. We need to wait until Mike does his job.'
+            )
         )
 
 
@@ -573,7 +577,8 @@ class user:
             result += [make_from_dict(User, user_dict) for user_dict in resp]
             count += len(chunk)
         logger.info(
-            f'user.info was called for {count} entries and {len(result)} User objects could be created.'
+            f'user.info was called for {count} entries and {len(result)}'
+            ' User objects could be created.'
         )
         return [cf_common.fix_urls(user) for user in result]
 
