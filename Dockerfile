@@ -1,9 +1,10 @@
 FROM python:3.11-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libcairo2 gir1.2-pango-1.0 \
-    gobject-introspection python3-gi python3-gi-cairo python3-cairo \
+    libcairo2 libcairo2-dev gir1.2-pango-1.0 libgirepository-2.0-dev \
+    gobject-introspection  \
     libjpeg-dev zlib1g-dev \
+    build-essential cmake gcc meson \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PYTHONPATH=/usr/lib/python3/dist-packages
