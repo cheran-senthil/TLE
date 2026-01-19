@@ -29,7 +29,13 @@ ALL_DIRS = (
 ALLOW_DUEL_SELF_REGISTER = False
 
 TLE_ADMIN = os.environ.get('TLE_ADMIN', 'Admin')
+if TLE_ADMIN.isdigit():
+    TLE_ADMIN = int(TLE_ADMIN)
+
 TLE_MODERATOR = os.environ.get('TLE_MODERATOR', 'Moderator')
+if TLE_MODERATOR.isdigit():
+    TLE_MODERATOR = int(TLE_MODERATOR)
+
 TLE_TRUSTED = os.environ.get('TLE_TRUSTED', 'Trusted')
 TLE_PURGATORY = os.environ.get('TLE_PURGATORY', 'Purgatory')
 
