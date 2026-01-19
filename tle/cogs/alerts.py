@@ -9,7 +9,6 @@ import discord
 from discord.ext import commands, tasks
 from tle import constants
 
-# Import TLE Codeforces utilities
 try:
     from tle.util import codeforces_api as cf
     from tle.util import codeforces_common as cf_common
@@ -84,9 +83,8 @@ class Alerts(commands.Cog):
     @subscribe.command(brief='Ranklist & Rating Updates')
     @commands.has_role(constants.TLE_ADMIN)
     async def ratings(self, ctx):
-        """Subscribes this channel to automatic ranklists and rating updates."""
         await self._add_sub(ctx, 'ratings')
-        await ctx.send("✅ This channel will show **Ranklists** and **Rating Changes** after CF rounds.")
+        await ctx.send("✅ This channel will show **Ranklists** and **Rating Changes** automatically.")
 
     @subscribe.command(brief='Subscribe to ALL')
     @commands.has_role(constants.TLE_ADMIN)
@@ -96,88 +94,121 @@ class Alerts(commands.Cog):
                 self.subscriptions[key].append(ctx.channel.id)
         self.save_json(ALERTS_FILE, self.subscriptions)
         await ctx.send(f'✅ Subscribed `{ctx.channel.name}` to **EVERYTHING**.')
+        
+    @commands.command(brief='Force trigger a rating alert')
+    @commands.has_role(constants.TLE_ADMIN)
+    async def trigger_alert(self, ctx, contest_id: int):
+        await ctx.send(f"🔄 Force checking Contest {contest_id}...")
+        try:
+            contests = await cf_common.cf_api.contest.list(gym=False)
+            contest = next((c for c in contests if c.id == contest_id), None)
+            if not contest:
+                await ctx.send("❌ Contest not found.")
+                return
+            changes = await cf_common.cf_api.contest.ratingChanges(contestId=contest_id)
+            if not changes:
+                await ctx.send("⚠️ Ratings are not out yet (or contest is unrated).")
+                return
+            await self.announce_results(contest, changes)
+            await ctx.send("✅ Done.")
+        except Exception as e:
+            await ctx.send(f"❌ Error: {e}")
 
     # --- WATCHER: CONTEST REMINDERS (10 mins) ---
     @tasks.loop(minutes=10)
     async def watch_contests(self):
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(KONTESTS_URL) as resp:
-                    if resp.status != 200: return
-                    all_contests = await resp.json()
+        current_time = datetime.datetime.now(datetime.timezone.utc)
+        if self.subscriptions['codeforces']:
+            try:
+                cf_contests = await cf_common.cf_api.contest.list(gym=False)
+                upcoming_cf = [c for c in cf_contests if c.phase == 'BEFORE']
+                for c in upcoming_cf:
+                    start_time = datetime.datetime.fromtimestamp(c.startTimeSeconds, datetime.timezone.utc)
+                    diff = (start_time - current_time).total_seconds()
+                    await self.process_alert(c.id, c.name, "codeforces", diff, f"https://codeforces.com/contests/{c.id}")
+            except Exception as e:
+                logger.error(f"CF Alert Error: {e}")
 
-            current_time = datetime.datetime.now(datetime.timezone.utc)
-            site_map = {'CodeForces': 'codeforces', 'AtCoder': 'atcoder', 'CodeChef': 'codechef', 'LeetCode': 'leetcode'}
+        if any(self.subscriptions[k] for k in ['atcoder', 'leetcode', 'codechef']):
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(KONTESTS_URL, ssl=False, timeout=10) as resp:
+                        if resp.status == 200:
+                            all_contests = await resp.json()
+                            site_map = {'AtCoder': 'atcoder', 'CodeChef': 'codechef', 'LeetCode': 'leetcode'}
+                            for c in all_contests:
+                                site_name = c.get('site')
+                                if site_name not in site_map: continue
+                                sub_key = site_map[site_name]
+                                if not self.subscriptions[sub_key]: continue
+                                try:
+                                    start_time = datetime.datetime.fromisoformat(c['start_time'].replace('Z', '+00:00'))
+                                    diff = (start_time - current_time).total_seconds()
+                                    c_id = c.get('name', 'unk') + c.get('start_time', '')
+                                    await self.process_alert(c_id, c['name'], sub_key, diff, c.get('url', ''))
+                                except: continue
+            except: pass
 
-            for c in all_contests:
-                site_name = c.get('site')
-                if site_name not in site_map: continue
-                sub_key = site_map[site_name]
-                if not self.subscriptions[sub_key]: continue 
+    async def process_alert(self, uid, name, site_key, diff, url):
+        is_1hr = 3000 < diff < 4200
+        is_10min = 300 < diff < 900
+        alert_key = f"{uid}_{'1h' if is_1hr else '10m'}"
 
-                try:
-                    start_time = datetime.datetime.fromisoformat(c['start_time'].replace('Z', '+00:00'))
-                except: continue
+        if (is_1hr or is_10min) and alert_key not in self.already_alerted:
+            self.already_alerted.add(alert_key)
+            embed = discord.Embed(title=f"🏆 {name}", url=url, description=f"**Site:** {site_key.title()}\n**Starting in:** {'1 hour' if is_1hr else '10 minutes'}", color=0x00FF00)
+            for ch_id in self.subscriptions[site_key]:
+                ch = self.bot.get_channel(ch_id)
+                if ch: 
+                    try: await ch.send(embed=embed)
+                    except: pass
 
-                diff = (start_time - current_time).total_seconds()
-                is_1hr = 3000 < diff < 4200
-                is_10min = 300 < diff < 900
-                c_id = c.get('name', '') + c.get('start_time', '')
-                alert_key = f"{c_id}_{'1h' if is_1hr else '10m'}"
-
-                if (is_1hr or is_10min) and alert_key not in self.already_alerted:
-                    self.already_alerted.add(alert_key)
-                    embed = discord.Embed(title=f"🏆 {c['name']}", url=c.get('url', ''), description=f"**Site:** {site_name}\n**Starting in:** {'1 hour' if is_1hr else '10 minutes'}", color=0x00FF00)
-                    for ch_id in self.subscriptions[sub_key]:
-                        ch = self.bot.get_channel(ch_id)
-                        if ch: 
-                            try: await ch.send(embed=embed)
-                            except: pass
-        except Exception as e:
-            logger.error(f'Error in watch_contests: {e}')
-
-    # --- WATCHER: RANKLIST & RATINGS (15 mins) ---
+    # --- WATCHER: RATINGS (15 mins) ---
     @tasks.loop(minutes=15)
     async def watch_rating_changes(self):
         if not self.subscriptions['ratings']: return
-        
         try:
-            try:
-                contests = await cf_common.cf_api.contest.list(gym=False)
-            except:
-                return 
+            try: contests = await cf_common.cf_api.contest.list(gym=False)
+            except: return 
 
-            # Check FINISHED contests from last 3 days not yet processed
-            recent_finished = [c for c in contests if c.phase == 'FINISHED' and c.id not in self.processed_contests]
-            recent_finished = recent_finished[:5] 
+            # Check contests from last 14 days
+            now = time.time()
+            two_weeks_ago = now - (14 * 24 * 60 * 60)
+            three_days_ago = now - (3 * 24 * 60 * 60)
+            
+            candidates = [
+                c for c in contests 
+                if c.phase == 'FINISHED' 
+                and c.startTimeSeconds > two_weeks_ago
+                and c.id not in self.processed_contests
+            ]
 
-            for contest in recent_finished:
-                # Check API for changes
-                try:
+            for contest in candidates:
+                # Attempt to get changes
+                try: 
                     changes = await cf_common.cf_api.contest.ratingChanges(contestId=contest.id)
-                except:
+                except Exception:
+                    # API Failed? Just skip this loop, try again later.
+                    continue 
+                
+                # Handling Unrated Contests (Empty List)
+                if not changes:
+                    # If the contest is older than 3 days and still no ratings,
+                    # assume it's unrated and stop checking it forever.
+                    if contest.startTimeSeconds < three_days_ago:
+                        self.processed_contests.append(contest.id)
+                        self.save_json(PROCESSED_FILE, self.processed_contests)
                     continue 
 
-                if not changes: continue 
-
-                # Ratings are OUT.
+                # If we get here, Ratings are OUT!
                 await self.announce_results(contest, changes)
-                
-                # Mark processed
                 self.processed_contests.append(contest.id)
                 self.save_json(PROCESSED_FILE, self.processed_contests)
                 
-                # --- AUTO UPDATE ROLES ---
-                # We attempt to find the Codeforces Cog and trigger a role update
                 try:
                     cf_cog = self.bot.get_cog('Codeforces')
-                    if cf_cog:
-                        # This triggers the cache refresh which updates roles
-                        await cf_common.cache2.contest_cache.reload_now()
-                        logger.info(f"Triggered cache reload for role updates after contest {contest.id}")
-                except Exception as e:
-                    logger.warning(f"Could not trigger instant role update: {e}")
-
+                    if cf_cog: await cf_common.cache2.contest_cache.reload_now()
+                except: pass
         except Exception as e:
             logger.error(f'Error in watch_ratings: {e}')
 
@@ -186,7 +217,6 @@ class Alerts(commands.Cog):
             channel = self.bot.get_channel(channel_id)
             if not channel: continue
             
-            # Get handles for this guild
             guild_handles = cf_common.user_db.get_handles_for_guild(channel.guild.id)
             server_handles = {h.handle.lower(): h.user_id for h in guild_handles}
 
@@ -197,28 +227,18 @@ class Alerts(commands.Cog):
                     delta = change.newRating - change.oldRating
                     icon = "📈" if delta >= 0 else "📉"
                     if delta == 0: icon = "➖"
-                    
                     user_mention = f"<@{server_handles[handle_lower]}>"
                     rank = getattr(change, 'rank', '?')
-                    
-                    # Format: #52 Tourist: 3500 (+10)
                     line = f"**#{rank}** {user_mention} (**{change.handle}**): {change.newRating} ({'+' if delta>=0 else ''}{delta}) {icon}"
                     server_updates.append((change.newRating, line))
 
             if server_updates:
-                # Sort by new rating (Highest rating on top)
                 server_updates.sort(key=lambda x: x[0], reverse=True)
                 final_lines = [item[1] for item in server_updates]
-                
                 desc = "\n".join(final_lines)
                 if len(desc) > 4000: desc = desc[:4000] + "\n...and more"
 
-                embed = discord.Embed(
-                    title=f"📊 Ranklist & Changes: {contest.name}",
-                    url=f"https://codeforces.com/contest/{contest.id}/standings",
-                    description=desc,
-                    color=0xFFD700
-                )
+                embed = discord.Embed(title=f"📊 Ranklist: {contest.name}", url=f"https://codeforces.com/contest/{contest.id}/standings", description=desc, color=0xFFD700)
                 embed.set_footer(text="Roles/Colors will update automatically shortly.")
                 try: await channel.send(embed=embed)
                 except: pass
