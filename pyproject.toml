@@ -15,7 +15,6 @@ dependencies = [
   # Images
   "pillow",
   "pycairo",
-  "legacy-cgi",
   "PyGObject",
 ]
 
