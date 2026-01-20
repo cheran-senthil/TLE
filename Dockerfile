@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gobject-introspection  \
     libjpeg-dev zlib1g-dev \
     build-essential cmake gcc meson \
+    fonts-noto-cjk \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PYTHONPATH=/usr/lib/python3/dist-packages
