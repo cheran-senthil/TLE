@@ -8,15 +8,18 @@ import aiohttp
 import discord
 from discord.ext import commands, tasks
 from tle import constants
-# We need this for the database access
+# Database access
 import tle.util.codeforces_common as cf_common
 
 logger = logging.getLogger(__name__)
 
 ALERTS_FILE = 'data/alerts.json'
 PROCESSED_FILE = 'data/processed_contests.json'
+
+# APIs
 KONTESTS_URL = "https://kontests.net/api/v1/all"
 CF_API_URL = "https://codeforces.com/api"
+ATCODER_API_URL = "https://kenkoooo.com/atcoder/resources/contests.json"
 
 class SimpleContest:
     def __init__(self, data):
@@ -116,11 +119,9 @@ class Alerts(commands.Cog):
     @subscribe.command(brief='Show all active subscriptions')
     @commands.has_role(constants.TLE_ADMIN)
     async def list(self, ctx):
-        """Displays a dashboard of which channels are subscribed to what."""
         embed = discord.Embed(title="📢 Active Alerts Configuration", color=0x3498db)
         found_any = False
         
-        # Helper to get role mention or name
         def get_role_name():
             role_id = constants.TLE_ADMIN
             role = ctx.guild.get_role(role_id) if isinstance(role_id, int) else None
@@ -140,7 +141,6 @@ class Alerts(commands.Cog):
             embed.description = "❌ No channels in this server are subscribed to any alerts."
         else:
             embed.set_footer(text=f"Managed by role: {get_role_name()}")
-            
         await ctx.send(embed=embed)
 
     # --- UNSUBSCRIBE COMMANDS ---
@@ -148,12 +148,12 @@ class Alerts(commands.Cog):
     async def unsubscribe(self, ctx):
         await ctx.send_help(ctx.command)
 
-    @unsubscribe.command(name='codeforces', brief='Stop Codeforces Reminders')
+    @unsubscribe.command(name='codeforces')
     @commands.has_role(constants.TLE_ADMIN)
     async def unsub_cf(self, ctx):
         await self._remove_sub(ctx, 'codeforces')
 
-    @unsubscribe.command(name='others', brief='Stop AtCoder/LC/Chef Reminders')
+    @unsubscribe.command(name='others')
     @commands.has_role(constants.TLE_ADMIN)
     async def unsub_others(self, ctx):
         await self._remove_sub(ctx, 'atcoder')
@@ -161,12 +161,12 @@ class Alerts(commands.Cog):
         await self._remove_sub(ctx, 'codechef')
         await ctx.send("❌ Unsubscribed from AtCoder, LeetCode, and CodeChef.")
 
-    @unsubscribe.command(name='ratings', brief='Stop Ranklists')
+    @unsubscribe.command(name='ratings')
     @commands.has_role(constants.TLE_ADMIN)
     async def unsub_ratings(self, ctx):
         await self._remove_sub(ctx, 'ratings')
 
-    @unsubscribe.command(name='all', brief='Stop ALL Alerts')
+    @unsubscribe.command(name='all')
     @commands.has_role(constants.TLE_ADMIN)
     async def unsub_all(self, ctx):
         for key in self.subscriptions:
@@ -175,40 +175,12 @@ class Alerts(commands.Cog):
         self.save_json(ALERTS_FILE, self.subscriptions)
         await ctx.send(f'❌ Unsubscribed `{ctx.channel.name}` from **EVERYTHING**.')
 
-    # --- MANUAL TRIGGER ---
-    @commands.command(brief='Force trigger a rating alert')
-    @commands.has_role(constants.TLE_ADMIN)
-    async def trigger_alert(self, ctx, contest_id: int):
-        await ctx.send(f"🔄 Fetching data for Contest {contest_id}...")
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(f"{CF_API_URL}/contest.standings?contestId={contest_id}&from=1&count=1") as resp:
-                    if resp.status != 200:
-                        await ctx.send(f"❌ Contest API Error: {resp.status}")
-                        return
-                    data = await resp.json()
-                    contest = SimpleContest(data['result']['contest'])
-
-                async with session.get(f"{CF_API_URL}/contest.ratingChanges?contestId={contest_id}") as resp:
-                    if resp.status != 200:
-                        await ctx.send("⚠️ Ratings are not out yet (or contest is unrated).")
-                        return
-                    data = await resp.json()
-                    changes = [SimpleRatingChange(rc) for rc in data['result']]
-                    
-            if not changes:
-                await ctx.send("⚠️ Empty rating change list.")
-                return
-
-            await self.announce_results(contest, changes)
-            await ctx.send("✅ Done.")
-        except Exception as e:
-            await ctx.send(f"❌ Error: {e}")
-
     # --- WATCHER: CONTEST REMINDERS (Every 5 mins) ---
     @tasks.loop(minutes=5)
     async def watch_contests(self):
         current_time = datetime.datetime.now(datetime.timezone.utc)
+        
+        # 1. CODEFORCES (Direct API)
         if self.subscriptions['codeforces']:
             try:
                 async with aiohttp.ClientSession() as session:
@@ -223,13 +195,31 @@ class Alerts(commands.Cog):
                                     await self.process_alert(c['id'], c['name'], "codeforces", diff, f"https://codeforces.com/contests/{c['id']}")
             except: pass
 
-        if any(self.subscriptions[k] for k in ['atcoder', 'leetcode', 'codechef']):
+        # 2. ATCODER (Direct Kenkoooo API - Very Reliable)
+        if self.subscriptions['atcoder']:
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(ATCODER_API_URL) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            now_ts = current_time.timestamp()
+                            # Filter for future contests
+                            upcoming_ac = [c for c in data if c['start_epoch_second'] > now_ts]
+                            
+                            for c in upcoming_ac:
+                                diff = c['start_epoch_second'] - now_ts
+                                c_url = f"https://atcoder.jp/contests/{c['id']}"
+                                await self.process_alert(c['id'], c['title'], "atcoder", diff, c_url)
+            except: pass
+
+        # 3. OTHERS (Kontests - Best Effort for LC/CodeChef)
+        if any(self.subscriptions[k] for k in ['leetcode', 'codechef']):
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(KONTESTS_URL, ssl=False, timeout=10) as resp:
                         if resp.status == 200:
                             all_contests = await resp.json()
-                            site_map = {'AtCoder': 'atcoder', 'CodeChef': 'codechef', 'LeetCode': 'leetcode'}
+                            site_map = {'CodeChef': 'codechef', 'LeetCode': 'leetcode'}
                             for c in all_contests:
                                 site_name = c.get('site')
                                 if site_name not in site_map: continue
@@ -244,13 +234,11 @@ class Alerts(commands.Cog):
             except: pass
 
     async def process_alert(self, uid, name, site_key, diff, url):
-        # NEW LOGIC: 24 hours, 1 hour, 15 minutes
-        # We use ranges because loop runs every 5 minutes
-        is_24hr = 85500 < diff < 87300 # Around 86400s (24h)
-        is_1hr = 3300 < diff < 3900    # Around 3600s (1h)
-        is_15min = 600 < diff < 1200   # Around 900s (15m)
+        # 24 hours, 1 hour, 15 minutes (with buffers)
+        is_24hr = 85500 < diff < 87300 # ~24h
+        is_1hr = 3300 < diff < 3900    # ~1h
+        is_15min = 600 < diff < 1200   # ~15m
         
-        # Unique keys for each alert type
         alert_key_24h = f"{uid}_24h"
         alert_key_1h = f"{uid}_1h"
         alert_key_15m = f"{uid}_15m"
@@ -270,11 +258,12 @@ class Alerts(commands.Cog):
         
         if msg_time:
             self.already_alerted.add(final_key)
+            colors = {'codeforces': 0xFF0000, 'atcoder': 0x000000, 'codechef': 0xD06919, 'leetcode': 0xFFA116}
             embed = discord.Embed(
                 title=f"🏆 {name}", 
                 url=url, 
                 description=f"**Site:** {site_key.title()}\n**Starting in:** {msg_time}", 
-                color=0x00FF00
+                color=colors.get(site_key, 0x00FF00)
             )
             for ch_id in self.subscriptions[site_key]:
                 ch = self.bot.get_channel(ch_id)
@@ -323,7 +312,6 @@ class Alerts(commands.Cog):
                     
                     self.processed_contests.append(contest.id)
                     self.save_json(PROCESSED_FILE, self.processed_contests)
-                    
                     try:
                         cf_cog = self.bot.get_cog('Codeforces')
                         if cf_cog: await cf_common.cache2.contest_cache.reload_now()
@@ -370,6 +358,36 @@ class Alerts(commands.Cog):
                 embed.set_footer(text="Roles/Colors will update automatically shortly.")
                 try: await channel.send(embed=embed)
                 except: pass
+
+    # --- MANUAL TRIGGER ---
+    @commands.command(brief='Force trigger a rating alert')
+    @commands.has_role(constants.TLE_ADMIN)
+    async def trigger_alert(self, ctx, contest_id: int):
+        await ctx.send(f"🔄 Fetching data for Contest {contest_id}...")
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{CF_API_URL}/contest.standings?contestId={contest_id}&from=1&count=1") as resp:
+                    if resp.status != 200:
+                        await ctx.send(f"❌ Contest API Error: {resp.status}")
+                        return
+                    data = await resp.json()
+                    contest = SimpleContest(data['result']['contest'])
+
+                async with session.get(f"{CF_API_URL}/contest.ratingChanges?contestId={contest_id}") as resp:
+                    if resp.status != 200:
+                        await ctx.send("⚠️ Ratings are not out yet (or contest is unrated).")
+                        return
+                    data = await resp.json()
+                    changes = [SimpleRatingChange(rc) for rc in data['result']]
+                    
+            if not changes:
+                await ctx.send("⚠️ Empty rating change list.")
+                return
+
+            await self.announce_results(contest, changes)
+            await ctx.send("✅ Done.")
+        except Exception as e:
+            await ctx.send(f"❌ Error: {e}")
 
     @watch_contests.before_loop
     @watch_rating_changes.before_loop
