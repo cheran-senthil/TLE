@@ -8,7 +8,6 @@ import aiohttp
 import discord
 from discord.ext import commands, tasks
 from tle import constants
-# Database access
 import tle.util.codeforces_common as cf_common
 
 logger = logging.getLogger(__name__)
@@ -21,17 +20,18 @@ KONTESTS_URL = "https://kontests.net/api/v1/all"
 CF_API_URL = "https://codeforces.com/api"
 ATCODER_API_URL = "https://kenkoooo.com/atcoder/resources/contests.json"
 
-# CF Ranks, Colors, and Thresholds
+# CF Ranks (Descending Order)
 CF_RANKS = [
-    (1200, "Pupil", 0x77FF77),       # Green
-    (1400, "Specialist", 0x03A89E),  # Cyan
-    (1600, "Expert", 0x0000FF),      # Blue
-    (1900, "Candidate Master", 0xAA00AA), # Violet
-    (2100, "Master", 0xFF8C00),      # Orange
-    (2300, "International Master", 0xFF8C00), # Orange
-    (2400, "Grandmaster", 0xFF0000), # Red
-    (2600, "International Grandmaster", 0xFF0000), # Red
-    (3000, "Legendary Grandmaster", 0xFF0000) # Red
+    (3000, "Legendary Grandmaster", 0xFF0000),
+    (2600, "International Grandmaster", 0xFF0000),
+    (2400, "Grandmaster", 0xFF0000),
+    (2300, "International Master", 0xFF8C00),
+    (2100, "Master", 0xFF8C00),
+    (1900, "Candidate Master", 0xAA00AA),
+    (1600, "Expert", 0x0000FF),
+    (1400, "Specialist", 0x03A89E),
+    (1200, "Pupil", 0x77FF77),
+    (0,    "Newbie", 0x808080)
 ]
 
 class SimpleContest:
@@ -69,8 +69,7 @@ class Alerts(commands.Cog):
                     data = json.load(f)
                     if isinstance(data, dict):
                         for key in default:
-                            if key not in data:
-                                data[key] = []
+                            if key not in data: data[key] = []
                     return data
             except: return default
         return default
@@ -115,9 +114,8 @@ class Alerts(commands.Cog):
     @subscribe.command(brief='Milestones (Rank Ups)')
     @commands.has_role(constants.TLE_ADMIN)
     async def milestones(self, ctx):
-        """Subscribes to congratulations messages when users rank up."""
         await self._add_sub(ctx, 'milestones')
-        await ctx.send("🎉 This channel will celebrate new **Codeforces Rank Ups**!")
+        await ctx.send("🎉 This channel will celebrate new **Codeforces Rank Ups** with graphs!")
 
     @subscribe.command(brief='Subscribe to ALL')
     @commands.has_role(constants.TLE_ADMIN)
@@ -146,6 +144,7 @@ class Alerts(commands.Cog):
             if guild_channels:
                 found_any = True
                 embed.add_field(name=f"**{category.title()}**", value=", ".join(guild_channels), inline=False)
+        
         if not found_any: embed.description = "❌ No channels in this server are subscribed to any alerts."
         else: embed.set_footer(text=f"Managed by role: {get_role_name()}")
         await ctx.send(embed=embed)
@@ -183,37 +182,45 @@ class Alerts(commands.Cog):
         self.save_json(ALERTS_FILE, self.subscriptions)
         await ctx.send(f'❌ Unsubscribed `{ctx.channel.name}` from **EVERYTHING**.')
 
-    # --- MANUAL TRIGGER ---
-    @commands.command(brief='Force trigger a rating alert')
-    @commands.has_role(constants.TLE_ADMIN)
-    async def trigger_alert(self, ctx, contest_id: int):
-        await ctx.send(f"🔄 Fetching data for Contest {contest_id}...")
+    # --- HELPER: FETCH PROFILE PIC ---
+    async def get_user_avatar(self, handle):
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get(f"{CF_API_URL}/contest.standings?contestId={contest_id}&from=1&count=1") as resp:
-                    if resp.status != 200:
-                        await ctx.send(f"❌ Contest API Error: {resp.status}")
-                        return
-                    data = await resp.json()
-                    contest = SimpleContest(data['result']['contest'])
+                async with session.get(f"{CF_API_URL}/user.info?handles={handle}") as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        if data['status'] == 'OK':
+                            return data['result'][0].get('titlePhoto')
+        except: return None
+        return None
 
-                async with session.get(f"{CF_API_URL}/contest.ratingChanges?contestId={contest_id}") as resp:
-                    if resp.status != 200:
-                        await ctx.send("⚠️ Ratings are not out yet (or contest is unrated).")
-                        return
-                    data = await resp.json()
-                    changes = [SimpleRatingChange(rc) for rc in data['result']]
-                    
-            if not changes:
-                await ctx.send("⚠️ Empty rating change list.")
-                return
+    # --- DEBUG / TEST COMMAND ---
+    @commands.command(brief='Simulate a rank up alert (Debug)')
+    @commands.has_role(constants.TLE_ADMIN)
+    async def test_milestone(self, ctx, handle: str, rating: int):
+        """Simulate what happens when 'handle' reaches 'rating'."""
+        await ctx.send(f"🧪 **DEBUG MODE:** Simulating {handle} reaching rating {rating}...")
+        
+        avatar = await self.get_user_avatar(handle)
 
-            await self.announce_results(contest, changes)
-            await ctx.send("✅ Done.")
-        except Exception as e:
-            await ctx.send(f"❌ Error: {e}")
+        class FakeChange:
+            def __init__(self, h, r):
+                self.handle = h
+                self.newRating = r
+                self.oldRating = r - 100 
+        
+        change = FakeChange(handle, rating)
+        new_rank = self.get_rank_name(rating)
+        
+        await self.send_milestone(ctx.channel, change, new_rank, ctx.author.id, avatar)
+        
+        # Trigger graph
+        plot_cmd = self.bot.get_command('plot rating')
+        if plot_cmd:
+            try: await ctx.invoke(plot_cmd, handles=[handle])
+            except: await ctx.send("*(Graph command failed to invoke automatically)*")
 
-    # --- WATCHER: CONTEST REMINDERS ---
+    # --- WATCHER LOOP ---
     @tasks.loop(minutes=5)
     async def watch_contests(self):
         current_time = datetime.datetime.now(datetime.timezone.utc)
@@ -300,7 +307,7 @@ class Alerts(commands.Cog):
     # --- WATCHER: RATINGS ---
     @tasks.loop(minutes=15)
     async def watch_rating_changes(self):
-        if not self.subscriptions['ratings']: return
+        if not self.subscriptions['ratings'] and not self.subscriptions['milestones']: return
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(f"{CF_API_URL}/contest.list?gym=false") as resp:
@@ -340,7 +347,6 @@ class Alerts(commands.Cog):
             logger.error(f'Error in watch_ratings: {e}')
 
     async def announce_results(self, contest, changes):
-        # Channels to notify
         all_subs = set(self.subscriptions['ratings'] + self.subscriptions['milestones'])
         
         for channel_id in all_subs:
@@ -355,7 +361,7 @@ class Alerts(commands.Cog):
                     else: server_handles[h.handle.lower()] = h.user_id
             except: continue
 
-            # --- RATINGS LIST ---
+            # Ranklist
             if channel_id in self.subscriptions['ratings']:
                 server_updates = []
                 for change in changes:
@@ -379,7 +385,7 @@ class Alerts(commands.Cog):
                     try: await channel.send(embed=embed)
                     except: pass
 
-            # --- MILESTONES ---
+            # Milestones
             if channel_id in self.subscriptions['milestones']:
                 for change in changes:
                     handle_lower = change.handle.lower()
@@ -387,14 +393,23 @@ class Alerts(commands.Cog):
                         old_rank = self.get_rank_name(change.oldRating)
                         new_rank = self.get_rank_name(change.newRating)
                         if old_rank != new_rank and change.newRating > change.oldRating:
-                            await self.send_milestone(channel, change, new_rank, server_handles[handle_lower])
+                            avatar = await self.get_user_avatar(change.handle)
+                            await self.send_milestone(channel, change, new_rank, server_handles[handle_lower], avatar)
+                            
+                            # Graph Trigger
+                            plot_cmd = self.bot.get_command('plot rating')
+                            if plot_cmd:
+                                ctx = await self.bot.get_context(await channel.send("Generating graph..."))
+                                try: await ctx.invoke(plot_cmd, handles=[change.handle])
+                                except: pass
 
     def get_rank_name(self, rating):
+        # Descending order check
         for limit, name, color in CF_RANKS:
-            if rating < limit: return name
-        return "Legendary Grandmaster"
+            if rating >= limit: return name
+        return "Newbie"
 
-    async def send_milestone(self, channel, change, new_rank, user_id):
+    async def send_milestone(self, channel, change, new_rank, user_id, avatar_url=None):
         color = 0x000000
         for limit, name, c in CF_RANKS:
             if name == new_rank:
@@ -407,7 +422,8 @@ class Alerts(commands.Cog):
             description=f"{user_mention} has become a **{new_rank}**!\n\nRating: **{change.newRating}**",
             color=color
         )
-        embed.set_thumbnail(url="https://media1.tenor.com/m/n_X5gYfV2XAAAAAC/party-confetti.gif")
+        if avatar_url: embed.set_thumbnail(url=avatar_url)
+        else: embed.set_thumbnail(url="https://media1.tenor.com/m/n_X5gYfV2XAAAAAC/party-confetti.gif")
         try: await channel.send(embed=embed)
         except: pass
 
