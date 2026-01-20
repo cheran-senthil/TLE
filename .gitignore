@@ -116,3 +116,7 @@ pip-wheel-metadata/
 
 # logs
 /logs
+
+#fonts to be included 
+!data/assets/fonts/
+!data/assets/fonts/*.ttc
