@@ -20,7 +20,7 @@ KONTESTS_URL = "https://kontests.net/api/v1/all"
 CF_API_URL = "https://codeforces.com/api"
 ATCODER_API_URL = "https://kenkoooo.com/atcoder/resources/contests.json"
 
-# CF Ranks (Descending Order)
+# CF Ranks (Descending)
 CF_RANKS = [
     (3000, "Legendary Grandmaster", 0xFF0000),
     (2600, "International Grandmaster", 0xFF0000),
@@ -33,6 +33,18 @@ CF_RANKS = [
     (1200, "Pupil", 0x77FF77),
     (0,    "Newbie", 0x808080)
 ]
+
+# --- DUMMY CONTEXT FOR GRAPH GENERATION ---
+class DuckContext:
+    def __init__(self, channel, bot):
+        self.channel = channel
+        self.bot = bot
+        self.guild = channel.guild
+        self.author = bot.user
+        self.message = None
+        self.command = None
+    async def send(self, *args, **kwargs): return await self.channel.send(*args, **kwargs)
+    def typing(self): return self.channel.typing()
 
 class SimpleContest:
     def __init__(self, data):
@@ -91,7 +103,7 @@ class Alerts(commands.Cog):
             await ctx.send(f'❌ Unsubscribed `{ctx.channel.name}` from **{key.title()}**.')
         else: await ctx.send(f'⚠️ `{ctx.channel.name}` is not subscribed to {key.title()}.')
 
-    # --- SUBSCRIBE COMMANDS ---
+    # --- COMMANDS ---
     @commands.group(brief='Subscribe to alerts', invoke_without_command=True)
     async def subscribe(self, ctx): await ctx.send_help(ctx.command)
 
@@ -115,7 +127,7 @@ class Alerts(commands.Cog):
     @commands.has_role(constants.TLE_ADMIN)
     async def milestones(self, ctx):
         await self._add_sub(ctx, 'milestones')
-        await ctx.send("🎉 This channel will celebrate new **Codeforces Rank Ups** with graphs!")
+        await ctx.send("🎉 This channel will celebrate new **Codeforces Rank Ups**!")
 
     @subscribe.command(brief='Subscribe to ALL')
     @commands.has_role(constants.TLE_ADMIN)
@@ -149,7 +161,6 @@ class Alerts(commands.Cog):
         else: embed.set_footer(text=f"Managed by role: {get_role_name()}")
         await ctx.send(embed=embed)
 
-    # --- UNSUBSCRIBE COMMANDS ---
     @commands.group(brief='Unsubscribe from alerts', invoke_without_command=True)
     async def unsubscribe(self, ctx): await ctx.send_help(ctx.command)
 
@@ -194,14 +205,37 @@ class Alerts(commands.Cog):
         except: return None
         return None
 
-    # --- DEBUG / TEST COMMAND ---
-    @commands.command(brief='Simulate a rank up alert (Debug)')
+    # --- HELPER: GRAPH TRIGGER ---
+    async def trigger_graph(self, channel, handle):
+        try:
+            graphs_cog = self.bot.get_cog('Graphs')
+            if not graphs_cog: return
+            fake_ctx = DuckContext(channel, self.bot)
+            if hasattr(graphs_cog, 'rating'):
+                await graphs_cog.rating(fake_ctx, handle)
+        except Exception as e:
+            logger.error(f"Graph trigger failed: {e}")
+
+    # --- TEST COMMAND ---
+    @commands.command(brief='Simulate a rank up alert')
     @commands.has_role(constants.TLE_ADMIN)
     async def test_milestone(self, ctx, handle: str, rating: int):
         """Simulate what happens when 'handle' reaches 'rating'."""
         await ctx.send(f"🧪 **DEBUG MODE:** Simulating {handle} reaching rating {rating}...")
         
         avatar = await self.get_user_avatar(handle)
+        
+        # Look up real user
+        target_id = ctx.author.id 
+        try:
+            guild_handles = cf_common.user_db.get_handles_for_guild(ctx.guild.id)
+            for h in guild_handles:
+                h_handle = h[1] if isinstance(h, tuple) else h.handle
+                h_id = h[0] if isinstance(h, tuple) else h.user_id
+                if h_handle.lower() == handle.lower():
+                    target_id = h_id
+                    break
+        except: pass
 
         class FakeChange:
             def __init__(self, h, r):
@@ -212,13 +246,37 @@ class Alerts(commands.Cog):
         change = FakeChange(handle, rating)
         new_rank = self.get_rank_name(rating)
         
-        await self.send_milestone(ctx.channel, change, new_rank, ctx.author.id, avatar)
+        await self.send_milestone(ctx.channel, change, new_rank, target_id, avatar)
+        await self.trigger_graph(ctx.channel, handle)
         
-        # Trigger graph
-        plot_cmd = self.bot.get_command('plot rating')
-        if plot_cmd:
-            try: await ctx.invoke(plot_cmd, handles=[handle])
-            except: await ctx.send("*(Graph command failed to invoke automatically)*")
+    @commands.command(brief='Force trigger a rating alert')
+    @commands.has_role(constants.TLE_ADMIN)
+    async def trigger_alert(self, ctx, contest_id: int):
+        await ctx.send(f"🔄 Fetching data for Contest {contest_id}...")
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{CF_API_URL}/contest.standings?contestId={contest_id}&from=1&count=1") as resp:
+                    if resp.status != 200:
+                        await ctx.send(f"❌ Contest API Error: {resp.status}")
+                        return
+                    data = await resp.json()
+                    contest = SimpleContest(data['result']['contest'])
+
+                async with session.get(f"{CF_API_URL}/contest.ratingChanges?contestId={contest_id}") as resp:
+                    if resp.status != 200:
+                        await ctx.send("⚠️ Ratings are not out yet.")
+                        return
+                    data = await resp.json()
+                    changes = [SimpleRatingChange(rc) for rc in data['result']]
+            
+            if not changes:
+                await ctx.send("⚠️ Empty rating change list.")
+                return
+
+            await self.announce_results(contest, changes)
+            await ctx.send("✅ Done.")
+        except Exception as e:
+            await ctx.send(f"❌ Error: {e}")
 
     # --- WATCHER LOOP ---
     @tasks.loop(minutes=5)
@@ -348,7 +406,6 @@ class Alerts(commands.Cog):
 
     async def announce_results(self, contest, changes):
         all_subs = set(self.subscriptions['ratings'] + self.subscriptions['milestones'])
-        
         for channel_id in all_subs:
             channel = self.bot.get_channel(channel_id)
             if not channel: continue
@@ -395,16 +452,9 @@ class Alerts(commands.Cog):
                         if old_rank != new_rank and change.newRating > change.oldRating:
                             avatar = await self.get_user_avatar(change.handle)
                             await self.send_milestone(channel, change, new_rank, server_handles[handle_lower], avatar)
-                            
-                            # Graph Trigger
-                            plot_cmd = self.bot.get_command('plot rating')
-                            if plot_cmd:
-                                ctx = await self.bot.get_context(await channel.send("Generating graph..."))
-                                try: await ctx.invoke(plot_cmd, handles=[change.handle])
-                                except: pass
+                            await self.trigger_graph(channel, change.handle)
 
     def get_rank_name(self, rating):
-        # Descending order check
         for limit, name, color in CF_RANKS:
             if rating >= limit: return name
         return "Newbie"
