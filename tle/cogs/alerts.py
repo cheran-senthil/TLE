@@ -212,13 +212,13 @@ class Alerts(commands.Cog):
             try:
                 now = datetime.datetime.now(datetime.timezone.utc)
                 end_time = now + datetime.timedelta(days=3)
-                resource_ids = ",".join(str(i) for i in RESOURCE_IDS.values())
+                
+                # NO RESOURCE ID FILTER HERE! Shows everything on Clist.
                 params = {
                     'username': CLIST_USER, 'api_key': CLIST_KEY,
-                    'resource_id__in': resource_ids,
                     'start__gte': now.strftime("%Y-%m-%dT%H:%M:%S"),
                     'start__lt': end_time.strftime("%Y-%m-%dT%H:%M:%S"),
-                    'order_by': 'start', 'limit': 15
+                    'order_by': 'start', 'limit': 25
                 }
                 async with aiohttp.ClientSession() as session:
                     async with session.get(CLIST_API_URL, params=params) as resp:
@@ -231,11 +231,12 @@ class Alerts(commands.Cog):
                     await ctx.send("📅 No contests found in the next 3 days.")
                     return
 
-                embed = discord.Embed(title="📅 Upcoming Contests (Next 3 Days)", color=0x0099FF)
+                embed = discord.Embed(title="📅 All Upcoming Contests (Next 3 Days)", color=0x0099FF)
                 for c in data['objects']:
                     start_dt = datetime.datetime.fromisoformat(c['start']).replace(tzinfo=datetime.timezone.utc)
                     ts = int(start_dt.timestamp())
-                    site = c['resource'].replace('.com', '').replace('.jp', '').title()
+                    # Clean up resource name
+                    site = c['resource'].replace('codingcompetitions.withgoogle.com', 'Google').replace('.com', '').replace('.jp', '').title()
                     embed.add_field(name=f"{site}: {c['event']}", value=f"🕒 <t:{ts}:F> (<t:{ts}:R>)\n[Link]({c['href']})", inline=False)
                 embed.set_footer(text="Powered by Clist.by")
                 await ctx.send(embed=embed)
@@ -367,6 +368,7 @@ class Alerts(commands.Cog):
         current_time = datetime.datetime.now(datetime.timezone.utc)
         try:
             end_time = current_time + datetime.timedelta(days=2)
+            # FILTERED LIST FOR REMINDERS (Keep this restrictive)
             resource_ids = ",".join(str(i) for i in RESOURCE_IDS.values())
             params = {
                 'username': CLIST_USER, 'api_key': CLIST_KEY,
@@ -418,11 +420,8 @@ class Alerts(commands.Cog):
             embed = discord.Embed(title=f"🏆 {name}", url=url, description=f"**Site:** {site_key.title()}\n**Starting in:** {msg_time}", color=colors.get(site_key, 0x00FF00))
             for ch_id in self.subscriptions[site_key]:
                 ch = self.bot.get_channel(ch_id)
-                if ch: 
-                    try:
-                        await ch.send(embed=embed)
-                    except:
-                        pass
+                if ch: try: await ch.send(embed=embed)
+                except: pass
 
     @tasks.loop(minutes=15)
     async def watch_rating_changes(self):
