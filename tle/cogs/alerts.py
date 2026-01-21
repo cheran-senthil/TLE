@@ -420,8 +420,9 @@ class Alerts(commands.Cog):
             embed = discord.Embed(title=f"🏆 {name}", url=url, description=f"**Site:** {site_key.title()}\n**Starting in:** {msg_time}", color=colors.get(site_key, 0x00FF00))
             for ch_id in self.subscriptions[site_key]:
                 ch = self.bot.get_channel(ch_id)
-                if ch: try: await ch.send(embed=embed)
-                except: pass
+                if ch: 
+                    try: await ch.send(embed=embed)
+                    except: pass
 
     @tasks.loop(minutes=15)
     async def watch_rating_changes(self):
