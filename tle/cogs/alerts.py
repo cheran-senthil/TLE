@@ -112,7 +112,7 @@ class Alerts(commands.Cog):
             await ctx.send(f'❌ Unsubscribed `{ctx.channel.name}` from **{key.title()}**.')
         else: await ctx.send(f'⚠️ `{ctx.channel.name}` is not subscribed to {key.title()}.')
 
-    # --- SUBSCRIBE COMMANDS ---
+    # --- COMMANDS ---
     @commands.group(brief='Subscribe to alerts', invoke_without_command=True)
     async def subscribe(self, ctx): await ctx.send_help(ctx.command)
 
@@ -208,13 +208,11 @@ class Alerts(commands.Cog):
             await ctx.send("❌ Clist API credentials not set in .env")
             return
 
-        # FIX: Use async with for typing context
         async with ctx.typing():
             try:
                 now = datetime.datetime.now(datetime.timezone.utc)
                 end_time = now + datetime.timedelta(days=3)
                 resource_ids = ",".join(str(i) for i in RESOURCE_IDS.values())
-                
                 params = {
                     'username': CLIST_USER, 'api_key': CLIST_KEY,
                     'resource_id__in': resource_ids,
@@ -222,7 +220,6 @@ class Alerts(commands.Cog):
                     'start__lt': end_time.strftime("%Y-%m-%dT%H:%M:%S"),
                     'order_by': 'start', 'limit': 15
                 }
-
                 async with aiohttp.ClientSession() as session:
                     async with session.get(CLIST_API_URL, params=params) as resp:
                         if resp.status != 200:
@@ -240,7 +237,6 @@ class Alerts(commands.Cog):
                     ts = int(start_dt.timestamp())
                     site = c['resource'].replace('.com', '').replace('.jp', '').title()
                     embed.add_field(name=f"{site}: {c['event']}", value=f"🕒 <t:{ts}:F> (<t:{ts}:R>)\n[Link]({c['href']})", inline=False)
-                
                 embed.set_footer(text="Powered by Clist.by")
                 await ctx.send(embed=embed)
             except Exception as e: await ctx.send(f"❌ Error: {e}")
@@ -359,8 +355,10 @@ class Alerts(commands.Cog):
         embed = discord.Embed(title=f"🎉 Congratulations {change.handle}!", description=f"{user_mention} has become a **{new_rank}** for the **FIRST TIME**!\n\nRating: **{change.newRating}**", color=color)
         if avatar_url: embed.set_thumbnail(url=avatar_url)
         else: embed.set_thumbnail(url="https://media1.tenor.com/m/n_X5gYfV2XAAAAAC/party-confetti.gif")
-        try: await channel.send(embed=embed)
-        except: pass
+        try:
+            await channel.send(embed=embed)
+        except:
+            pass
 
     # --- WATCHERS ---
     @tasks.loop(minutes=15)
@@ -420,8 +418,11 @@ class Alerts(commands.Cog):
             embed = discord.Embed(title=f"🏆 {name}", url=url, description=f"**Site:** {site_key.title()}\n**Starting in:** {msg_time}", color=colors.get(site_key, 0x00FF00))
             for ch_id in self.subscriptions[site_key]:
                 ch = self.bot.get_channel(ch_id)
-                if ch: try: await ch.send(embed=embed)
-                except: pass
+                if ch: 
+                    try:
+                        await ch.send(embed=embed)
+                    except:
+                        pass
 
     @tasks.loop(minutes=15)
     async def watch_rating_changes(self):
@@ -490,8 +491,10 @@ class Alerts(commands.Cog):
                     if len(desc) > 4000: desc = desc[:4000] + "\n...and more"
                     embed = discord.Embed(title=f"📊 Ranklist: {contest.name}", url=f"https://codeforces.com/contest/{contest.id}/standings", description=desc, color=0xFFD700)
                     embed.set_footer(text="Roles/Colors will update automatically shortly.")
-                    try: await channel.send(embed=embed)
-                    except: pass
+                    try:
+                        await channel.send(embed=embed)
+                    except:
+                        pass
 
             if channel_id in self.subscriptions['milestones']:
                 for change in changes:
