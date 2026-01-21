@@ -112,7 +112,7 @@ class Alerts(commands.Cog):
             await ctx.send(f'❌ Unsubscribed `{ctx.channel.name}` from **{key.title()}**.')
         else: await ctx.send(f'⚠️ `{ctx.channel.name}` is not subscribed to {key.title()}.')
 
-    # --- COMMANDS ---
+    # --- SUBSCRIBE COMMANDS ---
     @commands.group(brief='Subscribe to alerts', invoke_without_command=True)
     async def subscribe(self, ctx): await ctx.send_help(ctx.command)
 
@@ -201,7 +201,51 @@ class Alerts(commands.Cog):
         self.save_json(ALERTS_FILE, self.subscriptions)
         await ctx.send(f'❌ Unsubscribed `{ctx.channel.name}` from **EVERYTHING**.')
 
-    # --- ADMIN: MANUAL TRIGGER ---
+    # --- CLIST: UPCOMING CONTESTS ---
+    @commands.command(brief='Show upcoming contests (Next 3 Days)')
+    async def upcoming(self, ctx):
+        if not CLIST_USER or not CLIST_KEY:
+            await ctx.send("❌ Clist API credentials not set in .env")
+            return
+
+        # FIX: Use async with for typing context
+        async with ctx.typing():
+            try:
+                now = datetime.datetime.now(datetime.timezone.utc)
+                end_time = now + datetime.timedelta(days=3)
+                resource_ids = ",".join(str(i) for i in RESOURCE_IDS.values())
+                
+                params = {
+                    'username': CLIST_USER, 'api_key': CLIST_KEY,
+                    'resource_id__in': resource_ids,
+                    'start__gte': now.strftime("%Y-%m-%dT%H:%M:%S"),
+                    'start__lt': end_time.strftime("%Y-%m-%dT%H:%M:%S"),
+                    'order_by': 'start', 'limit': 15
+                }
+
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(CLIST_API_URL, params=params) as resp:
+                        if resp.status != 200:
+                            await ctx.send(f"❌ Clist API Error: {resp.status}")
+                            return
+                        data = await resp.json()
+                
+                if not data['objects']:
+                    await ctx.send("📅 No contests found in the next 3 days.")
+                    return
+
+                embed = discord.Embed(title="📅 Upcoming Contests (Next 3 Days)", color=0x0099FF)
+                for c in data['objects']:
+                    start_dt = datetime.datetime.fromisoformat(c['start']).replace(tzinfo=datetime.timezone.utc)
+                    ts = int(start_dt.timestamp())
+                    site = c['resource'].replace('.com', '').replace('.jp', '').title()
+                    embed.add_field(name=f"{site}: {c['event']}", value=f"🕒 <t:{ts}:F> (<t:{ts}:R>)\n[Link]({c['href']})", inline=False)
+                
+                embed.set_footer(text="Powered by Clist.by")
+                await ctx.send(embed=embed)
+            except Exception as e: await ctx.send(f"❌ Error: {e}")
+
+    # --- ADMIN HELPERS ---
     @commands.command(brief='Force trigger a rating alert')
     @commands.has_role(constants.TLE_ADMIN)
     async def trigger_alert(self, ctx, contest_id: int):
@@ -230,14 +274,11 @@ class Alerts(commands.Cog):
             await ctx.send("✅ Done.")
         except Exception as e: await ctx.send(f"❌ Error: {e}")
 
-    # --- ADMIN: TEST MILESTONE ---
     @commands.command(brief='Simulate a rank up alert')
     @commands.has_role(constants.TLE_ADMIN)
     async def test_milestone(self, ctx, handle: str, rating: int):
-        """Simulate what happens when 'handle' reaches 'rating'."""
         await ctx.send(f"🧪 **DEBUG:** Simulating {handle} @ {rating}...")
         avatar = await self.get_user_avatar(handle)
-        
         target_id = ctx.author.id 
         try:
             guild_handles = cf_common.user_db.get_handles_for_guild(ctx.guild.id)
@@ -257,49 +298,8 @@ class Alerts(commands.Cog):
         
         change = FakeChange(handle, rating)
         new_rank = self.get_rank_name(rating)
-        
         await self.send_milestone(ctx.channel, change, new_rank, target_id, avatar)
         await self.trigger_graph(ctx.channel, handle)
-
-    # --- CLIST: UPCOMING CONTESTS ---
-    @commands.command(brief='Show upcoming contests (Next 3 Days)')
-    async def upcoming(self, ctx):
-        if not CLIST_USER or not CLIST_KEY:
-            await ctx.send("❌ Clist API credentials not set in .env")
-            return
-
-        await ctx.typing()
-        try:
-            now = datetime.datetime.now(datetime.timezone.utc)
-            end_time = now + datetime.timedelta(days=3)
-            resource_ids = ",".join(str(i) for i in RESOURCE_IDS.values())
-            params = {
-                'username': CLIST_USER, 'api_key': CLIST_KEY,
-                'resource_id__in': resource_ids,
-                'start__gte': now.strftime("%Y-%m-%dT%H:%M:%S"),
-                'start__lt': end_time.strftime("%Y-%m-%dT%H:%M:%S"),
-                'order_by': 'start', 'limit': 15
-            }
-            async with aiohttp.ClientSession() as session:
-                async with session.get(CLIST_API_URL, params=params) as resp:
-                    if resp.status != 200:
-                        await ctx.send(f"❌ Clist API Error: {resp.status}")
-                        return
-                    data = await resp.json()
-            
-            if not data['objects']:
-                await ctx.send("📅 No contests found in the next 3 days.")
-                return
-
-            embed = discord.Embed(title="📅 Upcoming Contests (Next 3 Days)", color=0x0099FF)
-            for c in data['objects']:
-                start_dt = datetime.datetime.fromisoformat(c['start']).replace(tzinfo=datetime.timezone.utc)
-                ts = int(start_dt.timestamp())
-                site = c['resource'].replace('.com', '').replace('.jp', '').title()
-                embed.add_field(name=f"{site}: {c['event']}", value=f"🕒 <t:{ts}:F> (<t:{ts}:R>)\n[Link]({c['href']})", inline=False)
-            embed.set_footer(text="Powered by Clist.by")
-            await ctx.send(embed=embed)
-        except Exception as e: await ctx.send(f"❌ Error: {e}")
 
     # --- HELPERS ---
     async def get_user_avatar(self, handle):
@@ -420,9 +420,8 @@ class Alerts(commands.Cog):
             embed = discord.Embed(title=f"🏆 {name}", url=url, description=f"**Site:** {site_key.title()}\n**Starting in:** {msg_time}", color=colors.get(site_key, 0x00FF00))
             for ch_id in self.subscriptions[site_key]:
                 ch = self.bot.get_channel(ch_id)
-                if ch: 
-                    try: await ch.send(embed=embed)
-                    except: pass
+                if ch: try: await ch.send(embed=embed)
+                except: pass
 
     @tasks.loop(minutes=15)
     async def watch_rating_changes(self):
