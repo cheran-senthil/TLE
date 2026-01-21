@@ -236,16 +236,15 @@ class Alerts(commands.Cog):
             try:
                 now = datetime.datetime.now(datetime.timezone.utc)
                 end_time = now + datetime.timedelta(days=3)
-                resource_ids = ",".join(str(i) for i in RESOURCE_IDS.values())
                 
+                # --- FIXED: Removed 'resource_id__in' to allow ALL contests ---
                 params = {
                     'username': CLIST_USER,
                     'api_key': CLIST_KEY,
-                    'resource_id__in': resource_ids,
                     'start__gte': now.strftime("%Y-%m-%dT%H:%M:%S"),
                     'start__lt': end_time.strftime("%Y-%m-%dT%H:%M:%S"),
                     'order_by': 'start',
-                    'limit': 15
+                    'limit': 25  # Limit to 25 to fit in Discord Embed limits
                 }
 
                 async with aiohttp.ClientSession() as session:
@@ -259,12 +258,19 @@ class Alerts(commands.Cog):
                     await ctx.send("📅 No contests found in the next 3 days.")
                     return
 
-                embed = discord.Embed(title="📅 Upcoming Contests (Next 3 Days)", color=0x0099FF)
+                embed = discord.Embed(title="📅 All Upcoming Contests (Next 3 Days)", color=0x0099FF)
                 for c in data['objects']:
                     start_dt = datetime.datetime.fromisoformat(c['start']).replace(tzinfo=datetime.timezone.utc)
                     ts = int(start_dt.timestamp())
-                    site = c['resource'].replace('.com', '').replace('.jp', '').title()
-                    embed.add_field(name=f"{site}: {c['event']}", value=f"🕒 <t:{ts}:F> (<t:{ts}:R>)\n[Link]({c['href']})", inline=False)
+                    # Format site name nicely
+                    site = c['resource'].replace('.com', '').replace('.jp', '').replace('codingcompetitions.withgoogle', 'Google').title()
+                    if len(site) > 20: site = site[:20] + "..."
+                    
+                    embed.add_field(
+                        name=f"{site}: {c['event']}",
+                        value=f"🕒 <t:{ts}:F> (<t:{ts}:R>)\n[Link]({c['href']})",
+                        inline=False
+                    )
                 
                 embed.set_footer(text="Powered by Clist.by")
                 await ctx.send(embed=embed)
@@ -304,8 +310,8 @@ class Alerts(commands.Cog):
     @commands.command(brief='Simulate a rank up alert')
     @commands.has_role(constants.TLE_ADMIN)
     async def test_milestone(self, ctx, handle: str, rating: int):
+        """Simulate what happens when 'handle' reaches 'rating'."""
         await ctx.send(f"🧪 **DEBUG:** Simulating {handle} @ {rating}...")
-        
         avatar = await self.get_user_avatar(handle)
         target_id = ctx.author.id 
         try:
@@ -414,6 +420,7 @@ class Alerts(commands.Cog):
         current_time = datetime.datetime.now(datetime.timezone.utc)
         try:
             end_time = current_time + datetime.timedelta(days=2)
+            # Filter for automatic alerts (RESTRICTED)
             resource_ids = ",".join(str(i) for i in RESOURCE_IDS.values())
             params = {
                 'username': CLIST_USER, 'api_key': CLIST_KEY,
@@ -434,7 +441,6 @@ class Alerts(commands.Cog):
                 elif 'atcoder' in site: sub_key = 'atcoder'
                 elif 'codechef' in site: sub_key = 'codechef'
                 elif 'leetcode' in site: sub_key = 'leetcode'
-                
                 if not sub_key or not self.subscriptions[sub_key]: continue
                 start_dt = datetime.datetime.fromisoformat(c['start']).replace(tzinfo=datetime.timezone.utc)
                 diff = (start_dt - current_time).total_seconds()
@@ -476,7 +482,6 @@ class Alerts(commands.Cog):
                     except:
                         pass
 
-    # --- WATCHER: RATINGS ---
     @tasks.loop(minutes=15)
     async def watch_rating_changes(self):
         if not self.subscriptions['ratings'] and not self.subscriptions['milestones']: return
@@ -532,7 +537,6 @@ class Alerts(commands.Cog):
                     else: server_handles[h.handle.lower()] = h.user_id
             except: continue
 
-            # Ranklist
             if channel_id in self.subscriptions['ratings']:
                 server_updates = []
                 for change in changes:
@@ -558,14 +562,12 @@ class Alerts(commands.Cog):
                     except:
                         pass
 
-            # Milestones
             if channel_id in self.subscriptions['milestones']:
                 for change in changes:
                     handle_lower = change.handle.lower()
                     if handle_lower in server_handles:
                         old_rank = self.get_rank_name(change.oldRating)
                         new_rank = self.get_rank_name(change.newRating)
-                        # Check Rank Name Change AND Rating Increase
                         if old_rank != new_rank and change.newRating > change.oldRating:
                             is_first_time = await self.check_first_time_milestone(change.handle, change.newRating)
                             if is_first_time:
