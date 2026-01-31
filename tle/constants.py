@@ -28,10 +28,20 @@ ALL_DIRS = (
 
 ALLOW_DUEL_SELF_REGISTER = False
 
-TLE_ADMIN = os.environ.get('TLE_ADMIN', 'Admin')
-TLE_MODERATOR = os.environ.get('TLE_MODERATOR', 'Moderator')
-TLE_TRUSTED = os.environ.get('TLE_TRUSTED', 'Trusted')
-TLE_PURGATORY = os.environ.get('TLE_PURGATORY', 'Purgatory')
+
+def _get_role_from_env(name: str, default: str) -> str | int:
+    value = os.environ.get(name, default)
+    # Try parsing as an int, which is a role id.
+    try:
+        return int(value)
+    except ValueError:
+        return value
+
+
+TLE_ADMIN = _get_role_from_env('TLE_ADMIN', 'Admin')
+TLE_MODERATOR = _get_role_from_env('TLE_MODERATOR', 'Moderator')
+TLE_TRUSTED = _get_role_from_env('TLE_TRUSTED', 'Trusted')
+TLE_PURGATORY = _get_role_from_env('TLE_PURGATORY', 'Purgatory')
 
 _DEFAULT_COLOR = 0xFFAA10
 _DEFAULT_STAR = '\N{WHITE MEDIUM STAR}'
