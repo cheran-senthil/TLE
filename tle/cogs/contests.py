@@ -497,7 +497,7 @@ class Contests(commands.Cog):
             embed.add_field(name='Deltas', value=ranklist.deltas_status)
         now = time.time()
         en = '\N{EN SPACE}'
-        if contest.phase == 'CODING':
+        if contest.end_time > now:
             elapsed = cf_common.pretty_time_format(
                 now - contest.startTimeSeconds, shorten=True
             )
