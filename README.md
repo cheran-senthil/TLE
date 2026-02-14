@@ -1,7 +1,6 @@
 # TLE ― The Competitive-Programming Discord Bot
 
-TLE is a feature-packed Discord bot aimed at competitive programmers
-(Codeforces, CSES, …).  
+TLE is a feature-packed Discord bot aimed at competitive programmers.
 It can recommend problems, show stats & graphs, run duels on your server
 and manage starboards – all with a single prefix `;`.
 
@@ -18,7 +17,6 @@ go.
 | **Contests** | shows upcoming & live contests |
 | **Graphs** | rating distributions, solved-set histograms, etc. |
 | **Handles** | link Discord users to CF handles |
-| **CSES** | CSES leaderboard, problem info |
 | **Starboard** | pins popular messages to a channel |
 | **CacheControl** | warm-up & manage local caches |
 
