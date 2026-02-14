@@ -1,21 +1,23 @@
 [project]
 name = "TLE"
 version = "0.1.0"
-requires-python = ">= 3.9"
+requires-python = ">= 3.10"
 dependencies = [
   # Discord bot core
   "discord.py == 1.7.3",
   "aiohttp < 3.8",
-  "aiocache",
+  "aiocache >= 0.12, < 1",
   # Data & plotting
-  "numpy",
-  "pandas",
-  "matplotlib",
-  "seaborn",
+  "numpy >= 1.24, < 3",
+  "pandas >= 2.0, < 3",
+  "matplotlib >= 3.7, < 4",
+  "seaborn >= 0.12, < 1",
   # Images
-  "pillow",
-  "pycairo",
-  "PyGObject"
+  "pillow >= 10.0, < 12",
+  "pycairo >= 1.24, < 2",
+  "PyGObject >= 3.42, < 4",
+  # Config
+  "python-dotenv >= 1.0, < 2",
 ]
 
 [project.optional-dependencies]

@@ -10,12 +10,12 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - name: Install Ruff
-        run: pip install ruff
+        run: pip install ruff==0.9.7
       - name: Run Ruff linting
         run: ruff check .
       - name: Run Ruff formatting check

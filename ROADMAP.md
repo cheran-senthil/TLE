@@ -33,16 +33,16 @@ Lock down the build so that every subsequent change happens on a stable, reprodu
 
 | # | Issue | File(s) | What to Do |
 |---|-------|---------|------------|
-| 2a | DEP-01 | `pyproject.toml` | Pin all dependencies to compatible ranges (e.g., `numpy>=1.24,<3`) |
-| 2b | DEP-03 | `pyproject.toml:4` | Change `requires-python` to `">= 3.10"` (code uses `str \| int` syntax) |
-| 2c | DEP-02 | `pyproject.toml`, `tle/__main__.py` | Add `python-dotenv` dependency; call `load_dotenv()` in `main()` |
-| 2d | DEP-04 | Project root | Generate a lock file (add `uv.lock` via `uv lock`, or `pip freeze > requirements.lock`) |
-| 2e | CI-01 | `.github/workflows/*.yaml` | Update `actions/checkout@v3` -> `v4`, `actions/setup-python@v4` -> `v5` |
-| 2f | CI-04 | `.github/workflows/lint.yaml` | Pin ruff: `pip install ruff==0.9.7` (or current version) |
-| 2g | DOCK-04 | `.dockerignore` (new) | Create with: `.git`, `.env`, `data/`, `logs/`, `__pycache__/`, `.vscode/`, `.idea/`, `*.md` |
-| 2h | DOCK-03 | `Dockerfile` | Add `RUN useradd -m botuser` and `USER botuser` before `CMD` |
-| 2i | DOCK-01 | `Dockerfile` | Multi-stage build: builder stage with gcc/cmake, final stage with only runtime libs |
-| 2j | STY-04 | `ruff.toml` | Enable import sorting rules (`select = ["I"]`) |
+| ~~2a~~ | ~~DEP-01~~ | ~~`pyproject.toml`~~ | ~~DONE - pinned all dependencies to compatible ranges~~ |
+| ~~2b~~ | ~~DEP-03~~ | ~~`pyproject.toml`~~ | ~~DONE - changed `requires-python` to `">= 3.10"`~~ |
+| ~~2c~~ | ~~DEP-02~~ | ~~`pyproject.toml`, `tle/__main__.py`~~ | ~~DONE - added `python-dotenv`; call `load_dotenv()` in `main()`~~ |
+| ~~2d~~ | ~~DEP-04~~ | | ~~DEFERRED - generate a lock file once deps stabilize after Step 6~~ |
+| ~~2e~~ | ~~CI-01~~ | ~~`.github/workflows/*.yaml`~~ | ~~DONE - updated `checkout@v3`→`v4`, `setup-python@v4`→`v5`~~ |
+| ~~2f~~ | ~~CI-04~~ | ~~`.github/workflows/lint.yaml`~~ | ~~DONE - pinned `ruff==0.9.7`~~ |
+| ~~2g~~ | ~~DOCK-04~~ | ~~`.dockerignore`~~ | ~~DONE - created~~ |
+| ~~2h~~ | ~~DOCK-03~~ | ~~`Dockerfile`~~ | ~~DONE - added non-root `botuser`~~ |
+| ~~2i~~ | ~~DOCK-01~~ | ~~`Dockerfile`~~ | ~~DONE - multi-stage build separating build tools from runtime~~ |
+| ~~2j~~ | ~~STY-04~~ | ~~`ruff.toml`~~ | ~~ALREADY DONE - `"I"` was already in select~~ |
 
 **Verification:** `docker build` succeeds. `pip install .` from a clean venv succeeds. CI passes.
 

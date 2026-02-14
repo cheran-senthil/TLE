@@ -9,6 +9,7 @@ from pathlib import Path
 import discord
 import seaborn as sns
 from discord.ext import commands
+from dotenv import load_dotenv
 from matplotlib import pyplot as plt
 
 from tle import constants
@@ -64,6 +65,8 @@ def strtobool(value: str) -> bool:
 
 
 def main():
+    load_dotenv()
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--nodb', action='store_true')
     args = parser.parse_args()

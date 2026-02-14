@@ -18,7 +18,6 @@ ignore = [
 "tle/util/db/__init__.py" = ["F403"]  # Star imports
 "tle/util/ranklist/__init__.py" = ["F403"]  # Star imports
 "tle/cogs/handles.py" = ["E402"]  # GTK requires version setting before import
-"tle/cogs/logging.py" = ["E722"]  # Intentional bare except in error handler
 "tle/util/events.py" = ["E722"]  # Intentional bare except in event error handler
 
 [format]
