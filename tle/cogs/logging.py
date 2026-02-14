@@ -58,7 +58,7 @@ class Logging(commands.Cog, logging.Handler):
                 await channel.send('```{}```'.format(msg))
                 if too_long:
                     await channel.send('`Check logs for full stack trace`')
-            except:
+            except Exception:
                 self.handleError(record)
 
     # logging.Handler overrides below.

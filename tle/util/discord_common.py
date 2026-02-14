@@ -100,7 +100,7 @@ async def bot_error_handler(ctx, exception):
 
 
 def once(func):
-    """Decorator that wraps a corouting asuch that it is executed only once."""
+    """Decorator that wraps a coroutine such that it is executed only once."""
     first = True
 
     @functools.wraps(func)
@@ -133,20 +133,18 @@ async def presence(bot):
     )
     await asyncio.sleep(60)
 
-    @tasks.task(name='OrzUpdate', waiter=tasks.Waiter.fixed_delay(5 * 60))
+    @tasks.task(name='OrzUpdate', waiter=tasks.Waiter.fixed_delay(10 * 60))
     async def presence_task(_):
-        while True:
-            target = random.choice(
-                [
-                    member
-                    for member in bot.get_all_members()
-                    if constants.TLE_PURGATORY
-                    not in {role.name for role in member.roles}
-                ]
-            )
-            await bot.change_presence(
-                activity=discord.Game(name=f'{target.display_name} orz')
-            )
-            await asyncio.sleep(10 * 60)
+        target = random.choice(
+            [
+                member
+                for member in bot.get_all_members()
+                if constants.TLE_PURGATORY
+                not in {role.name for role in member.roles}
+            ]
+        )
+        await bot.change_presence(
+            activity=discord.Game(name=f'{target.display_name} orz')
+        )
 
     presence_task.start()

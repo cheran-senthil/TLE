@@ -24,7 +24,8 @@ def git_history():
         env['LANGUAGE'] = 'C'
         env['LANG'] = 'C'
         env['LC_ALL'] = 'C'
-        out = subprocess.Popen(cmd, stdout=subprocess.PIPE, env=env).communicate()[0]
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, env=env)
+        out = proc.communicate(timeout=10)[0]
         return out
 
     try:

@@ -13,11 +13,11 @@ These are isolated, low-risk changes that fix real bugs. Each can be done and ve
 | # | Issue | File(s) | What to Do |
 |---|-------|---------|------------|
 | ~~1a~~ | ~~SEC-05~~ | ~~`tle/cogs/meta.py`~~ | ~~DONE - removed `restart` command (shell script no longer exists), replaced `os._exit(0)` with `await bot.close()` + `sys.exit(0)` in `kill`~~ |
-| 1b | SEC-03 | `tle/cogs/meta.py:28-43` | Add `timeout=10` to `communicate()` in `git_history()` |
-| 1c | CQ-04 | `tle/cogs/logging.py:61-62` | Replace bare `except: pass` with `except Exception: logger.debug(...)` |
-| 1d | CQ-07 | `tle/util/discord_common.py:138` | Remove the inner `while True` loop; let the task waiter handle repetition |
-| 1e | Constants bug | `tle/constants.py:23-27` | Change `ALL_DIRS` from generator expression to tuple (generator consumed once) |
-| 1f | CQ-06 | `tle/util/discord_common.py:103` | Fix docstring typo: "corouting asuch" -> "coroutine such" |
+| ~~1b~~ | ~~SEC-03~~ | ~~`tle/cogs/meta.py`~~ | ~~DONE - added `timeout=10` to `communicate()` in `git_history()`~~ |
+| ~~1c~~ | ~~CQ-04~~ | ~~`tle/cogs/logging.py`~~ | ~~DONE - replaced bare `except:` with `except Exception:`~~ |
+| ~~1d~~ | ~~CQ-07~~ | ~~`tle/util/discord_common.py`~~ | ~~DONE - removed inner `while True` loop; task waiter now controls repetition at 10m interval~~ |
+| ~~1e~~ | ~~Constants bug~~ | ~~`tle/constants.py`~~ | ~~DONE - changed `ALL_DIRS` from generator expression to `tuple()`~~ |
+| ~~1f~~ | ~~CQ-06~~ | ~~`tle/util/discord_common.py`~~ | ~~DONE - fixed docstring typo~~ |
 | ~~1g~~ | ~~CSES session~~ | ~~`tle/util/cses_scraper.py`~~ | ~~DONE - deleted~~ |
 | ~~1h~~ | ~~CQ-05~~ | ~~`tle/cogs/deactivated/`~~ | ~~DONE - deleted~~ |
 
