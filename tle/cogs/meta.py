@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 import textwrap
 import time
 
@@ -7,8 +8,6 @@ from discord.ext import commands
 
 from tle import constants
 from tle.util.codeforces_common import pretty_time_format
-
-RESTART = 42
 
 
 # Adapted from numpy sources.
@@ -53,21 +52,13 @@ class Meta(commands.Cog):
         """Command the bot or get information about the bot."""
         await ctx.send_help(ctx.command)
 
-    @meta.command(brief='Restarts TLE')
-    @commands.has_role(constants.TLE_ADMIN)
-    async def restart(self, ctx):
-        """Restarts the bot."""
-        # Really, we just exit with a special code
-        # the magic is handled elsewhere
-        await ctx.send('Restarting...')
-        os._exit(RESTART)
-
     @meta.command(brief='Kill TLE')
     @commands.has_role(constants.TLE_ADMIN)
     async def kill(self, ctx):
-        """Restarts the bot."""
-        await ctx.send('Dying...')
-        os._exit(0)
+        """Shuts down the bot gracefully."""
+        await ctx.send('Shutting down...')
+        await self.bot.close()
+        sys.exit(0)
 
     @meta.command(brief='Is TLE up?')
     async def ping(self, ctx):

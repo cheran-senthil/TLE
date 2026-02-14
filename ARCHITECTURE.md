@@ -147,7 +147,7 @@ def setup(bot):
 | **Graphs** | 13 | Rating plots, solve history, distributions, country comparisons |
 | **Handles** | 17 | Handle linking, role management, rank updates, trusted roles |
 | **Logging** | 0 | Background log handler sending warnings to a Discord channel |
-| **Meta** | 6 | Bot control: restart, kill, ping, git info, uptime, guild list |
+| **Meta** | 5 | Bot control: kill, ping, git info, uptime, guild list |
 | **Starboard** | 7 | Multi-emoji reaction archival with configurable thresholds |
 
 ### 3. Cache System (`tle/util/cache_system2.py`)

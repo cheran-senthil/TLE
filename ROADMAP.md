@@ -12,7 +12,7 @@ These are isolated, low-risk changes that fix real bugs. Each can be done and ve
 
 | # | Issue | File(s) | What to Do |
 |---|-------|---------|------------|
-| 1a | SEC-05 | `tle/cogs/meta.py:63,70` | Replace `os._exit(42)` and `os._exit(0)` with `await bot.close()` + `sys.exit()` |
+| ~~1a~~ | ~~SEC-05~~ | ~~`tle/cogs/meta.py`~~ | ~~DONE - removed `restart` command (shell script no longer exists), replaced `os._exit(0)` with `await bot.close()` + `sys.exit(0)` in `kill`~~ |
 | 1b | SEC-03 | `tle/cogs/meta.py:28-43` | Add `timeout=10` to `communicate()` in `git_history()` |
 | 1c | CQ-04 | `tle/cogs/logging.py:61-62` | Replace bare `except: pass` with `except Exception: logger.debug(...)` |
 | 1d | CQ-07 | `tle/util/discord_common.py:138` | Remove the inner `while True` loop; let the task waiter handle repetition |
