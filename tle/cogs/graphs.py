@@ -381,7 +381,7 @@ class Graphs(commands.Cog):
         packed_contest_subs_problemset = [
             (
                 cf_common.cache2.contest_cache.get_contest(contest_id),
-                cf_common.cache2.problemset_cache.get_problemset(contest_id),
+                await cf_common.cache2.problemset_cache.get_problemset(contest_id),
                 subs_by_contest_id[contest_id],
             )
             for contest_id in contest_ids
@@ -803,7 +803,7 @@ class Graphs(commands.Cog):
                 role.name for role in member.roles
             }
 
-        res = cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)
+        res = await cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)
         ratings = [
             cf_user.rating
             for user_id, cf_user in res
@@ -835,7 +835,7 @@ class Graphs(commands.Cog):
         time_cutoff = (
             int(time.time()) - CONTEST_ACTIVE_TIME_CUTOFF if activity == 'active' else 0
         )
-        handles = (
+        handles = await (
             cf_common.cache2.rating_changes_cache.get_users_with_more_than_n_contests(
                 time_cutoff, contest_cutoff
             )
@@ -985,7 +985,8 @@ class Graphs(commands.Cog):
         # shift the [-300, 300] gitgud range to center the text
         hist_bins = list(range(-300 - 50, 300 + 50 + 1, 100))
         deltas = [
-            [x[0] for x in cf_common.user_db.howgud(member.id)] for member in members
+            [x[0] for x in await cf_common.user_db.howgud(member.id)]
+            for member in members
         ]
         labels = [
             gc.StrWrap(f'{member.display_name}: {len(delta)}')
@@ -1017,7 +1018,7 @@ class Graphs(commands.Cog):
         if len(countries) > max_countries:
             raise GraphCogError(f'At most {max_countries} countries may be specified.')
 
-        users = cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)
+        users = await cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)
         counter = collections.Counter(user.country for _, user in users if user.country)
 
         if not countries:
@@ -1132,7 +1133,7 @@ class Graphs(commands.Cog):
         if in_server:
             guild_handles = set(
                 handle
-                for discord_id, handle in cf_common.user_db.get_handles_for_guild(
+                for discord_id, handle in await cf_common.user_db.get_handles_for_guild(
                     ctx.guild.id
                 )
             )

@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 from matplotlib import pyplot as plt
 
 from tle import constants
-from tle.util import codeforces_common as cf_common, discord_common, font_downloader
+from tle.util import codeforces_common as cf_common, db, discord_common, font_downloader
 
 
 def setup():
@@ -107,6 +107,22 @@ def main():
         asyncio.create_task(discord_common.presence(bot))
 
     bot.add_listener(discord_common.bot_error_handler, name='on_command_error')
+
+    # Close database connections on bot shutdown.
+    original_close = bot.close
+
+    async def close_with_cleanup():
+        try:
+            if cf_common.user_db is not None:
+                await cf_common.user_db.close()
+        except db.DatabaseDisabledError:
+            pass
+        if cf_common.cache2 is not None:
+            await cf_common.cache2.conn.close()
+        await original_close()
+
+    bot.close = close_with_cleanup
+
     bot.run(token)
 
 

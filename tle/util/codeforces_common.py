@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import functools
 import itertools
@@ -27,8 +28,15 @@ event_sys = events.EventSystem()
 _contest_id_to_writers_map = None
 
 _initialize_done = False
+_initialize_event = None
 
 active_groups = defaultdict(set)
+
+
+async def wait_for_initialize():
+    """Block until cf_common.initialize() has completed."""
+    if _initialize_event is not None:
+        await _initialize_event.wait()
 
 
 async def initialize(nodb):
@@ -37,11 +45,14 @@ async def initialize(nodb):
     global event_sys
     global _contest_id_to_writers_map
     global _initialize_done
+    global _initialize_event
 
     if _initialize_done:
         # This happens if the bot loses connection to Discord and on_ready is
         # triggered again when it reconnects.
         return
+
+    _initialize_event = asyncio.Event()
 
     await cf.initialize()
 
@@ -49,8 +60,10 @@ async def initialize(nodb):
         user_db = db.DummyUserDbConn()
     else:
         user_db = db.UserDbConn(constants.USER_DB_FILE_PATH)
+        await user_db.connect()
 
     cache_db = db.CacheDbConn(constants.CACHE_DB_FILE_PATH)
+    await cache_db.connect()
     cache2 = cache_system2.CacheSystem(cache_db)
     await cache2.run()
 
@@ -65,6 +78,7 @@ async def initialize(nodb):
         logger.warning('JSON file containing contest writers not found')
 
     _initialize_done = True
+    _initialize_event.set()
 
 
 # algmyr's guard idea:
@@ -258,7 +272,8 @@ async def resolve_handles(
     if '+server' in handles:
         handles.remove('+server')
         guild_handles = {
-            handle for discord_id, handle in user_db.get_handles_for_guild(ctx.guild.id)
+            handle
+            for discord_id, handle in await user_db.get_handles_for_guild(ctx.guild.id)
         }
         handles.update(guild_handles)
     if len(handles) < mincnt or (maxcnt and maxcnt < len(handles)):
@@ -276,7 +291,7 @@ async def resolve_handles(
                 member = await converter.convert(ctx, member_identifier)
             except commands.errors.CommandError:
                 raise FindMemberFailedError(member_identifier)
-            handle = user_db.get_handle(member.id, ctx.guild.id)
+            handle = await user_db.get_handle(member.id, ctx.guild.id)
             if handle is None:
                 raise HandleNotRegisteredError(member)
         if handle in HandleIsVjudgeError.HANDLES:
@@ -285,10 +300,10 @@ async def resolve_handles(
     return resolved_handles
 
 
-def members_to_handles(members: [discord.Member], guild_id):
+async def members_to_handles(members: [discord.Member], guild_id):
     handles = []
     for member in members:
-        handle = user_db.get_handle(member.id, guild_id)
+        handle = await user_db.get_handle(member.id, guild_id)
         if handle is None:
             raise HandleNotRegisteredError(member)
         handles.append(handle)

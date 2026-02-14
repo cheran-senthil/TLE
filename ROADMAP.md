@@ -56,15 +56,15 @@ This is the single highest-impact change for bot responsiveness. It's self-conta
 
 | # | Issue | File(s) | What to Do |
 |---|-------|---------|------------|
-| 3a | CRIT-03 | `tle/util/db/user_db_conn.py` | Replace `sqlite3` with `aiosqlite`. Make all methods `async`. Update all callers to `await`. |
-| 3b | CRIT-03 | `tle/util/db/cache_db_conn.py` | Same as 3a for the cache database |
-| 3c | DB-02 | `user_db_conn.py` | Standardize all writes to use `async with conn:` context manager (replaces manual commit/rollback) |
-| 3d | SEC-01 | `user_db_conn.py:401-453,714-764` | Replace all f-string SQL interpolation with parameterized `?` placeholders |
-| 3e | SEC-02 | `user_db_conn.py:292-308` | Add allowlist validation in `_insert_one`/`_insert_many` for table/column names |
-| 3f | DB-04 | `user_db_conn.py:310-320` | Stop mutating `conn.row_factory` in `_fetchone`/`_fetchall`; use cursor-level factory |
-| 3g | DB-03 | `user_db_conn.py:65` | Make `namedtuple_factory` raise on non-identifier columns instead of silently dropping |
-| 3h | DB-05 | `user_db_conn.py` | Standardize all `user_id` columns to INTEGER type (add migration for `user_handle`) |
-| 3i | DB-06 | `tle/__main__.py`, `tle/cogs/meta.py` | Register `user_db.close()` in bot cleanup (on graceful shutdown) |
+| ~~3a~~ | ~~CRIT-03~~ | ~~`tle/util/db/user_db_conn.py`~~ | ~~DONE - Replaced `sqlite3` with `aiosqlite`. All methods async. All callers updated to `await`.~~ |
+| ~~3b~~ | ~~CRIT-03~~ | ~~`tle/util/db/cache_db_conn.py`~~ | ~~DONE - Same as 3a for the cache database~~ |
+| ~~3c~~ | ~~DB-02~~ | ~~`user_db_conn.py`~~ | ~~DONE - Methods with conditional rollback kept explicit; simple writes use `async with conn:`~~ |
+| ~~3d~~ | ~~SEC-01~~ | ~~`user_db_conn.py`~~ | ~~DONE - Replaced all f-string SQL interpolation with parameterized `?` placeholders~~ |
+| ~~3e~~ | ~~SEC-02~~ | ~~`user_db_conn.py`~~ | ~~DONE - Added `_VALID_TABLES` and `_VALID_COLUMNS` allowlist validation in `_insert_one`/`_insert_many`~~ |
+| ~~3f~~ | ~~DB-04~~ | ~~`user_db_conn.py`~~ | ~~DONE - Cursor-level `row_factory` instead of mutating `conn.row_factory`~~ |
+| ~~3g~~ | ~~DB-03~~ | ~~`user_db_conn.py`~~ | ~~DONE - `namedtuple_factory` raises `ValueError` on non-identifier columns~~ |
+| 3h | DB-05 | `user_db_conn.py` | DEFERRED - Standardize `user_id` TEXT→INTEGER (schema-breaking, moved to Step 9) |
+| ~~3i~~ | ~~DB-06~~ | ~~`tle/__main__.py`~~ | ~~DONE - Registered `user_db.close()` and `cache_db.close()` in bot shutdown cleanup~~ |
 
 **Verification:** All bot commands still work. Database reads/writes succeed. No event loop blocking warnings.
 
@@ -121,7 +121,7 @@ This is the largest single change. Having tests from Step 5 and clean architectu
 | 6a | CRIT-01 | `pyproject.toml` | Update `discord.py == 1.7.3` to `discord.py >= 2.3, < 3` |
 | 6b | CRIT-02 | `pyproject.toml` | Remove `aiohttp < 3.8` pin |
 | 6c | DPY-05 | `tle/__main__.py` | Add `intents.message_content = True` |
-| 6d | DPY-04 | `tle/__main__.py` | Move `bot.load_extension()` calls into `async def setup_hook()` on the bot |
+| 6d | DPY-04 | `tle/__main__.py`, `tle/util/codeforces_common.py`, cog `on_ready` handlers | Move `bot.load_extension()` and `cf_common.initialize()` into `async def setup_hook()` on the bot. This guarantees initialization completes before `on_ready` fires, so remove the `wait_for_initialize()` workaround added in Step 3 (`_initialize_event`, `wait_for_initialize()` in `codeforces_common.py`, and the `await cf_common.wait_for_initialize()` calls in `contests.py` and `handles.py` `on_ready`). |
 | 6e | DPY-03 | All cog files | Change `def setup(bot)` to `async def setup(bot)`, `bot.add_cog()` to `await bot.add_cog()` |
 | 6f | DPY-01 | `tle/util/discord_common.py:50` | Change `user.avatar_url` to `user.display_avatar.url` |
 | 6g | DPY-02 | `tle/util/discord_common.py:19` | Change `discord.Embed.Empty` to `None` |

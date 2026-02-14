@@ -108,12 +108,12 @@ async def _send_reminder_at(channel, role, contests, before_secs, send_time):
     await channel.send(role.mention, embed=embed)
 
 
-def _get_ongoing_vc_participants():
+async def _get_ongoing_vc_participants():
     """Returns `member_id` of users who are registered in an ongoing vc."""
-    ongoing_vc_ids = cf_common.user_db.get_ongoing_rated_vc_ids()
+    ongoing_vc_ids = await cf_common.user_db.get_ongoing_rated_vc_ids()
     ongoing_vc_participants = set()
     for vc_id in ongoing_vc_ids:
-        vc_participants = set(cf_common.user_db.get_rated_vc_user_ids(vc_id))
+        vc_participants = set(await cf_common.user_db.get_rated_vc_user_ids(vc_id))
         ongoing_vc_participants |= vc_participants
     return ongoing_vc_participants
 
@@ -136,6 +136,7 @@ class Contests(commands.Cog):
     @commands.Cog.listener()
     @discord_common.once
     async def on_ready(self):
+        await cf_common.wait_for_initialize()
         self._update_task.start()
         self._watch_rated_vcs_task.start()
 
@@ -165,13 +166,13 @@ class Contests(commands.Cog):
             if not cf_common.is_nonstandard_contest(contest):
                 # Exclude non-standard contests from reminders.
                 self.start_time_map[contest.startTimeSeconds].append(contest)
-        self._reschedule_all_tasks()
+        await self._reschedule_all_tasks()
 
-    def _reschedule_all_tasks(self):
+    async def _reschedule_all_tasks(self):
         for guild in self.bot.guilds:
-            self._reschedule_tasks(guild.id)
+            await self._reschedule_tasks(guild.id)
 
-    def _reschedule_tasks(self, guild_id):
+    async def _reschedule_tasks(self, guild_id):
         for task in self.task_map[guild_id]:
             task.cancel()
         self.task_map[guild_id].clear()
@@ -179,7 +180,7 @@ class Contests(commands.Cog):
         if not self.start_time_map:
             return
         try:
-            settings = cf_common.user_db.get_reminder_settings(guild_id)
+            settings = await cf_common.user_db.get_reminder_settings(guild_id)
         except db.DatabaseDisabledError:
             return
         if settings is None:
@@ -276,25 +277,25 @@ class Contests(commands.Cog):
         if not before or any(before_mins <= 0 for before_mins in before):
             raise ContestCogError('Please provide valid `before` values')
         before = sorted(before, reverse=True)
-        cf_common.user_db.set_reminder_settings(
+        await cf_common.user_db.set_reminder_settings(
             ctx.guild.id, ctx.channel.id, role.id, json.dumps(before)
         )
         await ctx.send(
             embed=discord_common.embed_success('Reminder settings saved successfully')
         )
-        self._reschedule_tasks(ctx.guild.id)
+        await self._reschedule_tasks(ctx.guild.id)
 
     @remind.command(brief='Clear all reminder settings')
     @commands.has_role(constants.TLE_ADMIN)
     async def clear(self, ctx):
-        cf_common.user_db.clear_reminder_settings(ctx.guild.id)
+        await cf_common.user_db.clear_reminder_settings(ctx.guild.id)
         await ctx.send(embed=discord_common.embed_success('Reminder settings cleared'))
-        self._reschedule_tasks(ctx.guild.id)
+        await self._reschedule_tasks(ctx.guild.id)
 
     @remind.command(brief='Show reminder settings')
     async def settings(self, ctx):
         """Shows the role, channel and before time settings."""
-        settings = cf_common.user_db.get_reminder_settings(ctx.guild.id)
+        settings = await cf_common.user_db.get_reminder_settings(ctx.guild.id)
         if settings is None:
             await ctx.send(embed=discord_common.embed_neutral('Reminder not set'))
             return
@@ -315,8 +316,8 @@ class Contests(commands.Cog):
         await ctx.send(embed=embed)
 
     @staticmethod
-    def _get_remind_role(guild):
-        settings = cf_common.user_db.get_reminder_settings(guild.id)
+    async def _get_remind_role(guild):
+        settings = await cf_common.user_db.get_reminder_settings(guild.id)
         if settings is None:
             raise ContestCogError('Reminders are not enabled.')
         _, role_id, _ = settings
@@ -330,7 +331,7 @@ class Contests(commands.Cog):
         """Subscribes you to contest reminders. Use ';remind settings' to see
         the current settings.
         """
-        role = self._get_remind_role(ctx.guild)
+        role = await self._get_remind_role(ctx.guild)
         if role in ctx.author.roles:
             embed = discord_common.embed_neutral(
                 'You are already subscribed to contest reminders'
@@ -347,7 +348,7 @@ class Contests(commands.Cog):
     @remind.command(brief='Unsubscribe from contest reminders')
     async def off(self, ctx):
         """Unsubscribes you from contest reminders."""
-        role = self._get_remind_role(ctx.guild)
+        role = await self._get_remind_role(ctx.guild)
         if role not in ctx.author.roles:
             embed = discord_common.embed_neutral(
                 'You are not subscribed to contest reminders'
@@ -630,7 +631,7 @@ class Contests(commands.Cog):
         brief='Start a rated vc.', usage='<contest_id> <@user1 @user2 ...>'
     )
     async def ratedvc(self, ctx, contest_id: int, *members: discord.Member):
-        ratedvc_channel_id = cf_common.user_db.get_rated_vc_channel(ctx.guild.id)
+        ratedvc_channel_id = await cf_common.user_db.get_rated_vc_channel(ctx.guild.id)
         if not ratedvc_channel_id or ctx.channel.id != ratedvc_channel_id:
             raise ContestCogError('You must use this command in ratedvc channel.')
         if not members:
@@ -648,7 +649,7 @@ class Contests(commands.Cog):
             )
             raise ContestCogError(error)
 
-        ongoing_vc_member_ids = _get_ongoing_vc_participants()
+        ongoing_vc_member_ids = await _get_ongoing_vc_participants()
         this_vc_member_ids = {str(member.id) for member in members}
         intersection = this_vc_member_ids & ongoing_vc_member_ids
         if intersection:
@@ -661,7 +662,7 @@ class Contests(commands.Cog):
             error = f'{busy_members} are registered in ongoing ratedvcs.'
             raise ContestCogError(error)
 
-        handles = cf_common.members_to_handles(members, ctx.guild.id)
+        handles = await cf_common.members_to_handles(members, ctx.guild.id)
         visited_contests = await cf_common.get_visited_contests(handles)
         if contest_id in visited_contests:
             raise ContestCogError(
@@ -670,7 +671,7 @@ class Contests(commands.Cog):
             )
         start_time = time.time()
         finish_time = start_time + contest.durationSeconds + _RATED_VC_EXTRA_TIME
-        cf_common.user_db.create_rated_vc(
+        await cf_common.user_db.create_rated_vc(
             contest_id,
             start_time,
             finish_time,
@@ -694,10 +695,10 @@ class Contests(commands.Cog):
         await ctx.send(embed=embed)
 
     @staticmethod
-    def _make_vc_rating_changes_embed(guild, contest_id, change_by_handle):
+    async def _make_vc_rating_changes_embed(guild, contest_id, change_by_handle):
         """Make an embed containing a list of rank changes and rating changes for ratedvc participants."""  # noqa: E501
         contest = cf_common.cache2.contest_cache.get_contest(contest_id)
-        user_id_handle_pairs = cf_common.user_db.get_handles_for_guild(guild.id)
+        user_id_handle_pairs = await cf_common.user_db.get_handles_for_guild(guild.id)
         member_handle_pairs = [
             (guild.get_member(int(user_id)), handle)
             for user_id, handle in user_id_handle_pairs
@@ -718,7 +719,7 @@ class Contests(commands.Cog):
 
         rank_changes_str = []
         for member, change in member_change_pairs:
-            if len(cf_common.user_db.get_vc_rating_history(member.id)) == 1:
+            if len(await cf_common.user_db.get_vc_rating_history(member.id)) == 1:
                 # If this is the user's first rated contest.
                 old_role = 'Unrated'
             else:
@@ -750,14 +751,14 @@ class Contests(commands.Cog):
         return embed
 
     async def _watch_rated_vc(self, vc_id: int):
-        vc = cf_common.user_db.get_rated_vc(vc_id)
-        channel_id = cf_common.user_db.get_rated_vc_channel(vc.guild_id)
+        vc = await cf_common.user_db.get_rated_vc(vc_id)
+        channel_id = await cf_common.user_db.get_rated_vc_channel(vc.guild_id)
         if channel_id is None:
             raise ContestCogError('No Rated VC channel')
         channel = self.bot.get_channel(int(channel_id))
-        member_ids = cf_common.user_db.get_rated_vc_user_ids(vc_id)
+        member_ids = await cf_common.user_db.get_rated_vc_user_ids(vc_id)
         handles = [
-            cf_common.user_db.get_handle(member_id, channel.guild.id)
+            await cf_common.user_db.get_handle(member_id, channel.guild.id)
             for member_id in member_ids
         ]
         handle_to_member_id = {
@@ -807,17 +808,17 @@ class Contests(commands.Cog):
         for handle, member_id in zip(handles, member_ids, strict=False):
             delta = ranklist.delta_by_handle.get(handle)
             if delta is None:  # The user did not participate.
-                cf_common.user_db.remove_last_ratedvc_participation(member_id)
+                await cf_common.user_db.remove_last_ratedvc_participation(member_id)
                 continue
-            old_rating = cf_common.user_db.get_vc_rating(member_id)
+            old_rating = await cf_common.user_db.get_vc_rating(member_id)
             new_rating = old_rating + delta
             rating_change_by_handle[handle] = RatingChange(
                 handle=handle, oldRating=old_rating, newRating=new_rating
             )
-            cf_common.user_db.update_vc_rating(vc_id, member_id, new_rating)
-        cf_common.user_db.finish_rated_vc(vc_id)
+            await cf_common.user_db.update_vc_rating(vc_id, member_id, new_rating)
+        await cf_common.user_db.finish_rated_vc(vc_id)
         await channel.send(
-            embed=self._make_vc_rating_changes_embed(
+            embed=await self._make_vc_rating_changes_embed(
                 channel.guild, vc.contest_id, rating_change_by_handle
             )
         )
@@ -830,7 +831,7 @@ class Contests(commands.Cog):
         waiter=tasks.Waiter.fixed_delay(_WATCHING_RATED_VC_WAIT_TIME),
     )
     async def _watch_rated_vcs_task(self, _):
-        ongoing_rated_vcs = cf_common.user_db.get_ongoing_rated_vc_ids()
+        ongoing_rated_vcs = await cf_common.user_db.get_ongoing_rated_vc_ids()
         if ongoing_rated_vcs is None:
             return
         for rated_vc_id in ongoing_rated_vcs:
@@ -842,10 +843,10 @@ class Contests(commands.Cog):
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
     async def _unregistervc(self, ctx, user: discord.Member):
         """Unregister this user from an ongoing ratedvc."""
-        ongoing_vc_member_ids = _get_ongoing_vc_participants()
+        ongoing_vc_member_ids = await _get_ongoing_vc_participants()
         if str(user.id) not in ongoing_vc_member_ids:
             raise ContestCogError(f'{user.mention} has no ongoing ratedvc!')
-        cf_common.user_db.remove_last_ratedvc_participation(user.id)
+        await cf_common.user_db.remove_last_ratedvc_participation(user.id)
         await ctx.send(
             embed=discord_common.embed_success(
                 f'Successfully unregistered {user.mention} from the ongoing vc.'
@@ -856,7 +857,7 @@ class Contests(commands.Cog):
     @commands.has_role(constants.TLE_ADMIN)
     async def set_ratedvc_channel(self, ctx):
         """Sets the rated vc channel to the current channel."""
-        cf_common.user_db.set_rated_vc_channel(ctx.guild.id, ctx.channel.id)
+        await cf_common.user_db.set_rated_vc_channel(ctx.guild.id, ctx.channel.id)
         await ctx.send(
             embed=discord_common.embed_success('Rated VC channel saved successfully')
         )
@@ -864,7 +865,7 @@ class Contests(commands.Cog):
     @commands.command(brief='Get the rated vc channel')
     async def get_ratedvc_channel(self, ctx):
         """Gets the rated vc channel."""
-        channel_id = cf_common.user_db.get_rated_vc_channel(ctx.guild.id)
+        channel_id = await cf_common.user_db.get_rated_vc_channel(ctx.guild.id)
         channel = ctx.guild.get_channel(channel_id)
         if channel is None:
             raise ContestCogError('There is no rated vc channel')
@@ -874,16 +875,15 @@ class Contests(commands.Cog):
 
     @commands.command(brief='Show vc ratings')
     async def vcratings(self, ctx):
-        users = [
-            (
-                await self.member_converter.convert(ctx, str(member_id)),
-                handle,
-                cf_common.user_db.get_vc_rating(member_id, default_if_not_exist=False),
+        users = []
+        for member_id, handle in await cf_common.user_db.get_handles_for_guild(
+            ctx.guild.id
+        ):
+            member = await self.member_converter.convert(ctx, str(member_id))
+            rating = await cf_common.user_db.get_vc_rating(
+                member_id, default_if_not_exist=False
             )
-            for member_id, handle in cf_common.user_db.get_handles_for_guild(
-                ctx.guild.id
-            )
-        ]
+            users.append((member, handle, rating))
         # Filter only rated users. (Those who entered at least one rated vc.)
         users = [
             (member, handle, rating)
@@ -937,11 +937,11 @@ class Contests(commands.Cog):
         max_rating = 1800
 
         for member in members:
-            rating_history = cf_common.user_db.get_vc_rating_history(member.id)
+            rating_history = await cf_common.user_db.get_vc_rating_history(member.id)
             if not rating_history:
                 raise ContestCogError(f'{member.mention} has no vc history.')
             for vc_id, rating in rating_history:
-                vc = cf_common.user_db.get_rated_vc(vc_id)
+                vc = await cf_common.user_db.get_rated_vc(vc_id)
                 date = dt.datetime.fromtimestamp(vc.finish_time)
                 plot_data[member.display_name].append((date, rating))
                 min_rating = min(min_rating, rating)

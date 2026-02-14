@@ -40,7 +40,7 @@ class Codeforces(commands.Cog):
             )
 
         user_id = ctx.message.author.id
-        active = cf_common.user_db.check_challenge(user_id)
+        active = await cf_common.user_db.check_challenge(user_id)
         if active is not None:
             _, _, name, contest_id, index, _ = active
             url = f'{cf.CONTEST_BASE_URL}{contest_id}/problem/{index}'
@@ -52,7 +52,7 @@ class Codeforces(commands.Cog):
         user_id = ctx.author.id
 
         issue_time = datetime.datetime.now().timestamp()
-        rc = cf_common.user_db.new_challenge(user_id, issue_time, problem, delta)
+        rc = await cf_common.user_db.new_challenge(user_id, issue_time, problem, delta)
         if rc != 1:
             raise CodeforcesCogError(
                 'Your challenge has already been added to the database!'
@@ -75,7 +75,7 @@ class Codeforces(commands.Cog):
         (handle,) = await cf_common.resolve_handles(
             ctx, self.converter, ('!' + str(ctx.author),)
         )
-        user = cf_common.user_db.fetch_cf_user(handle)
+        user = await cf_common.user_db.fetch_cf_user(handle)
         rating = round(user.effective_rating, -2)
         resp = await cf.user.rating(handle=handle)
         contests = {change.contestId for change in resp}
@@ -117,7 +117,8 @@ class Codeforces(commands.Cog):
         (handle,) = await cf_common.resolve_handles(
             ctx, self.converter, ('!' + str(ctx.author),)
         )
-        rating = round(cf_common.user_db.fetch_cf_user(handle).effective_rating, -2)
+        cf_user = await cf_common.user_db.fetch_cf_user(handle)
+        rating = round(cf_user.effective_rating, -2)
         tags = cf_common.parse_tags(args, prefix='+')
         bantags = cf_common.parse_tags(args, prefix='~')
         rating = cf_common.parse_rating(args, rating)
@@ -282,11 +283,11 @@ class Codeforces(commands.Cog):
         (handle,) = await cf_common.resolve_handles(
             ctx, self.converter, ('!' + str(ctx.author),)
         )
-        user = cf_common.user_db.fetch_cf_user(handle)
+        user = await cf_common.user_db.fetch_cf_user(handle)
         rating = round(user.effective_rating, -2)
         submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions}
-        noguds = cf_common.user_db.get_noguds(ctx.message.author.id)
+        noguds = await cf_common.user_db.get_noguds(ctx.message.author.id)
 
         problems = [
             prob
@@ -342,7 +343,7 @@ class Codeforces(commands.Cog):
             return message, embed
 
         member = member or ctx.author
-        data = cf_common.user_db.gitlog(member.id)
+        data = await cf_common.user_db.gitlog(member.id)
         if not data:
             raise CodeforcesCogError(f'{member.mention} has no gitgud history.')
 
@@ -358,7 +359,7 @@ class Codeforces(commands.Cog):
             ctx, self.converter, ('!' + str(ctx.author),)
         )
         user_id = ctx.message.author.id
-        active = cf_common.user_db.check_challenge(user_id)
+        active = await cf_common.user_db.check_challenge(user_id)
         if not active:
             raise CodeforcesCogError('You do not have an active challenge')
 
@@ -371,7 +372,7 @@ class Codeforces(commands.Cog):
 
         delta = _GITGUD_SCORE_DISTRIB[delta // 100 + 3]
         finish_time = int(datetime.datetime.now().timestamp())
-        rc = cf_common.user_db.complete_challenge(
+        rc = await cf_common.user_db.complete_challenge(
             user_id, challenge_id, finish_time, delta
         )
         if rc == 1:
@@ -387,7 +388,7 @@ class Codeforces(commands.Cog):
     async def nogud(self, ctx):
         await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
         user_id = ctx.message.author.id
-        active = cf_common.user_db.check_challenge(user_id)
+        active = await cf_common.user_db.check_challenge(user_id)
         if not active:
             raise CodeforcesCogError('You do not have an active challenge')
 
@@ -399,15 +400,17 @@ class Codeforces(commands.Cog):
             )
             await ctx.send(f'Think more. You can skip your challenge in {skip_time}.')
             return
-        cf_common.user_db.skip_challenge(user_id, challenge_id, Gitgud.NOGUD)
+        await cf_common.user_db.skip_challenge(user_id, challenge_id, Gitgud.NOGUD)
         await ctx.send('Challenge skipped.')
 
     @commands.command(brief='Force skip a challenge')
     @cf_common.user_guard(group='gitgud')
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
     async def _nogud(self, ctx, member: discord.Member):
-        active = cf_common.user_db.check_challenge(member.id)
-        rc = cf_common.user_db.skip_challenge(member.id, active[0], Gitgud.FORCED_NOGUD)
+        active = await cf_common.user_db.check_challenge(member.id)
+        rc = await cf_common.user_db.skip_challenge(
+            member.id, active[0], Gitgud.FORCED_NOGUD
+        )
         if rc == 1:
             await ctx.send('Challenge skip forced.')
         else:
@@ -518,7 +521,9 @@ class Codeforces(commands.Cog):
             num_solved = len(subs_by_contest_id[contest.id])
             try:
                 num_problems = len(
-                    cf_common.cache2.problemset_cache.get_problemset(contest.id)
+                    await cf_common.cache2.problemset_cache.get_problemset(
+                        contest.id
+                    )
                 )
                 if 0 < num_solved < num_problems:
                     contest_unsolved_pairs.append((contest, num_solved, num_problems))
@@ -584,7 +589,7 @@ class Codeforces(commands.Cog):
             return user.maxRating if peak else user.rating
 
         if is_entire_server:
-            res = cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)
+            res = await cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)
             ratings = [
                 (rating(user), 1) for user_id, user in res if user.rating is not None
             ]

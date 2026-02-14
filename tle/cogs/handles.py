@@ -280,30 +280,30 @@ class Handles(commands.Cog):
     @commands.Cog.listener()
     @discord_common.once
     async def on_ready(self):
+        await cf_common.wait_for_initialize()
         cf_common.event_sys.add_listener(self._on_rating_changes)
         self._set_ex_users_inactive_task.start()
 
     @commands.Cog.listener()
     async def on_member_remove(self, member):
-        cf_common.user_db.set_inactive([(member.guild.id, member.id)])
+        await cf_common.user_db.set_inactive([(member.guild.id, member.id)])
 
     @commands.command(brief='update status, mark guild members as active')
     @commands.has_role(constants.TLE_ADMIN)
     async def _updatestatus(self, ctx):
         gid = ctx.guild.id
         active_ids = [m.id for m in ctx.guild.members]
-        cf_common.user_db.reset_status(gid)
-        rc = sum(
-            cf_common.user_db.update_status(gid, chunk)
-            for chunk in paginator.chunkify(active_ids, 100)
-        )
+        await cf_common.user_db.reset_status(gid)
+        rc = 0
+        for chunk in paginator.chunkify(active_ids, 100):
+            rc += await cf_common.user_db.update_status(gid, chunk)
         await ctx.send(f'{rc} members active with handle')
 
     @commands.Cog.listener()
     async def on_member_join(self, member):
-        rc = cf_common.user_db.update_status(member.guild.id, [member.id])
+        rc = await cf_common.user_db.update_status(member.guild.id, [member.id])
         if rc == 1:
-            handle = cf_common.user_db.get_handle(member.id, member.guild.id)
+            handle = await cf_common.user_db.get_handle(member.id, member.guild.id)
             await self._update_ranks(member.guild, [(int(member.id), handle)])
 
     @tasks.task_spec(
@@ -314,13 +314,15 @@ class Handles(commands.Cog):
         # To set users inactive in case the bot was dead when they left.
         to_set_inactive = []
         for guild in self.bot.guilds:
-            user_id_handle_pairs = cf_common.user_db.get_handles_for_guild(guild.id)
+            user_id_handle_pairs = (
+                await cf_common.user_db.get_handles_for_guild(guild.id)
+            )
             to_set_inactive += [
                 (guild.id, user_id)
                 for user_id, _ in user_id_handle_pairs
                 if guild.get_member(user_id) is None
             ]
-        cf_common.user_db.set_inactive(to_set_inactive)
+        await cf_common.user_db.set_inactive(to_set_inactive)
 
     @events.listener_spec(
         name='RatingChangesListener',
@@ -332,14 +334,16 @@ class Handles(commands.Cog):
         change_by_handle = {change.handle: change for change in changes}
 
         async def update_for_guild(guild):
-            if cf_common.user_db.has_auto_role_update_enabled(guild.id):
+            if await cf_common.user_db.has_auto_role_update_enabled(guild.id):
                 with contextlib.suppress(HandleCogError):
                     await self._update_ranks_all(guild)
-            channel_id = cf_common.user_db.get_rankup_channel(guild.id)
+            channel_id = await cf_common.user_db.get_rankup_channel(guild.id)
             channel = guild.get_channel(channel_id)
             if channel is not None:
                 with contextlib.suppress(HandleCogError):
-                    embeds = self._make_rankup_embeds(guild, contest, change_by_handle)
+                    embeds = await self._make_rankup_embeds(
+                        guild, contest, change_by_handle
+                    )
                     for embed in embeds:
                         await channel.send(embed=embed)
 
@@ -361,7 +365,7 @@ class Handles(commands.Cog):
 
         Condition: `member` has been 1900+ for any amount of time before o1 release.
         """
-        handle = cf_common.user_db.get_handle(member.id, member.guild.id)
+        handle = await cf_common.user_db.get_handle(member.id, member.guild.id)
         if not handle:
             self.logger.warning(
                 'WARN: handle not found in guild'
@@ -450,13 +454,13 @@ class Handles(commands.Cog):
     async def _set(self, ctx, member, user):
         handle = user.handle
         try:
-            cf_common.user_db.set_handle(member.id, ctx.guild.id, handle)
+            await cf_common.user_db.set_handle(member.id, ctx.guild.id, handle)
         except db.UniqueConstraintFailed:
             raise HandleCogError(
                 f'When setting handle for {member}: '
                 f'The handle `{handle}` is already associated with another user.'
             )
-        cf_common.user_db.cache_cf_user(user)
+        await cf_common.user_db.cache_cf_user(user)
 
         if user.rank == cf.UNRATED_RANK:
             role_to_assign = None
@@ -483,13 +487,13 @@ class Handles(commands.Cog):
 
         Confirmation is done by submitting a compile error to a random problem.
         """
-        if cf_common.user_db.get_handle(ctx.author.id, ctx.guild.id):
+        if await cf_common.user_db.get_handle(ctx.author.id, ctx.guild.id):
             raise HandleCogError(
                 f'{ctx.author.mention}, you cannot identify when your handle'
                 ' is already set. Ask an Admin or Moderator if you wish to change it'
             )
 
-        if cf_common.user_db.get_user_id(handle, ctx.guild.id):
+        if await cf_common.user_db.get_user_id(handle, ctx.guild.id):
             raise HandleCogError(
                 f'The handle `{handle}` is already associated with another user.'
                 ' Ask an Admin or Moderator in case of an inconsistency.'
@@ -527,22 +531,22 @@ class Handles(commands.Cog):
     @handle.command(brief='Get handle by Discord username')
     async def get(self, ctx, member: discord.Member):
         """Show Codeforces handle of a user."""
-        handle = cf_common.user_db.get_handle(member.id, ctx.guild.id)
+        handle = await cf_common.user_db.get_handle(member.id, ctx.guild.id)
         if not handle:
             raise HandleCogError(f'Handle for {member.mention} not found in database')
-        user = cf_common.user_db.fetch_cf_user(handle)
+        user = await cf_common.user_db.fetch_cf_user(handle)
         embed = _make_profile_embed(member, user, mode='get')
         await ctx.send(embed=embed)
 
     @handle.command(brief='Get Discord username by cf handle')
     async def rget(self, ctx, handle: str):
         """Show Discord username of a cf handle."""
-        user_id = cf_common.user_db.get_user_id(handle, ctx.guild.id)
+        user_id = await cf_common.user_db.get_user_id(handle, ctx.guild.id)
         if not user_id:
             raise HandleCogError(
                 f'Discord username for `{handle}` not found in database'
             )
-        user = cf_common.user_db.fetch_cf_user(handle)
+        user = await cf_common.user_db.fetch_cf_user(handle)
         member = ctx.guild.get_member(user_id)
         if member is None:
             raise HandleCogError(f'{user_id} not found in the guild')
@@ -554,11 +558,11 @@ class Handles(commands.Cog):
     async def remove(self, ctx, handle: str):
         """Remove Codeforces handle of a user."""
         (handle,) = await cf_common.resolve_handles(ctx, self.converter, [handle])
-        user_id = cf_common.user_db.get_user_id(handle, ctx.guild.id)
+        user_id = await cf_common.user_db.get_user_id(handle, ctx.guild.id)
         if user_id is None:
             raise HandleCogError(f'{handle} not found in database')
 
-        cf_common.user_db.remove_handle(handle, ctx.guild.id)
+        await cf_common.user_db.remove_handle(handle, ctx.guild.id)
         member = ctx.guild.get_member(user_id)
         await self.update_member_rank_role(
             member, role_to_assign=None, reason='Handle unlinked'
@@ -571,7 +575,7 @@ class Handles(commands.Cog):
         """Updates handle of the calling user if they have changed handles
         (typically new year's magic)"""
         member = ctx.author
-        handle = cf_common.user_db.get_handle(member.id, ctx.guild.id)
+        handle = await cf_common.user_db.get_handle(member.id, ctx.guild.id)
         await self._unmagic_handles(ctx, [handle], {handle: member})
 
     @handle.command(brief='Resolve handles needing redirection')
@@ -579,7 +583,9 @@ class Handles(commands.Cog):
     async def unmagic_all(self, ctx):
         """Updates handles of all users that have changed handles
         (typically new year's magic)"""
-        user_id_and_handles = cf_common.user_db.get_handles_for_guild(ctx.guild.id)
+        user_id_and_handles = await cf_common.user_db.get_handles_for_guild(
+            ctx.guild.id
+        )
 
         handles = []
         rev_lookup = {}
@@ -642,7 +648,7 @@ class Handles(commands.Cog):
     @commands.command(brief='Show gudgitters', aliases=['gitgudders'])
     async def gudgitters(self, ctx):
         """Show the list of users of gitgud with their scores."""
-        res = cf_common.user_db.get_gudgitters()
+        res = await cf_common.user_db.get_gudgitters()
         res.sort(key=lambda r: r[1], reverse=True)
 
         rankings = []
@@ -652,8 +658,8 @@ class Handles(commands.Cog):
             if member is None:
                 continue
             if score > 0:
-                handle = cf_common.user_db.get_handle(user_id, ctx.guild.id)
-                user = cf_common.user_db.fetch_cf_user(handle)
+                handle = await cf_common.user_db.get_handle(user_id, ctx.guild.id)
+                user = await cf_common.user_db.fetch_cf_user(handle)
                 if user is None:
                     continue
                 discord_handle = member.display_name
@@ -679,7 +685,7 @@ class Handles(commands.Cog):
         sourced from codeforces profiles. e.g. ;handle list Croatia Slovenia
         """
         countries = [country.title() for country in countries]
-        res = cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)
+        res = await cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)
         users = [
             (ctx.guild.get_member(user_id), cf_user.handle, cf_user.rating)
             for user_id, cf_user in res
@@ -712,7 +718,9 @@ class Handles(commands.Cog):
     async def pretty(self, ctx, page_no: int = None):
         """Show members of the server who have registered their handles
         and their Codeforces ratings, in color."""
-        user_id_cf_user_pairs = cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)
+        user_id_cf_user_pairs = await cf_common.user_db.get_cf_users_for_guild(
+            ctx.guild.id
+        )
         user_id_cf_user_pairs.sort(
             key=lambda p: p[1].rating if p[1].rating is not None else -1, reverse=True
         )
@@ -761,7 +769,7 @@ class Handles(commands.Cog):
         """For each member in the guild, fetches their current ratings and
         updates their role if required.
         """
-        res = cf_common.user_db.get_handles_for_guild(guild.id)
+        res = await cf_common.user_db.get_handles_for_guild(guild.id)
         await self._update_ranks(guild, res)
 
     async def _update_ranks(self, guild, res):
@@ -776,7 +784,7 @@ class Handles(commands.Cog):
         members, handles = zip(*member_handles, strict=False)
         users = await cf.user.info(handles=handles)
         for user in users:
-            cf_common.user_db.cache_cf_user(user)
+            await cf_common.user_db.cache_cf_user(user)
 
         required_roles = {
             user.rank.title for user in users if user.rank != cf.UNRATED_RANK
@@ -801,11 +809,11 @@ class Handles(commands.Cog):
             )
 
     @staticmethod
-    def _make_rankup_embeds(guild, contest, change_by_handle):
+    async def _make_rankup_embeds(guild, contest, change_by_handle):
         """Make an embed containing a list of rank changes and top rating
         increases for the members of this guild.
         """
-        user_id_handle_pairs = cf_common.user_db.get_handles_for_guild(guild.id)
+        user_id_handle_pairs = await cf_common.user_db.get_handles_for_guild(guild.id)
         member_handle_pairs = [
             (guild.get_member(user_id), handle)
             for user_id, handle in user_id_handle_pairs
@@ -839,7 +847,7 @@ class Handles(commands.Cog):
             cache = cf_common.cache2.rating_changes_cache
             if (
                 change.oldRating == 1500
-                and len(cache.get_rating_changes_for_handle(change.handle)) == 1
+                and len(await cache.get_rating_changes_for_handle(change.handle)) == 1
             ):
                 # If this is the user's first rated contest.
                 old_role = 'Unrated'
@@ -917,14 +925,14 @@ class Handles(commands.Cog):
         updates.
         """
         if arg == 'on':
-            rc = cf_common.user_db.enable_auto_role_update(ctx.guild.id)
+            rc = await cf_common.user_db.enable_auto_role_update(ctx.guild.id)
             if not rc:
                 raise HandleCogError('Auto role update is already enabled.')
             await ctx.send(
                 embed=discord_common.embed_success('Auto role updates enabled.')
             )
         elif arg == 'off':
-            rc = cf_common.user_db.disable_auto_role_update(ctx.guild.id)
+            rc = await cf_common.user_db.disable_auto_role_update(ctx.guild.id)
             if not rc:
                 raise HandleCogError('Auto role update is already disabled.')
             await ctx.send(
@@ -945,14 +953,14 @@ class Handles(commands.Cog):
         contest id will publish the summary immediately.
         """
         if arg == 'here':
-            cf_common.user_db.set_rankup_channel(ctx.guild.id, ctx.channel.id)
+            await cf_common.user_db.set_rankup_channel(ctx.guild.id, ctx.channel.id)
             await ctx.send(
                 embed=discord_common.embed_success(
                     'Auto rank update publishing enabled.'
                 )
             )
         elif arg == 'off':
-            rc = cf_common.user_db.clear_rankup_channel(ctx.guild.id)
+            rc = await cf_common.user_db.clear_rankup_channel(ctx.guild.id)
             if not rc:
                 raise HandleCogError('Rank update publishing is already disabled.')
             await ctx.send(
@@ -987,7 +995,9 @@ class Handles(commands.Cog):
             )
 
         change_by_handle = {change.handle: change for change in changes}
-        rankup_embeds = self._make_rankup_embeds(ctx.guild, contest, change_by_handle)
+        rankup_embeds = await self._make_rankup_embeds(
+            ctx.guild, contest, change_by_handle
+        )
         for rankup_embed in rankup_embeds:
             await ctx.channel.send(embed=rankup_embed)
 

@@ -24,7 +24,7 @@ class Starboard(commands.Cog):
         if guild_id is None:
             return
         emoji = str(payload.emoji)
-        entry = cf_common.user_db.get_starboard_entry(guild_id, emoji)
+        entry = await cf_common.user_db.get_starboard_entry(guild_id, emoji)
         if entry is None:
             return
         channel_id, threshold, color = entry
@@ -39,7 +39,7 @@ class Starboard(commands.Cog):
     async def on_raw_message_delete(self, payload):
         if payload.guild_id is None:
             return
-        removed = cf_common.user_db.remove_starboard_message(
+        removed = await cf_common.user_db.remove_starboard_message(
             starboard_msg_id=payload.message_id
         )
         if removed:
@@ -96,11 +96,13 @@ class Starboard(commands.Cog):
 
         lock = self.locks.setdefault(payload.guild_id, asyncio.Lock())
         async with lock:
-            if cf_common.user_db.check_exists_starboard_message(message.id, emoji):
+            if await cf_common.user_db.check_exists_starboard_message(
+                message.id, emoji
+            ):
                 return
             embed = self.prepare_embed(message, color or constants._DEFAULT_COLOR)
             star_msg = await starboard_channel.send(embed=embed)
-            cf_common.user_db.add_starboard_message(
+            await cf_common.user_db.add_starboard_message(
                 message.id, star_msg.id, payload.guild_id, emoji
             )
             self.logger.info(f'Added message {message.id} to starboard under {emoji}')
@@ -115,7 +117,7 @@ class Starboard(commands.Cog):
     async def add(self, ctx, emoji: str, threshold: int, color: str = None):
         """Register an emoji with a reaction threshold and optional hex color."""
         clr = int(color, 16) if color else constants._DEFAULT_COLOR
-        cf_common.user_db.add_starboard_emoji(ctx.guild.id, emoji, threshold, clr)
+        await cf_common.user_db.add_starboard_emoji(ctx.guild.id, emoji, threshold, clr)
         await ctx.send(
             embed=discord_common.embed_success(
                 f'Added {emoji}: threshold={threshold}, color={hex(clr)}'
@@ -126,15 +128,17 @@ class Starboard(commands.Cog):
     @commands.has_role(constants.TLE_ADMIN)
     async def delete(self, ctx, emoji: str):
         """Unregister an emoji from starboard."""
-        cf_common.user_db.remove_starboard_emoji(ctx.guild.id, emoji)
-        cf_common.user_db.clear_starboard_channel(ctx.guild.id, emoji)
+        await cf_common.user_db.remove_starboard_emoji(ctx.guild.id, emoji)
+        await cf_common.user_db.clear_starboard_channel(ctx.guild.id, emoji)
         await ctx.send(embed=discord_common.embed_success(f'Removed {emoji}'))
 
     @starboard.command(brief='Edit threshold for an emoji')
     @commands.has_role(constants.TLE_ADMIN)
     async def edit_threshold(self, ctx, emoji: str, threshold: int):
         """Update reaction threshold for an emoji."""
-        cf_common.user_db.update_starboard_threshold(ctx.guild.id, emoji, threshold)
+        await cf_common.user_db.update_starboard_threshold(
+            ctx.guild.id, emoji, threshold
+        )
         await ctx.send(
             embed=discord_common.embed_success(
                 f'Updated {emoji} threshold to {threshold}'
@@ -146,7 +150,7 @@ class Starboard(commands.Cog):
     async def edit_color(self, ctx, emoji: str, color: str):
         """Update embed color (hex) for an emoji."""
         clr = int(color, 16)
-        cf_common.user_db.update_starboard_color(ctx.guild.id, emoji, clr)
+        await cf_common.user_db.update_starboard_color(ctx.guild.id, emoji, clr)
         await ctx.send(
             embed=discord_common.embed_success(f'Updated {emoji} color to {hex(clr)}')
         )
@@ -155,7 +159,9 @@ class Starboard(commands.Cog):
     @commands.has_role(constants.TLE_ADMIN)
     async def here(self, ctx, emoji: str):
         """Set the channel and optional color for an emoji."""
-        cf_common.user_db.set_starboard_channel(ctx.guild.id, emoji, ctx.channel.id)
+        await cf_common.user_db.set_starboard_channel(
+            ctx.guild.id, emoji, ctx.channel.id
+        )
         msg = f'Set {emoji} channel to {ctx.channel.mention}'
         await ctx.send(embed=discord_common.embed_success(msg))
 
@@ -163,7 +169,7 @@ class Starboard(commands.Cog):
     @commands.has_role(constants.TLE_ADMIN)
     async def clear(self, ctx, emoji: str):
         """Remove the starboard channel (and color) setting for an emoji."""
-        cf_common.user_db.clear_starboard_channel(ctx.guild.id, emoji)
+        await cf_common.user_db.clear_starboard_channel(ctx.guild.id, emoji)
         await ctx.send(
             embed=discord_common.embed_success(f'Cleared channel for {emoji}')
         )
@@ -172,7 +178,7 @@ class Starboard(commands.Cog):
     @commands.has_role(constants.TLE_ADMIN)
     async def remove(self, ctx, emoji: str, original_message_id: int):
         """Remove a particular message from the starboard database."""
-        rc = cf_common.user_db.remove_starboard_message(
+        rc = await cf_common.user_db.remove_starboard_message(
             original_msg_id=original_message_id, emoji=emoji
         )
         if rc:

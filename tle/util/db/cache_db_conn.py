@@ -1,17 +1,22 @@
 import json
-import sqlite3
+
+import aiosqlite
 
 from tle.util import codeforces_api as cf
 
 
 class CacheDbConn:
     def __init__(self, db_file):
-        self.conn = sqlite3.connect(db_file)
-        self.create_tables()
+        self.db_file = db_file
+        self.conn = None
 
-    def create_tables(self):
+    async def connect(self):
+        self.conn = await aiosqlite.connect(self.db_file)
+        await self.create_tables()
+
+    async def create_tables(self):
         # Table for contests from the contest.list endpoint.
-        self.conn.execute(
+        await self.conn.execute(
             'CREATE TABLE IF NOT EXISTS contest ('
             'id             INTEGER NOT NULL,'
             'name           TEXT,'
@@ -25,7 +30,7 @@ class CacheDbConn:
         )
 
         # Table for problems from the problemset.problems endpoint.
-        self.conn.execute(
+        await self.conn.execute(
             'CREATE TABLE IF NOT EXISTS problem ('
             'contest_id       INTEGER,'
             'problemset_name  TEXT,'
@@ -41,7 +46,7 @@ class CacheDbConn:
 
         # Table for rating changes fetched from contest.ratingChanges endpoint
         # for every contest.
-        self.conn.execute(
+        await self.conn.execute(
             'CREATE TABLE IF NOT EXISTS rating_change ('
             'contest_id           INTEGER NOT NULL,'
             'handle               TEXT NOT NULL,'
@@ -52,19 +57,19 @@ class CacheDbConn:
             'UNIQUE (contest_id, handle)'
             ')'
         )
-        self.conn.execute("""
+        await self.conn.execute("""
             CREATE INDEX IF NOT EXISTS ix_rating_change_contest_id ON rating_change (
                 contest_id
             )
         """)
-        self.conn.execute("""
+        await self.conn.execute("""
             CREATE INDEX IF NOT EXISTS ix_rating_change_handle ON rating_change (handle)
         """)
 
         # Table for problems fetched from contest.standings endpoint for every
         # contest. This is separate from table problem as it contains the same
         # problem twice if it appeared in both Div 1 and Div 2 of some round.
-        self.conn.execute("""
+        await self.conn.execute("""
             CREATE TABLE IF NOT EXISTS problem2 (
                 contest_id       INTEGER,
                 problemset_name  TEXT,
@@ -77,25 +82,27 @@ class CacheDbConn:
                 PRIMARY KEY (contest_id, [index])
             )
         """)
-        self.conn.execute("""
+        await self.conn.execute("""
             CREATE INDEX IF NOT EXISTS ix_problem2_contest_id ON problem2 (contest_id)
         """)
 
-    def cache_contests(self, contests):
+    async def cache_contests(self, contests):
         query = """
             INSERT OR REPLACE INTO contest (
                 id, name, start_time, duration, type, phase, prepared_by
             ) VALUES (?, ?, ?, ?, ?, ?, ?)
         """
-        rc = self.conn.executemany(query, contests).rowcount
-        self.conn.commit()
+        cursor = await self.conn.executemany(query, contests)
+        rc = cursor.rowcount
+        await self.conn.commit()
         return rc
 
-    def fetch_contests(self):
+    async def fetch_contests(self):
         query = """
             SELECT id, name, start_time, duration, type, phase, prepared_by FROM contest
         """
-        res = self.conn.execute(query).fetchall()
+        cursor = await self.conn.execute(query)
+        res = await cursor.fetchall()
         return [cf.Contest._make(contest) for contest in res]
 
     @staticmethod
@@ -111,16 +118,17 @@ class CacheDbConn:
             json.dumps(problem.tags),
         )
 
-    def cache_problems(self, problems):
+    async def cache_problems(self, problems):
         query = """
             INSERT OR REPLACE INTO problem (
                 contest_id, problemset_name, [index], name, type, points, rating, tags
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """
-        rc = self.conn.executemany(
+        cursor = await self.conn.executemany(
             query, list(map(self._squish_tags, problems))
-        ).rowcount
-        self.conn.commit()
+        )
+        rc = cursor.rowcount
+        await self.conn.commit()
         return rc
 
     @staticmethod
@@ -128,16 +136,17 @@ class CacheDbConn:
         args, tags = problem[:-1], json.loads(problem[-1])
         return cf.Problem(*args, tags)
 
-    def fetch_problems(self):
+    async def fetch_problems(self):
         query = """
             SELECT
                 contest_id, problemset_name, [index], name, type, points, rating, tags
             FROM problem
         """
-        res = self.conn.execute(query).fetchall()
+        cursor = await self.conn.execute(query)
+        res = await cursor.fetchall()
         return list(map(self._unsquish_tags, res))
 
-    def save_rating_changes(self, changes):
+    async def save_rating_changes(self, changes):
         change_tuples = [
             (
                 change.contestId,
@@ -154,20 +163,21 @@ class CacheDbConn:
                 contest_id, handle, rank, rating_update_time, old_rating, new_rating
             ) VALUES (?, ?, ?, ?, ?, ?)
         """
-        rc = self.conn.executemany(query, change_tuples).rowcount
-        self.conn.commit()
+        cursor = await self.conn.executemany(query, change_tuples)
+        rc = cursor.rowcount
+        await self.conn.commit()
         return rc
 
-    def clear_rating_changes(self, contest_id=None):
+    async def clear_rating_changes(self, contest_id=None):
         if contest_id is None:
             query = 'DELETE FROM rating_change'
-            self.conn.execute(query)
+            await self.conn.execute(query)
         else:
             query = 'DELETE FROM rating_change WHERE contest_id = ?'
-            self.conn.execute(query, (contest_id,))
-        self.conn.commit()
+            await self.conn.execute(query, (contest_id,))
+        await self.conn.commit()
 
-    def get_users_with_more_than_n_contests(self, time_cutoff, n):
+    async def get_users_with_more_than_n_contests(self, time_cutoff, n):
         query = """
             SELECT
                 handle,
@@ -176,16 +186,17 @@ class CacheDbConn:
             GROUP BY handle
             HAVING num_contests >= ? AND MAX(rating_update_time) >= ?
         """
-        res = self.conn.execute(
+        cursor = await self.conn.execute(
             query,
             (
                 n,
                 time_cutoff,
             ),
-        ).fetchall()
+        )
+        res = await cursor.fetchall()
         return [user[0] for user in res]
 
-    def get_all_rating_changes(self):
+    async def get_all_rating_changes(self):
         query = """
             SELECT
                 contest_id,
@@ -199,10 +210,11 @@ class CacheDbConn:
             LEFT JOIN contest c ON r.contest_id = c.id
             ORDER BY rating_update_time
         """
-        res = self.conn.execute(query)
+        cursor = await self.conn.execute(query)
+        res = await cursor.fetchall()
         return (cf.RatingChange._make(change) for change in res)
 
-    def get_rating_changes_for_contest(self, contest_id):
+    async def get_rating_changes_for_contest(self, contest_id):
         query = """
             SELECT
                 contest_id,
@@ -216,15 +228,17 @@ class CacheDbConn:
             LEFT JOIN contest c ON r.contest_id = c.id
             WHERE r.contest_id = ?
         """
-        res = self.conn.execute(query, (contest_id,)).fetchall()
+        cursor = await self.conn.execute(query, (contest_id,))
+        res = await cursor.fetchall()
         return [cf.RatingChange._make(change) for change in res]
 
-    def has_rating_changes_saved(self, contest_id):
+    async def has_rating_changes_saved(self, contest_id):
         query = 'SELECT contest_id FROM rating_change WHERE contest_id = ?'
-        res = self.conn.execute(query, (contest_id,)).fetchone()
+        cursor = await self.conn.execute(query, (contest_id,))
+        res = await cursor.fetchone()
         return res is not None
 
-    def get_rating_changes_for_handle(self, handle):
+    async def get_rating_changes_for_handle(self, handle):
         query = """
             SELECT
                 contest_id,
@@ -238,53 +252,62 @@ class CacheDbConn:
             LEFT JOIN contest c ON r.contest_id = c.id
             WHERE r.handle = ?
         """
-        res = self.conn.execute(query, (handle,)).fetchall()
+        cursor = await self.conn.execute(query, (handle,))
+        res = await cursor.fetchall()
         return [cf.RatingChange._make(change) for change in res]
 
-    def cache_problemset(self, problemset):
+    async def cache_problemset(self, problemset):
         query = """
             INSERT OR REPLACE INTO problem2 (
                 contest_id, problemset_name, [index], name, type, points, rating, tags
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """
-        rc = self.conn.executemany(
+        cursor = await self.conn.executemany(
             query, list(map(self._squish_tags, problemset))
-        ).rowcount
-        self.conn.commit()
+        )
+        rc = cursor.rowcount
+        await self.conn.commit()
         return rc
 
-    def fetch_problems2(self):
+    async def fetch_problems2(self):
         query = """
             SELECT
                 contest_id, problemset_name, [index], name, type, points, rating, tags
             FROM problem2
         """
-        res = self.conn.execute(query).fetchall()
+        cursor = await self.conn.execute(query)
+        res = await cursor.fetchall()
         return list(map(self._unsquish_tags, res))
 
-    def clear_problemset(self, contest_id=None):
+    async def clear_problemset(self, contest_id=None):
         if contest_id is None:
             query = 'DELETE FROM problem2'
-            self.conn.execute(query)
+            await self.conn.execute(query)
         else:
             query = 'DELETE FROM problem2 WHERE contest_id = ?'
-            self.conn.execute(query, (contest_id,))
+            await self.conn.execute(query, (contest_id,))
 
-    def fetch_problemset(self, contest_id):
+    async def fetch_problemset(self, contest_id):
         query = """
             SELECT
                 contest_id, problemset_name, [index], name, type, points, rating, tags
             FROM problem2
             WHERE contest_id = ?
         """
-        res = self.conn.execute(query, (contest_id,)).fetchall()
+        cursor = await self.conn.execute(query, (contest_id,))
+        res = await cursor.fetchall()
         return list(map(self._unsquish_tags, res))
 
-    def problemset_empty(self):
+    async def problemset_empty(self):
         query = 'SELECT 1 FROM problem2'
-        res = self.conn.execute(query).fetchone()
+        cursor = await self.conn.execute(query)
+        res = await cursor.fetchone()
         return res is None
 
-    def close(self):
-        self.conn.close()
+    async def close(self):
+        if self.conn:
+            await self.conn.close()
+
+    async def get_problemset_from_contest(self, contest_id):
+        return await self.fetch_problemset(contest_id)

@@ -40,12 +40,8 @@
 **Impact:** Known CVEs in old aiohttp versions. Incompatible with Python 3.12+.
 **Fix:** Remove the upper bound pin after migrating to discord.py 2.x (which supports modern aiohttp).
 
-### CRIT-03: Synchronous SQLite Blocking the Event Loop
-**File:** `tle/util/db/user_db_conn.py` (entire file)
-**Severity:** Critical
-**Description:** All database operations use synchronous `sqlite3` calls in an async bot. Every `self.conn.execute()` blocks the event loop, causing latency spikes for all users.
-**Impact:** Bot becomes unresponsive during database operations, especially with concurrent commands.
-**Fix:** Migrate to `aiosqlite` or wrap all DB calls in `asyncio.to_thread()` / `loop.run_in_executor()`.
+### ~~CRIT-03: Synchronous SQLite Blocking the Event Loop~~ (RESOLVED)
+**Status:** Fixed in Step 3. Migrated both `user_db_conn.py` and `cache_db_conn.py` from `sqlite3` to `aiosqlite`. All methods are now async, all callers updated to `await`.
 
 ### CRIT-04: In-Memory State Lost on Restart
 **File:** `tle/cogs/duel.py:456-479` (draw_offers), `tle/cogs/starboard.py:97` (locks)
@@ -58,17 +54,11 @@
 
 ## 2. Security Vulnerabilities
 
-### SEC-01: SQL Injection via f-string Queries (Low Risk)
-**File:** `tle/util/db/user_db_conn.py:401-403, 408-418, 424-426, 450-453, 714-720, 760-764`
-**Severity:** Low (IntEnum values are safe, but pattern is dangerous)
-**Description:** Queries use f-strings to interpolate `IntEnum` values: `f"... status = {Gitgud.NOGUD}"`. While these specific values are safe integers, the pattern normalizes SQL construction via string interpolation, making it easy for future developers to introduce actual injection vulnerabilities.
-**Fix:** Use parameterized queries consistently: `WHERE status = ?` with `(Gitgud.NOGUD,)` as parameter.
+### ~~SEC-01: SQL Injection via f-string Queries~~ (RESOLVED)
+**Status:** Fixed in Step 3. All f-string SQL interpolation replaced with parameterized `?` placeholders.
 
-### SEC-02: `_insert_one` / `_insert_many` Use `.format()` for Table/Column Names
-**File:** `tle/util/db/user_db_conn.py:292-308`
-**Severity:** Medium
-**Description:** Helper methods construct SQL using `str.format()` for table and column names. While currently called only with hardcoded strings, this pattern is dangerous if ever called with user input.
-**Fix:** Use an allowlist of valid table/column names, or switch to an ORM.
+### ~~SEC-02: `_insert_one` / `_insert_many` Use `.format()` for Table/Column Names~~ (RESOLVED)
+**Status:** Fixed in Step 3. Added `_VALID_TABLES` and `_VALID_COLUMNS` allowlist validation before formatting.
 
 ### SEC-03: Subprocess Without Timeout
 **File:** `tle/cogs/meta.py:28-43`
@@ -82,11 +72,8 @@
 **Description:** `parse_rating()` calls `int(arg)` without range validation. A user could pass extremely large numbers. Similarly, rating filter args like `r>=99999999` are accepted.
 **Fix:** Validate ratings are within reasonable bounds (e.g., 0-5000).
 
-### SEC-05: `os._exit()` Used for Bot Restart/Kill
-**File:** `tle/cogs/meta.py:63, 70`
-**Severity:** Medium
-**Description:** `os._exit(42)` and `os._exit(0)` bypass Python's cleanup (finally blocks, atexit handlers, database connections). The database could be left in an inconsistent state if a write was in progress.
-**Fix:** Use `bot.close()` followed by `sys.exit()`, or signal-based shutdown.
+### ~~SEC-05: `os._exit()` Used for Bot Restart/Kill~~ (RESOLVED)
+**Status:** Fixed in Steps 1 and 3. Replaced with `await bot.close()` + `sys.exit(0)` in Step 1. DB connections are now closed on shutdown via `bot.close` override in Step 3.
 
 ---
 
@@ -247,24 +234,14 @@ These issues must be addressed when migrating from discord.py 1.7.3 to 2.x:
 **Description:** Database migrations are inline `if old_exists and not migrated:` blocks in `create_tables()`. This doesn't scale and makes schema evolution error-prone.
 **Fix:** Use Alembic, or at minimum a versioned migration system with a `schema_version` table.
 
-### DB-02: Inconsistent Transaction Management
-**File:** `tle/util/db/user_db_conn.py` (throughout)
-**Severity:** High
-**Description:** Three different transaction patterns coexist:
-1. Manual `conn.commit()` / `conn.rollback()` (e.g., lines 347-356)
-2. Context manager `with self.conn:` (e.g., lines 475-476, 503-504)
-3. No transaction management at all (e.g., lines 577-578)
-**Fix:** Standardize on context managers for all write operations.
+### ~~DB-02: Inconsistent Transaction Management~~ (PARTIALLY RESOLVED)
+**Status:** Improved in Step 3. Simple writes use `async with conn:`. Methods with conditional rollback logic kept explicit `commit()`/`rollback()` since context managers can't express that pattern.
 
-### DB-03: `namedtuple_factory` Silently Drops Columns
-**File:** `tle/util/db/user_db_conn.py:65`
-**Description:** `fields = [col[0] for col in cursor.description if col[0].isidentifier()]` - Columns with non-identifier names are silently excluded, causing the row to have fewer fields than expected.
-**Fix:** Raise an error for non-identifier columns or sanitize them.
+### ~~DB-03: `namedtuple_factory` Silently Drops Columns~~ (RESOLVED)
+**Status:** Fixed in Step 3. Now raises `ValueError` on non-identifier column names instead of silently dropping them.
 
-### DB-04: `_fetchone`/`_fetchall` Temporarily Replace `row_factory`
-**File:** `tle/util/db/user_db_conn.py:310-320`
-**Description:** These methods modify `self.conn.row_factory` and reset it to `None` after. This is not thread-safe and could cause issues if called concurrently (even in async context with `await` points).
-**Fix:** Use per-cursor row factories or always use the same factory.
+### ~~DB-04: `_fetchone`/`_fetchall` Temporarily Replace `row_factory`~~ (RESOLVED)
+**Status:** Fixed in Step 3. Now uses cursor-level `row_factory` instead of mutating `conn.row_factory`.
 
 ### DB-05: Mixed `user_id` Types
 **File:** `tle/util/db/user_db_conn.py`
@@ -272,10 +249,8 @@ These issues must be addressed when migrating from discord.py 1.7.3 to 2.x:
 **Description:** `user_id` is stored as `TEXT` in `user_handle` but as `INTEGER` in `duelist`. Discord IDs are large integers (snowflakes). The inconsistency requires casting at boundaries (e.g., `int(user_id)` at line 547).
 **Fix:** Standardize on `INTEGER` for all Discord IDs.
 
-### DB-06: No Database Connection Closing
-**Severity:** Medium
-**Description:** `UserDbConn.close()` exists but is never called. The bot uses `os._exit()` for shutdown, bypassing cleanup.
-**Fix:** Register cleanup in `bot.close()` or `atexit`.
+### ~~DB-06: No Database Connection Closing~~ (RESOLVED)
+**Status:** Fixed in Step 3. `bot.close` is overridden in `__main__.py` to close both `user_db` and `cache_db` connections on shutdown.
 
 ### DB-07: Duel Tables Not Guild-Scoped
 **File:** `tle/util/db/user_db_conn.py:107`
@@ -458,13 +433,13 @@ These issues must be addressed when migrating from discord.py 1.7.3 to 2.x:
 ### `tle/util/db/user_db_conn.py` (1167 lines)
 | Line | Issue | Severity |
 |------|-------|----------|
-| 65 | `isidentifier()` filter can silently drop columns | Medium |
+| ~~65~~ | ~~`isidentifier()` filter can silently drop columns~~ | ~~RESOLVED~~ |
 | 107 | TODO: duel tables not guild-aware (since original code) | High |
 | 238-288 | Migration code mixed with schema creation | Medium |
-| 292-308 | `_insert_one`/`_insert_many` use `.format()` for SQL | Medium |
-| 310-314 | `_fetchone` mutates shared `conn.row_factory` | Medium |
+| ~~292-308~~ | ~~`_insert_one`/`_insert_many` use `.format()` for SQL~~ | ~~RESOLVED~~ |
+| ~~310-314~~ | ~~`_fetchone` mutates shared `conn.row_factory`~~ | ~~RESOLVED~~ |
 | 369 | Tuple unpacking assumes column order `c_id, issue_time = res` | Low |
-| 401-403 | f-string in SQL query (safe here but bad pattern) | Low |
+| ~~401-403~~ | ~~f-string in SQL query (safe here but bad pattern)~~ | ~~RESOLVED~~ |
 
 ### `tle/cogs/codeforces.py`
 | Line | Issue | Severity |
@@ -514,9 +489,9 @@ These issues must be addressed when migrating from discord.py 1.7.3 to 2.x:
 ### `tle/cogs/meta.py`
 | Line | Issue | Severity |
 |------|-------|----------|
-| 28-43 | subprocess with no timeout | Medium |
-| 63 | `os._exit(42)` bypasses cleanup | Medium |
-| 70 | `os._exit(0)` bypasses cleanup | Medium |
+| ~~28-43~~ | ~~subprocess with no timeout~~ | ~~RESOLVED~~ |
+| ~~63~~ | ~~`os._exit(42)` bypasses cleanup~~ | ~~RESOLVED~~ |
+| ~~70~~ | ~~`os._exit(0)` bypasses cleanup~~ | ~~RESOLVED~~ |
 
 ### `tle/cogs/starboard.py`
 | Line | Issue | Severity |
@@ -567,9 +542,9 @@ These issues must be addressed when migrating from discord.py 1.7.3 to 2.x:
 7. Update `requires-python` to `>= 3.10`
 
 ### Phase 3: Database Modernization
-1. Migrate from `sqlite3` to `aiosqlite`
-2. Standardize transaction management (context managers)
-3. Standardize `user_id` types to INTEGER
+1. ~~Migrate from `sqlite3` to `aiosqlite`~~ (DONE)
+2. ~~Standardize transaction management (context managers)~~ (DONE where appropriate)
+3. Standardize `user_id` types to INTEGER (deferred to Step 9)
 4. Implement proper migration system (versioned SQL files)
 5. Move migration code out of `create_tables()`
 6. Add guild_id to duel tables
