@@ -64,6 +64,127 @@ def check_if_allow_self_register(ctx):
     return True
 
 
+class DuelChallengeView(discord.ui.View):
+    def __init__(
+        self, bot, duelid, challenger_id, challengee_id, problem_name, *, timeout,
+    ):
+        super().__init__(timeout=timeout)
+        self.bot = bot
+        self.duelid = duelid
+        self.challenger_id = challenger_id
+        self.challengee_id = challengee_id
+        self.problem_name = problem_name
+        self.message = None
+
+    async def _disable_all(self, interaction):
+        for item in self.children:
+            item.disabled = True
+        await interaction.response.edit_message(view=self)
+        self.stop()
+
+    @discord.ui.button(label='Accept', style=discord.ButtonStyle.success)
+    async def accept_button(self, interaction, button):
+        if interaction.user.id != self.challengee_id:
+            await interaction.response.send_message(
+                'Only the challenged user can accept.', ephemeral=True,
+            )
+            return
+
+        await self._disable_all(interaction)
+
+        challenger = interaction.guild.get_member(self.challenger_id)
+        challengee = interaction.guild.get_member(self.challengee_id)
+        channel = interaction.channel
+
+        await channel.send(
+            f'Duel between {challenger.mention} and'
+            f' {challengee.mention} starting in 15 seconds!'
+        )
+        await asyncio.sleep(15)
+
+        start_time = datetime.datetime.now().timestamp()
+        rc = await self.bot.user_db.start_duel(self.duelid, start_time)
+        if rc != 1:
+            await channel.send(
+                f'Unable to start the duel between {challenger.mention}'
+                f' and {challengee.mention}.'
+            )
+            return
+
+        problem = self.bot.cf_cache.problem_cache.problem_by_name[self.problem_name]
+        title = f'{problem.index}. {problem.name}'
+        desc = self.bot.cf_cache.contest_cache.get_contest(problem.contestId).name
+        embed = discord.Embed(title=title, url=problem.url, description=desc)
+        embed.add_field(name='Rating', value=problem.rating)
+        await channel.send(
+            f'Starting duel: {challenger.mention} vs {challengee.mention}',
+            embed=embed,
+        )
+
+    @discord.ui.button(label='Decline', style=discord.ButtonStyle.danger)
+    async def decline_button(self, interaction, button):
+        if interaction.user.id != self.challengee_id:
+            await interaction.response.send_message(
+                'Only the challenged user can decline.', ephemeral=True,
+            )
+            return
+
+        await self._disable_all(interaction)
+        rc = await self.bot.user_db.cancel_duel(self.duelid, Duel.DECLINED)
+        challenger = interaction.guild.get_member(self.challenger_id)
+        challengee = interaction.guild.get_member(self.challengee_id)
+        if rc:
+            message = (
+                f'{challengee.mention} declined a challenge'
+                f' by {challenger.mention}.'
+            )
+            embed = discord_common.embed_alert(message)
+            await interaction.channel.send(embed=embed)
+        else:
+            await interaction.channel.send('This duel has already been resolved.')
+
+    @discord.ui.button(label='Withdraw', style=discord.ButtonStyle.secondary)
+    async def withdraw_button(self, interaction, button):
+        if interaction.user.id != self.challenger_id:
+            await interaction.response.send_message(
+                'Only the challenger can withdraw.', ephemeral=True,
+            )
+            return
+
+        await self._disable_all(interaction)
+        rc = await self.bot.user_db.cancel_duel(self.duelid, Duel.WITHDRAWN)
+        challenger = interaction.guild.get_member(self.challenger_id)
+        challengee = interaction.guild.get_member(self.challengee_id)
+        if rc:
+            message = (
+                f'{challenger.mention} withdrew a challenge'
+                f' to {challengee.mention}.'
+            )
+            embed = discord_common.embed_alert(message)
+            await interaction.channel.send(embed=embed)
+        else:
+            await interaction.channel.send('This duel has already been resolved.')
+
+    async def on_timeout(self):
+        for item in self.children:
+            item.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except discord.NotFound:
+                pass
+        rc = await self.bot.user_db.cancel_duel(self.duelid, Duel.EXPIRED)
+        if rc and self.message:
+            challenger = self.message.guild.get_member(self.challenger_id)
+            challengee = self.message.guild.get_member(self.challengee_id)
+            message = (
+                f'{challenger.mention}, your request to duel'
+                f' {challengee.mention} has expired!'
+            )
+            embed = discord_common.embed_alert(message)
+            await self.message.channel.send(embed=embed)
+
+
 class Dueling(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -237,18 +358,15 @@ class Dueling(commands.Cog):
         )
 
         ostr = 'an **unofficial**' if unofficial else 'a'
-        await ctx.send(
-            f'{ctx.author.mention} is challenging'
-            f' {opponent.mention} to {ostr} {rstr}duel!'
+        view = DuelChallengeView(
+            self.bot, duelid, challenger_id, challengee_id,
+            problem.name, timeout=_DUEL_EXPIRY_TIME,
         )
-        await asyncio.sleep(_DUEL_EXPIRY_TIME)
-        if await self.bot.user_db.cancel_duel(duelid, Duel.EXPIRED):
-            message = (
-                f'{ctx.author.mention}, your request to duel'
-                f' {opponent.mention} has expired!'
-            )
-            embed = discord_common.embed_alert(message)
-            await ctx.send(embed=embed)
+        view.message = await ctx.send(
+            f'{ctx.author.mention} is challenging'
+            f' {opponent.mention} to {ostr} {rstr}duel!\n\u200b',
+            view=view,
+        )
 
     @duel.command(brief='Decline a duel')
     async def decline(self, ctx):
