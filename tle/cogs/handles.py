@@ -708,12 +708,11 @@ class Handles(commands.Cog):
                 member, role_to_assign, reason='Codeforces rank update'
             )
 
-    @staticmethod
-    async def _make_rankup_embeds(guild, contest, change_by_handle):
+    async def _make_rankup_embeds(self, guild, contest, change_by_handle):
         """Make an embed containing a list of rank changes and top rating
         increases for the members of this guild.
         """
-        user_id_handle_pairs = await cf_common.user_db.get_handles_for_guild(guild.id)
+        user_id_handle_pairs = await self.bot.user_db.get_handles_for_guild(guild.id)
         member_handle_pairs = [
             (guild.get_member(user_id), handle)
             for user_id, handle in user_id_handle_pairs
@@ -743,7 +742,7 @@ class Handles(commands.Cog):
 
         rank_changes_str = []
         for member, change in member_change_pairs:
-            cache = cf_common.cf_cache.rating_changes_cache
+            cache = self.bot.cf_cache.rating_changes_cache
             if (
                 change.oldRating == 1500
                 and len(await cache.get_rating_changes_for_handle(change.handle)) == 1

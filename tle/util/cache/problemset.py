@@ -3,7 +3,7 @@ import logging
 import time
 from collections import defaultdict
 
-from tle.util import codeforces_api as cf, codeforces_common as cf_common, tasks
+from tle.util import codeforces_api as cf, tasks
 from tle.util.cache._common import CacheError
 from tle.util.cache.contest import ContestNotFound
 
@@ -127,7 +127,7 @@ class ProblemsetCache:
         self.problem_to_contests = defaultdict(list)
         for problem in self.problems:
             try:
-                contest = cf_common.cf_cache.contest_cache.get_contest(
+                contest = self.cache_master.contest_cache.get_contest(
                     problem.contestId
                 )
                 problem_id = (problem.name, contest.startTimeSeconds)

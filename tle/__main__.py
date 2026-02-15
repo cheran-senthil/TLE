@@ -75,12 +75,14 @@ class TLEBot(commands.Bot):
 
     async def close(self):
         try:
-            if cf_common.user_db is not None:
-                await cf_common.user_db.close()
+            user_db = getattr(self, 'user_db', None)
+            if user_db is not None:
+                await user_db.close()
         except db.DatabaseDisabledError:
             pass
-        if cf_common.cf_cache is not None:
-            await cf_common.cf_cache.conn.close()
+        cf_cache = getattr(self, 'cf_cache', None)
+        if cf_cache is not None:
+            await cf_cache.conn.close()
         await super().close()
 
 

@@ -58,46 +58,6 @@ def elo_delta(player, opponent, win):
     return _ELO_CONSTANT * (win - elo_prob(player, opponent))
 
 
-async def get_cf_user(userid, guild_id):
-    handle = await cf_common.user_db.get_handle(userid, guild_id)
-    return await cf_common.user_db.fetch_cf_user(handle)
-
-
-async def complete_duel(
-    duelid, guild_id, win_status, winner, loser, finish_time, score, dtype
-):
-    winner_r = await cf_common.user_db.get_duel_rating(winner.id)
-    loser_r = await cf_common.user_db.get_duel_rating(loser.id)
-    delta = round(elo_delta(winner_r, loser_r, score))
-    rc = await cf_common.user_db.complete_duel(
-        duelid, win_status, finish_time, winner.id, loser.id, delta, dtype
-    )
-    if rc == 0:
-        raise DuelCogError('Hey! No cheating!')
-
-    if dtype == DuelType.UNOFFICIAL:
-        return None
-
-    winner_cf = await get_cf_user(winner.id, guild_id)
-    loser_cf = await get_cf_user(loser.id, guild_id)
-    desc = (
-        f'Rating change after **[{winner_cf.handle}]({winner_cf.url})**'
-        f' vs **[{loser_cf.handle}]({loser_cf.url})**:'
-    )
-    embed = discord_common.cf_color_embed(description=desc)
-    embed.add_field(
-        name=f'{winner.display_name}',
-        value=f'{winner_r} -> {winner_r + delta}',
-        inline=False,
-    )
-    embed.add_field(
-        name=f'{loser.display_name}',
-        value=f'{loser_r} -> {loser_r - delta}',
-        inline=False,
-    )
-    return embed
-
-
 def check_if_allow_self_register(ctx):
     if not constants.ALLOW_DUEL_SELF_REGISTER:
         raise DuelCogError('Self Registration is not enabled.')
@@ -109,6 +69,44 @@ class Dueling(commands.Cog):
         self.bot = bot
         self.converter = commands.MemberConverter()
         self.draw_offers = {}
+
+    async def _get_cf_user(self, userid, guild_id):
+        handle = await self.bot.user_db.get_handle(userid, guild_id)
+        return await self.bot.user_db.fetch_cf_user(handle)
+
+    async def _complete_duel(
+        self, duelid, guild_id, win_status, winner, loser, finish_time, score, dtype
+    ):
+        winner_r = await self.bot.user_db.get_duel_rating(winner.id)
+        loser_r = await self.bot.user_db.get_duel_rating(loser.id)
+        delta = round(elo_delta(winner_r, loser_r, score))
+        rc = await self.bot.user_db.complete_duel(
+            duelid, win_status, finish_time, winner.id, loser.id, delta, dtype
+        )
+        if rc == 0:
+            raise DuelCogError('Hey! No cheating!')
+
+        if dtype == DuelType.UNOFFICIAL:
+            return None
+
+        winner_cf = await self._get_cf_user(winner.id, guild_id)
+        loser_cf = await self._get_cf_user(loser.id, guild_id)
+        desc = (
+            f'Rating change after **[{winner_cf.handle}]({winner_cf.url})**'
+            f' vs **[{loser_cf.handle}]({loser_cf.url})**:'
+        )
+        embed = discord_common.cf_color_embed(description=desc)
+        embed.add_field(
+            name=f'{winner.display_name}',
+            value=f'{winner_r} -> {winner_r + delta}',
+            inline=False,
+        )
+        embed.add_field(
+            name=f'{loser.display_name}',
+            value=f'{loser_r} -> {loser_r - delta}',
+            inline=False,
+        )
+        return embed
 
     @commands.group(brief='Duel commands', invoke_without_command=True)
     async def duel(self, ctx):
@@ -199,7 +197,7 @@ class Dueling(commands.Cog):
         def get_problems(rating):
             return [
                 prob
-                for prob in cf_common.cf_cache.problem_cache.problems
+                for prob in self.bot.cf_cache.problem_cache.problems
                 if prob.rating == rating
                 and prob.name not in solved
                 and prob.name not in seen
@@ -333,7 +331,7 @@ class Dueling(commands.Cog):
         TESTING = -1
 
         async def get_solve_time(userid):
-            handle = await cf_common.user_db.get_handle(userid, ctx.guild.id)
+            handle = await self.bot.user_db.get_handle(userid, ctx.guild.id)
             subs = [
                 sub
                 for sub in await cf.user.status(handle=handle)
@@ -372,7 +370,7 @@ class Dueling(commands.Cog):
                 win_status = (
                     Winner.CHALLENGER if winner == challenger else Winner.CHALLENGEE
                 )
-                embed = await complete_duel(
+                embed = await self._complete_duel(
                     duelid,
                     ctx.guild.id,
                     win_status,
@@ -388,7 +386,7 @@ class Dueling(commands.Cog):
                     embed=embed,
                 )
             else:
-                embed = await complete_duel(
+                embed = await self._complete_duel(
                     duelid,
                     ctx.guild.id,
                     Winner.DRAW,
@@ -405,7 +403,7 @@ class Dueling(commands.Cog):
                 )
 
         elif challenger_time:
-            embed = complete_duel(
+            embed = self._complete_duel(
                 duelid,
                 ctx.guild.id,
                 Winner.CHALLENGER,
@@ -420,7 +418,7 @@ class Dueling(commands.Cog):
                 embed=embed,
             )
         elif challengee_time:
-            embed = complete_duel(
+            embed = self._complete_duel(
                 duelid,
                 ctx.guild.id,
                 Winner.CHALLENGEE,
@@ -470,7 +468,7 @@ class Dueling(commands.Cog):
             return
 
         offerer = ctx.guild.get_member(self.draw_offers[duelid])
-        embed = await complete_duel(
+        embed = await self._complete_duel(
             duelid, ctx.guild.id, Winner.DRAW, offerer, ctx.author, now, 0.5, dtype
         )
         await ctx.send(
@@ -484,7 +482,7 @@ class Dueling(commands.Cog):
         if not await self.bot.user_db.is_duelist(member.id):
             raise DuelCogError(f'{member.mention} is not a registered duelist.')
 
-        user = await get_cf_user(member.id, ctx.guild.id)
+        user = await self._get_cf_user(member.id, ctx.guild.id)
         rating = await self.bot.user_db.get_duel_rating(member.id)
         desc = (
             f'Duelist profile of {rating2rank(rating).title} {member.mention}'
@@ -512,8 +510,8 @@ class Dueling(commands.Cog):
             )
             when = cf_common.days_ago(start_time)
             loser_id = challenger if member.id != challenger else challengee
-            loser = await get_cf_user(loser_id, ctx.guild.id)
-            problem = cf_common.cf_cache.problem_cache.problem_by_name[problem_name]
+            loser = await self._get_cf_user(loser_id, ctx.guild.id)
+            problem = self.bot.cf_cache.problem_cache.problem_by_name[problem_name]
             return (
                 f'**[{problem.name}]({problem.url})** [{problem.rating}]'
                 f' versus [{loser.handle}]({loser.url}) {when} in {duel_time}'
@@ -540,14 +538,14 @@ class Dueling(commands.Cog):
             duel_time = cf_common.pretty_time_format(
                 finish_time - start_time, shorten=True, always_seconds=True
             )
-            problem = cf_common.cf_cache.problem_cache.problem_by_name[name]
+            problem = self.bot.cf_cache.problem_cache.problem_by_name[name]
             when = cf_common.days_ago(start_time)
             idstr = f'{duelid}: '
             if winner != Winner.DRAW:
-                loser = await get_cf_user(
+                loser = await self._get_cf_user(
                     challenger if winner == Winner.CHALLENGEE else challengee, guild_id
                 )
-                winner = await get_cf_user(
+                winner = await self._get_cf_user(
                     challenger if winner == Winner.CHALLENGER else challengee, guild_id
                 )
                 return (
@@ -556,8 +554,8 @@ class Dueling(commands.Cog):
                     f' vs [{loser.handle}]({loser.url}) {when} in {duel_time}'
                 )
             else:
-                challenger = await get_cf_user(challenger, guild_id)
-                challengee = await get_cf_user(challengee, guild_id)
+                challenger = await self._get_cf_user(challenger, guild_id)
+                challengee = await self._get_cf_user(challengee, guild_id)
                 return (
                     f'{idstr if show_id else str()}[{name}]({problem.url})'
                     f' [{problem.rating}] drawn by'
@@ -630,13 +628,13 @@ class Dueling(commands.Cog):
     async def ongoing(self, ctx, member: discord.Member = None):
         async def make_line(entry):
             start_time, name, challenger, challengee = entry
-            problem = cf_common.cf_cache.problem_cache.problem_by_name[name]
+            problem = self.bot.cf_cache.problem_cache.problem_by_name[name]
             now = datetime.datetime.now().timestamp()
             when = cf_common.pretty_time_format(
                 now - start_time, shorten=True, always_seconds=True
             )
-            challenger = await get_cf_user(challenger, ctx.guild.id)
-            challengee = await get_cf_user(challengee, ctx.guild.id)
+            challenger = await self._get_cf_user(challenger, ctx.guild.id)
+            challengee = await self._get_cf_user(challengee, ctx.guild.id)
             return (
                 f'[{challenger.handle}]({challenger.url})'
                 f' vs [{challengee.handle}]({challengee.url}):'

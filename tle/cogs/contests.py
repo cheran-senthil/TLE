@@ -108,16 +108,6 @@ async def _send_reminder_at(channel, role, contests, before_secs, send_time):
     await channel.send(role.mention, embed=embed)
 
 
-async def _get_ongoing_vc_participants():
-    """Returns `member_id` of users who are registered in an ongoing vc."""
-    ongoing_vc_ids = await cf_common.user_db.get_ongoing_rated_vc_ids()
-    ongoing_vc_participants = set()
-    for vc_id in ongoing_vc_ids:
-        vc_participants = set(await cf_common.user_db.get_rated_vc_user_ids(vc_id))
-        ongoing_vc_participants |= vc_participants
-    return ongoing_vc_participants
-
-
 class Contests(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -132,6 +122,17 @@ class Contests(commands.Cog):
         self.role_converter = commands.RoleConverter()
 
         self.logger = logging.getLogger(self.__class__.__name__)
+
+    async def _get_ongoing_vc_participants(self):
+        """Returns `member_id` of users who are registered in an ongoing vc."""
+        ongoing_vc_ids = await self.bot.user_db.get_ongoing_rated_vc_ids()
+        ongoing_vc_participants = set()
+        for vc_id in ongoing_vc_ids:
+            vc_participants = set(
+                await self.bot.user_db.get_rated_vc_user_ids(vc_id)
+            )
+            ongoing_vc_participants |= vc_participants
+        return ongoing_vc_participants
 
     @commands.Cog.listener()
     @discord_common.once
@@ -314,9 +315,8 @@ class Contests(commands.Cog):
         embed.add_field(name='Before', value=f'At {before_str} mins before contest')
         await ctx.send(embed=embed)
 
-    @staticmethod
-    async def _get_remind_role(guild):
-        settings = await cf_common.user_db.get_reminder_settings(guild.id)
+    async def _get_remind_role(self, guild):
+        settings = await self.bot.user_db.get_reminder_settings(guild.id)
         if settings is None:
             raise ContestCogError('Reminders are not enabled.')
         _, role_id, _ = settings
@@ -648,7 +648,7 @@ class Contests(commands.Cog):
             )
             raise ContestCogError(error)
 
-        ongoing_vc_member_ids = await _get_ongoing_vc_participants()
+        ongoing_vc_member_ids = await self._get_ongoing_vc_participants()
         this_vc_member_ids = {str(member.id) for member in members}
         intersection = this_vc_member_ids & ongoing_vc_member_ids
         if intersection:
@@ -693,11 +693,10 @@ class Contests(commands.Cog):
         embed.set_footer(text='GL & HF')
         await ctx.send(embed=embed)
 
-    @staticmethod
-    async def _make_vc_rating_changes_embed(guild, contest_id, change_by_handle):
+    async def _make_vc_rating_changes_embed(self, guild, contest_id, change_by_handle):
         """Make an embed containing a list of rank changes and rating changes for ratedvc participants."""  # noqa: E501
-        contest = cf_common.cf_cache.contest_cache.get_contest(contest_id)
-        user_id_handle_pairs = await cf_common.user_db.get_handles_for_guild(guild.id)
+        contest = self.bot.cf_cache.contest_cache.get_contest(contest_id)
+        user_id_handle_pairs = await self.bot.user_db.get_handles_for_guild(guild.id)
         member_handle_pairs = [
             (guild.get_member(int(user_id)), handle)
             for user_id, handle in user_id_handle_pairs
@@ -718,7 +717,7 @@ class Contests(commands.Cog):
 
         rank_changes_str = []
         for member, change in member_change_pairs:
-            if len(await cf_common.user_db.get_vc_rating_history(member.id)) == 1:
+            if len(await self.bot.user_db.get_vc_rating_history(member.id)) == 1:
                 # If this is the user's first rated contest.
                 old_role = 'Unrated'
             else:
@@ -842,7 +841,7 @@ class Contests(commands.Cog):
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
     async def _unregistervc(self, ctx, user: discord.Member):
         """Unregister this user from an ongoing ratedvc."""
-        ongoing_vc_member_ids = await _get_ongoing_vc_participants()
+        ongoing_vc_member_ids = await self._get_ongoing_vc_participants()
         if str(user.id) not in ongoing_vc_member_ids:
             raise ContestCogError(f'{user.mention} has no ongoing ratedvc!')
         await self.bot.user_db.remove_last_ratedvc_participation(user.id)
