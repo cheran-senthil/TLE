@@ -4,7 +4,7 @@
 
 TLE (Time Limit Exceeded) is a Discord bot for competitive programming communities, built around the Codeforces platform. It provides problem recommendations, contest tracking, dueling, performance visualization, and community management features.
 
-**Tech Stack:** Python 3.10+, discord.py 2.x, aiosqlite, aiohttp, matplotlib/seaborn, numpy, Pillow, PyCairo/PyGObject
+**Tech Stack:** Python 3.10+, discord.py 2.x, aiosqlite, aiohttp, matplotlib/seaborn, numpy, Pillow, PyCairo/PyGObject, PyJWT
 
 ---
 
@@ -19,9 +19,11 @@ Discord Gateway
 |  (commands.Bot)  |  - Entry point, arg parsing, cog loading
 +------------------+
        |
-       +--- bot.user_db    (UserDbConn)
-       +--- bot.cf_cache   (CacheSystem)
-       +--- bot.event_sys  (EventSystem)
+       +--- bot.user_db          (UserDbConn)
+       +--- bot.cf_cache         (CacheSystem)
+       +--- bot.event_sys        (EventSystem)
+       +--- bot.oauth_server     (OAuthServer, optional)
+       +--- bot.oauth_state_store (OAuthStateStore, optional)
        |
        v
 +------------------+     +-------------------+
@@ -55,7 +57,7 @@ TLE/
 ├── tle/
 │   ├── __init__.py
 │   ├── __main__.py              # Entry point: bot setup, cog loading, initialization
-│   ├── constants.py             # Paths, role names, env config, feature flags
+│   ├── constants.py             # Paths, role names, env config, feature flags, OAuth config
 │   ├── cogs/                    # Discord command modules (Cog pattern)
 │   │   ├── cache_control.py     # Admin cache management commands
 │   │   ├── codeforces.py        # Problem recommendations, gitgud, upsolve, mashup
@@ -74,6 +76,7 @@ TLE/
 │       ├── events.py            # Pub/sub event system for inter-component communication
 │       ├── graph_common.py      # matplotlib setup, BytesIO plotting, rating backgrounds
 │       ├── handledict.py        # Case-insensitive handle dictionary
+│       ├── oauth.py             # Codeforces OAuth (OIDC) state store, token handling, callback server
 │       ├── paginator.py         # Discord message pagination with reactions
 │       ├── table.py             # ASCII table formatter
 │       ├── tasks.py             # Custom async task framework (Task, TaskSpec, Waiter)
@@ -130,7 +133,7 @@ The entry point performs:
 9. On ready: starts the presence update task
 10. Overrides `close()` to gracefully close database connections on shutdown
 
-**Initialization order is guaranteed by `setup_hook()`:** This runs before the bot connects to Discord, so all cogs are loaded and `cf_common.initialize()` completes (setting up database connections, cache system, and event system as `bot.user_db`, `bot.cf_cache`, `bot.event_sys`) before any events or commands are processed.
+**Initialization order is guaranteed by `setup_hook()`:** This runs before the bot connects to Discord, so all cogs are loaded, `cf_common.initialize()` completes (setting up database connections, cache system, and event system as `bot.user_db`, `bot.cf_cache`, `bot.event_sys`), and the OAuth callback server starts (if configured) before any events or commands are processed.
 
 ### 2. Cog Layer (`tle/cogs/`)
 
@@ -160,7 +163,7 @@ async def setup(bot):
 | **Contests** | 12 | Contest listing, reminders, ranklist, rated virtual contests |
 | **Dueling** | 17 | 1v1 challenges with ELO rating, draws, history, rankings |
 | **Graphs** | 13 | Rating plots, solve history, distributions, country comparisons |
-| **Handles** | 17 | Handle linking, role management, rank updates, trusted roles |
+| **Handles** | 17 | Handle linking (via Codeforces OAuth), role management, rank updates, trusted roles |
 | **Logging** | 0 | Background log handler sending warnings to a Discord channel |
 | **Meta** | 5 | Bot control: kill, ping, git info, uptime, guild list |
 | **Starboard** | 7 | Multi-emoji reaction archival with configurable thresholds |
@@ -250,7 +253,33 @@ A custom alternative to `discord.ext.tasks` providing:
 
 This framework is used throughout the cache system and by background maintenance tasks.
 
-### 8. Visualization (`tle/util/graph_common.py` + `tle/cogs/graphs.py`)
+### 8. OAuth / Codeforces OpenID Connect (`tle/util/oauth.py`)
+
+The `identify` command uses Codeforces's OpenID Connect (OAuth 2.0) flow to verify handle ownership. This replaces the older compile-error verification method with a one-click authorization link.
+
+**Components:**
+- **`OAuthStateStore`** — In-memory `dict[str, OAuthPending]` mapping state tokens to `(user_id, guild_id, channel_id)` with 5-minute TTL and single-use consumption
+- **`OAuthServer`** — aiohttp web server (default port 8080) with a `/callback` route that handles the authorization code exchange
+- **Helper functions:** `build_auth_url()`, `exchange_code()`, `decode_id_token()` (HS256 via PyJWT with issuer/audience/expiry validation)
+
+**Flow:**
+```
+User runs ;handle identify
+  -> Bot generates state token, stores mapping
+  -> Bot sends Discord message with "Link Codeforces Account" link button
+  -> User clicks, logs in on CF, authorizes
+  -> CF redirects to /callback?code=...&state=...
+  -> OAuthServer exchanges code for ID token at CF token endpoint
+  -> Decodes ID token (HS256) -> extracts handle
+  -> Fetches full CF user info via cf.user.info()
+  -> Calls handles_cog._set_from_oauth(guild, member, user)
+  -> Sends confirmation embed to Discord channel
+  -> Returns success HTML to browser
+```
+
+**Configuration:** Requires `OAUTH_CLIENT_ID`, `OAUTH_CLIENT_SECRET`, `OAUTH_REDIRECT_URI` environment variables. When not set, `constants.OAUTH_CONFIGURED` is `False` and the `identify` command shows a configuration error. The server is only started when OAuth is configured.
+
+### 9. Visualization (`tle/util/graph_common.py` + `tle/cogs/graphs.py`)
 
 Generates matplotlib/seaborn plots as Discord file attachments:
 - Rating history over time (by contest or date)
@@ -298,6 +327,7 @@ RatingChangesCache._update_task fires periodically
 | Source | Variables |
 |--------|-----------|
 | `.env` | `BOT_TOKEN`, `LOGGING_COG_CHANNEL_ID`, `ALLOW_DUEL_SELF_REGISTER` |
+| `.env` (OAuth) | `OAUTH_CLIENT_ID`, `OAUTH_CLIENT_SECRET`, `OAUTH_REDIRECT_URI`, `OAUTH_SERVER_PORT` (default 8080) |
 | Environment | `TLE_ADMIN`, `TLE_MODERATOR`, `TLE_TRUSTED`, `TLE_PURGATORY` (role names or IDs) |
 | Runtime | `--nodb` flag disables database (uses `DummyUserDbConn`) |
 
@@ -310,7 +340,7 @@ The Dockerfile uses a multi-stage build:
 1. **Builder stage** (`python:3.11-slim`): Compiles native dependencies (cairo, PyGObject, PIL) with build tools
 2. **Runtime stage** (`python:3.11-slim`): Slim image with only runtime libraries, CJK fonts, and compiled packages
 3. Runs as non-root `botuser` for security
-4. `docker-compose.yaml` defines a single service with `./data` volume mount and `.env` passthrough
+4. `docker-compose.yaml` defines a single service with `./data` volume mount, `.env` passthrough, and OAuth callback port exposure
 
 ---
 

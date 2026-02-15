@@ -4,7 +4,6 @@ import datetime as dt
 import html
 import io
 import logging
-import random
 
 import cairo
 import discord
@@ -18,6 +17,7 @@ from tle.util import (
     db,
     discord_common,
     events,
+    oauth,
     paginator,
     table,
     tasks,
@@ -402,10 +402,10 @@ class Handles(commands.Cog):
         embed = _make_profile_embed(member, user, mode='set')
         await ctx.send(embed=embed)
 
-    async def _set(self, ctx, member, user):
+    async def _set_from_oauth(self, guild, member, user):
         handle = user.handle
         try:
-            await self.bot.user_db.set_handle(member.id, ctx.guild.id, handle)
+            await self.bot.user_db.set_handle(member.id, guild.id, handle)
         except db.UniqueConstraintFailed:
             raise HandleCogError(
                 f'When setting handle for {member}: '
@@ -416,7 +416,7 @@ class Handles(commands.Cog):
         if user.rank == cf.UNRATED_RANK:
             role_to_assign = None
         else:
-            roles = [role for role in ctx.guild.roles if role.name == user.rank.title]
+            roles = [role for role in guild.roles if role.name == user.rank.title]
             if not roles:
                 raise HandleCogError(
                     f'Role for rank `{user.rank.title}` not present in the server'
@@ -426,58 +426,62 @@ class Handles(commands.Cog):
             member, role_to_assign, reason='New handle set for user'
         )
 
-    @handle.command(brief='Identify yourself', usage='[handle]')
-    @cf_common.user_guard(
-        group='handle',
-        get_exception=lambda: HandleCogError(
-            'Identification is already running for you'
-        ),
-    )
-    async def identify(self, ctx, handle: str):
-        """Link a codeforces account to discord account.
+    async def _set(self, ctx, member, user):
+        await self._set_from_oauth(ctx.guild, member, user)
 
-        Confirmation is done by submitting a compile error to a random problem.
+    @handle.command(brief='Identify yourself')
+    async def identify(self, ctx):
+        """Link your Codeforces account via OAuth.
+
+        Opens a Codeforces authorization link so you can verify your handle.
         """
+        if not constants.OAUTH_CONFIGURED:
+            raise HandleCogError(
+                'OAuth is not configured. An admin must set'
+                ' OAUTH_CLIENT_ID, OAUTH_CLIENT_SECRET, and OAUTH_REDIRECT_URI.'
+            )
+
         if await self.bot.user_db.get_handle(ctx.author.id, ctx.guild.id):
             raise HandleCogError(
                 f'{ctx.author.mention}, you cannot identify when your handle'
                 ' is already set. Ask an Admin or Moderator if you wish to change it'
             )
 
-        if await self.bot.user_db.get_user_id(handle, ctx.guild.id):
-            raise HandleCogError(
-                f'The handle `{handle}` is already associated with another user.'
-                ' Ask an Admin or Moderator in case of an inconsistency.'
-            )
+        self.bot.oauth_state_store.revoke(ctx.author.id)
 
-        if handle in cf_common.HandleIsVjudgeError.HANDLES:
-            raise cf_common.HandleIsVjudgeError(handle)
-
-        users = await cf.user.info(handles=[handle])
-        invoker = str(ctx.author)
-        handle = users[0].handle
-        problems = [
-            prob
-            for prob in self.bot.cf_cache.problem_cache.problems
-            if prob.rating <= 1200
-        ]
-        problem = random.choice(problems)
-        await ctx.send(
-            f'`{invoker}`, submit a compile error to <{problem.url}> within 60 seconds'
+        state = self.bot.oauth_state_store.create(
+            ctx.author.id, ctx.guild.id, ctx.channel.id
         )
-        await asyncio.sleep(60)
+        auth_url = oauth.build_auth_url(
+            constants.OAUTH_CLIENT_ID, constants.OAUTH_REDIRECT_URI, state
+        )
 
-        subs = await cf.user.status(handle=handle, count=5)
-        if any(
-            sub.problem.name == problem.name and sub.verdict == 'COMPILATION_ERROR'
-            for sub in subs
-        ):
-            (user,) = await cf.user.info(handles=[handle])
-            await self._set(ctx, ctx.author, user)
-            embed = _make_profile_embed(ctx.author, user, mode='set')
-            await ctx.send(embed=embed)
+        view = discord.ui.View()
+        view.add_item(
+            discord.ui.Button(
+                style=discord.ButtonStyle.link,
+                label='Link Codeforces Account',
+                url=auth_url,
+            )
+        )
+        msg = (
+            'Click the button below to link your Codeforces account.'
+            ' The link expires in 5 minutes.'
+        )
+        if ctx.interaction:
+            await ctx.send(msg, view=view, ephemeral=True)
         else:
-            await ctx.send(f'Sorry `{invoker}`, can you try again?')
+            try:
+                await ctx.author.send(msg, view=view)
+                await ctx.send('Check your DMs for the link!')
+            except discord.Forbidden:
+                self.bot.oauth_state_store.revoke(ctx.author.id)
+                await ctx.send(
+                    f'{ctx.author.mention}, I could not DM you.'
+                    ' Please enable DMs from server members'
+                    ' and try again, or use the'
+                    ' /handle identify slash command instead.'
+                )
 
     @handle.command(brief='Get handle by Discord username')
     async def get(self, ctx, member: discord.Member):

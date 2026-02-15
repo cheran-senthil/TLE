@@ -18,6 +18,8 @@ dependencies = [
   "aiosqlite >= 0.19, < 1",
   # Config
   "python-dotenv >= 1.0, < 2",
+  # OAuth / JWT
+  "PyJWT >= 2.8, < 3",
 ]
 
 [project.optional-dependencies]

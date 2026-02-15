@@ -73,6 +73,8 @@ class TLEBot(commands.Bot):
     def __init__(self, nodb, **kwargs):
         super().__init__(**kwargs)
         self.nodb = nodb
+        self.oauth_server = None
+        self.oauth_state_store = None
 
     async def get_context(self, message, *, cls=None):
         return await super().get_context(message, cls=cls or TLEContext)
@@ -83,10 +85,21 @@ class TLEBot(commands.Bot):
             await self.load_extension(f'tle.cogs.{extension}')
         logging.info(f'Cogs loaded: {", ".join(self.cogs)}')
         await cf_common.initialize(self, self.nodb)
+        if constants.OAUTH_CONFIGURED:
+            from tle.util.oauth import OAuthServer, OAuthStateStore
+
+            self.oauth_state_store = OAuthStateStore()
+            self.oauth_server = OAuthServer(
+                self, self.oauth_state_store, constants.OAUTH_SERVER_PORT
+            )
+            await self.oauth_server.start()
+            logging.info('OAuth callback server started')
         await self.tree.sync()
         logging.info('Slash commands synced')
 
     async def close(self):
+        if self.oauth_server is not None:
+            await self.oauth_server.stop()
         try:
             user_db = getattr(self, 'user_db', None)
             if user_db is not None:

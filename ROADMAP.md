@@ -149,9 +149,9 @@ Now that we're on discord.py 2.x, add modern Discord UX.
 | ~~7a~~ | ~~DPY-07~~ | ~~All cogs, `tle/__main__.py`, `tle/util/paginator.py`~~ | ~~DONE - Converted 8 groups to `hybrid_group` (with `fallback='show'`), 12 standalone commands to `hybrid_command`, added `with_app_command=False` to 16 subcommands with variadic `*args`. Added `tree.sync()` in `setup_hook()`, `interaction_guild_check` for slash commands. Added `TLEContext` subclass that auto-replies to prefix command messages. Updated paginator to use `ctx.send()` for proper interaction responses and prefix replies.~~ |
 | ~~7b~~ | ~~Pagination~~ | ~~`tle/util/paginator.py`, all cogs~~ | ~~DONE - Replaced `Paginated` class (emoji reactions + `bot.wait_for`) with `PaginatorView(discord.ui.View)` using 4 navigation buttons. Made `paginate()` async, removed `bot` parameter and `manage_messages` permission check. Updated all 13 callers across 4 cog files. Removed `InsufficientPermissionsError`.~~ |
 | ~~7c~~ | ~~Duel UX~~ | ~~`tle/cogs/duel.py`~~ | ~~DONE - Added `DuelChallengeView` with Accept/Decline/Withdraw buttons. Challenge command no longer blocks with `asyncio.sleep`; View handles expiry via timeout. Standalone text commands kept as fallback.~~ |
-| 7d | Handle UX | `tle/cogs/handles.py` | Add modal for handle identification flow |
+| ~~7d~~ | ~~Handle UX~~ | ~~`tle/cogs/handles.py`, `tle/util/oauth.py`, `tle/__main__.py`, `tle/constants.py`~~ | ~~DONE - Replaced compile-error identification flow with Codeforces OAuth (OpenID Connect). Added `OAuthStateStore`, `OAuthServer` with `/callback` route, JWT token decoding (PyJWT). `identify` command now sends a "Link Codeforces Account" link button. Refactored `_set` into `_set_from_oauth` for callback access. Added OAuth env vars, port exposure in `docker-compose.yaml`, 15 unit tests.~~ |
 
-**Verification:** Slash commands appear in Discord. Buttons work. Existing prefix commands still work.
+**Verification:** Slash commands appear in Discord. Buttons work. Existing prefix commands still work. OAuth identify flow links handle via one-click CF authorization. 392 tests pass.
 
 ---
 
