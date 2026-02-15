@@ -1,0 +1,72 @@
+{
+  "contest": {
+    "id": 1,
+    "name": "Codeforces Beta Round #1",
+    "type": "CF",
+    "phase": "FINISHED",
+    "frozen": false,
+    "durationSeconds": 7200,
+    "startTimeSeconds": 1265979600,
+    "relativeTimeSeconds": 2147483647,
+    "preparedBy": null
+  },
+  "problems": [
+    {
+      "contestId": 1,
+      "index": "A",
+      "name": "Theatre Square",
+      "type": "PROGRAMMING",
+      "points": 500.0,
+      "rating": 1000,
+      "tags": ["math"],
+      "problemsetName": null
+    },
+    {
+      "contestId": 1,
+      "index": "B",
+      "name": "Spreadsheets",
+      "type": "PROGRAMMING",
+      "points": 1000.0,
+      "rating": 1600,
+      "tags": ["implementation", "math"],
+      "problemsetName": null
+    }
+  ],
+  "rows": [
+    {
+      "party": {
+        "contestId": 1,
+        "members": [
+          {
+            "handle": "tourist"
+          }
+        ],
+        "participantType": "CONTESTANT",
+        "teamId": null,
+        "teamName": null,
+        "ghost": false,
+        "room": null,
+        "startTimeSeconds": 1265979600
+      },
+      "rank": 1,
+      "points": 1500.0,
+      "penalty": 120,
+      "problemResults": [
+        {
+          "points": 500.0,
+          "penalty": null,
+          "rejectedAttemptCount": 0,
+          "type": "FINAL",
+          "bestSubmissionTimeSeconds": 300
+        },
+        {
+          "points": 1000.0,
+          "penalty": null,
+          "rejectedAttemptCount": 1,
+          "type": "FINAL",
+          "bestSubmissionTimeSeconds": 1200
+        }
+      ]
+    }
+  ]
+}

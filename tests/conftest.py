@@ -1,5 +1,8 @@
 """Shared fixtures for all tests."""
 
+from contextlib import contextmanager
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 
 
@@ -143,3 +146,120 @@ def make_rating_change():
         )
 
     return _make
+
+
+@pytest.fixture
+def make_member():
+    """Factory fixture returning a builder for Member namedtuples."""
+    from tle.util.codeforces_api import Member
+
+    def _make(handle='tourist'):
+        return Member(handle=handle)
+
+    return _make
+
+
+@pytest.fixture
+def make_party(make_member):
+    """Factory fixture returning a builder for Party namedtuples."""
+    from tle.util.codeforces_api import Party
+
+    def _make(
+        contestId=1,
+        members=None,
+        participantType='CONTESTANT',
+        teamId=None,
+        teamName=None,
+        ghost=False,
+        room=None,
+        startTimeSeconds=None,
+    ):
+        if members is None:
+            members = [make_member()]
+        return Party(
+            contestId=contestId,
+            members=members,
+            participantType=participantType,
+            teamId=teamId,
+            teamName=teamName,
+            ghost=ghost,
+            room=room,
+            startTimeSeconds=startTimeSeconds,
+        )
+
+    return _make
+
+
+@pytest.fixture
+def make_submission(make_problem, make_party):
+    """Factory fixture returning a builder for Submission namedtuples."""
+    from tle.util.codeforces_api import Submission
+
+    def _make(
+        id=1,
+        contestId=1,
+        problem=None,
+        author=None,
+        programmingLanguage='C++',
+        verdict='OK',
+        creationTimeSeconds=1_000_000,
+        relativeTimeSeconds=0,
+    ):
+        if problem is None:
+            problem = make_problem()
+        if author is None:
+            author = make_party()
+        return Submission(
+            id=id,
+            contestId=contestId,
+            problem=problem,
+            author=author,
+            programmingLanguage=programmingLanguage,
+            verdict=verdict,
+            creationTimeSeconds=creationTimeSeconds,
+            relativeTimeSeconds=relativeTimeSeconds,
+        )
+
+    return _make
+
+
+@pytest.fixture
+def event_system():
+    """Returns a fresh EventSystem instance for testing."""
+    from tle.util.events import EventSystem
+
+    return EventSystem()
+
+
+@pytest.fixture
+def mock_ctx():
+    """Returns a mocked Discord Context object."""
+    ctx = MagicMock()
+    ctx.send = AsyncMock()
+    ctx.author = MagicMock()
+    ctx.author.id = 12345
+    ctx.message = MagicMock()
+    ctx.message.author = ctx.author
+    ctx.channel = MagicMock()
+    return ctx
+
+
+@contextmanager
+def patch_cf_common(**attrs):
+    """Context manager to temporarily patch cf_common module-level attributes.
+
+    Usage:
+        with patch_cf_common(event_sys=my_event_sys, user_db=mock_db):
+            ...
+    """
+    import tle.util.codeforces_common as cf_common
+
+    originals = {}
+    for attr, value in attrs.items():
+        originals[attr] = getattr(cf_common, attr)
+        setattr(cf_common, attr, value)
+    try:
+        yield
+    finally:
+        for attr, value in originals.items():
+            setattr(cf_common, attr, value)

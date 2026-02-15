@@ -1,0 +1,38 @@
+[
+  {
+    "id": 123456789,
+    "contestId": 1,
+    "creationTimeSeconds": 1700000000,
+    "relativeTimeSeconds": 300,
+    "problem": {
+      "contestId": 1,
+      "problemsetName": null,
+      "index": "A",
+      "name": "Theatre Square",
+      "type": "PROGRAMMING",
+      "points": null,
+      "rating": 1000,
+      "tags": ["math"]
+    },
+    "author": {
+      "contestId": 1,
+      "members": [
+        {
+          "handle": "tourist"
+        }
+      ],
+      "participantType": "CONTESTANT",
+      "teamId": null,
+      "teamName": null,
+      "ghost": false,
+      "room": null,
+      "startTimeSeconds": 1265979600
+    },
+    "programmingLanguage": "GNU C++17",
+    "verdict": "OK",
+    "testset": "TESTS",
+    "passedTestCount": 10,
+    "timeConsumedMillis": 15,
+    "memoryConsumedBytes": 0
+  }
+]

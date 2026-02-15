@@ -2,19 +2,18 @@
 
 ## Current State
 
-**226 tests** pass across Layer 1 (unit) and Layer 2 (component), implemented in Step 5. CI runs on Python 3.10/3.11/3.12 with codecov reporting.
+**355 tests** pass across Layer 1 (unit), Layer 2 (component), and Layer 3 (integration), implemented through Step 10. CI runs on Python 3.10/3.11/3.12 with codecov reporting.
 
 **What's tested:**
-- Layer 1 (unit): `table.py`, `handledict.py`, `codeforces_api.py` (namedtuples + helpers), `codeforces_common.py` (pure functions + SubFilter), `rating_calculator.py`
-- Layer 2 (component): Full async CRUD for `UserDbConn` and `CacheDbConn` using in-memory aiosqlite
+- Layer 1 (unit): `table.py`, `handledict.py`, `codeforces_api.py` (namedtuples + helpers), `codeforces_common.py` (pure functions + SubFilter), `rating_calculator.py`, `events.py`, `tasks.py`, `paginator.py`
+- Layer 2 (component): Full async CRUD for `UserDbConn` and `CacheDbConn` using in-memory aiosqlite, API response parsing with fixture JSON files, cache sub-system data management
+- Layer 3 (integration): `codeforces.py` cog commands (`_validate_gitgud_status`, `_gitgud`, `gimme`)
 
-**What's NOT tested yet (now unblocked by discord.py 2.x migration in Step 6):**
-- Anything importing `discord.ext.commands`: `events.py`, `tasks.py`, `paginator.py`, `discord_common.py`
-- All cog integration tests (Layer 3)
-- Cache system with mocked API (Layer 2C)
-- API response parsing with fixture JSON files (Layer 2B)
-
-The discord.py 2.x migration (Step 6) is complete, so these tests are now unblocked. The remaining challenge for testing is the global mutable state in `codeforces_common.py` (module-level `user_db`, `cf_cache`, `event_sys`, `active_groups`), but these can be monkey-patched or set directly in test fixtures.
+**What's NOT tested yet:**
+- `discord_common.py` utility functions
+- Remaining cog integration tests (duel, handles, contests, graphs, starboard, meta)
+- Ranklist cache (depends on complex API interactions)
+- End-to-end tests (Layer 4)
 
 ---
 
@@ -873,17 +872,20 @@ jobs:
 2. ~~**Add `test_codeforces_api.py`** - Data model tests, pure NamedTuple logic and properties~~ DONE
 3. ~~**Add `test_codeforces_common.py`** - Pure utility functions, high value~~ DONE
 4. ~~**Add `test_rating_calculator.py`** - Mathematically verifiable~~ DONE
-5. **Add `test_events.py`** - Core infrastructure, async tests (deferred: imports `discord.ext.commands`)
+5. ~~**Add `test_events.py`** - Core infrastructure, async tests~~ DONE
 6. ~~**Add `test_user_db.py`** - Most critical component, async in-memory aiosqlite~~ DONE
 7. ~~**Add `test_cache_db.py`** - Cache persistence, async in-memory aiosqlite~~ DONE
-8. **Add `test_api_parsing.py`** - Requires fixture files but high value
-9. **Add `test_codeforces_cog.py`** - First integration test, validates the pattern
-10. **Expand outward** from there
+8. ~~**Add `test_api_parsing.py`** - API response parsing with fixture JSON files~~ DONE
+9. ~~**Add `test_codeforces_cog.py`** - First integration test, validates the pattern~~ DONE
+10. ~~**Add `test_tasks.py`** - Task framework (Waiter, Task, TaskSpec, decorators)~~ DONE
+11. ~~**Add `test_paginator.py`** - Paginator (chunkify, Paginated, paginate function)~~ DONE
+12. ~~**Add `test_cache_system.py`** - Cache sub-system data management~~ DONE
+13. **Expand outward** from there
 
 ---
 
 ## Prerequisites Before Next Testing Phase
 
-1. **discord.py 2.x migration (Step 6)** - Unblocks testing of `events.py`, `tasks.py`, `paginator.py`, and all cog integration tests.
-2. **Fixture data collection** - Save real CF API responses as JSON fixtures for replay testing.
-3. **Global state management** - Use the `patch_cf_common` context manager (see Test Utilities) to safely replace module-level singletons (`cf_common.user_db`, `cf_common.cf_cache`) during tests.
+1. ~~**discord.py 2.x migration (Step 6)** - Unblocks testing of `events.py`, `tasks.py`, `paginator.py`, and all cog integration tests.~~ DONE
+2. ~~**Fixture data collection** - Save real CF API responses as JSON fixtures for replay testing.~~ DONE (5 fixture files in `tests/fixtures/cf_api_responses/`)
+3. ~~**Global state management** - Use the `patch_cf_common` context manager (see Test Utilities) to safely replace module-level singletons (`cf_common.user_db`, `cf_common.cf_cache`) during tests.~~ DONE (implemented in `tests/conftest.py`)

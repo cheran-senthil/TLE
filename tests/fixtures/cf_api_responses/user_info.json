@@ -1,0 +1,21 @@
+[
+  {
+    "handle": "tourist",
+    "email": "tourist@example.com",
+    "firstName": "Gennady",
+    "lastName": "Korotkevich",
+    "country": "Belarus",
+    "city": "Gomel",
+    "organization": "ITMO University",
+    "contribution": 158,
+    "rank": "legendary grandmaster",
+    "rating": 3825,
+    "maxRank": "legendary grandmaster",
+    "maxRating": 3979,
+    "lastOnlineTimeSeconds": 1700000000,
+    "registrationTimeSeconds": 1265987288,
+    "friendOfCount": 30000,
+    "avatar": "https://userpic.codeforces.org/422/avatar/full.jpg",
+    "titlePhoto": "https://userpic.codeforces.org/422/title/full.jpg"
+  }
+]
