@@ -1,4 +1,6 @@
+import re
 import unicodedata
+from collections.abc import Callable
 
 FULL_WIDTH = 1.66667
 WIDTH_MAPPING = {'F': FULL_WIDTH, 'H': 1, 'W': FULL_WIDTH, 'Na': 1, 'N': 1, 'A': 1}
@@ -28,8 +30,24 @@ class Header(Content):
 
 
 class Data(Content):
+    def __init__(
+        self, *args: object, colors: list[Callable[[str], str]] | None = None
+    ) -> None:
+        super().__init__(*args)
+        self.colors = colors
+
     def layout(self, style: 'Style') -> str:
-        return style.format_body(self.data)
+        if not self.colors:
+            return style.format_body(self.data)
+        seps, cells = style.format_body_cells(self.data)
+        parts = [seps[0]]
+        for i, cell in enumerate(cells):
+            if i < len(self.colors) and self.colors[i] is not None:
+                parts.append(self.colors[i](cell))
+            else:
+                parts.append(cell)
+            parts.append(seps[i + 1])
+        return ''.join(parts)
 
 
 class Line:
@@ -74,6 +92,23 @@ class Style:
 
     def format_body(self, data: tuple[object, ...]) -> str:
         return self._pad(data, self._body).format(*data)
+
+    def format_body_cells(
+        self, data: tuple[object, ...]
+    ) -> tuple[list[str], list[str]]:
+        """Return (separators, cells) for per-cell colored rendering."""
+        padded = self._pad(data, self._body)
+        parts = re.split(r'(\{[^}]*\})', padded)
+        seps: list[str] = []
+        cells: list[str] = []
+        data_idx = 0
+        for part in parts:
+            if part.startswith('{') and part.endswith('}'):
+                cells.append(part.format(data[data_idx]))
+                data_idx += 1
+            else:
+                seps.append(part)
+        return seps, cells
 
     def set_colwidths(self, sizes: list[int]) -> None:
         self.sizes = sizes

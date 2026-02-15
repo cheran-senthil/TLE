@@ -14,6 +14,7 @@ from discord.ext import commands
 
 from tle import constants
 from tle.util import (
+    ansi,
     codeforces_api as cf,
     codeforces_common as cf_common,
     db,
@@ -225,8 +226,12 @@ def _make_pages(
                 name = name[: _NAME_MAX_LEN - 1] + '…'
             rank = cf.rating2rank(rating)
             rating_str = 'N/A' if rating is None else str(rating)
-            t += table.Data(i + done, name, handle, f'{rating_str} ({rank.title_abbr})')
-        table_str = '```\n' + str(t) + '\n```'
+            colors = ansi.make_cell_colors(rank, ncols=4, handle_col=2)
+            t += table.Data(
+                i + done, name, handle, f'{rating_str} ({rank.title_abbr})',
+                colors=colors,
+            )
+        table_str = '```ansi\n' + str(t) + '\n```'
         embed = discord_common.cf_color_embed(description=table_str)
         pages.append((title, embed))
         done += len(chunk)

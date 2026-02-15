@@ -4,19 +4,17 @@ import os
 
 from discord.ext import commands
 
-from tle.util import discord_common
+from tle.util import ansi, discord_common
 
 root_logger = logging.getLogger()
 logger = logging.getLogger(__name__)
 
-_ANSI_RESET = '\u001b[0m'
 _ANSI_BY_LEVEL = {
-    logging.INFO: '\u001b[32m',          # Green
-    logging.WARNING: '\u001b[33m',       # Yellow
-    logging.ERROR: '\u001b[31m',         # Red
-    logging.CRITICAL: '\u001b[1;31m',    # Bold red
+    logging.INFO: ansi.ANSI_GREEN,
+    logging.WARNING: ansi.ANSI_YELLOW,
+    logging.ERROR: ansi.ANSI_RED,
+    logging.CRITICAL: ansi.ANSI_BOLD_RED,
 }
-_ANSI_DEFAULT = '\u001b[37m'             # White
 
 
 class Logging(commands.Cog, logging.Handler):
@@ -56,8 +54,8 @@ class Logging(commands.Cog, logging.Handler):
                     if jump_url:
                         parts.append(f'Jump Url: {jump_url}')
                     await channel.send('\n'.join(parts))
-                color = _ANSI_BY_LEVEL.get(record.levelno, _ANSI_DEFAULT)
-                colored_msg = f'{color}{msg}{_ANSI_RESET}'
+                color = _ANSI_BY_LEVEL.get(record.levelno, ansi.ANSI_WHITE)
+                colored_msg = f'{color}{msg}{ansi.RESET}'
                 discord_msg_char_limit = 2000
                 wrapper = '```ansi\n```'
                 char_limit = discord_msg_char_limit - len(wrapper)
