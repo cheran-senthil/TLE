@@ -4,7 +4,6 @@ from pathlib import Path
 DATA_DIR = Path('data')
 LOGS_DIR = Path('logs')
 
-ASSETS_DIR = DATA_DIR / 'assets'
 DB_DIR = DATA_DIR / 'db'
 MISC_DIR = DATA_DIR / 'misc'
 TEMP_DIR = DATA_DIR / 'temp'
@@ -12,10 +11,11 @@ TEMP_DIR = DATA_DIR / 'temp'
 USER_DB_FILE_PATH = DB_DIR / 'user.db'
 CACHE_DB_FILE_PATH = DB_DIR / 'cache.db'
 
-FONTS_DIR = ASSETS_DIR / 'fonts'
-
-NOTO_SANS_CJK_BOLD_FONT_PATH = FONTS_DIR / 'NotoSansCJK-Bold.ttc'
-NOTO_SANS_CJK_REGULAR_FONT_PATH = FONTS_DIR / 'NotoSansCJK-Regular.ttc'
+_SYSTEM_FONT_DIR = Path('/usr/share/fonts/opentype/noto')
+NOTO_SANS_CJK_BOLD_FONT_PATH = _SYSTEM_FONT_DIR / 'NotoSansCJK-Bold.ttc'
+NOTO_SANS_CJK_REGULAR_FONT_PATH = (
+    _SYSTEM_FONT_DIR / 'NotoSansCJK-Regular.ttc'
+)
 
 CONTEST_WRITERS_JSON_FILE_PATH = MISC_DIR / 'contest_writers.json'
 

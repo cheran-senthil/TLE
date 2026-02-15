@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 from matplotlib import pyplot as plt
 
 from tle import constants
-from tle.util import codeforces_common as cf_common, db, discord_common, font_downloader
+from tle.util import codeforces_common as cf_common, db, discord_common
 
 
 def setup():
@@ -44,9 +44,6 @@ def setup():
         'axes.spines.right': False,
     }
     sns.set_style('darkgrid', options)
-
-    # Download fonts if necessary
-    font_downloader.maybe_download()
 
 
 def strtobool(value: str) -> bool:

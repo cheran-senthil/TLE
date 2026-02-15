@@ -68,7 +68,6 @@ TLE/
 │       ├── codeforces_common.py # Shared logic: handle resolution, filtering, events
 │       ├── discord_common.py    # Embed helpers, error handler, presence system
 │       ├── events.py            # Pub/sub event system for inter-component communication
-│       ├── font_downloader.py   # Downloads CJK fonts on first run
 │       ├── graph_common.py      # matplotlib setup, temp file plotting, rating backgrounds
 │       ├── handledict.py        # Case-insensitive handle dictionary
 │       ├── paginator.py         # Discord message pagination with reactions
@@ -83,9 +82,8 @@ TLE/
 │           ├── ranklist.py      # Contest ranklist construction and querying
 │           └── rating_calculator.py  # FFT-based CF rating calculator
 ├── extra/
-│   └── fonts.conf               # Fontconfig for Docker
+│   └── scrape_cf_contest_writers.py
 ├── data/                        # Runtime data (gitignored)
-│   ├── assets/fonts/            # CJK fonts (downloaded at startup)
 │   ├── db/                      # SQLite databases
 │   ├── misc/                    # contest_writers.json
 │   └── temp/                    # Temporary plot images
@@ -109,11 +107,10 @@ The entry point performs:
 1. Creates required data directories
 2. Configures logging (console + daily rotating file)
 3. Sets up matplotlib/seaborn defaults
-4. Downloads fonts if missing
-5. Creates a `commands.Bot` with prefix `;` and member intents
-6. Auto-discovers and loads all cogs from `tle/cogs/*.py`
-7. Registers a global DM check (commands only work in guilds)
-8. On ready: initializes CF API session, database, cache system, presence task
+4. Creates a `commands.Bot` with prefix `;` and member intents
+5. Auto-discovers and loads all cogs from `tle/cogs/*.py`
+6. Registers a global DM check (commands only work in guilds)
+7. On ready: initializes CF API session, database, cache system, presence task
 
 **Initialization order is critical:** `cf_common.initialize()` must complete before any cog can process commands, as it sets up the database connection, cache system, and event system as global singletons.
 
