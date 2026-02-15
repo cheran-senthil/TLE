@@ -72,7 +72,10 @@ class Starboard(commands.Cog):
                     inline=False,
                 )
 
-        embed.set_footer(text=str(message.author), icon_url=message.author.avatar_url)
+        embed.set_footer(
+            text=str(message.author),
+            icon_url=message.author.display_avatar.url,
+        )
         return embed
 
     async def check_and_add_to_starboard(
@@ -191,5 +194,5 @@ class Starboard(commands.Cog):
         pass
 
 
-def setup(bot):
-    bot.add_cog(Starboard(bot))
+async def setup(bot):
+    await bot.add_cog(Starboard(bot))

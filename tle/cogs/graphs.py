@@ -799,9 +799,9 @@ class Graphs(commands.Cog):
 
         def in_purgatory(userid):
             member = ctx.guild.get_member(int(userid))
-            return not member or constants.TLE_PURGATORY in {
-                role.name for role in member.roles
-            }
+            return not member or discord_common.has_role(
+                member, constants.TLE_PURGATORY
+            )
 
         res = await self.bot.user_db.get_cf_users_for_guild(ctx.guild.id)
         ratings = [
@@ -1332,5 +1332,5 @@ class Graphs(commands.Cog):
         pass
 
 
-def setup(bot):
-    bot.add_cog(Graphs(bot))
+async def setup(bot):
+    await bot.add_cog(Graphs(bot))

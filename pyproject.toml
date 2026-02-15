@@ -4,8 +4,7 @@ version = "0.1.0"
 requires-python = ">= 3.10"
 dependencies = [
   # Discord bot core
-  "discord.py == 1.7.3",
-  "aiohttp < 3.8",
+  "discord.py >= 2.3, < 3",
   "aiocache >= 0.12, < 1",
   # Data & plotting
   "numpy >= 1.24, < 3",

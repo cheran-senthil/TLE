@@ -61,6 +61,29 @@ def strtobool(value: str) -> bool:
     raise ValueError(f'Invalid truth value {value!r}.')
 
 
+class TLEBot(commands.Bot):
+    def __init__(self, nodb, **kwargs):
+        super().__init__(**kwargs)
+        self.nodb = nodb
+
+    async def setup_hook(self):
+        cogs = [file.stem for file in Path('tle', 'cogs').glob('*.py')]
+        for extension in cogs:
+            await self.load_extension(f'tle.cogs.{extension}')
+        logging.info(f'Cogs loaded: {", ".join(self.cogs)}')
+        await cf_common.initialize(self, self.nodb)
+
+    async def close(self):
+        try:
+            if cf_common.user_db is not None:
+                await cf_common.user_db.close()
+        except db.DatabaseDisabledError:
+            pass
+        if cf_common.cf_cache is not None:
+            await cf_common.cf_cache.conn.close()
+        await super().close()
+
+
 def main():
     load_dotenv()
 
@@ -81,12 +104,13 @@ def main():
 
     intents = discord.Intents.default()
     intents.members = True
+    intents.message_content = True
 
-    bot = commands.Bot(command_prefix=commands.when_mentioned_or(';'), intents=intents)
-    cogs = [file.stem for file in Path('tle', 'cogs').glob('*.py')]
-    for extension in cogs:
-        bot.load_extension(f'tle.cogs.{extension}')
-    logging.info(f'Cogs loaded: {", ".join(bot.cogs)}')
+    bot = TLEBot(
+        nodb=args.nodb,
+        command_prefix=commands.when_mentioned_or(';'),
+        intents=intents,
+    )
 
     def no_dm_check(ctx):
         if ctx.guild is None:
@@ -96,29 +120,12 @@ def main():
     # Restrict bot usage to inside guild channels only.
     bot.add_check(no_dm_check)
 
-    # cf_common.initialize needs to run first, so it must be set as the bot's
-    # on_ready event handler rather than an on_ready listener.
-    @discord_common.on_ready_event_once(bot)
-    async def init():
-        await cf_common.initialize(bot, args.nodb)
+    @bot.event
+    @discord_common.once
+    async def on_ready():
         asyncio.create_task(discord_common.presence(bot))
 
     bot.add_listener(discord_common.bot_error_handler, name='on_command_error')
-
-    # Close database connections on bot shutdown.
-    original_close = bot.close
-
-    async def close_with_cleanup():
-        try:
-            if cf_common.user_db is not None:
-                await cf_common.user_db.close()
-        except db.DatabaseDisabledError:
-            pass
-        if cf_common.cf_cache is not None:
-            await cf_common.cf_cache.conn.close()
-        await original_close()
-
-    bot.close = close_with_cleanup
 
     bot.run(token)
 

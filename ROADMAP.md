@@ -123,18 +123,18 @@ This is the largest single change. Having tests from Step 5 and clean architectu
 
 | # | Issue | File(s) | What to Do |
 |---|-------|---------|------------|
-| 6a | CRIT-01 | `pyproject.toml` | Update `discord.py == 1.7.3` to `discord.py >= 2.3, < 3` |
-| 6b | CRIT-02 | `pyproject.toml` | Remove `aiohttp < 3.8` pin |
-| 6c | DPY-05 | `tle/__main__.py` | Add `intents.message_content = True` |
-| 6d | DPY-04 | `tle/__main__.py`, `tle/util/codeforces_common.py`, cog `on_ready` handlers | Move `bot.load_extension()` and `cf_common.initialize()` into `async def setup_hook()` on the bot. This guarantees initialization completes before `on_ready` fires, so remove the `wait_for_initialize()` workaround added in Step 3 (`_initialize_event`, `wait_for_initialize()` in `codeforces_common.py`, and the `await cf_common.wait_for_initialize()` calls in `contests.py` and `handles.py` `on_ready`). |
-| 6e | DPY-03 | All cog files | Change `def setup(bot)` to `async def setup(bot)`, `bot.add_cog()` to `await bot.add_cog()` |
-| 6f | DPY-01 | `tle/util/discord_common.py:50` | Change `user.avatar_url` to `user.display_avatar.url` |
-| 6g | DPY-02 | `tle/util/discord_common.py:19` | Change `discord.Embed.Empty` to `None` |
-| 6h | DPY-06 | `tle/cogs/meta.py` | Change `guild.icon_url` to `guild.icon.url if guild.icon else None` |
-| 6i | Purgatory role check | `tle/util/discord_common.py:143-144` | Fix role comparison to handle both name and ID: check `role.name` and `role.id` |
-| 6j | Discriminator hack | `tle/util/codeforces_common.py:272` | Remove `#0` discriminator stripping (discriminators removed in new Discord) |
+| ~~6a~~ | ~~CRIT-01~~ | ~~`pyproject.toml`~~ | ~~DONE - Updated `discord.py == 1.7.3` to `discord.py >= 2.3, < 3`~~ |
+| ~~6b~~ | ~~CRIT-02~~ | ~~`pyproject.toml`~~ | ~~DONE - Removed `aiohttp < 3.8` pin~~ |
+| ~~6c~~ | ~~DPY-05~~ | ~~`tle/__main__.py`~~ | ~~DONE - Added `intents.message_content = True`~~ |
+| ~~6d~~ | ~~DPY-04~~ | ~~`tle/__main__.py`, `tle/util/codeforces_common.py`, cog `on_ready` handlers~~ | ~~DONE - Created `TLEBot(commands.Bot)` subclass with `setup_hook()` that loads cog extensions and calls `cf_common.initialize()`. Moved cleanup into `TLEBot.close()` override. Removed `wait_for_initialize()`, `_initialize_done`, `_initialize_event` from `codeforces_common.py`. Removed `on_ready_event_once` decorator from `discord_common.py`. Removed `await cf_common.wait_for_initialize()` calls from `contests.py` and `handles.py` `on_ready`.~~ |
+| ~~6e~~ | ~~DPY-03~~ | ~~All cog files~~ | ~~DONE - Changed `def setup(bot)` to `async def setup(bot)`, `bot.add_cog()` to `await bot.add_cog()` in all 9 cog files~~ |
+| ~~6f~~ | ~~DPY-01~~ | ~~`tle/util/discord_common.py`, `tle/cogs/starboard.py`~~ | ~~DONE - Changed `user.avatar_url` to `user.display_avatar.url` (2 sites)~~ |
+| ~~6g~~ | ~~DPY-02~~ | ~~`tle/util/discord_common.py`~~ | ~~DONE - Changed `discord.Embed.Empty` to `None`~~ |
+| ~~6h~~ | ~~DPY-06~~ | ~~`tle/cogs/meta.py`~~ | ~~DONE - Changed `guild.icon_url` to `guild.icon.url if guild.icon else None`~~ |
+| ~~6i~~ | ~~Purgatory role check~~ | ~~`tle/util/discord_common.py`, `tle/cogs/handles.py`, `tle/cogs/graphs.py`~~ | ~~DONE - Added `get_role()` and `has_role()` helpers supporting str/int identifiers. Updated 6 call sites: presence purgatory filter, `update_member_rank_role`, `ispurg`, `in_purgatory`, `refer`, `grandfather`.~~ |
+| ~~6j~~ | ~~Discriminator hack~~ | ~~`tle/util/codeforces_common.py`~~ | ~~DONE - Removed `#0` discriminator stripping (discriminators removed in new Discord)~~ |
 
-**Verification:** Bot connects. All commands respond. Run full test suite. Manual smoke test of key commands: `;gimme`, `;gitgud`, `;duel challenge`, `;plot rating`, `;handle set`.
+**Verification:** 226 tests pass. `ruff check` clean. All removed patterns (`avatar_url`, `Embed.Empty`, `wait_for_initialize`, `_initialize_done`, `_initialize_event`, `on_ready_event_once`) verified absent from `tle/`.
 
 ---
 

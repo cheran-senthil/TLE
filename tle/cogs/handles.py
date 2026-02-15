@@ -225,7 +225,6 @@ class Handles(commands.Cog):
     @commands.Cog.listener()
     @discord_common.once
     async def on_ready(self):
-        await cf_common.wait_for_initialize()
         self.bot.event_sys.add_listener(self._on_rating_changes)
         self._set_ex_users_inactive_task.start()
 
@@ -375,12 +374,19 @@ class Handles(commands.Cog):
         removed.
         """
         role_names_to_remove = {rank.title for rank in cf.RATED_RANKS}
+        should_remove_purgatory = False
         if role_to_assign is not None:
             role_names_to_remove.discard(role_to_assign.name)
             if role_to_assign.name not in ['Newbie', 'Pupil', 'Specialist', 'Expert']:
-                role_names_to_remove.add(constants.TLE_PURGATORY)
+                should_remove_purgatory = True
                 await self.maybe_add_trusted_role(member)
         to_remove = [role for role in member.roles if role.name in role_names_to_remove]
+        if should_remove_purgatory and discord_common.has_role(
+            member, constants.TLE_PURGATORY
+        ):
+            purg_role = discord_common.get_role(member.guild, constants.TLE_PURGATORY)
+            if purg_role:
+                to_remove.append(purg_role)
         if to_remove:
             await member.remove_roles(*to_remove, reason=reason)
         if role_to_assign is not None and role_to_assign not in member.roles:
@@ -714,8 +720,7 @@ class Handles(commands.Cog):
         ]
 
         def ispurg(member):
-            # TODO: temporary code, todo properly later
-            return any(role.name == constants.TLE_PURGATORY for role in member.roles)
+            return discord_common.has_role(member, constants.TLE_PURGATORY)
 
         member_change_pairs = [
             (member, change_by_handle[handle])
@@ -969,7 +974,7 @@ class Handles(commands.Cog):
             raise HandleCogError('You cannot refer yourself.')
 
         # Find the Purgatory role
-        purgatory_role = discord.utils.get(guild.roles, name=purgatory_role_name)
+        purgatory_role = discord_common.get_role(guild, purgatory_role_name)
         if purgatory_role is None:
             # This case might indicate a server setup issue, but we proceed as
             # if the user is not in purgatory
@@ -987,7 +992,7 @@ class Handles(commands.Cog):
             return
 
         # Find the Trusted role
-        trusted_role = discord.utils.get(guild.roles, name=trusted_role_name)
+        trusted_role = discord_common.get_role(guild, trusted_role_name)
         if trusted_role is None:
             raise HandleCogError(
                 f"The role '{trusted_role_name}' does not exist in this server."
@@ -1030,13 +1035,13 @@ class Handles(commands.Cog):
         trusted_role_name = constants.TLE_TRUSTED
         purgatory_role_name = constants.TLE_PURGATORY
 
-        trusted_role = discord.utils.get(guild.roles, name=trusted_role_name)
+        trusted_role = discord_common.get_role(guild, trusted_role_name)
         if trusted_role is None:
             raise HandleCogError(
                 f"The role '{trusted_role_name}' does not exist in this server."
             )
 
-        purgatory_role = discord.utils.get(guild.roles, name=purgatory_role_name)
+        purgatory_role = discord_common.get_role(guild, purgatory_role_name)
         # If Purgatory role doesn't exist, we assume no one has it.
         if purgatory_role is None:
             self.logger.warning(
@@ -1132,5 +1137,5 @@ class Handles(commands.Cog):
         await status_message.edit(content=summary_message)
 
 
-def setup(bot):
-    bot.add_cog(Handles(bot))
+async def setup(bot):
+    await bot.add_cog(Handles(bot))

@@ -4,7 +4,7 @@
 
 TLE (Time Limit Exceeded) is a Discord bot for competitive programming communities, built around the Codeforces platform. It provides problem recommendations, contest tracking, dueling, performance visualization, and community management features.
 
-**Tech Stack:** Python 3.10+, discord.py 1.7.3, aiosqlite, aiohttp, matplotlib/seaborn, numpy, Pillow, PyCairo/PyGObject
+**Tech Stack:** Python 3.10+, discord.py 2.x, aiosqlite, aiohttp, matplotlib/seaborn, numpy, Pillow, PyCairo/PyGObject
 
 ---
 
@@ -124,13 +124,13 @@ The entry point performs:
 3. Creates required data directories
 4. Configures logging (console + daily rotating file)
 5. Sets up matplotlib/seaborn defaults
-6. Creates a `commands.Bot` with prefix `;` (or mention) and member intents
-7. Auto-discovers and loads all cogs from `tle/cogs/*.py`
+6. Creates a `TLEBot(commands.Bot)` subclass with prefix `;` (or mention), member intents, and `message_content` intent
+7. In `setup_hook()`: auto-discovers and loads all cogs from `tle/cogs/*.py`, then calls `cf_common.initialize(bot, nodb)`
 8. Registers a global DM check (commands only work in guilds)
-9. On ready: calls `cf_common.initialize(bot, nodb)` which sets up everything
-10. Overrides `bot.close()` to gracefully close database connections on shutdown
+9. On ready: starts the presence update task
+10. Overrides `close()` to gracefully close database connections on shutdown
 
-**Initialization order is critical:** `cf_common.initialize()` is set as the bot's `on_ready` handler (not a listener) so it runs before any cog can process commands. It sets up the database connections, cache system, and event system, then attaches them to the bot instance as `bot.user_db`, `bot.cf_cache`, and `bot.event_sys`. A `wait_for_initialize()` coroutine is available for cog background tasks that start before `on_ready` completes.
+**Initialization order is guaranteed by `setup_hook()`:** This runs before the bot connects to Discord, so all cogs are loaded and `cf_common.initialize()` completes (setting up database connections, cache system, and event system as `bot.user_db`, `bot.cf_cache`, `bot.event_sys`) before any events or commands are processed.
 
 ### 2. Cog Layer (`tle/cogs/`)
 
@@ -149,8 +149,8 @@ class MyCog(commands.Cog):
     async def cog_command_error(self, ctx, error):
         pass
 
-def setup(bot):
-    bot.add_cog(MyCog(bot))
+async def setup(bot):
+    await bot.add_cog(MyCog(bot))
 ```
 
 | Cog | Commands | Responsibility |
@@ -316,8 +316,6 @@ The Dockerfile uses a multi-stage build:
 
 ## Known Architectural Limitations
 
-1. **discord.py 1.7.3 is EOL** - Pinned to a version from 2021; missing slash commands, modern intents, and security patches
-2. **Global mutable singletons** - `user_db`, `cf_cache`, `event_sys`, `active_groups` live as module-level globals in `codeforces_common.py` (also attached to bot instance for cog access)
-3. **No ORM or migration system** - Raw SQL with inline schema creation and migration code mixed into `create_tables()`
-4. **No test infrastructure** - Zero tests despite `pytest` being listed as optional dependency
-5. **In-memory state not persisted** - Duel draw offers, active command guards, and guild locks exist only in memory
+1. **Global mutable singletons** - `user_db`, `cf_cache`, `event_sys`, `active_groups` live as module-level globals in `codeforces_common.py` (also attached to bot instance for cog access)
+2. **No ORM or migration system** - Raw SQL with inline schema creation and migration code mixed into `create_tables()`
+3. **In-memory state not persisted** - Duel draw offers, active command guards, and guild locks exist only in memory

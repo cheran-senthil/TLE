@@ -28,16 +28,7 @@ event_sys = events.EventSystem()
 
 _contest_id_to_writers_map = None
 
-_initialize_done = False
-_initialize_event = None
-
 active_groups = defaultdict(set)
-
-
-async def wait_for_initialize():
-    """Block until cf_common.initialize() has completed."""
-    if _initialize_event is not None:
-        await _initialize_event.wait()
 
 
 async def initialize(bot, nodb):
@@ -45,15 +36,6 @@ async def initialize(bot, nodb):
     global user_db
     global event_sys
     global _contest_id_to_writers_map
-    global _initialize_done
-    global _initialize_event
-
-    if _initialize_done:
-        # This happens if the bot loses connection to Discord and on_ready is
-        # triggered again when it reconnects.
-        return
-
-    _initialize_event = asyncio.Event()
 
     await cf.initialize()
 
@@ -82,9 +64,6 @@ async def initialize(bot, nodb):
         logger.info('Contest writers loaded from JSON file')
     except FileNotFoundError:
         logger.warning('JSON file containing contest writers not found')
-
-    _initialize_done = True
-    _initialize_event.set()
 
 
 # algmyr's guard idea:
@@ -291,10 +270,6 @@ async def resolve_handles(
         if handle.startswith('!'):
             # ! denotes Discord user
             member_identifier = handle[1:]
-            # suffix removal as quickfix for new username changes
-            if member_identifier[-2:] == '#0':
-                member_identifier = member_identifier[:-2]
-
             try:
                 member = await converter.convert(ctx, member_identifier)
             except commands.errors.CommandError:

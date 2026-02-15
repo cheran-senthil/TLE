@@ -136,7 +136,6 @@ class Contests(commands.Cog):
     @commands.Cog.listener()
     @discord_common.once
     async def on_ready(self):
-        await cf_common.wait_for_initialize()
         self._update_task.start()
         self._watch_rated_vcs_task.start()
 
@@ -987,5 +986,5 @@ class Contests(commands.Cog):
         pass
 
 
-def setup(bot):
-    bot.add_cog(Contests(bot))
+async def setup(bot):
+    await bot.add_cog(Contests(bot))

@@ -98,7 +98,7 @@ class Meta(commands.Cog):
                     f'Guild ID: {guild.id}',
                     f'Name: {guild.name}',
                     f'Owner: {guild.owner.id}',
-                    f'Icon: {guild.icon_url}',
+                    f'Icon: {guild.icon.url if guild.icon else None}',
                 ]
             )
             for guild in self.bot.guilds
@@ -106,5 +106,5 @@ class Meta(commands.Cog):
         await ctx.send('```' + '\n'.join(msg) + '```')
 
 
-def setup(bot):
-    bot.add_cog(Meta(bot))
+async def setup(bot):
+    await bot.add_cog(Meta(bot))

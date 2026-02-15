@@ -16,7 +16,7 @@ _SUCCESS_GREEN = 0x28A745
 _ALERT_AMBER = 0xFFBF00
 
 
-def embed_neutral(desc, color=discord.Embed.Empty):
+def embed_neutral(desc, color=None):
     return discord.Embed(description=str(desc), color=color)
 
 
@@ -47,7 +47,21 @@ def attach_image(embed, img_file):
 
 
 def set_author_footer(embed, user):
-    embed.set_footer(text=f'Requested by {user}', icon_url=user.avatar_url)
+    embed.set_footer(text=f'Requested by {user}', icon_url=user.display_avatar.url)
+
+
+def get_role(guild, role_identifier):
+    """Look up a role by name (str) or ID (int)."""
+    if isinstance(role_identifier, int):
+        return guild.get_role(role_identifier)
+    return discord.utils.get(guild.roles, name=role_identifier)
+
+
+def has_role(member, role_identifier):
+    """Check if member has a role identified by name (str) or ID (int)."""
+    if isinstance(role_identifier, int):
+        return any(role.id == role_identifier for role in member.roles)
+    return any(role.name == role_identifier for role in member.roles)
 
 
 def send_error_if(*error_cls):
@@ -113,18 +127,6 @@ def once(func):
     return wrapper
 
 
-def on_ready_event_once(bot):
-    """Decorator to run a corouting only once when the bot is ready."""
-
-    def register_on_ready(func):
-        @bot.event
-        @once
-        async def on_ready():
-            await func()
-
-    return register_on_ready
-
-
 async def presence(bot):
     await bot.change_presence(
         activity=discord.Activity(
@@ -139,8 +141,7 @@ async def presence(bot):
             [
                 member
                 for member in bot.get_all_members()
-                if constants.TLE_PURGATORY
-                not in {role.name for role in member.roles}
+                if not has_role(member, constants.TLE_PURGATORY)
             ]
         )
         await bot.change_presence(

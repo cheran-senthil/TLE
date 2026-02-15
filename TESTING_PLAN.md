@@ -8,13 +8,13 @@
 - Layer 1 (unit): `table.py`, `handledict.py`, `codeforces_api.py` (namedtuples + helpers), `codeforces_common.py` (pure functions + SubFilter), `rating_calculator.py`
 - Layer 2 (component): Full async CRUD for `UserDbConn` and `CacheDbConn` using in-memory aiosqlite
 
-**What's NOT tested yet (deferred until after discord.py 2.x migration in Step 6):**
+**What's NOT tested yet (now unblocked by discord.py 2.x migration in Step 6):**
 - Anything importing `discord.ext.commands`: `events.py`, `tasks.py`, `paginator.py`, `discord_common.py`
 - All cog integration tests (Layer 3)
 - Cache system with mocked API (Layer 2C)
 - API response parsing with fixture JSON files (Layer 2B)
 
-The remaining challenge for testing is the global mutable state in `codeforces_common.py` (module-level `user_db`, `cf_cache`, `event_sys`, `active_groups`), but these can be monkey-patched or set directly in test fixtures.
+The discord.py 2.x migration (Step 6) is complete, so these tests are now unblocked. The remaining challenge for testing is the global mutable state in `codeforces_common.py` (module-level `user_db`, `cf_cache`, `event_sys`, `active_groups`), but these can be monkey-patched or set directly in test fixtures.
 
 ---
 
