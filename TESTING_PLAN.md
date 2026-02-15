@@ -2,7 +2,19 @@
 
 ## Current State
 
-The project has **zero tests**. `pytest` is listed as an optional dependency in `pyproject.toml` but there is no `tests/` directory, no test configuration, and no test CI job. The codebase has tight coupling to external services (Discord API, Codeforces API, SQLite) and heavy use of global state, which makes testing challenging but not impossible.
+**226 tests** pass across Layer 1 (unit) and Layer 2 (component), implemented in Step 5. CI runs on Python 3.10/3.11/3.12 with codecov reporting.
+
+**What's tested:**
+- Layer 1 (unit): `table.py`, `handledict.py`, `codeforces_api.py` (namedtuples + helpers), `codeforces_common.py` (pure functions + SubFilter), `rating_calculator.py`
+- Layer 2 (component): Full async CRUD for `UserDbConn` and `CacheDbConn` using in-memory aiosqlite
+
+**What's NOT tested yet (deferred until after discord.py 2.x migration in Step 6):**
+- Anything importing `discord.ext.commands`: `events.py`, `tasks.py`, `paginator.py`, `discord_common.py`
+- All cog integration tests (Layer 3)
+- Cache system with mocked API (Layer 2C)
+- API response parsing with fixture JSON files (Layer 2B)
+
+The remaining challenge for testing is the global mutable state in `codeforces_common.py` (module-level `user_db`, `cf_cache`, `event_sys`, `active_groups`), but these can be monkey-patched or set directly in test fixtures.
 
 ---
 
@@ -21,7 +33,7 @@ Layer 3: Integration Tests
          - Cache system tests with mocked API
 
 Layer 2: Component Tests
-         - Database operations against real SQLite (in-memory)
+         - Async database operations against in-memory SQLite
          - API response parsing with fixture data
          - Cache logic with injected data
 
@@ -60,7 +72,6 @@ tests/
 │   ├── test_paginator.py
 │   ├── test_handledict.py
 │   ├── test_events.py
-│   ├── test_constants.py
 │   └── test_tasks.py
 ├── component/
 │   ├── test_user_db.py
@@ -100,32 +111,37 @@ test = [
     "pytest-cov",
     "pytest-mock",
     "aioresponses",
-    "dpytest",      # discord.py testing utility
 ]
 ```
+
+**Note:** `dpytest` is omitted because discord.py 1.7.3 is EOL and dpytest compatibility is unreliable. Integration tests should use manual mocking of the Discord context instead.
 
 ### Key Fixtures (`tests/conftest.py`)
 
 ```python
-import sqlite3
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-@pytest.fixture
-def in_memory_db():
-    """Provides a fresh in-memory SQLite database."""
-    from tle.util.db.user_db_conn import UserDbConn
-    db = UserDbConn(":memory:")
-    yield db
-    db.close()
 
 @pytest.fixture
-def cache_db():
-    """Provides a fresh cache database."""
+async def user_db():
+    """Provides a fresh async in-memory user database."""
+    from tle.util.db.user_db_conn import UserDbConn
+    db = UserDbConn(":memory:")
+    await db.connect()
+    yield db
+    await db.close()
+
+
+@pytest.fixture
+async def cache_db():
+    """Provides a fresh async in-memory cache database."""
     from tle.util.db.cache_db_conn import CacheDbConn
     db = CacheDbConn(":memory:")
+    await db.connect()
     yield db
-    db.close()
+    await db.close()
+
 
 @pytest.fixture
 def mock_ctx():
@@ -137,30 +153,59 @@ def mock_ctx():
     ctx.send = AsyncMock()
     return ctx
 
+
 @pytest.fixture
 def sample_cf_user():
-    """Provides a sample Codeforces User namedtuple."""
+    """Provides a sample Codeforces User namedtuple.
+
+    The User model has 13 fields (handle through titlePhoto).
+    """
     from tle.util.codeforces_api import User
     return User(
         handle="tourist",
-        email=None,
-        vkId=None,
-        openId=None,
         firstName="Gennady",
         lastName="Korotkevich",
         country="Belarus",
         city="Gomel",
         organization="ITMO University",
         contribution=100,
-        rank="legendary grandmaster",
         rating=3800,
-        maxRank="legendary grandmaster",
         maxRating=3979,
         lastOnlineTimeSeconds=1700000000,
         registrationTimeSeconds=1200000000,
         friendOfCount=50000,
-        avatar="//userpic.codeforces.org/...",
-        titlePhoto="//userpic.codeforces.org/...",
+        titlePhoto="https://userpic.codeforces.org/no-title.jpg",
+    )
+
+
+@pytest.fixture
+def sample_problem():
+    """Provides a sample Codeforces Problem namedtuple."""
+    from tle.util.codeforces_api import Problem
+    return Problem(
+        contestId=1,
+        problemsetName=None,
+        index="A",
+        name="Theatre Square",
+        type="PROGRAMMING",
+        points=None,
+        rating=1000,
+        tags=["math"],
+    )
+
+
+@pytest.fixture
+def sample_contest():
+    """Provides a sample Codeforces Contest namedtuple."""
+    from tle.util.codeforces_api import Contest
+    return Contest(
+        id=1,
+        name="Codeforces Beta Round #1",
+        startTimeSeconds=1265979600,
+        durationSeconds=7200,
+        type="CF",
+        phase="FINISHED",
+        preparedBy="MikeMirzayanov",
     )
 ```
 
@@ -224,6 +269,7 @@ Tests to write:
 - test_table_with_header_and_data
 - test_table_formatting_alignment
 - test_table_style_options
+- test_east_asian_width_handling
 ```
 
 #### `test_handledict.py`
@@ -234,6 +280,8 @@ Tests to write:
 - test_case_insensitive_set
 - test_case_insensitive_contains
 - test_preserves_original_key
+- test_delete_key
+- test_iteration_preserves_casing
 ```
 
 #### `test_events.py`
@@ -241,11 +289,13 @@ Tests to write:
 ```
 Tests to write:
 - test_register_listener
-- test_publish_fires_listener
-- test_publish_no_listeners
+- test_dispatch_fires_listener
+- test_dispatch_no_listeners
 - test_wait_for_returns_event
+- test_wait_for_timeout
 - test_multiple_listeners
 - test_listener_exception_handling
+- test_remove_listener
 ```
 
 ### Priority 1B: Data Model Tests
@@ -254,18 +304,29 @@ Tests to write:
 
 ```
 Tests to write:
-- test_user_creation
+- test_user_creation (13 fields: handle through titlePhoto)
+- test_user_effective_rating_with_rating
+- test_user_effective_rating_unrated (defaults to 1500)
+- test_user_rank_property
+- test_user_url
+- test_rating2rank_boundaries
+- test_rating2rank_unrated
 - test_problem_url_normal_contest
-- test_problem_url_gym_contest
+- test_problem_url_gym_contest (contestId >= 100000)
+- test_problem_url_acmsguru
+- test_problem_has_metadata
 - test_problem_matches_all_tags
 - test_problem_matches_any_tag
+- test_problem_get_matched_tags
 - test_problem_contest_identifier
 - test_contest_end_time
+- test_contest_end_time_none (missing start/duration)
 - test_contest_url_normal
 - test_contest_url_gym
 - test_contest_register_url
 - test_contest_matches_markers
 - test_contest_phases
+- test_make_from_dict
 - test_submission_creation
 - test_rating_change_creation
 ```
@@ -274,18 +335,25 @@ Tests to write:
 
 #### `test_subfilter.py`
 
+SubFilter lives in `tle/util/codeforces_common.py`. Note: `filter_solved` and `filter_subs` reference the global `cf_cache`, so those methods need the cache to be mocked or the global to be patched.
+
 ```
-Tests to write:
-- test_parse_tag_flags
-- test_parse_ban_tag_flags
-- test_parse_type_flags_contest
-- test_parse_type_flags_virtual
-- test_parse_date_range
-- test_parse_rating_range
-- test_parse_contest_filter
-- test_parse_index_filter
-- test_parse_team_flag
+Tests to write (parse method - no external deps):
+- test_parse_tag_flags (+dp, +greedy)
+- test_parse_ban_tag_flags (~dp, ~implementation)
+- test_parse_type_flags_contest (+contest)
+- test_parse_type_flags_virtual (+virtual)
+- test_parse_type_flags_practice (+practice)
+- test_parse_type_flags_outof (+outof)
+- test_parse_date_range (d>=, d<)
+- test_parse_rating_range (r>=, r<=)
+- test_parse_contest_filter (c+)
+- test_parse_index_filter (i+)
+- test_parse_team_flag (+team)
 - test_parse_mixed_flags
+- test_parse_returns_unrecognized_args
+
+Tests to write (filtering - requires mocked cf_cache):
 - test_filter_solved_deduplicates
 - test_filter_solved_keeps_first_ac
 - test_filter_subs_by_type
@@ -301,8 +369,8 @@ Tests to write:
 
 ```
 Tests to write:
-- test_waiter_creation
-- test_waiter_fixed_delay
+- test_waiter_fixed_delay_creation
+- test_waiter_for_event_creation
 - test_task_spec_descriptor_get
 - test_task_start_and_stop
 - test_task_manual_trigger
@@ -315,31 +383,41 @@ Tests to write:
 
 ## Layer 2: Component Tests
 
+All database tests are **async** since both `UserDbConn` and `CacheDbConn` use `aiosqlite`. Use the `user_db` and `cache_db` async fixtures from `conftest.py`.
+
 ### Priority 2A: Database Tests
 
 #### `test_user_db.py`
 
 ```
-Tests to write (using in-memory SQLite):
-- test_create_tables_succeeds
+Tests to write (all async, using in-memory aiosqlite):
+- test_connect_creates_tables
 - test_set_and_get_handle
-- test_set_handle_duplicate_raises
+- test_set_handle_duplicate_raises_unique_constraint
+- test_set_handle_same_user_updates
 - test_remove_handle
 - test_get_handles_for_guild
 - test_get_user_id
+- test_get_user_id_case_insensitive
 - test_set_inactive
 - test_update_status
+- test_reset_status
 - test_cache_and_fetch_cf_user
+- test_fetch_cf_user_not_found
+- test_fetch_cf_user_fixes_urls
+- test_get_cf_users_for_guild
 - test_new_challenge
 - test_check_challenge_exists
 - test_check_challenge_none
 - test_complete_challenge
 - test_skip_challenge
 - test_get_gudgitters
+- test_howgud
 - test_gitlog
 - test_get_noguds
 - test_register_duelist
 - test_is_duelist
+- test_is_duelist_not_registered
 - test_create_duel
 - test_start_duel
 - test_complete_duel_challenger_wins
@@ -347,75 +425,117 @@ Tests to write (using in-memory SQLite):
 - test_cancel_duel
 - test_invalidate_duel
 - test_get_duel_rating
+- test_update_duel_rating
 - test_get_duels
+- test_get_duel_wins
 - test_get_pair_duels
 - test_get_recent_duels
 - test_get_ongoing_duels
-- test_get_duel_stats (wins, losses, draws, declined)
+- test_get_num_duel_completed
+- test_get_num_duel_draws
+- test_get_num_duel_losses
+- test_get_num_duel_declined
+- test_get_num_duel_rdeclined
+- test_check_duel_challenge
+- test_check_duel_accept
+- test_check_duel_decline
+- test_check_duel_withdraw
+- test_check_duel_draw
+- test_check_duel_complete
 - test_reminder_settings_crud
+- test_clear_reminder_settings
 - test_rankup_channel_crud
+- test_clear_rankup_channel
 - test_auto_role_update_toggle
-- test_rated_vc_lifecycle
-- test_vc_rating_update_and_history
+- test_create_rated_vc
+- test_get_rated_vc
+- test_get_ongoing_rated_vc_ids
+- test_finish_rated_vc
+- test_get_rated_vc_user_ids
+- test_update_vc_rating
+- test_get_vc_rating
+- test_get_vc_rating_default
+- test_get_vc_rating_history
+- test_set_and_get_rated_vc_channel
+- test_remove_last_ratedvc_participation
 - test_starboard_emoji_crud
 - test_starboard_channel_crud
 - test_starboard_message_crud
+- test_check_exists_starboard_message
+- test_remove_starboard_message_by_original
+- test_remove_starboard_message_by_starboard_id
+- test_get_starboard_entry
 - test_starboard_migration_from_v0
 ```
 
 #### `test_cache_db.py`
 
 ```
-Tests to write:
-- test_cache_contests
-- test_fetch_contests
-- test_cache_problems
-- test_fetch_problems
-- test_cache_rating_changes
-- test_fetch_rating_changes
-- test_problem_tag_serialization
-- test_problemset_cache_and_fetch
+Tests to write (all async):
+- test_connect_creates_tables
+- test_cache_and_fetch_contests
+- test_cache_and_fetch_problems
+- test_problem_tag_json_serialization
+- test_save_and_fetch_rating_changes
+- test_get_rating_changes_for_contest
+- test_get_rating_changes_for_handle
+- test_get_all_rating_changes
+- test_has_rating_changes_saved
+- test_clear_rating_changes_all
+- test_clear_rating_changes_by_contest
+- test_cache_and_fetch_problemset
+- test_fetch_problemset_by_contest
+- test_clear_problemset
+- test_problemset_empty
+- test_get_users_with_more_than_n_contests
 ```
 
 ### Priority 2B: API Response Parsing
 
 #### `test_api_parsing.py`
 
+Tests `make_from_dict` and the nested parsing in API methods using fixture JSON files.
+
 ```
 Tests to write (using fixture JSON files):
+- test_make_from_dict_basic
+- test_make_from_dict_missing_fields
 - test_parse_contest_list_response
 - test_parse_user_info_response
-- test_parse_user_status_response
+- test_parse_user_status_response (nested Problem, Party, Member)
 - test_parse_rating_changes_response
-- test_parse_standings_response
+- test_parse_standings_response (nested RanklistRow, ProblemResult)
 - test_parse_problemset_response
-- test_parse_error_response
-- test_parse_not_found_response
-- test_parse_rate_limited_response
 ```
 
 ### Priority 2C: Cache Logic Tests
 
 #### `test_cache_system.py`
 
+The cache system is a package at `tle/util/cache/` with 5 sub-caches coordinated by `CacheSystem`. Each sub-cache uses the custom `TaskSpec` framework for periodic updates.
+
 ```
-Tests to write (with mocked API):
+Tests to write (with mocked API and in-memory cache_db):
+- test_cache_system_initialization
 - test_contest_cache_load_from_disk
 - test_contest_cache_get_contest
-- test_contest_cache_get_contest_not_found_raises
-- test_contest_cache_delay_calculation_normal
-- test_contest_cache_delay_calculation_active
+- test_contest_cache_get_contest_not_found_raises (ContestNotFound)
+- test_contest_cache_contest_by_id_mapping
 - test_problem_cache_filters_incomplete_problems
-- test_rating_changes_cache_blacklist
-- test_rating_changes_cache_event_published
+- test_problem_cache_problems_list
+- test_rating_changes_cache_stores_to_db
+- test_rating_changes_cache_event_published (RatingChangesUpdate)
+- test_problemset_cache_fetch
+- test_problemset_cache_not_cached_raises (ProblemsetNotCached)
 - test_ranklist_cache_prediction
+- test_ranklist_cache_not_monitored_raises (RanklistNotMonitored)
 ```
 
 ---
 
 ## Layer 3: Integration Tests
 
-These require a mocked Discord context (using `dpytest` or manual mocking).
+These require a mocked Discord context using manual `AsyncMock`/`MagicMock` (not dpytest, since discord.py 1.7.3 is EOL). Cogs access services via `self.bot.user_db`, `self.bot.cf_cache`, and `self.bot.event_sys`, so the bot mock must expose these attributes.
 
 ### Priority 3A: Core Command Tests
 
@@ -468,13 +588,14 @@ Tests to write:
 ### Priority 3B: Secondary Command Tests
 
 ```
+- test_cache_control_cog_reload
 - test_contests_cog_clist_future
 - test_contests_cog_remind_settings
 - test_starboard_cog_add_emoji
 - test_starboard_cog_reaction_threshold
 - test_meta_cog_ping
 - test_meta_cog_uptime
-- test_graphs_cog_plot_rating (verify file output)
+- test_graphs_cog_plot_rating (verify BytesIO file output)
 ```
 
 ---
@@ -531,37 +652,117 @@ E2E-06: Rated virtual contest
 
 ### 1. CF API Response Builder
 
+Builds realistic NamedTuple instances matching the actual data models in `tle/util/codeforces_api.py`.
+
 ```python
+from tle.util.codeforces_api import (
+    User, Problem, Contest, Submission, RatingChange,
+    Party, Member, ProblemResult, RanklistRow,
+)
+
 class CFApiResponseBuilder:
-    """Build realistic Codeforces API responses for testing."""
+    """Build realistic Codeforces API data for testing."""
 
     @staticmethod
     def user(handle="testuser", rating=1500, **kwargs):
-        ...
+        defaults = dict(
+            handle=handle,
+            firstName=None,
+            lastName=None,
+            country=None,
+            city=None,
+            organization=None,
+            contribution=0,
+            rating=rating,
+            maxRating=rating,
+            lastOnlineTimeSeconds=1700000000,
+            registrationTimeSeconds=1200000000,
+            friendOfCount=0,
+            titlePhoto="https://userpic.codeforces.org/no-title.jpg",
+        )
+        defaults.update(kwargs)
+        return User(**defaults)
 
     @staticmethod
     def problem(contestId=1, index="A", rating=800, tags=None, **kwargs):
-        ...
-
-    @staticmethod
-    def submission(verdict="OK", **kwargs):
-        ...
+        defaults = dict(
+            contestId=contestId,
+            problemsetName=None,
+            index=index,
+            name=f"Problem {contestId}{index}",
+            type="PROGRAMMING",
+            points=None,
+            rating=rating,
+            tags=tags or [],
+        )
+        defaults.update(kwargs)
+        return Problem(**defaults)
 
     @staticmethod
     def contest(id=1, phase="FINISHED", **kwargs):
-        ...
+        defaults = dict(
+            id=id,
+            name=f"Contest {id}",
+            startTimeSeconds=1700000000,
+            durationSeconds=7200,
+            type="CF",
+            phase=phase,
+            preparedBy=None,
+        )
+        defaults.update(kwargs)
+        return Contest(**defaults)
+
+    @staticmethod
+    def submission(verdict="OK", **kwargs):
+        defaults = dict(
+            id=1,
+            contestId=1,
+            problem=CFApiResponseBuilder.problem(),
+            author=Party(
+                contestId=1,
+                members=[Member(handle="testuser")],
+                participantType="CONTESTANT",
+                teamId=None,
+                teamName=None,
+                ghost=False,
+                room=None,
+                startTimeSeconds=None,
+            ),
+            programmingLanguage="Python 3",
+            verdict=verdict,
+            creationTimeSeconds=1700000000,
+            relativeTimeSeconds=0,
+        )
+        defaults.update(kwargs)
+        return Submission(**defaults)
+
+    @staticmethod
+    def rating_change(**kwargs):
+        defaults = dict(
+            contestId=1,
+            contestName="Contest 1",
+            handle="testuser",
+            rank=1,
+            ratingUpdateTimeSeconds=1700000000,
+            oldRating=1500,
+            newRating=1600,
+        )
+        defaults.update(kwargs)
+        return RatingChange(**defaults)
 ```
 
 ### 2. Database Seeder
+
+All seed methods are async to match the aiosqlite-based database layer.
 
 ```python
 class DbSeeder:
     """Seed a test database with realistic data."""
 
-    def seed_handles(self, db, count=10): ...
-    def seed_duels(self, db, count=5): ...
-    def seed_challenges(self, db, count=10): ...
-    def seed_starboard(self, db): ...
+    async def seed_handles(self, db, count=10): ...
+    async def seed_duels(self, db, count=5): ...
+    async def seed_challenges(self, db, count=10): ...
+    async def seed_starboard(self, db): ...
 ```
 
 ### 3. Mock Discord Context
@@ -580,6 +781,36 @@ class MockContext:
     def last_embed(self): ...
     @property
     def last_file(self): ...
+```
+
+### 4. Global State Patcher
+
+Helper to safely monkey-patch `codeforces_common` globals for testing.
+
+```python
+import contextlib
+from tle.util import codeforces_common as cf_common
+
+@contextlib.contextmanager
+def patch_cf_common(*, user_db=None, cf_cache=None, event_sys=None):
+    """Temporarily replace cf_common globals for testing."""
+    originals = {
+        'user_db': cf_common.user_db,
+        'cf_cache': cf_common.cf_cache,
+        'event_sys': cf_common.event_sys,
+    }
+    try:
+        if user_db is not None:
+            cf_common.user_db = user_db
+        if cf_cache is not None:
+            cf_common.cf_cache = cf_cache
+        if event_sys is not None:
+            cf_common.event_sys = event_sys
+        yield
+    finally:
+        cf_common.user_db = originals['user_db']
+        cf_common.cf_cache = originals['cf_cache']
+        cf_common.event_sys = originals['event_sys']
 ```
 
 ---
@@ -638,19 +869,21 @@ jobs:
 
 ## Recommended Test Execution Order
 
-1. **Start with `test_table.py` and `test_handledict.py`** - Simplest modules, zero dependencies
-2. **Add `test_codeforces_common.py`** - Pure utility functions, high value
-3. **Add `test_rating_calculator.py`** - Mathematically verifiable
-4. **Add `test_events.py`** - Core infrastructure
-5. **Add `test_user_db.py`** - Most critical component, in-memory SQLite makes it easy
-6. **Add `test_api_parsing.py`** - Requires fixture files but high value
-7. **Add `test_codeforces_cog.py`** - First integration test, validates the pattern
-8. **Expand outward** from there
+1. ~~**Start with `test_table.py` and `test_handledict.py`** - Simplest modules, zero dependencies~~ DONE
+2. ~~**Add `test_codeforces_api.py`** - Data model tests, pure NamedTuple logic and properties~~ DONE
+3. ~~**Add `test_codeforces_common.py`** - Pure utility functions, high value~~ DONE
+4. ~~**Add `test_rating_calculator.py`** - Mathematically verifiable~~ DONE
+5. **Add `test_events.py`** - Core infrastructure, async tests (deferred: imports `discord.ext.commands`)
+6. ~~**Add `test_user_db.py`** - Most critical component, async in-memory aiosqlite~~ DONE
+7. ~~**Add `test_cache_db.py`** - Cache persistence, async in-memory aiosqlite~~ DONE
+8. **Add `test_api_parsing.py`** - Requires fixture files but high value
+9. **Add `test_codeforces_cog.py`** - First integration test, validates the pattern
+10. **Expand outward** from there
 
 ---
 
-## Prerequisites Before Testing
+## Prerequisites Before Next Testing Phase
 
-1. **Dependency injection** - The global singletons (`cf_common.user_db`, `cf_common.cache2`) must be replaceable for testing. At minimum, add setter functions or accept them as constructor parameters.
-2. **`aiosqlite` migration** - Testing async code with sync SQLite is painful. Migrate first.
-3. **Fixture data collection** - Save real CF API responses as JSON fixtures for replay testing.
+1. **discord.py 2.x migration (Step 6)** - Unblocks testing of `events.py`, `tasks.py`, `paginator.py`, and all cog integration tests.
+2. **Fixture data collection** - Save real CF API responses as JSON fixtures for replay testing.
+3. **Global state management** - Use the `patch_cf_common` context manager (see Test Utilities) to safely replace module-level singletons (`cf_common.user_db`, `cf_common.cf_cache`) during tests.

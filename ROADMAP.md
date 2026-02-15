@@ -99,14 +99,19 @@ Set up testing *before* the big discord.py migration so we can validate correctn
 
 | # | Issue | File(s) | What to Do |
 |---|-------|---------|------------|
-| 5a | CI-02 | `pyproject.toml` | Add test dependencies: `pytest`, `pytest-asyncio`, `pytest-cov`, `pytest-mock` |
-| 5b | CI-02 | `tests/conftest.py` | Create shared fixtures: in-memory DB, mock context, sample CF data |
-| 5c | CI-02 | `tests/unit/` | Write unit tests for pure functions: `time_format`, `parse_date`, `parse_tags`, `parse_rating`, `filter_flags`, `SubFilter`, rating calculator, `table.py`, `handledict.py`, `events.py` |
-| 5d | CI-02 | `tests/component/` | Write DB tests against in-memory SQLite: handle CRUD, duel lifecycle, challenge lifecycle, starboard CRUD |
-| 5e | CI-02 | `.github/workflows/test.yaml` | Add test CI job with Python 3.10/3.11/3.12 matrix |
-| 5f | CI-05 | `.github/workflows/lint.yaml` | Add `pip-audit` step for dependency vulnerability scanning |
+| ~~5a~~ | ~~CI-02~~ | ~~`pyproject.toml`~~ | ~~DONE - Added `pytest >= 7.0, < 9`, `pytest-asyncio >= 0.23, < 1`, `pytest-cov >= 4.0, < 6`, `pytest-mock >= 3.10, < 4` to `[project.optional-dependencies] test`. Added `[tool.pytest.ini_options]` with `asyncio_mode = "auto"`.~~ |
+| ~~5b~~ | ~~CI-02~~ | ~~`tests/conftest.py`~~ | ~~DONE - Created shared fixtures: async `user_db` and `cache_db` (in-memory aiosqlite), factory fixtures `make_user`, `make_problem`, `make_contest`, `make_rating_change`~~ |
+| ~~5c~~ | ~~CI-02~~ | ~~`tests/unit/`~~ | ~~DONE - 100 unit tests across 5 files: `test_table.py` (13), `test_handledict.py` (8), `test_codeforces_api.py` (30), `test_codeforces_common.py` (35), `test_rating_calculator.py` (14)~~ |
+| ~~5d~~ | ~~CI-02~~ | ~~`tests/component/`~~ | ~~DONE - 126 component tests across 2 files: `test_user_db.py` (55 tests covering handle CRUD, status, CF user cache, challenges, duels, reminders, rankup, auto-role, rated VC, starboard) and `test_cache_db.py` (20 tests covering contests, problems, rating changes, problemset)~~ |
+| ~~5e~~ | ~~CI-02~~ | ~~`.github/workflows/test.yaml`~~ | ~~DONE - Test CI job with Python 3.10/3.11/3.12 matrix, codecov upload on 3.11~~ |
+| ~~5f~~ | ~~CI-05~~ | ~~`.github/workflows/lint.yaml`~~ | ~~DONE - Added parallel `audit` job running `pip-audit`~~ |
 
-**Verification:** `pytest` passes. CI green on all Python versions.
+**Additional fixes discovered during testing:**
+- Moved `fix_urls()` from `codeforces_common.py` to `codeforces_api.py` (belongs with the `User` type it operates on), breaking a circular import chain architecturally
+- Fixed 8 SQL queries in `user_db_conn.py` with non-identifier column names (`SELECT 1` → `SELECT 1 AS x`, `SELECT COUNT(*)` → `SELECT COUNT(*) AS cnt`) — latent bugs from Step 4's `namedtuple_factory`
+- Removed unused `codeforces_common` import from `user_db_conn.py`
+
+**Verification:** 226 tests pass. `ruff check` and `ruff format --check` clean on all files.
 
 ---
 

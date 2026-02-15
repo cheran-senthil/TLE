@@ -35,7 +35,8 @@ cd TLE
 # 2 · create a config file
 cp .env.example .env          # then edit BOT_TOKEN, LOGGING_COG_CHANNEL_ID …
 
-# 3 · build & start the bot (first run takes ~2 min)
+# 3 · create the data directory and start the bot (first run takes ~2 min)
+mkdir -p data
 docker compose up -d
 ```
 

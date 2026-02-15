@@ -361,10 +361,8 @@ def parse_rating(args, default_value=None):
     return default_value
 
 
-def fix_urls(user: cf.User):
-    if user.titlePhoto.startswith('//'):
-        user = user._replace(titlePhoto='https:' + user.titlePhoto)
-    return user
+# Canonical implementation lives in codeforces_api, next to the User type.
+fix_urls = cf.fix_urls
 
 
 class SubFilter:

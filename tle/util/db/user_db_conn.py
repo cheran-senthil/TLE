@@ -5,7 +5,7 @@ import aiosqlite
 from discord.ext import commands
 
 from tle import constants
-from tle.util import codeforces_api as cf, codeforces_common as cf_common
+from tle.util import codeforces_api as cf
 
 _DEFAULT_VC_RATING = 1500
 
@@ -65,26 +65,30 @@ def namedtuple_factory(cursor, row):
     fields = [col[0] for col in cursor.description]
     for f in fields:
         if not f.isidentifier():
-            raise ValueError(f"Column name {f!r} is not a valid identifier")
+            raise ValueError(f'Column name {f!r} is not a valid identifier')
     Row = namedtuple('Row', fields)
     return Row(*row)
 
 
 # Allowlists for table/column names used in _insert_one/_insert_many
-_VALID_TABLES = frozenset({
-    'starboard_emoji_v1',
-    'starboard_config_v1',
-    'starboard_message_v1',
-})
-_VALID_COLUMNS = frozenset({
-    'guild_id',
-    'emoji',
-    'threshold',
-    'color',
-    'channel_id',
-    'original_msg_id',
-    'starboard_msg_id',
-})
+_VALID_TABLES = frozenset(
+    {
+        'starboard_emoji_v1',
+        'starboard_config_v1',
+        'starboard_message_v1',
+    }
+)
+_VALID_COLUMNS = frozenset(
+    {
+        'guild_id',
+        'emoji',
+        'threshold',
+        'color',
+        'channel_id',
+        'original_msg_id',
+        'starboard_msg_id',
+    }
+)
 
 
 class UserDbConn:
@@ -316,10 +320,10 @@ class UserDbConn:
 
     async def _insert_one(self, table: str, columns, values: tuple):
         if table not in _VALID_TABLES:
-            raise ValueError(f"Invalid table name: {table!r}")
+            raise ValueError(f'Invalid table name: {table!r}')
         for col in columns:
             if col not in _VALID_COLUMNS:
-                raise ValueError(f"Invalid column name: {col!r}")
+                raise ValueError(f'Invalid column name: {col!r}')
         n = len(values)
         query = """
             INSERT OR REPLACE INTO {} ({}) VALUES ({})
@@ -331,10 +335,10 @@ class UserDbConn:
 
     async def _insert_many(self, table: str, columns, values: list):
         if table not in _VALID_TABLES:
-            raise ValueError(f"Invalid table name: {table!r}")
+            raise ValueError(f'Invalid table name: {table!r}')
         for col in columns:
             if col not in _VALID_COLUMNS:
-                raise ValueError(f"Invalid column name: {col!r}")
+                raise ValueError(f'Invalid column name: {col!r}')
         n = len(columns)
         query = """
             INSERT OR REPLACE INTO {} ({}) VALUES ({})
@@ -500,9 +504,7 @@ class UserDbConn:
         if cursor.rowcount != 1:
             await self.conn.rollback()
             return 0
-        cursor = await self.conn.execute(
-            query2, (status, challenge_id, Gitgud.GITGUD)
-        )
+        cursor = await self.conn.execute(query2, (status, challenge_id, Gitgud.GITGUD))
         if cursor.rowcount != 1:
             await self.conn.rollback()
             return 0
@@ -533,7 +535,7 @@ class UserDbConn:
         """
         cursor = await self.conn.execute(query, (handle,))
         user = await cursor.fetchone()
-        return cf_common.fix_urls(cf.User._make(user)) if user else None
+        return cf.fix_urls(cf.User._make(user)) if user else None
 
     async def set_handle(self, user_id, guild_id, handle):
         query = """
@@ -743,7 +745,7 @@ class UserDbConn:
     async def check_exists_starboard_message(self, original_msg_id, emoji):
         cursor = await self.conn.execute(
             """
-            SELECT 1
+            SELECT 1 AS x
             FROM starboard_message_v1
             WHERE original_msg_id = ? AND emoji = ?
             """,
@@ -1011,7 +1013,7 @@ class UserDbConn:
 
     async def get_num_duel_completed(self, userid):
         query = """
-            SELECT COUNT(*)
+            SELECT COUNT(*) AS cnt
             FROM duel
             WHERE (challengee = ? OR challenger = ?) AND status == ?
         """
@@ -1020,7 +1022,7 @@ class UserDbConn:
 
     async def get_num_duel_draws(self, userid):
         query = """
-            SELECT COUNT(*)
+            SELECT COUNT(*) AS cnt
             FROM duel
             WHERE (challengee = ? OR challenger = ?) AND winner == ?
         """
@@ -1029,7 +1031,7 @@ class UserDbConn:
 
     async def get_num_duel_losses(self, userid):
         query = """
-            SELECT COUNT(*)
+            SELECT COUNT(*) AS cnt
             FROM duel
             WHERE (
                 (challengee = ? AND winner == ?)
@@ -1044,7 +1046,7 @@ class UserDbConn:
 
     async def get_num_duel_declined(self, userid):
         query = """
-            SELECT COUNT(*)
+            SELECT COUNT(*) AS cnt
             FROM duel
             WHERE challengee = ? AND status == ?
         """
@@ -1053,7 +1055,7 @@ class UserDbConn:
 
     async def get_num_duel_rdeclined(self, userid):
         query = """
-            SELECT COUNT(*)
+            SELECT COUNT(*) AS cnt
             FROM duel
             WHERE challenger = ? AND status == ?
         """
@@ -1071,7 +1073,7 @@ class UserDbConn:
 
     async def is_duelist(self, userid):
         query = """
-            SELECT 1
+            SELECT 1 AS x
             FROM duelist
             WHERE user_id = ?
         """
@@ -1137,7 +1139,7 @@ class UserDbConn:
         return cursor.rowcount
 
     async def has_auto_role_update_enabled(self, guild_id):
-        query = 'SELECT 1 FROM auto_role_update WHERE guild_id = ?'
+        query = 'SELECT 1 AS x FROM auto_role_update WHERE guild_id = ?'
         cursor = await self.conn.execute(query, (guild_id,))
         return await cursor.fetchone() is not None
 

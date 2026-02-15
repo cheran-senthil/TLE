@@ -10,8 +10,6 @@ from typing import Any, NamedTuple, Optional
 import aiohttp
 from discord.ext import commands
 
-from tle.util import codeforces_common as cf_common
-
 # ruff: noqa: N815
 
 API_BASE_URL = 'https://codeforces.com/api/'
@@ -97,6 +95,13 @@ class User(NamedTuple):
     def url(self) -> str:
         """Returns the URL of the user's profile."""
         return f'{PROFILE_BASE_URL}{self.handle}'
+
+
+def fix_urls(user: 'User') -> 'User':
+    """Fix protocol-relative URLs in user's titlePhoto."""
+    if user.titlePhoto.startswith('//'):
+        user = user._replace(titlePhoto='https:' + user.titlePhoto)
+    return user
 
 
 class RatingChange(NamedTuple):
@@ -566,7 +571,7 @@ class user:
                     raise HandleNotFoundError(e.comment, handle)
                 raise
             result += [make_from_dict(User, user_dict) for user_dict in resp]
-        return [cf_common.fix_urls(user) for user in result]
+        return [fix_urls(user) for user in result]
 
     @staticmethod
     async def rating(*, handle: str):
