@@ -599,8 +599,8 @@ class Dueling(commands.Cog):
             f' `{member2.display_name}`'
         )
         pages = await self._paginate_duels(data, message, ctx.guild.id, False)
-        paginator.paginate(
-            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
+        await paginator.paginate(
+            ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
             ctx=ctx,
         )
 
@@ -612,8 +612,8 @@ class Dueling(commands.Cog):
             f'dueling history of `{member.display_name}`'
         )
         pages = await self._paginate_duels(data, message, ctx.guild.id, False)
-        paginator.paginate(
-            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
+        await paginator.paginate(
+            ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
             ctx=ctx,
         )
 
@@ -623,8 +623,8 @@ class Dueling(commands.Cog):
         pages = await self._paginate_duels(
             data, 'list of recent duels', ctx.guild.id, True
         )
-        paginator.paginate(
-            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
+        await paginator.paginate(
+            ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
             ctx=ctx,
         )
 
@@ -658,8 +658,8 @@ class Dueling(commands.Cog):
             raise DuelCogError('There are no ongoing duels.')
 
         pages = [await make_page(chunk) for chunk in paginator.chunkify(data, 7)]
-        paginator.paginate(
-            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
+        await paginator.paginate(
+            ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
             ctx=ctx,
         )
 
@@ -712,8 +712,8 @@ class Dueling(commands.Cog):
             make_page(chunk, k)
             for k, chunk in enumerate(paginator.chunkify(users, _PER_PAGE))
         ]
-        paginator.paginate(
-            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
+        await paginator.paginate(
+            ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
             ctx=ctx,
         )
 

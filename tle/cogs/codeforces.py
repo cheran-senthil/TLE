@@ -206,8 +206,8 @@ class Codeforces(commands.Cog):
         pages = [
             make_page(chunk) for chunk in paginator.chunkify(submissions[:100], 10)
         ]
-        paginator.paginate(
-            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
+        await paginator.paginate(
+            ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
             ctx=ctx,
         )
 
@@ -349,8 +349,8 @@ class Codeforces(commands.Cog):
             raise CodeforcesCogError(f'{member.mention} has no gitgud history.')
 
         pages = [make_page(chunk) for chunk in paginator.chunkify(data, 7)]
-        paginator.paginate(
-            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
+        await paginator.paginate(
+            ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
             ctx=ctx,
         )
 
@@ -478,8 +478,8 @@ class Codeforces(commands.Cog):
             return message, embed
 
         pages = [make_page(chunk) for chunk in paginator.chunkify(contests, 5)]
-        paginator.paginate(
-            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
+        await paginator.paginate(
+            ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
             ctx=ctx,
         )
 
@@ -554,8 +554,8 @@ class Codeforces(commands.Cog):
         pages = [
             make_page(chunk) for chunk in paginator.chunkify(contest_unsolved_pairs, 10)
         ]
-        paginator.paginate(
-            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
+        await paginator.paginate(
+            ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
             ctx=ctx,
         )
 

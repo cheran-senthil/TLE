@@ -1,19 +1,17 @@
-"""Tests for tle.util.paginator — chunkify, errors, Paginated, paginate."""
+"""Tests for tle.util.paginator — chunkify, errors, PaginatorView, paginate."""
 
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
+import discord
 import pytest
 
 from tle.util.paginator import (
-    InsufficientPermissionsError,
     NoPagesError,
-    Paginated,
     PaginatorError,
+    PaginatorView,
     chunkify,
     paginate,
 )
-
 
 # --- chunkify ---
 
@@ -45,161 +43,164 @@ class TestErrors:
     def test_no_pages_is_paginator_error(self):
         assert issubclass(NoPagesError, PaginatorError)
 
-    def test_insufficient_permissions_is_paginator_error(self):
-        assert issubclass(InsufficientPermissionsError, PaginatorError)
+
+# --- PaginatorView ---
 
 
-# --- Paginated ---
-
-
-class TestPaginated:
-    def test_initialization(self):
+class TestPaginatorView:
+    async def test_initialization(self):
         pages = [('c1', 'e1'), ('c2', 'e2')]
-        p = Paginated(pages)
-        assert len(p.reaction_map) == 4
-        assert p.cur_page is None
-        assert p.message is None
+        view = PaginatorView(pages, timeout=60)
+        assert view.cur_page == 0
+        assert view.message is None
+        assert len(view.children) == 4
 
-    async def test_show_page_valid(self):
+    async def test_buttons_disabled_on_first_page(self):
         pages = [('c1', 'e1'), ('c2', 'e2'), ('c3', 'e3')]
-        p = Paginated(pages)
-        p.message = AsyncMock()
-        p.cur_page = 1
+        view = PaginatorView(pages, timeout=60)
+        # On first page: first/prev disabled, next/last enabled
+        assert view.first_button.disabled is True
+        assert view.prev_button.disabled is True
+        assert view.next_button.disabled is False
+        assert view.last_button.disabled is False
 
-        await p.show_page(2)
-        assert p.cur_page == 2
-        p.message.edit.assert_awaited_once_with(content='c2', embed='e2')
-
-    async def test_show_page_out_of_range_low(self):
-        pages = [('c1', 'e1'), ('c2', 'e2')]
-        p = Paginated(pages)
-        p.message = AsyncMock()
-        p.cur_page = 1
-
-        await p.show_page(0)
-        assert p.cur_page == 1
-        p.message.edit.assert_not_awaited()
-
-    async def test_show_page_out_of_range_high(self):
-        pages = [('c1', 'e1'), ('c2', 'e2')]
-        p = Paginated(pages)
-        p.message = AsyncMock()
-        p.cur_page = 1
-
-        await p.show_page(3)
-        assert p.cur_page == 1
-        p.message.edit.assert_not_awaited()
-
-    async def test_prev_page(self):
+    async def test_buttons_disabled_on_last_page(self):
         pages = [('c1', 'e1'), ('c2', 'e2'), ('c3', 'e3')]
-        p = Paginated(pages)
-        p.message = AsyncMock()
-        p.cur_page = 2
+        view = PaginatorView(pages, timeout=60)
+        view.cur_page = 2
+        view._update_buttons()
+        # On last page: first/prev enabled, next/last disabled
+        assert view.first_button.disabled is False
+        assert view.prev_button.disabled is False
+        assert view.next_button.disabled is True
+        assert view.last_button.disabled is True
 
-        await p.prev_page()
-        assert p.cur_page == 1
-
-    async def test_next_page(self):
+    async def test_buttons_middle_page(self):
         pages = [('c1', 'e1'), ('c2', 'e2'), ('c3', 'e3')]
-        p = Paginated(pages)
-        p.message = AsyncMock()
-        p.cur_page = 1
+        view = PaginatorView(pages, timeout=60)
+        view.cur_page = 1
+        view._update_buttons()
+        # On middle page: all enabled
+        assert view.first_button.disabled is False
+        assert view.prev_button.disabled is False
+        assert view.next_button.disabled is False
+        assert view.last_button.disabled is False
 
-        await p.next_page()
-        assert p.cur_page == 2
+    async def test_single_page_all_disabled(self):
+        pages = [('c1', 'e1')]
+        view = PaginatorView(pages, timeout=60)
+        assert view.first_button.disabled is True
+        assert view.prev_button.disabled is True
+        assert view.next_button.disabled is True
+        assert view.last_button.disabled is True
 
-    async def test_paginate_single_page(self):
-        pages = [('content', 'embed')]
-        p = Paginated(pages)
-        channel = AsyncMock()
-        bot = MagicMock()
-
-        await p.paginate(bot, channel, wait_time=1)
-        channel.send.assert_awaited_once_with('content', embed='embed', delete_after=None)
-        # Single page: no reactions added
-        assert p.message.add_reaction.await_count == 0
-
-    async def test_paginate_multi_page(self):
+    async def test_on_timeout_disables_buttons(self):
         pages = [('c1', 'e1'), ('c2', 'e2')]
-        p = Paginated(pages)
+        view = PaginatorView(pages, timeout=60)
+        view.message = AsyncMock()
 
-        mock_message = AsyncMock()
-        channel = AsyncMock()
-        channel.send.return_value = mock_message
+        await view.on_timeout()
 
-        bot = MagicMock()
-        # Immediately timeout to exit the loop
-        bot.wait_for = AsyncMock(side_effect=asyncio.TimeoutError)
+        for item in view.children:
+            assert item.disabled is True
+        view.message.edit.assert_awaited_once_with(view=view)
 
-        await p.paginate(bot, channel, wait_time=1)
+    async def test_on_timeout_handles_not_found(self):
+        pages = [('c1', 'e1'), ('c2', 'e2')]
+        view = PaginatorView(pages, timeout=60)
+        view.message = AsyncMock()
+        view.message.edit.side_effect = discord.NotFound(
+            MagicMock(status=404), 'Not found'
+        )
 
-        # 4 reactions should be added
-        assert mock_message.add_reaction.await_count == 4
-        # On timeout, clear_reactions should be called
-        mock_message.clear_reactions.assert_awaited_once()
+        # Should not raise
+        await view.on_timeout()
+
+    async def test_on_timeout_no_message(self):
+        pages = [('c1', 'e1'), ('c2', 'e2')]
+        view = PaginatorView(pages, timeout=60)
+        # message is None by default, should not raise
+        await view.on_timeout()
 
 
 # --- paginate function ---
 
 
 class TestPaginateFunction:
-    def test_empty_pages_raises_no_pages_error(self):
+    async def test_empty_pages_raises_no_pages_error(self):
         with pytest.raises(NoPagesError):
-            paginate(MagicMock(), MagicMock(), [], wait_time=60)
+            await paginate(MagicMock(), [], wait_time=60)
 
-    def test_no_manage_messages_raises_insufficient_permissions(self):
-        bot = MagicMock()
-        channel = MagicMock()
-        permissions = MagicMock()
-        permissions.manage_messages = False
-        channel.permissions_for.return_value = permissions
-
-        pages = [('c1', MagicMock())]
-        with pytest.raises(InsufficientPermissionsError):
-            paginate(bot, channel, pages, wait_time=60)
-
-    def test_sets_page_footers(self):
-        bot = MagicMock()
-        channel = MagicMock()
-        permissions = MagicMock()
-        permissions.manage_messages = True
-        channel.permissions_for.return_value = permissions
-
+    async def test_sets_page_footers(self):
+        channel = AsyncMock()
         embed1 = MagicMock()
         embed2 = MagicMock()
         pages = [('c1', embed1), ('c2', embed2)]
 
-        with patch('tle.util.paginator.asyncio.create_task'):
-            paginate(bot, channel, pages, wait_time=60, set_pagenum_footers=True)
+        await paginate(channel, pages, wait_time=60, set_pagenum_footers=True)
 
         embed1.set_footer.assert_called_once_with(text='Page 1 / 2')
         embed2.set_footer.assert_called_once_with(text='Page 2 / 2')
 
-    def test_single_page_no_footers(self):
-        bot = MagicMock()
-        channel = MagicMock()
-        permissions = MagicMock()
-        permissions.manage_messages = True
-        channel.permissions_for.return_value = permissions
-
+    async def test_single_page_no_footers(self):
+        channel = AsyncMock()
         embed = MagicMock()
         pages = [('c1', embed)]
 
-        with patch('tle.util.paginator.asyncio.create_task'):
-            paginate(bot, channel, pages, wait_time=60, set_pagenum_footers=True)
+        await paginate(channel, pages, wait_time=60, set_pagenum_footers=True)
 
         # Single page, set_pagenum_footers condition (len > 1) is false
         embed.set_footer.assert_not_called()
 
-    def test_creates_task(self):
-        bot = MagicMock()
-        channel = MagicMock()
-        permissions = MagicMock()
-        permissions.manage_messages = True
-        channel.permissions_for.return_value = permissions
+    async def test_single_page_sends_without_view(self):
+        channel = AsyncMock()
+        embed = MagicMock()
+        pages = [('content', embed)]
 
-        pages = [('c1', MagicMock())]
+        await paginate(channel, pages, wait_time=60)
 
-        with patch('tle.util.paginator.asyncio.create_task') as mock_create_task:
-            paginate(bot, channel, pages, wait_time=60)
-            mock_create_task.assert_called_once()
+        channel.send.assert_awaited_once_with(
+            'content', embed=embed, delete_after=None
+        )
+
+    async def test_single_page_with_ctx(self):
+        channel = AsyncMock()
+        ctx = AsyncMock()
+        embed = MagicMock()
+        pages = [('content', embed)]
+
+        await paginate(channel, pages, wait_time=60, ctx=ctx)
+
+        ctx.send.assert_awaited_once_with(
+            'content', embed=embed, delete_after=None
+        )
+        channel.send.assert_not_awaited()
+
+    async def test_multi_page_sends_with_view(self):
+        channel = AsyncMock()
+        embed1 = MagicMock()
+        embed2 = MagicMock()
+        pages = [('c1', embed1), ('c2', embed2)]
+
+        await paginate(channel, pages, wait_time=60)
+
+        # Should send with view kwarg
+        channel.send.assert_awaited_once()
+        call_kwargs = channel.send.call_args.kwargs
+        assert 'view' in call_kwargs
+        assert isinstance(call_kwargs['view'], PaginatorView)
+
+    async def test_multi_page_with_ctx(self):
+        ctx = AsyncMock()
+        channel = AsyncMock()
+        embed1 = MagicMock()
+        embed2 = MagicMock()
+        pages = [('c1', embed1), ('c2', embed2)]
+
+        await paginate(channel, pages, wait_time=60, ctx=ctx)
+
+        ctx.send.assert_awaited_once()
+        call_kwargs = ctx.send.call_args.kwargs
+        assert 'view' in call_kwargs
+        assert isinstance(call_kwargs['view'], PaginatorView)
+        channel.send.assert_not_awaited()

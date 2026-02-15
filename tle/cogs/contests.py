@@ -220,8 +220,7 @@ class Contests(commands.Cog):
             await ctx.send(embed=discord_common.embed_neutral(empty_msg))
             return
         pages = self._make_contest_pages(contests, title)
-        paginator.paginate(
-            self.bot,
+        await paginator.paginate(
             ctx.channel,
             pages,
             wait_time=_CONTEST_PAGINATE_WAIT_TIME,
@@ -621,8 +620,7 @@ class Contests(commands.Cog):
         pages = self._make_standings_pages(
             contest, problem_indices, handle_standings, deltas
         )
-        paginator.paginate(
-            self.bot,
+        await paginator.paginate(
             channel,
             pages,
             wait_time=_STANDINGS_PAGINATE_WAIT_TIME,
@@ -921,8 +919,8 @@ class Contests(commands.Cog):
             make_page(chunk, k)
             for k, chunk in enumerate(paginator.chunkify(users, _PER_PAGE))
         ]
-        paginator.paginate(
-            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
+        await paginator.paginate(
+            ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
             ctx=ctx,
         )
 

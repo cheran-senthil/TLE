@@ -660,8 +660,7 @@ class Handles(commands.Cog):
         if countries:
             title += ' from ' + ', '.join(f'`{country}`' for country in countries)
         pages = _make_pages(users, title)
-        paginator.paginate(
-            self.bot,
+        await paginator.paginate(
             ctx.channel,
             pages,
             wait_time=_PAGINATE_WAIT_TIME,

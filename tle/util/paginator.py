@@ -1,10 +1,4 @@
-import asyncio
-import functools
-
-_REACT_FIRST = '\N{BLACK LEFT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}'
-_REACT_PREV = '\N{BLACK LEFT-POINTING TRIANGLE}'
-_REACT_NEXT = '\N{BLACK RIGHT-POINTING TRIANGLE}'
-_REACT_LAST = '\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}'
+import discord
 
 
 def chunkify(sequence, chunk_size):
@@ -20,93 +14,97 @@ class NoPagesError(PaginatorError):
     pass
 
 
-class InsufficientPermissionsError(PaginatorError):
-    pass
-
-
-class Paginated:
-    def __init__(self, pages):
+class PaginatorView(discord.ui.View):
+    def __init__(self, pages, *, timeout):
+        super().__init__(timeout=timeout)
         self.pages = pages
-        self.cur_page = None
+        self.cur_page = 0
         self.message = None
-        self.reaction_map = {
-            _REACT_FIRST: functools.partial(self.show_page, 1),
-            _REACT_PREV: self.prev_page,
-            _REACT_NEXT: self.next_page,
-            _REACT_LAST: functools.partial(self.show_page, len(pages)),
-        }
+        self._update_buttons()
 
-    async def show_page(self, page_num):
-        if 1 <= page_num <= len(self.pages):
-            content, embed = self.pages[page_num - 1]
-            await self.message.edit(content=content, embed=embed)
-            self.cur_page = page_num
+    def _update_buttons(self):
+        on_first = self.cur_page == 0
+        on_last = self.cur_page == len(self.pages) - 1
+        self.first_button.disabled = on_first
+        self.prev_button.disabled = on_first
+        self.next_button.disabled = on_last
+        self.last_button.disabled = on_last
 
-    async def prev_page(self):
-        await self.show_page(self.cur_page - 1)
+    async def _show_page(self, interaction):
+        content, embed = self.pages[self.cur_page]
+        self._update_buttons()
+        await interaction.response.edit_message(content=content, embed=embed, view=self)
 
-    async def next_page(self):
-        await self.show_page(self.cur_page + 1)
+    @discord.ui.button(
+        emoji='\N{BLACK LEFT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}',
+        style=discord.ButtonStyle.secondary,
+    )
+    async def first_button(self, interaction, button):
+        self.cur_page = 0
+        await self._show_page(interaction)
 
-    async def paginate(
-        self, bot, channel, wait_time, delete_after: float = None, ctx=None
-    ):
-        content, embed = self.pages[0]
-        if ctx is not None:
-            self.message = await ctx.send(
-                content, embed=embed, delete_after=delete_after
-            )
-        else:
-            self.message = await channel.send(
-                content, embed=embed, delete_after=delete_after
-            )
+    @discord.ui.button(
+        emoji='\N{BLACK LEFT-POINTING TRIANGLE}',
+        style=discord.ButtonStyle.secondary,
+    )
+    async def prev_button(self, interaction, button):
+        self.cur_page = max(0, self.cur_page - 1)
+        await self._show_page(interaction)
 
-        if len(self.pages) == 1:
-            # No need to paginate.
-            return
+    @discord.ui.button(
+        emoji='\N{BLACK RIGHT-POINTING TRIANGLE}',
+        style=discord.ButtonStyle.secondary,
+    )
+    async def next_button(self, interaction, button):
+        self.cur_page = min(len(self.pages) - 1, self.cur_page + 1)
+        await self._show_page(interaction)
 
-        self.cur_page = 1
-        for react in self.reaction_map.keys():
-            await self.message.add_reaction(react)
+    @discord.ui.button(
+        emoji='\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}',
+        style=discord.ButtonStyle.secondary,
+    )
+    async def last_button(self, interaction, button):
+        self.cur_page = len(self.pages) - 1
+        await self._show_page(interaction)
 
-        def check(reaction, user):
-            return (
-                bot.user != user
-                and reaction.message.id == self.message.id
-                and reaction.emoji in self.reaction_map
-            )
-
-        while True:
+    async def on_timeout(self):
+        for item in self.children:
+            item.disabled = True
+        if self.message:
             try:
-                reaction, user = await bot.wait_for(
-                    'reaction_add', timeout=wait_time, check=check
-                )
-                await reaction.remove(user)
-                await self.reaction_map[reaction.emoji]()
-            except asyncio.TimeoutError:
-                await self.message.clear_reactions()
-                break
+                await self.message.edit(view=self)
+            except discord.NotFound:
+                pass
 
 
-def paginate(
-    bot,
+async def paginate(
     channel,
     pages,
     *,
     wait_time,
     set_pagenum_footers=False,
-    delete_after: float = None,
+    delete_after=None,
     ctx=None,
 ):
     if not pages:
         raise NoPagesError()
-    permissions = channel.permissions_for(channel.guild.me)
-    if not permissions.manage_messages:
-        raise InsufficientPermissionsError('Permission to manage messages required')
     if len(pages) > 1 and set_pagenum_footers:
         for i, (_content, embed) in enumerate(pages):
             embed.set_footer(text=f'Page {i + 1} / {len(pages)}')
-    paginated = Paginated(pages)
-    asyncio.create_task(
-        paginated.paginate(bot, channel, wait_time, delete_after, ctx=ctx)
-    )
+
+    content, embed = pages[0]
+    if len(pages) == 1:
+        if ctx is not None:
+            await ctx.send(content, embed=embed, delete_after=delete_after)
+        else:
+            await channel.send(content, embed=embed, delete_after=delete_after)
+    else:
+        view = PaginatorView(pages, timeout=wait_time)
+        if ctx is not None:
+            view.message = await ctx.send(
+                content, embed=embed, view=view, delete_after=delete_after
+            )
+        else:
+            view.message = await channel.send(
+                content, embed=embed, view=view, delete_after=delete_after
+            )
