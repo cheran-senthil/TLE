@@ -9,6 +9,15 @@ from tle.util import discord_common
 root_logger = logging.getLogger()
 logger = logging.getLogger(__name__)
 
+_ANSI_RESET = '\u001b[0m'
+_ANSI_BY_LEVEL = {
+    logging.INFO: '\u001b[32m',          # Green
+    logging.WARNING: '\u001b[33m',       # Yellow
+    logging.ERROR: '\u001b[31m',         # Red
+    logging.CRITICAL: '\u001b[1;31m',    # Bold red
+}
+_ANSI_DEFAULT = '\u001b[37m'             # White
+
 
 class Logging(commands.Cog, logging.Handler):
     def __init__(self, bot: commands.Bot, channel_id: int) -> None:
@@ -23,11 +32,7 @@ class Logging(commands.Cog, logging.Handler):
     @discord_common.once
     async def on_ready(self) -> None:
         self.task = asyncio.create_task(self._log_task())
-        width = 79
-        stars, msg = f'{"*" * width}', f'***{"Bot running":^{width - 6}}***'
-        self.logger.log(level=100, msg=stars)
-        self.logger.log(level=100, msg=msg)
-        self.logger.log(level=100, msg=stars)
+        self.logger.log(level=100, msg='Bot running')
 
     async def _log_task(self) -> None:
         while True:
@@ -42,21 +47,23 @@ class Logging(commands.Cog, logging.Handler):
                 break
             try:
                 msg = self.format(record)
-                # Not all errors will have message_contents or jump urls.
-                try:
-                    await channel.send(
-                        'Original Command: {}\nJump Url: {}'.format(
-                            getattr(record, 'message_content', None),
-                            getattr(record, 'jump_url', None),
-                        )
-                    )
-                except AttributeError:
-                    pass
+                message_content = getattr(record, 'message_content', None)
+                jump_url = getattr(record, 'jump_url', None)
+                if message_content or jump_url:
+                    parts = []
+                    if message_content:
+                        parts.append(f'Original Command: {message_content}')
+                    if jump_url:
+                        parts.append(f'Jump Url: {jump_url}')
+                    await channel.send('\n'.join(parts))
+                color = _ANSI_BY_LEVEL.get(record.levelno, _ANSI_DEFAULT)
+                colored_msg = f'{color}{msg}{_ANSI_RESET}'
                 discord_msg_char_limit = 2000
-                char_limit = discord_msg_char_limit - 2 * len('```')
-                too_long = len(msg) > char_limit
-                msg = msg[:char_limit]
-                await channel.send('```{}```'.format(msg))
+                wrapper = '```ansi\n```'
+                char_limit = discord_msg_char_limit - len(wrapper)
+                too_long = len(colored_msg) > char_limit
+                colored_msg = colored_msg[:char_limit]
+                await channel.send(f'```ansi\n{colored_msg}```')
                 if too_long:
                     await channel.send('`Check logs for full stack trace`')
             except Exception:
