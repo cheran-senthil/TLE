@@ -4,7 +4,7 @@
 
 TLE (Time Limit Exceeded) is a Discord bot for competitive programming communities, built around the Codeforces platform. It provides problem recommendations, contest tracking, dueling, performance visualization, and community management features.
 
-**Tech Stack:** Python 3.11, discord.py 1.7.3, SQLite3, aiohttp, matplotlib/seaborn, numpy, Pillow, PyCairo/PyGObject
+**Tech Stack:** Python 3.10+, discord.py 1.7.3, aiosqlite, aiohttp, matplotlib/seaborn, numpy, Pillow, PyCairo/PyGObject
 
 ---
 
@@ -19,6 +19,10 @@ Discord Gateway
 |  (commands.Bot)  |  - Entry point, arg parsing, cog loading
 +------------------+
        |
+       +--- bot.user_db    (UserDbConn)
+       +--- bot.cf_cache   (CacheSystem)
+       +--- bot.event_sys  (EventSystem)
+       |
        v
 +------------------+     +-------------------+
 |     Cogs (9)     |---->|   Utility Layer   |
@@ -29,15 +33,16 @@ Discord Gateway
        v                         v
 +------------------+     +-------------------+
 |  Cache System    |     |   Database Layer  |
-| cache_system2.py |     | user_db_conn.py   |
-| (5 sub-caches)  |     | cache_db_conn.py  |
-+------------------+     +-------------------+
-       |                         |
-       v                         v
-+------------------+     +-------------------+
-| Codeforces API   |     |     SQLite3       |
-| codeforces_api.py|     | data/db/user.db   |
-+------------------+     | data/db/cache.db  |
+| util/cache/      |     | (aiosqlite)       |
+| (5 sub-caches)   |     | user_db_conn.py   |
++------------------+     | cache_db_conn.py  |
+       |                  +-------------------+
+       v                         |
++------------------+             v
+| Codeforces API   |     +-------------------+
+| codeforces_api.py|     |     SQLite3       |
++------------------+     | data/db/user.db   |
+                         | data/db/cache.db  |
                          +-------------------+
 ```
 
@@ -51,32 +56,40 @@ TLE/
 │   ├── __init__.py
 │   ├── __main__.py              # Entry point: bot setup, cog loading, initialization
 │   ├── constants.py             # Paths, role names, env config, feature flags
-│   └── cogs/                    # Discord command modules (Cog pattern)
+│   ├── cogs/                    # Discord command modules (Cog pattern)
 │   │   ├── cache_control.py     # Admin cache management commands
 │   │   ├── codeforces.py        # Problem recommendations, gitgud, upsolve, mashup
 │   │   ├── contests.py          # Contest listing, reminders, rated virtual contests
 │   │   ├── duel.py              # 1v1 dueling system with ELO ratings
-│   │   ├── graphs.py            # matplotlib/seaborn visualizations (26+ commands)
+│   │   ├── graphs.py            # matplotlib/seaborn visualizations
 │   │   ├── handles.py           # Handle registration, role management, rank updates
 │   │   ├── logging.py           # Discord channel logging handler
 │   │   ├── meta.py              # Bot control: restart, kill, ping, uptime
 │   │   └── starboard.py         # Reaction-based message archival
 │   └── util/
 │       ├── __init__.py
-│       ├── cache_system2.py     # 5-cache system with async update tasks
 │       ├── codeforces_api.py    # CF API wrapper with rate limiting and data models
-│       ├── codeforces_common.py # Shared logic: handle resolution, filtering, events
+│       ├── codeforces_common.py # Shared logic: handle resolution, filtering, globals
 │       ├── discord_common.py    # Embed helpers, error handler, presence system
 │       ├── events.py            # Pub/sub event system for inter-component communication
-│       ├── graph_common.py      # matplotlib setup, temp file plotting, rating backgrounds
+│       ├── graph_common.py      # matplotlib setup, BytesIO plotting, rating backgrounds
 │       ├── handledict.py        # Case-insensitive handle dictionary
 │       ├── paginator.py         # Discord message pagination with reactions
 │       ├── table.py             # ASCII table formatter
 │       ├── tasks.py             # Custom async task framework (Task, TaskSpec, Waiter)
+│       ├── cache/               # Modular cache system (split from former cache_system2.py)
+│       │   ├── __init__.py      # Re-exports CacheSystem and error types
+│       │   ├── _common.py       # Shared cache utilities
+│       │   ├── cache_system.py  # CacheSystem orchestrator
+│       │   ├── contest.py       # ContestCache
+│       │   ├── problem.py       # ProblemCache
+│       │   ├── problemset.py    # ProblemsetCache
+│       │   ├── ranklist.py      # RanklistCache
+│       │   └── rating_changes.py # RatingChangesCache
 │       ├── db/
 │       │   ├── __init__.py      # Re-exports db connections
-│       │   ├── cache_db_conn.py # Read/write cache for CF API data
-│       │   └── user_db_conn.py  # User data: handles, duels, challenges, starboard
+│       │   ├── cache_db_conn.py # Async cache for CF API data (aiosqlite)
+│       │   └── user_db_conn.py  # Async user data: handles, duels, challenges, starboard
 │       └── ranklist/
 │           ├── __init__.py
 │           ├── ranklist.py      # Contest ranklist construction and querying
@@ -91,9 +104,11 @@ TLE/
 ├── .github/workflows/
 │   ├── build.yaml               # Docker build CI
 │   └── lint.yaml                # Ruff linting CI
-├── pyproject.toml               # Project metadata and dependencies
-├── Dockerfile                   # Python 3.11-slim based container
-├── .env                         # Bot token and config (gitignored, but present locally)
+├── pyproject.toml               # PEP 517 project config with pinned dependencies
+├── ruff.toml                    # Linting configuration
+├── Dockerfile                   # Multi-stage Python 3.11-slim container
+├── docker-compose.yaml          # Single-service deployment
+├── .env                         # Bot token and config (gitignored)
 └── .gitignore
 ```
 
@@ -104,19 +119,22 @@ TLE/
 ### 1. Bot Runtime (`tle/__main__.py`)
 
 The entry point performs:
-1. Creates required data directories
-2. Configures logging (console + daily rotating file)
-3. Sets up matplotlib/seaborn defaults
-4. Creates a `commands.Bot` with prefix `;` and member intents
-5. Auto-discovers and loads all cogs from `tle/cogs/*.py`
-6. Registers a global DM check (commands only work in guilds)
-7. On ready: initializes CF API session, database, cache system, presence task
+1. Loads `.env` with `python-dotenv`
+2. Parses `--nodb` CLI flag
+3. Creates required data directories
+4. Configures logging (console + daily rotating file)
+5. Sets up matplotlib/seaborn defaults
+6. Creates a `commands.Bot` with prefix `;` (or mention) and member intents
+7. Auto-discovers and loads all cogs from `tle/cogs/*.py`
+8. Registers a global DM check (commands only work in guilds)
+9. On ready: calls `cf_common.initialize(bot, nodb)` which sets up everything
+10. Overrides `bot.close()` to gracefully close database connections on shutdown
 
-**Initialization order is critical:** `cf_common.initialize()` must complete before any cog can process commands, as it sets up the database connection, cache system, and event system as global singletons.
+**Initialization order is critical:** `cf_common.initialize()` is set as the bot's `on_ready` handler (not a listener) so it runs before any cog can process commands. It sets up the database connections, cache system, and event system, then attaches them to the bot instance as `bot.user_db`, `bot.cf_cache`, and `bot.event_sys`. A `wait_for_initialize()` coroutine is available for cog background tasks that start before `on_ready` completes.
 
 ### 2. Cog Layer (`tle/cogs/`)
 
-Each cog is a `commands.Cog` subclass that groups related commands. Cogs follow this pattern:
+Each cog is a `commands.Cog` subclass that groups related commands. Cogs access services via `self.bot.user_db`, `self.bot.cf_cache`, and `self.bot.event_sys`:
 
 ```python
 class MyCog(commands.Cog):
@@ -147,18 +165,20 @@ def setup(bot):
 | **Meta** | 5 | Bot control: kill, ping, git info, uptime, guild list |
 | **Starboard** | 7 | Multi-emoji reaction archival with configurable thresholds |
 
-### 3. Cache System (`tle/util/cache_system2.py`)
+### 3. Cache System (`tle/util/cache/`)
 
-The cache system consists of 5 independently-updating caches coordinated by `CacheSystem`:
+The cache system is organized as a package with each cache in its own module, coordinated by `CacheSystem` in `cache_system.py`:
 
 ```
-CacheSystem
-├── ContestCache        # All CF contests, refreshes every 30m (5m when active)
-├── ProblemCache        # Problemset with ratings/tags, refreshes every 6h
-├── ProblemsetCache     # Per-contest problems from standings, monitors 14 days post-finish
-├── RatingChangesCache  # Rating changes for finished contests, monitors up to 36h
-└── RanklistCache       # Standings with predictions for running contests
+CacheSystem (cache_system.py)
+├── ContestCache      (contest.py)       # All CF contests, refreshes every 30m (5m when active)
+├── ProblemCache      (problem.py)       # Problemset with ratings/tags, refreshes every 6h
+├── ProblemsetCache   (problemset.py)    # Per-contest problems from standings, monitors 14 days post-finish
+├── RatingChangesCache (rating_changes.py) # Rating changes for finished contests, monitors up to 36h
+└── RanklistCache     (ranklist.py)      # Standings with predictions for running contests
 ```
+
+Shared utilities live in `_common.py`. The `__init__.py` re-exports `CacheSystem` and error types for clean imports.
 
 Each cache uses the custom `TaskSpec` framework (not discord.py's `tasks.loop`) for periodic updates with dynamic delays. Caches persist to SQLite (via `CacheDbConn`) and reload from disk on startup for fast restarts.
 
@@ -166,7 +186,16 @@ Each cache uses the custom `TaskSpec` framework (not discord.py's `tasks.loop`) 
 
 ### 4. Database Layer (`tle/util/db/`)
 
-Two SQLite databases with direct SQL queries (no ORM):
+Two SQLite databases accessed asynchronously via `aiosqlite`, with direct parameterized SQL queries (no ORM). Connections use a two-step initialization pattern: `__init__(path)` followed by `async connect()`.
+
+```python
+# Initialization in cf_common.initialize()
+user_db = db.UserDbConn(constants.USER_DB_FILE_PATH)
+await user_db.connect()  # Opens aiosqlite connection and creates tables
+
+cache_db = db.CacheDbConn(constants.CACHE_DB_FILE_PATH)
+await cache_db.connect()
+```
 
 **`user.db`** (via `UserDbConn`) - 13 tables:
 - `user_handle` - Discord-to-CF handle mapping (guild-scoped)
@@ -184,6 +213,8 @@ Two SQLite databases with direct SQL queries (no ORM):
 - `problem2` - Problemset-specific problem data
 - `rating_change` - Historical rating changes
 
+All database methods are async and all call sites use `await`.
+
 ### 5. Codeforces API Client (`tle/util/codeforces_api.py`)
 
 A full async wrapper around the Codeforces REST API:
@@ -199,16 +230,16 @@ A full async wrapper around the Codeforces REST API:
 A pub/sub system enabling loose coupling between components:
 
 ```python
-# Publisher (in cache_system2.py)
-cf_common.event_sys.publish(events.ContestListRefresh())
+# Publisher (in cache modules)
+cf_common.event_sys.dispatch(events.ContestListRefresh, contests)
 
-# Subscriber (in contests.py)
+# Subscriber (in cogs, via task framework)
 @tasks.task_spec(name='...', waiter=tasks.Waiter.for_event(events.ContestListRefresh))
 async def _update_task(self, _):
     ...
 ```
 
-Events: `ContestListRefresh`, `RatingChangesUpdate`, `CacheSystemRunning`
+Events: `ContestListRefresh`, `RatingChangesUpdate`
 
 ### 7. Custom Task Framework (`tle/util/tasks.py`)
 
@@ -229,7 +260,7 @@ Generates matplotlib/seaborn plots as Discord file attachments:
 - Country comparisons
 - Speed analysis
 
-Uses Cairo/Pango for advanced text rendering (handle lists with rating colors).
+Plots are rendered to in-memory `BytesIO` buffers (not temp files on disk) and sent as Discord `File` attachments. Cairo/Pango is used for advanced text rendering (handle lists with rating colors). CJK fonts are installed as system packages in the Docker image (`fonts-noto-cjk`).
 
 ---
 
@@ -239,7 +270,7 @@ Uses Cairo/Pango for advanced text rendering (handle lists with rating colors).
 ```
 User Input -> Bot.process_commands -> Codeforces.gimme()
   -> Parse tags ["dp"], rating 1400
-  -> cf_common.cache2.problem_cache.problems (cached list)
+  -> cf_common.cf_cache.problem_cache.problems (cached list)
   -> Filter by tag, rating, exclude solved
   -> cf.user.status(handle=...) to get submissions
   -> Random selection from matching problems
@@ -251,8 +282,8 @@ User Input -> Bot.process_commands -> Codeforces.gimme()
 ```
 RatingChangesCache._update_task fires periodically
   -> cf.contest.ratingChanges(contest_id=...)
-  -> Store in cache_db
-  -> event_sys.publish(RatingChangesUpdate)
+  -> Store in cache_db (via aiosqlite)
+  -> event_sys.dispatch(RatingChangesUpdate)
   -> Handles cog listener wakes up
   -> For each guild with auto_role_update enabled:
      -> Fetch new ratings, compare to old
@@ -272,12 +303,21 @@ RatingChangesCache._update_task fires periodically
 
 ---
 
+## Docker Deployment
+
+The Dockerfile uses a multi-stage build:
+
+1. **Builder stage** (`python:3.11-slim`): Compiles native dependencies (cairo, PyGObject, PIL) with build tools
+2. **Runtime stage** (`python:3.11-slim`): Slim image with only runtime libraries, CJK fonts, and compiled packages
+3. Runs as non-root `botuser` for security
+4. `docker-compose.yaml` defines a single service with `./data` volume mount and `.env` passthrough
+
+---
+
 ## Known Architectural Limitations
 
 1. **discord.py 1.7.3 is EOL** - Pinned to a version from 2021; missing slash commands, modern intents, and security patches
-2. **Global mutable singletons** - `user_db`, `cache2`, `event_sys`, `active_groups` accessed as module-level globals with no dependency injection
+2. **Global mutable singletons** - `user_db`, `cf_cache`, `event_sys`, `active_groups` live as module-level globals in `codeforces_common.py` (also attached to bot instance for cog access)
 3. **No ORM or migration system** - Raw SQL with inline schema creation and migration code mixed into `create_tables()`
-4. **Synchronous SQLite in async context** - Database calls block the event loop; no `aiosqlite` or thread pool executor
-5. **Monolithic cache module** - `cache_system2.py` at 850 lines handles 5 different caching concerns
-6. **No test infrastructure** - Zero tests despite `pytest` being listed as optional dependency
-7. **In-memory state not persisted** - Duel draw offers, active command guards, and guild locks exist only in memory
+4. **No test infrastructure** - Zero tests despite `pytest` being listed as optional dependency
+5. **In-memory state not persisted** - Duel draw offers, active command guards, and guild locks exist only in memory

@@ -13,7 +13,6 @@ dependencies = [
   "matplotlib >= 3.7, < 4",
   "seaborn >= 0.12, < 1",
   # Images
-  "pillow >= 10.0, < 12",
   "pycairo >= 1.24, < 2",
   "PyGObject >= 3.42, < 4",
   # Database

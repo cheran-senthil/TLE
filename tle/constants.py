@@ -12,7 +12,6 @@ USER_DB_FILE_PATH = DB_DIR / 'user.db'
 CACHE_DB_FILE_PATH = DB_DIR / 'cache.db'
 
 _SYSTEM_FONT_DIR = Path('/usr/share/fonts/opentype/noto')
-NOTO_SANS_CJK_BOLD_FONT_PATH = _SYSTEM_FONT_DIR / 'NotoSansCJK-Bold.ttc'
 NOTO_SANS_CJK_REGULAR_FONT_PATH = (
     _SYSTEM_FONT_DIR / 'NotoSansCJK-Regular.ttc'
 )

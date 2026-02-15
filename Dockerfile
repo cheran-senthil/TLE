@@ -3,7 +3,6 @@ FROM python:3.11-slim AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libcairo2-dev libgirepository-2.0-dev \
-    libjpeg-dev zlib1g-dev \
     build-essential cmake gcc meson \
     && rm -rf /var/lib/apt/lists/*
 
@@ -18,7 +17,6 @@ FROM python:3.11-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libcairo2 gir1.2-pango-1.0 gobject-introspection \
-    libjpeg62-turbo zlib1g \
     fonts-noto-cjk \
     && rm -rf /var/lib/apt/lists/*
 

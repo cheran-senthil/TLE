@@ -4,13 +4,11 @@ import datetime as dt
 import html
 import io
 import logging
-import math
 import random
 
 import cairo
 import discord
 import gi
-from PIL import Image, ImageDraw, ImageFont
 from discord.ext import commands
 
 from tle import constants
@@ -33,7 +31,6 @@ from gi.repository import Pango, PangoCairo
 _HANDLES_PER_PAGE = 15
 _NAME_MAX_LEN = 20
 _PAGINATE_WAIT_TIME = 5 * 60  # 5 minutes
-_PRETTY_HANDLES_PER_PAGE = 10
 _TOP_DELTAS_COUNT = 10
 _MAX_RATING_CHANGES_PER_EMBED = 15
 _UPDATE_HANDLE_STATUS_INTERVAL = 6 * 60 * 60  # 6 hours
@@ -172,55 +169,6 @@ def get_gudgitters_image(rankings):
     return discord_file
 
 
-def get_prettyhandles_image(rows, font):
-    """return PIL image for rankings"""
-    SMOKE_WHITE = (250, 250, 250)
-    BLACK = (0, 0, 0)
-    img = Image.new('RGB', (900, 450), color=SMOKE_WHITE)
-    draw = ImageDraw.Draw(img)
-
-    START_X, START_Y = 20, 20
-    Y_INC = 32
-    WIDTH_RANK = 64
-    WIDTH_NAME = 340
-
-    def draw_row(pos, username, handle, rating, color, y):
-        x = START_X
-        draw.text((x, y), pos, fill=color, font=font)
-        x += WIDTH_RANK
-        draw.text((x, y), username, fill=color, font=font)
-        x += WIDTH_NAME
-        draw.text((x, y), handle, fill=color, font=font)
-        x += WIDTH_NAME
-        draw.text((x, y), rating, fill=color, font=font)
-
-    y = START_Y
-    # draw header
-    draw_row('#', 'Username', 'Handle', 'Rating', BLACK, y)
-    y += int(Y_INC * 1.5)
-
-    # trim name to fit in the column width
-    def _trim(name):
-        width = WIDTH_NAME - 10
-        while font.getbbox(name)[2] > width:
-            name = name[:-4] + '...'  # "…" is printed as floating dots
-        return name
-
-    for pos, name, handle, rating in rows:
-        name = _trim(name)
-        handle = _trim(handle)
-        color = rating_to_color(rating)
-        draw_row(str(pos), name, handle, str(rating) if rating else 'N/A', color, y)
-        if rating and rating >= 3000:  # nutella
-            nutella_x = START_X + WIDTH_RANK
-            draw.text((nutella_x, y), name[0], fill=BLACK, font=font)
-            nutella_x += WIDTH_NAME
-            draw.text((nutella_x, y), handle[0], fill=BLACK, font=font)
-        y += Y_INC
-
-    return img
-
-
 def _make_profile_embed(member, user, *, mode):
     assert mode in ('set', 'get')
     if mode == 'set':
@@ -272,9 +220,6 @@ class Handles(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.font = ImageFont.truetype(
-            constants.NOTO_SANS_CJK_BOLD_FONT_PATH, size=26
-        )  # font for ;handle pretty
         self.converter = commands.MemberConverter()
 
     @commands.Cog.listener()
@@ -713,57 +658,6 @@ class Handles(commands.Cog):
             wait_time=_PAGINATE_WAIT_TIME,
             set_pagenum_footers=True,
         )
-
-    @handle.command(brief='Show handles, but prettier')
-    async def pretty(self, ctx, page_no: int = None):
-        """Show members of the server who have registered their handles
-        and their Codeforces ratings, in color."""
-        user_id_cf_user_pairs = await self.bot.user_db.get_cf_users_for_guild(
-            ctx.guild.id
-        )
-        user_id_cf_user_pairs.sort(
-            key=lambda p: p[1].rating if p[1].rating is not None else -1, reverse=True
-        )
-        rows = []
-        author_idx = None
-        for user_id, cf_user in user_id_cf_user_pairs:
-            member = ctx.guild.get_member(user_id)
-            if member is None:
-                continue
-            idx = len(rows)
-            if member == ctx.author:
-                author_idx = idx
-            rows.append((idx, member.display_name, cf_user.handle, cf_user.rating))
-
-        if not rows:
-            raise HandleCogError('No members with registered handles.')
-        max_page = math.ceil(len(rows) / _PRETTY_HANDLES_PER_PAGE) - 1
-        if author_idx is None and page_no is None:
-            raise HandleCogError(
-                f'Please specify a page number between 0 and {max_page}.'
-            )
-
-        msg = None
-        if page_no is not None:
-            if page_no < 0 or max_page < page_no:
-                msg_fmt = 'Page number must be between 0 and {}. Showing page {}.'
-                if page_no < 0:
-                    msg = msg_fmt.format(max_page, 0)
-                    page_no = 0
-                else:
-                    msg = msg_fmt.format(max_page, max_page)
-                    page_no = max_page
-            start_idx = page_no * _PRETTY_HANDLES_PER_PAGE
-        else:
-            msg = f'Showing neighbourhood of user `{ctx.author.display_name}`.'
-            num_before = (_PRETTY_HANDLES_PER_PAGE - 1) // 2
-            start_idx = max(0, author_idx - num_before)
-        rows_to_display = rows[start_idx : start_idx + _PRETTY_HANDLES_PER_PAGE]
-        img = get_prettyhandles_image(rows_to_display, self.font)
-        buffer = io.BytesIO()
-        img.save(buffer, 'png')
-        buffer.seek(0)
-        await ctx.send(msg, file=discord.File(buffer, 'handles.png'))
 
     async def _update_ranks_all(self, guild):
         """For each member in the guild, fetches their current ratings and
