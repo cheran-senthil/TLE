@@ -43,12 +43,12 @@
 ### ~~CRIT-03: Synchronous SQLite Blocking the Event Loop~~ (RESOLVED)
 **Status:** Fixed in Step 3. Migrated both `user_db_conn.py` and `cache_db_conn.py` from `sqlite3` to `aiosqlite`. All methods are now async, all callers updated to `await`.
 
-### CRIT-04: In-Memory State Lost on Restart
-**File:** `tle/cogs/duel.py:456-479` (draw_offers), `tle/cogs/starboard.py:97` (locks)
+### CRIT-04: In-Memory State Lost on Restart (PARTIALLY RESOLVED)
+**File:** `tle/cogs/duel.py:456-479` (draw_offers), `tle/cogs/starboard.py` (locks)
 **Severity:** Critical
 **Description:** Duel draw offers (`self.draw_offers = {}`) are stored only in memory. If the bot restarts during a duel, draw state is lost. Similarly, starboard guild locks accumulate without cleanup.
 **Impact:** Data loss on restart, inconsistent game state, potential memory leak from unbounded lock dict.
-**Fix:** Persist draw offers in the database. Use `asyncio.Lock()` per-operation rather than per-guild, or implement cleanup.
+**Status:** Starboard locks bounded with LRU dict (maxsize=256) in Step 4. Duel draw persistence deferred to Step 9 (schema-breaking).
 
 ---
 
@@ -155,22 +155,14 @@
 
 ## 5. Architectural Issues
 
-### ARCH-01: Global Mutable Singletons
-**File:** `tle/util/codeforces_common.py:19-31`
-**Severity:** High
-**Description:** Core state is stored as module-level globals: `user_db`, `cache2`, `event_sys`, `active_groups`, `_contest_id_to_writers_map`. These are initialized asynchronously and accessed from everywhere, making the code untestable and creating implicit dependencies.
-**Fix:** Use dependency injection. Pass services through the bot instance or a service container.
+### ~~ARCH-01: Global Mutable Singletons~~ (RESOLVED)
+**Status:** Fixed in Step 4. Services (`user_db`, `cache2`, `event_sys`) are now attached to the `bot` instance during `initialize(bot, nodb)`. Cogs access them via `self.bot.user_db`, etc. Module-level globals kept as aliases for utility code.
 
-### ARCH-02: Tight Coupling Between Cogs and Utility Modules
-**Severity:** Medium
-**Description:** Every cog imports and directly accesses `cf_common.user_db`, `cf_common.cache2`, and utility functions. There are no interfaces or abstractions between layers.
-**Fix:** Define service interfaces. Access services through the bot instance: `self.bot.user_db`.
+### ~~ARCH-02: Tight Coupling Between Cogs and Utility Modules~~ (RESOLVED)
+**Status:** Fixed in Step 4. All cog methods access services through `self.bot.*` instead of importing globals. Module-level functions that can't use `self.bot` still use `cf_common.*` aliases.
 
-### ARCH-03: Cache System Is Too Complex
-**File:** `tle/util/cache_system2.py` (850 lines)
-**Severity:** Medium
-**Description:** Five cache classes with different update strategies, event-driven coordination, and manual trigger support all in one file. The `RanklistCache` alone handles prediction, standings fetching, and caching in ~250 lines.
-**Fix:** Split into separate files per cache. Extract prediction logic to its own module.
+### ~~ARCH-03: Cache System Is Too Complex~~ (RESOLVED)
+**Status:** Fixed in Step 4. Split `cache_system2.py` (850 lines) into `tle/util/cache/` package with focused modules: `_common.py`, `contest.py`, `problem.py`, `problemset.py`, `rating_changes.py`, `ranklist.py`, `cache_system.py`. Old file replaced with backward-compat re-export shim.
 
 ### ARCH-04: No Separation Between Business Logic and Presentation
 **Severity:** Medium
@@ -261,10 +253,8 @@ These issues must be addressed when migrating from discord.py 1.7.3 to 2.x:
 
 ## 8. Performance Issues
 
-### PERF-01: N+1 Query Pattern in Handle Resolution
-**File:** `tle/util/codeforces_common.py:135-136`
-**Description:** `get_visited_contests()` calls `cf.user.status(handle=handle)` in a loop for each handle, making N sequential API calls.
-**Fix:** Use asyncio.gather() for concurrent API calls.
+### ~~PERF-01: N+1 Query Pattern in Handle Resolution~~ (RESOLVED)
+**Status:** Fixed in Step 4. Replaced sequential loop with `asyncio.gather()`. Rate limit still respected via shared `@cf_ratelimit` decorator on `_query_api`.
 
 ### PERF-02: Entire Problemset in Memory
 **File:** `tle/util/cache_system2.py`
@@ -277,10 +267,8 @@ These issues must be addressed when migrating from discord.py 1.7.3 to 2.x:
 **Description:** Uses numpy FFT to precompute seeds for all possible ratings (array size 12288). While mathematically elegant, this is heavy for what could be a simpler computation, especially for small contests.
 **Fix:** Profile and consider a direct computation for small contest sizes.
 
-### PERF-04: Temporary File I/O for Every Plot
-**File:** `tle/util/graph_common.py:38-50`
-**Description:** Every plot is saved to a temp file on disk, read back into memory, then deleted. This involves unnecessary I/O.
-**Fix:** Use `io.BytesIO()` to keep plots in memory.
+### ~~PERF-04: Temporary File I/O for Every Plot~~ (RESOLVED)
+**Status:** Fixed in Step 4. Replaced temp file with `io.BytesIO()` in-memory buffer. Added `plt.close()` to prevent matplotlib memory leak.
 
 ### PERF-05: `guild.icon_url` Iteration in Presence
 **File:** `tle/util/discord_common.py:139-145`
@@ -370,10 +358,8 @@ These issues must be addressed when migrating from discord.py 1.7.3 to 2.x:
 **Description:** Some files import `discord` before stdlib, others follow PEP 8 ordering.
 **Fix:** Enable `ruff`'s import sorting rules (`I` ruleset).
 
-### STY-05: `os.path` vs `pathlib.Path`
-**File:** `tle/constants.py` (uses `os.path`), `tle/__main__.py:86` (uses `pathlib.Path`)
-**Description:** Inconsistent path handling across the codebase.
-**Fix:** Standardize on `pathlib.Path`.
+### ~~STY-05: `os.path` vs `pathlib.Path`~~ (RESOLVED)
+**Status:** Fixed in Step 4. All paths in `tle/constants.py` migrated from `os.path.join` to `pathlib.Path` `/` operator.
 
 ---
 
@@ -422,13 +408,13 @@ These issues must be addressed when migrating from discord.py 1.7.3 to 2.x:
 | 138 | `while True` inside task function - waiter never re-fires | Medium |
 | 143-144 | `constants.TLE_PURGATORY` compared to `role.name` - fails if configured as role ID | Medium |
 
-### `tle/util/cache_system2.py` (850 lines)
+### ~~`tle/util/cache_system2.py`~~ → `tle/util/cache/` package
 | Line | Issue | Severity |
 |------|-------|----------|
 | 20 | `CONTEST_BLACKLIST = {1308, 1309, 1431, 1432}` - hardcoded, should be configurable | Low |
 | 70-77 | `reload_now()` race: checks `locked()` then acts - TOCTOU | Medium |
 | ~249 | Problem name collisions silently overwrite data | Medium |
-| Various | Five cache classes with different patterns in one file | Medium |
+| ~~Various~~ | ~~Five cache classes with different patterns in one file~~ | ~~RESOLVED - split into focused modules~~ |
 
 ### `tle/util/db/user_db_conn.py` (1167 lines)
 | Line | Issue | Severity |
@@ -496,14 +482,14 @@ These issues must be addressed when migrating from discord.py 1.7.3 to 2.x:
 ### `tle/cogs/starboard.py`
 | Line | Issue | Severity |
 |------|-------|----------|
-| ~97 | `self.locks.setdefault()` creates unbounded dict growth | Medium |
+| ~~~97~~ | ~~`self.locks.setdefault()` creates unbounded dict growth~~ | ~~RESOLVED - replaced with LRU-bounded `_BoundedLockDict(maxsize=256)`~~ |
 | ~66-67 | Incomplete image type checking | Low |
 
-### `tle/util/graph_common.py` (71 lines)
+### `tle/util/graph_common.py` (67 lines)
 | Line | Issue | Severity |
 |------|-------|----------|
-| 39-50 | Temp file not cleaned up on exception (no try/finally) | Medium |
-| N/A | No `plt.close()` after figure creation - memory leak | Medium |
+| ~~39-50~~ | ~~Temp file not cleaned up on exception (no try/finally)~~ | ~~RESOLVED - replaced with `io.BytesIO()`~~ |
+| ~~N/A~~ | ~~No `plt.close()` after figure creation - memory leak~~ | ~~RESOLVED - added `plt.close()`~~ |
 | N/A | Hardcoded font path with no fallback | Low |
 
 ### `tle/util/events.py` (188 lines)
@@ -550,10 +536,10 @@ These issues must be addressed when migrating from discord.py 1.7.3 to 2.x:
 6. Add guild_id to duel tables
 
 ### Phase 4: Architecture Improvements
-1. Replace global singletons with dependency injection via bot instance
-2. Split `cache_system2.py` into separate modules per cache
+1. ~~Replace global singletons with dependency injection via bot instance~~ (DONE)
+2. ~~Split `cache_system2.py` into separate modules per cache~~ (DONE)
 3. Extract business logic from cogs into service classes
-4. Use `io.BytesIO()` for plot generation instead of temp files
+4. ~~Use `io.BytesIO()` for plot generation instead of temp files~~ (DONE)
 5. Add proper type annotations throughout
 6. Replace custom task framework with discord.py 2.x tasks (evaluate feasibility)
 

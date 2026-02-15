@@ -1,6 +1,4 @@
 import io
-import os
-import time
 
 import discord
 import matplotlib
@@ -36,19 +34,17 @@ class StrWrap:
 
 
 def get_current_figure_as_file():
-    filename = os.path.join(constants.TEMP_DIR, f'tempplot_{time.time()}.png')
+    buffer = io.BytesIO()
     plt.savefig(
-        filename,
+        buffer,
+        format='png',
         facecolor=plt.gca().get_facecolor(),
         bbox_inches='tight',
         pad_inches=0.25,
     )
-
-    with open(filename, 'rb') as file:
-        discord_file = discord.File(io.BytesIO(file.read()), filename='plot.png')
-
-    os.remove(filename)
-    return discord_file
+    plt.close()
+    buffer.seek(0)
+    return discord.File(buffer, filename='plot.png')
 
 
 def plot_rating_bg(ranks):

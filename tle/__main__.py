@@ -103,7 +103,7 @@ def main():
     # on_ready event handler rather than an on_ready listener.
     @discord_common.on_ready_event_once(bot)
     async def init():
-        await cf_common.initialize(args.nodb)
+        await cf_common.initialize(bot, args.nodb)
         asyncio.create_task(discord_common.presence(bot))
 
     bot.add_listener(discord_common.bot_error_handler, name='on_command_error')
@@ -117,8 +117,8 @@ def main():
                 await cf_common.user_db.close()
         except db.DatabaseDisabledError:
             pass
-        if cf_common.cache2 is not None:
-            await cf_common.cache2.conn.close()
+        if cf_common.cf_cache is not None:
+            await cf_common.cf_cache.conn.close()
         await original_close()
 
     bot.close = close_with_cleanup

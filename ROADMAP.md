@@ -78,14 +78,14 @@ These changes decouple the codebase so that (a) tests can inject mocks, and (b) 
 
 | # | Issue | File(s) | What to Do |
 |---|-------|---------|------------|
-| 4a | ARCH-01 | `tle/util/codeforces_common.py`, all cogs | Move `user_db`, `cache2`, `event_sys` onto the `bot` instance. Replace `cf_common.user_db` with `self.bot.user_db` in cogs. |
-| 4b | ARCH-02 | All cogs | After 4a, cogs access services via `self.bot.*` instead of importing globals |
-| 4c | PERF-04 | `tle/util/graph_common.py` | Replace temp file with `io.BytesIO()` for `get_current_figure_as_file()`. Add `plt.close()` after save. |
-| 4d | ARCH-03 | `tle/util/cache_system2.py` | Split into `cache/contest.py`, `cache/problem.py`, `cache/rating_changes.py`, `cache/ranklist.py`, `cache/__init__.py` |
-| 4e | CRIT-04 | `tle/cogs/duel.py` | Persist `draw_offers` in the duel DB table (add `draw_offerer_id` column) |
-| 4f | CRIT-04 | `tle/cogs/starboard.py` | Replace unbounded `self.locks` dict with a bounded `LRUCache` or per-operation locking |
-| 4g | PERF-01 | `tle/util/codeforces_common.py:135` | Change sequential API calls in `get_visited_contests()` to `asyncio.gather()` |
-| 4h | STY-05 | `tle/constants.py` | Migrate from `os.path` to `pathlib.Path` throughout |
+| ~~4a~~ | ~~ARCH-01~~ | ~~`tle/util/codeforces_common.py`, all cogs~~ | ~~DONE - Moved `user_db`, `cache2`, `event_sys` onto `bot` instance via `initialize(bot, nodb)`. Module globals kept as aliases for non-cog code.~~ |
+| ~~4b~~ | ~~ARCH-02~~ | ~~All cogs~~ | ~~DONE - All cog methods use `self.bot.user_db`, `self.bot.cache2`, `self.bot.event_sys`. Module-level/static functions kept using `cf_common.*`.~~ |
+| ~~4c~~ | ~~PERF-04~~ | ~~`tle/util/graph_common.py`~~ | ~~DONE - Replaced temp file with `io.BytesIO()`. Added `plt.close()` to prevent memory leak.~~ |
+| ~~4d~~ | ~~ARCH-03~~ | ~~`tle/util/cache_system2.py`~~ | ~~DONE - Split into `tle/util/cache/` package: `_common.py`, `contest.py`, `problem.py`, `problemset.py`, `rating_changes.py`, `ranklist.py`, `cache_system.py`, `__init__.py`. Old `cache_system2.py` is a backward-compat re-export shim.~~ |
+| 4e | CRIT-04 | `tle/cogs/duel.py` | DEFERRED - Persist `draw_offers` in the duel DB table (schema-breaking, moved to Step 9) |
+| ~~4f~~ | ~~CRIT-04~~ | ~~`tle/cogs/starboard.py`~~ | ~~DONE - Replaced unbounded `self.locks` dict with LRU-bounded `_BoundedLockDict(maxsize=256)`~~ |
+| ~~4g~~ | ~~PERF-01~~ | ~~`tle/util/codeforces_common.py`~~ | ~~DONE - Changed sequential API calls in `get_visited_contests()` to `asyncio.gather()`. Rate limit still respected via shared `@cf_ratelimit` decorator.~~ |
+| ~~4h~~ | ~~STY-05~~ | ~~`tle/constants.py`~~ | ~~DONE - Migrated all paths from `os.path.join` to `pathlib.Path` `/` operator~~ |
 
 **Verification:** All commands still work. `import tle` succeeds. No circular imports.
 

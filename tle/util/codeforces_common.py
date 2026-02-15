@@ -12,7 +12,8 @@ import discord
 from discord.ext import commands
 
 from tle import constants
-from tle.util import cache_system2, codeforces_api as cf, db, events
+from tle.util import codeforces_api as cf, db, events
+from tle.util.cache import CacheSystem, ContestNotFound
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 user_db = None
 
 # Cache system
-cache2 = None
+cf_cache = None
 
 # Event system
 event_sys = events.EventSystem()
@@ -39,8 +40,8 @@ async def wait_for_initialize():
         await _initialize_event.wait()
 
 
-async def initialize(nodb):
-    global cache2
+async def initialize(bot, nodb):
+    global cf_cache
     global user_db
     global event_sys
     global _contest_id_to_writers_map
@@ -64,8 +65,13 @@ async def initialize(nodb):
 
     cache_db = db.CacheDbConn(constants.CACHE_DB_FILE_PATH)
     await cache_db.connect()
-    cache2 = cache_system2.CacheSystem(cache_db)
-    await cache2.run()
+    cf_cache = CacheSystem(cache_db)
+    await cf_cache.run()
+
+    # Attach services to bot for cog access via self.bot
+    bot.user_db = user_db
+    bot.cf_cache = cf_cache
+    bot.event_sys = event_sys
 
     try:
         with open(constants.CONTEST_WRITERS_JSON_FILE_PATH) as f:
@@ -138,7 +144,7 @@ def is_nonstandard_contest(contest):
 
 def is_nonstandard_problem(problem):
     return is_nonstandard_contest(
-        cache2.contest_cache.get_contest(problem.contestId)
+        cf_cache.contest_cache.get_contest(problem.contestId)
     ) or problem.matches_all_tags(['*special'])
 
 
@@ -146,18 +152,20 @@ async def get_visited_contests(handles: [str]):
     """Returns a set of contest ids of contests that any of the given handles
     has at least one non-CE submission.
     """
-    user_submissions = [await cf.user.status(handle=handle) for handle in handles]
-    problem_to_contests = cache2.problemset_cache.problem_to_contests
+    user_submissions = await asyncio.gather(
+        *(cf.user.status(handle=handle) for handle in handles)
+    )
+    problem_to_contests = cf_cache.problemset_cache.problem_to_contests
 
     contest_ids = []
     for sub in itertools.chain.from_iterable(user_submissions):
         if sub.verdict == 'COMPILATION_ERROR':
             continue
         try:
-            contest = cache2.contest_cache.get_contest(sub.problem.contestId)
+            contest = cf_cache.contest_cache.get_contest(sub.problem.contestId)
             problem_id = (sub.problem.name, contest.startTimeSeconds)
             contest_ids += problem_to_contests[problem_id]
-        except cache_system2.ContestNotFound:
+        except ContestNotFound:
             pass
     return set(contest_ids)
 
@@ -435,7 +443,7 @@ class SubFilter:
 
         for submission in submissions:
             problem = submission.problem
-            contest = cache2.contest_cache.contest_by_id.get(problem.contestId, None)
+            contest = cf_cache.contest_cache.contest_by_id.get(problem.contestId, None)
             if submission.verdict == 'OK':
                 # Assume (name, contest start time) is a unique identifier for problems
                 problem_key = (problem.name, contest.startTimeSeconds if contest else 0)
@@ -449,7 +457,7 @@ class SubFilter:
         filtered_subs = []
         for submission in submissions:
             problem = submission.problem
-            contest = cache2.contest_cache.contest_by_id.get(problem.contestId, None)
+            contest = cf_cache.contest_cache.contest_by_id.get(problem.contestId, None)
             type_ok = submission.author.participantType in self.types
             date_ok = self.dlo <= submission.creationTimeSeconds < self.dhi
             tag_ok = problem.matches_all_tags(self.tags)

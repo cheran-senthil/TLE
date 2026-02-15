@@ -4,7 +4,6 @@ import time
 from discord.ext import commands
 
 from tle import constants
-from tle.util import codeforces_common as cf_common
 
 
 def timed_command(coro):
@@ -36,13 +35,13 @@ class CacheControl(commands.Cog):
     @commands.has_role(constants.TLE_ADMIN)
     @timed_command
     async def contests(self, ctx):
-        await cf_common.cache2.contest_cache.reload_now()
+        await self.bot.cf_cache.contest_cache.reload_now()
 
     @cache.command()
     @commands.has_role(constants.TLE_ADMIN)
     @timed_command
     async def problems(self, ctx):
-        await cf_common.cache2.problem_cache.reload_now()
+        await self.bot.cf_cache.problem_cache.reload_now()
 
     @cache.command(usage='[missing|all|contest_id]')
     @commands.has_role(constants.TLE_ADMIN)
@@ -58,12 +57,14 @@ class CacheControl(commands.Cog):
                 return
         if contest_id == 'all':
             await ctx.send('This will take a while')
-            count = await cf_common.cache2.rating_changes_cache.fetch_all_contests()
+            count = await self.bot.cf_cache.rating_changes_cache.fetch_all_contests()
         elif contest_id == 'missing':
             await ctx.send('This may take a while')
-            count = await cf_common.cache2.rating_changes_cache.fetch_missing_contests()
+            count = (
+                await self.bot.cf_cache.rating_changes_cache.fetch_missing_contests()
+            )
         else:
-            count = await cf_common.cache2.rating_changes_cache.fetch_contest(
+            count = await self.bot.cf_cache.rating_changes_cache.fetch_contest(
                 contest_id
             )
         await ctx.send(f'Done, fetched {count} changes and recached handle ratings')
@@ -77,13 +78,13 @@ class CacheControl(commands.Cog):
         """
         if contest_id == 'all':
             await ctx.send('This will take a while')
-            count = await cf_common.cache2.problemset_cache.update_for_all()
+            count = await self.bot.cf_cache.problemset_cache.update_for_all()
         else:
             try:
                 contest_id = int(contest_id)
             except ValueError:
                 return
-            count = await cf_common.cache2.problemset_cache.update_for_contest(
+            count = await self.bot.cf_cache.problemset_cache.update_for_contest(
                 contest_id
             )
         await ctx.send(f'Done, fetched {count} problems')
