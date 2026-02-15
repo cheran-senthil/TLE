@@ -4,8 +4,8 @@ import itertools
 import logging
 import time
 from collections import defaultdict, deque
-from collections.abc import Iterable, Iterator, Sequence
-from typing import Any, NamedTuple, Optional
+from collections.abc import Callable, Iterable, Iterator, Sequence
+from typing import Any, NamedTuple
 
 import aiohttp
 from discord.ext import commands
@@ -27,12 +27,12 @@ logger = logging.getLogger(__name__)
 class Rank(NamedTuple):
     """Codeforces rank."""
 
-    low: Optional[int]
-    high: Optional[int]
+    low: int | None
+    high: int | None
     title: str
-    title_abbr: Optional[str]
-    color_graph: Optional[str]
-    color_embed: Optional[int]
+    title_abbr: str | None
+    color_graph: str | None
+    color_embed: int | None
 
 
 RATED_RANKS = (
@@ -50,7 +50,7 @@ RATED_RANKS = (
 UNRATED_RANK = Rank(None, None, 'Unrated', None, None, None)
 
 
-def rating2rank(rating: Optional[int]) -> Rank:
+def rating2rank(rating: int | None) -> Rank:
     """Returns the rank corresponding to the given rating."""
     if rating is None:
         return UNRATED_RANK
@@ -68,14 +68,14 @@ class User(NamedTuple):
     """Codeforces user."""
 
     handle: str
-    firstName: Optional[str]
-    lastName: Optional[str]
-    country: Optional[str]
-    city: Optional[str]
-    organization: Optional[str]
+    firstName: str | None
+    lastName: str | None
+    country: str | None
+    city: str | None
+    organization: str | None
     contribution: int
-    rating: Optional[int]
-    maxRating: Optional[int]
+    rating: int | None
+    maxRating: int | None
     lastOnlineTimeSeconds: int
     registrationTimeSeconds: int
     friendOfCount: int
@@ -121,16 +121,14 @@ class Contest(NamedTuple):
 
     id: int
     name: str
-    startTimeSeconds: Optional[int]
-    durationSeconds: Optional[int]
+    startTimeSeconds: int | None
+    durationSeconds: int | None
     type: str
     phase: str
-    preparedBy: Optional[str]
-
-    PHASES = 'BEFORE CODING PENDING_SYSTEM_TEST SYSTEM_TEST FINISHED'.split()
+    preparedBy: str | None
 
     @property
-    def end_time(self) -> Optional[int]:
+    def end_time(self) -> int | None:
         """Returns the end time of the contest."""
         if self.startTimeSeconds is None or self.durationSeconds is None:
             return None
@@ -169,34 +167,38 @@ class Member(NamedTuple):
 class Party(NamedTuple):
     """Codeforces party."""
 
-    contestId: Optional[int]
+    contestId: int | None
     members: list[Member]
     participantType: str
-    teamId: Optional[int]
-    teamName: Optional[str]
+    teamId: int | None
+    teamName: str | None
     ghost: bool
-    room: Optional[int]
-    startTimeSeconds: Optional[int]
+    room: int | None
+    startTimeSeconds: int | None
 
-    PARTICIPANT_TYPES = (
-        'CONTESTANT',
-        'PRACTICE',
-        'VIRTUAL',
-        'MANAGER',
-        'OUT_OF_COMPETITION',
-    )
+
+
+CONTEST_PHASES = 'BEFORE CODING PENDING_SYSTEM_TEST SYSTEM_TEST FINISHED'.split()
+
+PARTICIPANT_TYPES = (
+    'CONTESTANT',
+    'PRACTICE',
+    'VIRTUAL',
+    'MANAGER',
+    'OUT_OF_COMPETITION',
+)
 
 
 class Problem(NamedTuple):
     """Codeforces problem."""
 
-    contestId: Optional[int]
-    problemsetName: Optional[str]
-    index: str
+    contestId: int | None
+    problemsetName: str | None
+    index: str  # type: ignore[assignment]
     name: str
-    type: str
-    points: Optional[float]
-    rating: Optional[int]
+    type: str  # type: ignore[assignment]
+    points: float | None
+    rating: int | None
     tags: list[str]
 
     @property
@@ -250,8 +252,8 @@ class Problem(NamedTuple):
 class ProblemStatistics(NamedTuple):
     """Codeforces problem statistics."""
 
-    contestId: Optional[int]
-    index: str
+    contestId: int | None
+    index: str  # type: ignore[assignment]
     solvedCount: int
 
 
@@ -259,11 +261,11 @@ class Submission(NamedTuple):
     """Codeforces submission for a problem."""
 
     id: int
-    contestId: Optional[int]
+    contestId: int | None
     problem: Problem
     author: Party
     programmingLanguage: str
-    verdict: Optional[str]
+    verdict: str | None
     creationTimeSeconds: int
     relativeTimeSeconds: int
 
@@ -282,13 +284,13 @@ class ProblemResult(NamedTuple):
     """Codeforces problem result."""
 
     points: float
-    penalty: Optional[int]
+    penalty: int | None
     rejectedAttemptCount: int
     type: str
-    bestSubmissionTimeSeconds: Optional[int]
+    bestSubmissionTimeSeconds: int | None
 
 
-def make_from_dict(namedtuple_cls, dict_):
+def make_from_dict(namedtuple_cls: Any, dict_: dict[str, Any]) -> Any:
     """Creates a namedtuple from a subset of values in a dict."""
     field_vals = [dict_.get(field) for field in namedtuple_cls._fields]
     return namedtuple_cls._make(field_vals)
@@ -300,14 +302,14 @@ def make_from_dict(namedtuple_cls, dict_):
 class CodeforcesApiError(commands.CommandError):
     """Base class for all API related errors."""
 
-    def __init__(self, message: Optional[str] = None):
+    def __init__(self, message: str | None = None):
         super().__init__(message or 'Codeforces API error')
 
 
 class TrueApiError(CodeforcesApiError):
     """An error originating from a valid response of the API."""
 
-    def __init__(self, comment: str, message: Optional[str] = None):
+    def __init__(self, comment: str, message: str | None = None):
         super().__init__(message)
         self.comment = comment
 
@@ -315,7 +317,7 @@ class TrueApiError(CodeforcesApiError):
 class ClientError(CodeforcesApiError):
     """An error caused by a request to the API failing."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__('Error connecting to Codeforces API')
 
 
@@ -362,7 +364,7 @@ class RatingChangesUnavailableError(TrueApiError):
 
 # Codeforces API query methods
 
-_session: aiohttp.ClientSession = None
+_session: aiohttp.ClientSession | None = None
 
 
 async def initialize() -> None:
@@ -377,13 +379,13 @@ def _bool_to_str(value: bool) -> str:
     raise TypeError(f'Expected bool, got {value} of type {type(value)}')
 
 
-def cf_ratelimit(f):
+def cf_ratelimit(f: Callable[..., Any]) -> Callable[..., Any]:
     tries = 3
     per_second = 1
     last = deque([0.0] * per_second)
 
     @functools.wraps(f)
-    async def wrapped(*args, **kwargs):
+    async def wrapped(*args: Any, **kwargs: Any) -> Any:
         for i in itertools.count():
             now = time.time()
 
@@ -413,12 +415,13 @@ def cf_ratelimit(f):
 
 
 @cf_ratelimit
-async def _query_api(path: str, data: Any = None):
+async def _query_api(path: str, data: Any = None) -> Any:
     url = API_BASE_URL + path
     try:
         logger.info(f'Querying CF API at {url} with {data}')
         # Explicitly state encoding (though aiohttp accepts gzip by default)
         headers = {'Accept-Encoding': 'gzip'}
+        assert _session is not None, "Session not initialized. Call initialize() first."
         async with _session.post(url, data=data, headers=headers) as resp:
             try:
                 respjson = await resp.json()
@@ -441,7 +444,7 @@ async def _query_api(path: str, data: Any = None):
 
 class contest:
     @staticmethod
-    async def to_list(*, gym: Optional[bool] = None) -> list[Contest]:
+    async def to_list(*, gym: bool | None = None) -> list[Contest]:
         """Returns a list of contests."""
         params = {}
         if gym is not None:
@@ -467,11 +470,11 @@ class contest:
     async def standings(
         *,
         contest_id: Any,
-        from_: Optional[int] = None,
-        count: Optional[int] = None,
-        handles: Optional[list[str]] = None,
-        room: Optional[Any] = None,
-        show_unofficial: Optional[bool] = None,
+        from_: int | None = None,
+        count: int | None = None,
+        handles: list[str] | None = None,
+        room: Any | None = None,
+        show_unofficial: bool | None = None,
     ) -> tuple[Contest, list[Problem], list[RanklistRow]]:
         params = {'contestId': contest_id}
         if from_ is not None:
@@ -510,7 +513,7 @@ class contest:
 class problemset:
     @staticmethod
     async def problems(
-        *, tags=None, problemset_name=None
+        *, tags: list[str] | None = None, problemset_name: str | None = None
     ) -> tuple[list[Problem], list[ProblemStatistics]]:
         """Returns a list of problems."""
         params = {}
@@ -535,7 +538,7 @@ def user_info_chunkify(handles: Iterable[str]) -> Iterator[list[str]]:
     # bytes, so requests might need to be split into chunks
     SIZE_LIMIT = 2**16
     HANDLE_LIMIT = 10000
-    chunk = []
+    chunk: list[str] = []
     size = 0
     for handle in handles:
         if size + len(handle) > SIZE_LIMIT or len(chunk) == HANDLE_LIMIT:
@@ -574,7 +577,7 @@ class user:
         return [fix_urls(user) for user in result]
 
     @staticmethod
-    async def rating(*, handle: str):
+    async def rating(*, handle: str) -> list[RatingChange]:
         """Returns a list of rating changes for a user."""
         params = {'handle': handle}
         try:
@@ -591,7 +594,7 @@ class user:
         ]
 
     @staticmethod
-    async def ratedList(*, activeOnly: bool = None) -> list[User]:
+    async def ratedList(*, activeOnly: bool | None = None) -> list[User]:
         """Returns a list of rated users."""
         params = {}
         if activeOnly is not None:
@@ -601,7 +604,7 @@ class user:
 
     @staticmethod
     async def status(
-        *, handle: str, from_: Optional[int] = None, count: Optional[int] = None
+        *, handle: str, from_: int | None = None, count: int | None = None
     ) -> list[Submission]:
         """Returns a list of submissions for a user."""
         params: dict[str, Any] = {'handle': handle}
@@ -627,23 +630,24 @@ class user:
         return [make_from_dict(Submission, submission_dict) for submission_dict in resp]
 
 
-async def _resolve_redirect(handle: str) -> Optional[str]:
+async def _resolve_redirect(handle: str) -> str | None:
     url = PROFILE_BASE_URL + handle
+    assert _session is not None, "Session not initialized. Call initialize() first."
     async with _session.head(url) as r:
         if r.status == 200:
             return handle
         if r.status == 302:
             redirected = r.headers.get('Location')
-            if '/profile/' not in redirected:
+            if redirected is None or '/profile/' not in redirected:
                 # Ended up not on profile page, probably invalid handle
                 return None
-            return redirected.split('/profile/')[-1]
+            return str(redirected.split('/profile/')[-1])
         raise CodeforcesApiError(f'Something went wrong trying to redirect {url}')
 
 
 async def _resolve_handle_to_new_user(
     handle: str,
-) -> Optional[User]:
+) -> User | None:
     new_handle = await _resolve_redirect(handle)
     if new_handle is None:
         return None

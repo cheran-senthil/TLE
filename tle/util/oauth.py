@@ -2,6 +2,7 @@ import logging
 import secrets
 import time
 from dataclasses import dataclass
+from typing import Any
 from urllib.parse import urlencode
 
 import aiohttp
@@ -30,7 +31,7 @@ class OAuthPending:
 class OAuthStateStore:
     """In-memory store mapping state tokens to pending OAuth requests."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._pending: dict[str, OAuthPending] = {}
 
     def create(self, user_id: int, guild_id: int, channel_id: int) -> str:
@@ -60,7 +61,7 @@ class OAuthStateStore:
         for s in to_remove:
             del self._pending[s]
 
-    def _prune(self):
+    def _prune(self) -> None:
         now = time.monotonic()
         expired = [
             s for s, p in self._pending.items() if now - p.created_at > _STATE_TTL
@@ -86,7 +87,7 @@ async def exchange_code(
     client_secret: str,
     redirect_uri: str,
     session: aiohttp.ClientSession,
-) -> dict:
+) -> dict[str, Any]:
     data = {
         'grant_type': 'authorization_code',
         'code': code,
@@ -98,11 +99,11 @@ async def exchange_code(
         body = await resp.json()
         if resp.status != 200:
             raise ValueError(f'Token exchange failed: {body}')
-        return body
+        return body  # type: ignore[no-any-return]
 
 
-def decode_id_token(id_token: str, client_secret: str, client_id: str) -> dict:
-    return jwt.decode(
+def decode_id_token(id_token: str, client_secret: str, client_id: str) -> dict[str, Any]:
+    return jwt.decode(  # type: ignore[no-any-return]
         id_token,
         client_secret,
         algorithms=['HS256'],
@@ -129,14 +130,14 @@ _ERROR_HTML = """\
 
 
 class OAuthServer:
-    def __init__(self, bot, state_store: OAuthStateStore, port: int):
+    def __init__(self, bot: Any, state_store: OAuthStateStore, port: int) -> None:
         self.bot = bot
         self.state_store = state_store
         self.port = port
         self._session: aiohttp.ClientSession | None = None
         self._runner: web.AppRunner | None = None
 
-    async def start(self):
+    async def start(self) -> None:
         self._session = aiohttp.ClientSession()
         app = web.Application()
         app.router.add_get('/callback', self._handle_callback)
@@ -146,7 +147,7 @@ class OAuthServer:
         await site.start()
         logger.info('OAuth callback server listening on port %d', self.port)
 
-    async def stop(self):
+    async def stop(self) -> None:
         if self._runner:
             await self._runner.cleanup()
         if self._session:
@@ -184,6 +185,10 @@ class OAuthServer:
         channel = self.bot.get_channel(pending.channel_id)
 
         try:
+            assert constants.OAUTH_CLIENT_ID is not None
+            assert constants.OAUTH_CLIENT_SECRET is not None
+            assert constants.OAUTH_REDIRECT_URI is not None
+            assert self._session is not None
             tokens = await exchange_code(
                 code,
                 constants.OAUTH_CLIENT_ID,

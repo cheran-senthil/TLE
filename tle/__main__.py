@@ -5,6 +5,7 @@ import os
 from logging.handlers import TimedRotatingFileHandler
 from os import environ
 from pathlib import Path
+from typing import Any
 
 import discord
 import seaborn as sns
@@ -16,7 +17,7 @@ from tle import constants
 from tle.util import codeforces_common as cf_common, db, discord_common
 
 
-def setup():
+def setup() -> None:
     # Make required directories.
     for path in constants.ALL_DIRS:
         os.makedirs(path, exist_ok=True)
@@ -62,7 +63,7 @@ def strtobool(value: str) -> bool:
 
 
 class TLEContext(commands.Context):
-    async def send(self, *args, **kwargs):
+    async def send(self, *args: Any, **kwargs: Any) -> discord.Message:
         if self.interaction is None and 'reference' not in kwargs:
             kwargs['reference'] = self.message
             kwargs.setdefault('mention_author', False)
@@ -70,16 +71,18 @@ class TLEContext(commands.Context):
 
 
 class TLEBot(commands.Bot):
-    def __init__(self, nodb, **kwargs):
+    def __init__(self, nodb: bool, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        self.nodb = nodb
-        self.oauth_server = None
-        self.oauth_state_store = None
+        self.nodb: bool = nodb
+        self.oauth_server: Any = None
+        self.oauth_state_store: Any = None
 
-    async def get_context(self, message, *, cls=None):
+    async def get_context(
+        self, message: discord.Message, *, cls: type | None = None
+    ) -> commands.Context:
         return await super().get_context(message, cls=cls or TLEContext)
 
-    async def setup_hook(self):
+    async def setup_hook(self) -> None:
         cogs = [file.stem for file in Path('tle', 'cogs').glob('*.py')]
         for extension in cogs:
             await self.load_extension(f'tle.cogs.{extension}')
@@ -97,7 +100,7 @@ class TLEBot(commands.Bot):
         await self.tree.sync()
         logging.info('Slash commands synced')
 
-    async def close(self):
+    async def close(self) -> None:
         if self.oauth_server is not None:
             await self.oauth_server.stop()
         try:
@@ -112,7 +115,7 @@ class TLEBot(commands.Bot):
         await super().close()
 
 
-def main():
+def main() -> None:
     load_dotenv()
 
     parser = argparse.ArgumentParser()
@@ -140,7 +143,7 @@ def main():
         intents=intents,
     )
 
-    def no_dm_check(ctx):
+    def no_dm_check(ctx: commands.Context) -> bool:
         if ctx.guild is None:
             raise commands.NoPrivateMessage('Private messages not permitted.')
         return True
@@ -148,7 +151,7 @@ def main():
     # Restrict bot usage to inside guild channels only.
     bot.add_check(no_dm_check)
 
-    async def interaction_guild_check(interaction):
+    async def interaction_guild_check(interaction: discord.Interaction) -> bool:
         if interaction.guild is None:
             await interaction.response.send_message(
                 'Private messages not permitted.', ephemeral=True
@@ -160,7 +163,7 @@ def main():
 
     @bot.event
     @discord_common.once
-    async def on_ready():
+    async def on_ready() -> None:
         asyncio.create_task(discord_common.presence(bot))
 
     bot.add_listener(discord_common.bot_error_handler, name='on_command_error')

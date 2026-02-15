@@ -1,4 +1,7 @@
+# mypy: disable-error-code="no-any-return"
 import json
+from collections.abc import Iterator
+from typing import Any
 
 import aiosqlite
 
@@ -6,15 +9,20 @@ from tle.util import codeforces_api as cf
 
 
 class CacheDbConn:
-    def __init__(self, db_file):
+    def __init__(self, db_file: str) -> None:
         self.db_file = db_file
-        self.conn = None
+        self._conn: aiosqlite.Connection | None = None
 
-    async def connect(self):
-        self.conn = await aiosqlite.connect(self.db_file)
+    @property
+    def conn(self) -> aiosqlite.Connection:
+        assert self._conn is not None, "Database not connected. Call connect() first."
+        return self._conn
+
+    async def connect(self) -> None:
+        self._conn = await aiosqlite.connect(self.db_file)
         await self.create_tables()
 
-    async def create_tables(self):
+    async def create_tables(self) -> None:
         # Table for contests from the contest.list endpoint.
         await self.conn.execute(
             'CREATE TABLE IF NOT EXISTS contest ('
@@ -86,7 +94,7 @@ class CacheDbConn:
             CREATE INDEX IF NOT EXISTS ix_problem2_contest_id ON problem2 (contest_id)
         """)
 
-    async def cache_contests(self, contests):
+    async def cache_contests(self, contests: list[Any]) -> int:
         query = """
             INSERT OR REPLACE INTO contest (
                 id, name, start_time, duration, type, phase, prepared_by
@@ -97,7 +105,7 @@ class CacheDbConn:
         await self.conn.commit()
         return rc
 
-    async def fetch_contests(self):
+    async def fetch_contests(self) -> list[cf.Contest]:
         query = """
             SELECT id, name, start_time, duration, type, phase, prepared_by FROM contest
         """
@@ -106,7 +114,7 @@ class CacheDbConn:
         return [cf.Contest._make(contest) for contest in res]
 
     @staticmethod
-    def _squish_tags(problem):
+    def _squish_tags(problem: cf.Problem) -> tuple[Any, ...]:
         return (
             problem.contestId,
             problem.problemsetName,
@@ -118,7 +126,7 @@ class CacheDbConn:
             json.dumps(problem.tags),
         )
 
-    async def cache_problems(self, problems):
+    async def cache_problems(self, problems: list[cf.Problem]) -> int:
         query = """
             INSERT OR REPLACE INTO problem (
                 contest_id, problemset_name, [index], name, type, points, rating, tags
@@ -132,11 +140,12 @@ class CacheDbConn:
         return rc
 
     @staticmethod
-    def _unsquish_tags(problem):
-        args, tags = problem[:-1], json.loads(problem[-1])
-        return cf.Problem(*args, tags)
+    def _unsquish_tags(problem: tuple[Any, ...]) -> cf.Problem:
+        args = problem[:-1]
+        tags: list[str] = json.loads(problem[-1])
+        return cf.Problem._make((*args, tags))
 
-    async def fetch_problems(self):
+    async def fetch_problems(self) -> list[cf.Problem]:
         query = """
             SELECT
                 contest_id, problemset_name, [index], name, type, points, rating, tags
@@ -146,7 +155,7 @@ class CacheDbConn:
         res = await cursor.fetchall()
         return list(map(self._unsquish_tags, res))
 
-    async def save_rating_changes(self, changes):
+    async def save_rating_changes(self, changes: list[cf.RatingChange]) -> int:
         change_tuples = [
             (
                 change.contestId,
@@ -168,7 +177,7 @@ class CacheDbConn:
         await self.conn.commit()
         return rc
 
-    async def clear_rating_changes(self, contest_id=None):
+    async def clear_rating_changes(self, contest_id: int | None = None) -> None:
         if contest_id is None:
             query = 'DELETE FROM rating_change'
             await self.conn.execute(query)
@@ -177,7 +186,9 @@ class CacheDbConn:
             await self.conn.execute(query, (contest_id,))
         await self.conn.commit()
 
-    async def get_users_with_more_than_n_contests(self, time_cutoff, n):
+    async def get_users_with_more_than_n_contests(
+        self, time_cutoff: int, n: int
+    ) -> list[str]:
         query = """
             SELECT
                 handle,
@@ -196,7 +207,7 @@ class CacheDbConn:
         res = await cursor.fetchall()
         return [user[0] for user in res]
 
-    async def get_all_rating_changes(self):
+    async def get_all_rating_changes(self) -> Iterator[cf.RatingChange]:
         query = """
             SELECT
                 contest_id,
@@ -214,7 +225,9 @@ class CacheDbConn:
         res = await cursor.fetchall()
         return (cf.RatingChange._make(change) for change in res)
 
-    async def get_rating_changes_for_contest(self, contest_id):
+    async def get_rating_changes_for_contest(
+        self, contest_id: int
+    ) -> list[cf.RatingChange]:
         query = """
             SELECT
                 contest_id,
@@ -232,13 +245,13 @@ class CacheDbConn:
         res = await cursor.fetchall()
         return [cf.RatingChange._make(change) for change in res]
 
-    async def has_rating_changes_saved(self, contest_id):
+    async def has_rating_changes_saved(self, contest_id: int) -> bool:
         query = 'SELECT contest_id FROM rating_change WHERE contest_id = ?'
         cursor = await self.conn.execute(query, (contest_id,))
         res = await cursor.fetchone()
         return res is not None
 
-    async def get_rating_changes_for_handle(self, handle):
+    async def get_rating_changes_for_handle(self, handle: str) -> list[cf.RatingChange]:
         query = """
             SELECT
                 contest_id,
@@ -256,7 +269,7 @@ class CacheDbConn:
         res = await cursor.fetchall()
         return [cf.RatingChange._make(change) for change in res]
 
-    async def cache_problemset(self, problemset):
+    async def cache_problemset(self, problemset: list[cf.Problem]) -> int:
         query = """
             INSERT OR REPLACE INTO problem2 (
                 contest_id, problemset_name, [index], name, type, points, rating, tags
@@ -270,7 +283,7 @@ class CacheDbConn:
         await self.conn.commit()
         return rc
 
-    async def fetch_problems2(self):
+    async def fetch_problems2(self) -> list[cf.Problem]:
         query = """
             SELECT
                 contest_id, problemset_name, [index], name, type, points, rating, tags
@@ -280,7 +293,7 @@ class CacheDbConn:
         res = await cursor.fetchall()
         return list(map(self._unsquish_tags, res))
 
-    async def clear_problemset(self, contest_id=None):
+    async def clear_problemset(self, contest_id: int | None = None) -> None:
         if contest_id is None:
             query = 'DELETE FROM problem2'
             await self.conn.execute(query)
@@ -288,7 +301,7 @@ class CacheDbConn:
             query = 'DELETE FROM problem2 WHERE contest_id = ?'
             await self.conn.execute(query, (contest_id,))
 
-    async def fetch_problemset(self, contest_id):
+    async def fetch_problemset(self, contest_id: int) -> list[cf.Problem]:
         query = """
             SELECT
                 contest_id, problemset_name, [index], name, type, points, rating, tags
@@ -299,15 +312,15 @@ class CacheDbConn:
         res = await cursor.fetchall()
         return list(map(self._unsquish_tags, res))
 
-    async def problemset_empty(self):
+    async def problemset_empty(self) -> bool:
         query = 'SELECT 1 FROM problem2'
         cursor = await self.conn.execute(query)
         res = await cursor.fetchone()
         return res is None
 
-    async def close(self):
+    async def close(self) -> None:
         if self.conn:
             await self.conn.close()
 
-    async def get_problemset_from_contest(self, contest_id):
+    async def get_problemset_from_contest(self, contest_id: int) -> list[cf.Problem]:
         return await self.fetch_problemset(contest_id)

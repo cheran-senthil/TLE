@@ -163,15 +163,17 @@ With the architecture clean and tests in place, address remaining code quality i
 
 | # | Issue | File(s) | What to Do |
 |---|-------|---------|------------|
-| 8a | CQ-01 | All files | Add type annotations to all public functions. Start with `util/` modules, then cogs. |
+| ~~8a~~ | ~~CQ-01~~ | ~~All files~~ | ~~DONE - Added type annotations to all public functions across 32 files (util modules + all cogs). Modernized `Optional[X]` to `X | None` (PEP 604). Added `from typing import Any` and `from collections.abc import Callable, Sequence, Iterable` imports.~~ |
 | 8b | CQ-02 | Multiple | Extract magic numbers to named constants with units (e.g., `_SKIP_COOLDOWN_MINUTES = 180`) |
 | 8c | CQ-03 | `handles.py`, `contests.py`, `graphs.py` | Decompose god functions into smaller helpers |
 | 8d | STY-01 | All files | Standardize on f-strings (ruff can auto-fix) |
 | 8e | STY-02 | All cogs | Document admin command naming convention and apply consistently |
 | 8f | STY-03 | All modules | Add module-level docstrings |
 | 8g | SEC-04 | `tle/util/codeforces_common.py` | Add bounds validation to `parse_rating()` (0-5000 range) |
-| 8h | CQ type hints | `tle/util/codeforces_common.py:131` | Fix `handles: [str]` -> `handles: list[str]` and similar |
-| 8i | CI type check | `.github/workflows/lint.yaml` | Add `mypy` or `pyright` check to CI |
+| ~~8h~~ | ~~CQ type hints~~ | ~~`tle/util/codeforces_common.py`~~ | ~~DONE - Fixed `handles: [str]` → `handles: list[str]`, `members: [discord.Member]` → `members: Iterable[discord.Member]`, and similar invalid annotations~~ |
+| 8i | CI type check | `.github/workflows/lint.yaml`, `pyproject.toml` | Add `mypy` or `pyright` check to CI (mypy config added to `pyproject.toml`, CI integration pending) |
+
+**Progress:** 8a and 8h complete. mypy config added (8i partial). Remaining: 8b-8g, 8i CI integration.
 
 **Verification:** `ruff check .` clean. `mypy tle/` clean (or minimal ignores). All tests pass.
 

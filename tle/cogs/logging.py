@@ -11,17 +11,17 @@ logger = logging.getLogger(__name__)
 
 
 class Logging(commands.Cog, logging.Handler):
-    def __init__(self, bot, channel_id):
+    def __init__(self, bot: commands.Bot, channel_id: int) -> None:
         logging.Handler.__init__(self)
         self.bot = bot
         self.channel_id = channel_id
-        self.queue = asyncio.Queue()
-        self.task = None
+        self.queue: asyncio.Queue[logging.LogRecord] = asyncio.Queue()
+        self.task: asyncio.Task[None] | None = None
         self.logger = logging.getLogger(self.__class__.__name__)
 
     @commands.Cog.listener()
     @discord_common.once
-    async def on_ready(self):
+    async def on_ready(self) -> None:
         self.task = asyncio.create_task(self._log_task())
         width = 79
         stars, msg = f'{"*" * width}', f'***{"Bot running":^{width - 6}}***'
@@ -29,7 +29,7 @@ class Logging(commands.Cog, logging.Handler):
         self.logger.log(level=100, msg=msg)
         self.logger.log(level=100, msg=stars)
 
-    async def _log_task(self):
+    async def _log_task(self) -> None:
         while True:
             record = await self.queue.get()
             channel = self.bot.get_channel(self.channel_id)
@@ -46,7 +46,8 @@ class Logging(commands.Cog, logging.Handler):
                 try:
                     await channel.send(
                         'Original Command: {}\nJump Url: {}'.format(
-                            record.message_content, record.jump_url
+                            getattr(record, 'message_content', None),
+                            getattr(record, 'jump_url', None),
                         )
                     )
                 except AttributeError:
@@ -63,15 +64,15 @@ class Logging(commands.Cog, logging.Handler):
 
     # logging.Handler overrides below.
 
-    def emit(self, record):
+    def emit(self, record: logging.LogRecord) -> None:
         self.queue.put_nowait(record)
 
-    def close(self):
+    def close(self) -> None:
         if self.task:
             self.task.cancel()
 
 
-async def setup(bot):
+async def setup(bot: commands.Bot) -> None:
     logging_cog_channel_id = os.environ.get('LOGGING_COG_CHANNEL_ID')
     if logging_cog_channel_id is None:
         logger.info(

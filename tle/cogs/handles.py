@@ -1,9 +1,11 @@
 import asyncio
+import builtins
 import contextlib
 import datetime as dt
 import html
 import io
 import logging
+from typing import Any
 
 import cairo
 import discord
@@ -40,7 +42,7 @@ class HandleCogError(commands.CommandError):
     pass
 
 
-def rating_to_color(rating):
+def rating_to_color(rating: int | str | None) -> tuple[int, int, int]:
     """returns (r, g, b) pixels values corresponding to rating"""
     # TODO: Integrate these colors with the ranks in codeforces_api.py
     BLACK = (10, 10, 10)
@@ -53,6 +55,7 @@ def rating_to_color(rating):
     GREY = (70, 70, 70)
     if rating is None or rating == 'N/A':
         return BLACK
+    rating = int(rating)
     if rating < 1200:
         return GREY
     if rating < 1400:
@@ -78,7 +81,9 @@ FONTS = [
 ]
 
 
-def get_gudgitters_image(rankings):
+def get_gudgitters_image(
+    rankings: list[tuple[int, str, str, int | None, int]],
+) -> discord.File:
     """return PIL image for rankings"""
     SMOKE_WHITE = (250, 250, 250)
     BLACK = (0, 0, 0)
@@ -109,7 +114,7 @@ def get_gudgitters_image(rankings):
     )
     layout.set_ellipsize(Pango.EllipsizeMode.END)
 
-    def draw_bg(y, color_index):
+    def draw_bg(y: float, color_index: int) -> None:
         nxty = y + LINE_HEIGHT
 
         # Simple
@@ -120,12 +125,20 @@ def get_gudgitters_image(rankings):
         context.set_source_rgb(*ROW_COLORS[color_index])
         context.fill()
 
-    def draw_row(pos, username, handle, rating, color, y, bold=False):
+    def draw_row(
+        pos: str,
+        username: str,
+        handle: str,
+        rating: str,
+        color: tuple[int, int, int],
+        y: float,
+        bold: bool = False,
+    ) -> None:
         context.set_source_rgb(*[x / 255.0 for x in color])
 
         context.move_to(BORDER_MARGIN, y)
 
-        def draw(text, width=-1):
+        def draw(text: str, width: float = -1) -> None:
             text = html.escape(text)
             if bold:
                 text = f'<b>{text}</b>'
@@ -141,7 +154,7 @@ def get_gudgitters_image(rankings):
 
     #
 
-    y = BORDER_MARGIN
+    y: float = BORDER_MARGIN
 
     # draw header
     draw_row('#', 'Name', 'Handle', 'Points', SMOKE_WHITE, y, bold=True)
@@ -169,7 +182,9 @@ def get_gudgitters_image(rankings):
     return discord_file
 
 
-def _make_profile_embed(member, user, *, mode):
+def _make_profile_embed(
+    member: discord.Member, user: cf.User, *, mode: str
+) -> discord.Embed:
     assert mode in ('set', 'get')
     if mode == 'set':
         desc = (
@@ -192,7 +207,9 @@ def _make_profile_embed(member, user, *, mode):
     return embed
 
 
-def _make_pages(users, title):
+def _make_pages(
+    users: list[tuple[discord.Member, str, int | None]], title: str
+) -> list[tuple[str, discord.Embed]]:
     chunks = paginator.chunkify(users, _HANDLES_PER_PAGE)
     pages = []
     done = 0
@@ -217,24 +234,25 @@ def _make_pages(users, title):
 
 
 class Handles(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
-        self.logger = logging.getLogger(self.__class__.__name__)
-        self.converter = commands.MemberConverter()
+    def __init__(self, bot: commands.Bot) -> None:
+        self.bot: commands.Bot = bot
+        self.logger: logging.Logger = logging.getLogger(self.__class__.__name__)
+        self.converter: commands.MemberConverter = commands.MemberConverter()
 
     @commands.Cog.listener()
     @discord_common.once
-    async def on_ready(self):
+    async def on_ready(self) -> None:
         self.bot.event_sys.add_listener(self._on_rating_changes)
+        assert isinstance(self._set_ex_users_inactive_task, tasks.Task)
         self._set_ex_users_inactive_task.start()
 
     @commands.Cog.listener()
-    async def on_member_remove(self, member):
+    async def on_member_remove(self, member: discord.Member) -> None:
         await self.bot.user_db.set_inactive([(member.guild.id, member.id)])
 
     @commands.hybrid_command(brief='update status, mark guild members as active')
     @commands.has_role(constants.TLE_ADMIN)
-    async def _updatestatus(self, ctx):
+    async def _updatestatus(self, ctx: commands.Context) -> None:
         gid = ctx.guild.id
         active_ids = [m.id for m in ctx.guild.members]
         await self.bot.user_db.reset_status(gid)
@@ -244,7 +262,7 @@ class Handles(commands.Cog):
         await ctx.send(f'{rc} members active with handle')
 
     @commands.Cog.listener()
-    async def on_member_join(self, member):
+    async def on_member_join(self, member: discord.Member) -> None:
         rc = await self.bot.user_db.update_status(member.guild.id, [member.id])
         if rc == 1:
             handle = await self.bot.user_db.get_handle(member.id, member.guild.id)
@@ -254,12 +272,12 @@ class Handles(commands.Cog):
         name='SetExUsersInactive',
         waiter=tasks.Waiter.fixed_delay(_UPDATE_HANDLE_STATUS_INTERVAL),
     )
-    async def _set_ex_users_inactive_task(self, _):
+    async def _set_ex_users_inactive_task(self, _: Any) -> None:
         # To set users inactive in case the bot was dead when they left.
         to_set_inactive = []
         for guild in self.bot.guilds:
-            user_id_handle_pairs = (
-                await self.bot.user_db.get_handles_for_guild(guild.id)
+            user_id_handle_pairs = await self.bot.user_db.get_handles_for_guild(
+                guild.id
             )
             to_set_inactive += [
                 (guild.id, user_id)
@@ -273,11 +291,11 @@ class Handles(commands.Cog):
         event_cls=events.RatingChangesUpdate,
         with_lock=True,
     )
-    async def _on_rating_changes(self, event):
+    async def _on_rating_changes(self, event: events.RatingChangesUpdate) -> None:
         contest, changes = event.contest, event.rating_changes
         change_by_handle = {change.handle: change for change in changes}
 
-        async def update_for_guild(guild):
+        async def update_for_guild(guild: discord.Guild) -> None:
             if await self.bot.user_db.has_auto_role_update_enabled(guild.id):
                 with contextlib.suppress(HandleCogError):
                     await self._update_ranks_all(guild)
@@ -300,11 +318,11 @@ class Handles(commands.Cog):
     @commands.hybrid_group(
         brief='Commands that have to do with handles', fallback='show'
     )
-    async def handle(self, ctx):
+    async def handle(self, ctx: commands.Context) -> None:
         """Change or collect information about specific handles on Codeforces"""
         await ctx.send_help(ctx.command)
 
-    async def maybe_add_trusted_role(self, member):
+    async def maybe_add_trusted_role(self, member: discord.Member) -> None:
         """Add trusted role for eligible users.
 
         Condition: `member` has been 1900+ for any amount of time before o1 release.
@@ -331,7 +349,7 @@ class Handles(commands.Cog):
             ).timestamp()
             try:
                 rating_changes = await cf.user.rating(handle=handle)
-            except cf.NotFoundError:
+            except cf.HandleNotFoundError:
                 # User rating info not found via API, ignore for trusted check
                 self.logger.info(
                     'INFO: Rating history not found for'
@@ -366,7 +384,13 @@ class Handles(commands.Cog):
                         f' {member.display_name} in {member.guild.name}: {e}'
                     )
 
-    async def update_member_rank_role(self, member, role_to_assign, *, reason):
+    async def update_member_rank_role(
+        self,
+        member: discord.Member,
+        role_to_assign: discord.Role | None,
+        *,
+        reason: str,
+    ) -> None:
         """Sets the `member` to only have the rank role of `role_to_assign`.
 
         All other rank roles on the member, if any, will be removed. If
@@ -394,7 +418,9 @@ class Handles(commands.Cog):
 
     @handle.command(brief='Set Codeforces handle of a user', aliases=['link'])
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
-    async def set(self, ctx, member: discord.Member, handle: str):
+    async def set(
+        self, ctx: commands.Context, member: discord.Member, handle: str
+    ) -> None:
         """Set Codeforces handle of a user."""
         # CF API returns correct handle ignoring case, update to it
         (user,) = await cf.user.info(handles=[handle])
@@ -402,7 +428,9 @@ class Handles(commands.Cog):
         embed = _make_profile_embed(member, user, mode='set')
         await ctx.send(embed=embed)
 
-    async def _set_from_oauth(self, guild, member, user):
+    async def _set_from_oauth(
+        self, guild: discord.Guild, member: discord.Member, user: cf.User
+    ) -> None:
         handle = user.handle
         try:
             await self.bot.user_db.set_handle(member.id, guild.id, handle)
@@ -426,11 +454,13 @@ class Handles(commands.Cog):
             member, role_to_assign, reason='New handle set for user'
         )
 
-    async def _set(self, ctx, member, user):
+    async def _set(
+        self, ctx: commands.Context, member: discord.Member, user: cf.User
+    ) -> None:
         await self._set_from_oauth(ctx.guild, member, user)
 
     @handle.command(brief='Identify yourself')
-    async def identify(self, ctx):
+    async def identify(self, ctx: commands.Context) -> None:
         """Link your Codeforces account via OAuth.
 
         Opens a Codeforces authorization link so you can verify your handle.
@@ -452,6 +482,8 @@ class Handles(commands.Cog):
         state = self.bot.oauth_state_store.create(
             ctx.author.id, ctx.guild.id, ctx.channel.id
         )
+        assert constants.OAUTH_CLIENT_ID is not None
+        assert constants.OAUTH_REDIRECT_URI is not None
         auth_url = oauth.build_auth_url(
             constants.OAUTH_CLIENT_ID, constants.OAUTH_REDIRECT_URI, state
         )
@@ -484,7 +516,7 @@ class Handles(commands.Cog):
                 )
 
     @handle.command(brief='Get handle by Discord username')
-    async def get(self, ctx, member: discord.Member):
+    async def get(self, ctx: commands.Context, member: discord.Member) -> None:
         """Show Codeforces handle of a user."""
         handle = await self.bot.user_db.get_handle(member.id, ctx.guild.id)
         if not handle:
@@ -494,7 +526,7 @@ class Handles(commands.Cog):
         await ctx.send(embed=embed)
 
     @handle.command(brief='Get Discord username by cf handle')
-    async def rget(self, ctx, handle: str):
+    async def rget(self, ctx: commands.Context, handle: str) -> None:
         """Show Discord username of a cf handle."""
         user_id = await self.bot.user_db.get_user_id(handle, ctx.guild.id)
         if not user_id:
@@ -510,7 +542,7 @@ class Handles(commands.Cog):
 
     @handle.command(brief='Unlink handle', aliases=['unlink'])
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
-    async def remove(self, ctx, handle: str):
+    async def remove(self, ctx: commands.Context, handle: str) -> None:
         """Remove Codeforces handle of a user."""
         (handle,) = await cf_common.resolve_handles(ctx, self.converter, [handle])
         user_id = await self.bot.user_db.get_user_id(handle, ctx.guild.id)
@@ -526,7 +558,7 @@ class Handles(commands.Cog):
         await ctx.send(embed=embed)
 
     @handle.command(brief="Resolve redirect of a user's handle")
-    async def unmagic(self, ctx):
+    async def unmagic(self, ctx: commands.Context) -> None:
         """Updates handle of the calling user if they have changed handles
         (typically new year's magic)"""
         member = ctx.author
@@ -535,12 +567,10 @@ class Handles(commands.Cog):
 
     @handle.command(brief='Resolve handles needing redirection')
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
-    async def unmagic_all(self, ctx):
+    async def unmagic_all(self, ctx: commands.Context) -> None:
         """Updates handles of all users that have changed handles
         (typically new year's magic)"""
-        user_id_and_handles = await self.bot.user_db.get_handles_for_guild(
-            ctx.guild.id
-        )
+        user_id_and_handles = await self.bot.user_db.get_handles_for_guild(ctx.guild.id)
 
         handles = []
         rev_lookup = {}
@@ -572,16 +602,25 @@ class Handles(commands.Cog):
                 lines.append(f'{handle} -> None')
         await ctx.send(embed=discord_common.embed_success('\n'.join(lines)))
 
-    async def _unmagic_handles(self, ctx, handles, rev_lookup):
+    async def _unmagic_handles(
+        self,
+        ctx: commands.Context,
+        handles: list[str],
+        rev_lookup: dict[str, discord.Member | None],
+    ) -> None:
         handle_cf_user_mapping = await cf.resolve_redirects(handles)
-        mapping = {
+        mapping: dict[tuple[discord.Member | None, str], cf.User | None] = {
             (rev_lookup[handle], handle): cf_user
             for handle, cf_user in handle_cf_user_mapping.items()
         }
         summary_embed = await self._fix_and_report(ctx, mapping)
         await ctx.send(embed=summary_embed)
 
-    async def _fix_and_report(self, ctx, redirections):
+    async def _fix_and_report(
+        self,
+        ctx: commands.Context,
+        redirections: dict[tuple[discord.Member | None, str], cf.User | None],
+    ) -> discord.Embed:
         fixed = []
         failed = []
         for (member, handle), cf_user in redirections.items():
@@ -604,7 +643,7 @@ class Handles(commands.Cog):
         return discord_common.embed_success('\n'.join(lines))
 
     @commands.hybrid_command(brief='Show gudgitters', aliases=['gitgudders'])
-    async def gudgitters(self, ctx):
+    async def gudgitters(self, ctx: commands.Context) -> None:
         """Show the list of users of gitgud with their scores."""
         res = await self.bot.user_db.get_gudgitters()
         res.sort(key=lambda r: r[1], reverse=True)
@@ -636,18 +675,18 @@ class Handles(commands.Cog):
         await ctx.send(file=discord_file)
 
     @handle.command(brief='Show all handles', with_app_command=False)
-    async def list(self, ctx, *countries):
+    async def list(self, ctx: commands.Context, *countries: str) -> None:
         """Shows members of the server who have registered their handles and
         their Codeforces ratings. You can additionally specify a list of countries
         if you wish to display only members from those countries. Country data is
         sourced from codeforces profiles. e.g. ;handle list Croatia Slovenia
         """
-        countries = [country.title() for country in countries]
+        country_list = [country.title() for country in countries]
         res = await self.bot.user_db.get_cf_users_for_guild(ctx.guild.id)
         users = [
             (ctx.guild.get_member(user_id), cf_user.handle, cf_user.rating)
             for user_id, cf_user in res
-            if not countries or cf_user.country in countries
+            if not country_list or cf_user.country in country_list
         ]
         users = [
             (member, handle, rating)
@@ -661,8 +700,8 @@ class Handles(commands.Cog):
             key=lambda x: (1 if x[2] is None else -x[2], x[1])
         )  # Sorting by (-rating, handle)
         title = 'Handles of server members'
-        if countries:
-            title += ' from ' + ', '.join(f'`{country}`' for country in countries)
+        if country_list:
+            title += ' from ' + ', '.join(f'`{country}`' for country in country_list)
         pages = _make_pages(users, title)
         await paginator.paginate(
             ctx.channel,
@@ -672,14 +711,16 @@ class Handles(commands.Cog):
             ctx=ctx,
         )
 
-    async def _update_ranks_all(self, guild):
+    async def _update_ranks_all(self, guild: discord.Guild) -> None:
         """For each member in the guild, fetches their current ratings and
         updates their role if required.
         """
         res = await self.bot.user_db.get_handles_for_guild(guild.id)
         await self._update_ranks(guild, res)
 
-    async def _update_ranks(self, guild, res):
+    async def _update_ranks(
+        self, guild: discord.Guild, res: builtins.list[tuple[int, str]]
+    ) -> None:
         member_handles = [
             (guild.get_member(user_id), handle) for user_id, handle in res
         ]
@@ -715,7 +756,12 @@ class Handles(commands.Cog):
                 member, role_to_assign, reason='Codeforces rank update'
             )
 
-    async def _make_rankup_embeds(self, guild, contest, change_by_handle):
+    async def _make_rankup_embeds(
+        self,
+        guild: discord.Guild,
+        contest: cf.Contest,
+        change_by_handle: dict[str, cf.RatingChange],
+    ) -> builtins.list[discord.Embed]:
         """Make an embed containing a list of rank changes and top rating
         increases for the members of this guild.
         """
@@ -725,7 +771,7 @@ class Handles(commands.Cog):
             for user_id, handle in user_id_handle_pairs
         ]
 
-        def ispurg(member):
+        def ispurg(member: discord.Member) -> bool:
             return discord_common.has_role(member, constants.TLE_PURGATORY)
 
         member_change_pairs = [
@@ -742,7 +788,7 @@ class Handles(commands.Cog):
         member_change_pairs.sort(key=lambda pair: pair[1].newRating, reverse=True)
         rank_to_role = {role.name: role for role in guild.roles}
 
-        def rating_to_displayable_rank(rating):
+        def rating_to_displayable_rank(rating: int) -> str:
             rank = cf.rating2rank(rating).title
             role = rank_to_role.get(rank)
             return role.mention if role else rank
@@ -809,13 +855,13 @@ class Handles(commands.Cog):
         return embeds
 
     @commands.hybrid_group(brief='Commands for role updates', fallback='show')
-    async def roleupdate(self, ctx):
+    async def roleupdate(self, ctx: commands.Context) -> None:
         """Group for commands involving role updates."""
         await ctx.send_help(ctx.command)
 
     @roleupdate.command(brief='Update Codeforces rank roles')
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
-    async def now(self, ctx):
+    async def now(self, ctx: commands.Context) -> None:
         """Updates Codeforces rank roles for every member in this server."""
         await self._update_ranks_all(ctx.guild)
         await ctx.send(
@@ -824,7 +870,7 @@ class Handles(commands.Cog):
 
     @roleupdate.command(brief='Enable or disable auto role updates', usage='on|off')
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
-    async def auto(self, ctx, arg):
+    async def auto(self, ctx: commands.Context, arg: str) -> None:
         """Auto role update refers to automatic updating of rank roles when rating
         changes are released on Codeforces. 'on'/'off' disables or enables auto role
         updates.
@@ -850,7 +896,7 @@ class Handles(commands.Cog):
         brief='Publish a rank update for the given contest', usage='here|off|contest_id'
     )
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
-    async def publish(self, ctx, arg):
+    async def publish(self, ctx: commands.Context, arg: str) -> None:
         """This is a feature to publish a summary of rank changes and top rating
         increases in a particular contest for members of this server. 'here' will
         automatically publish the summary to this channel whenever rating changes on
@@ -880,7 +926,7 @@ class Handles(commands.Cog):
                 )
             await self._publish_now(ctx, contest_id)
 
-    async def _publish_now(self, ctx, contest_id):
+    async def _publish_now(self, ctx: commands.Context, contest_id: int) -> None:
         try:
             contest = self.bot.cf_cache.contest_cache.get_contest(contest_id)
         except ContestNotFound as e:
@@ -906,7 +952,9 @@ class Handles(commands.Cog):
         for rankup_embed in rankup_embeds:
             await ctx.channel.send(embed=rankup_embed)
 
-    async def _generic_remind(self, ctx, action, role_name, what):
+    async def _generic_remind(
+        self, ctx: commands.Context, action: str, role_name: str, what: str
+    ) -> None:
         roles = [role for role in ctx.guild.roles if role.name == role_name]
         if not roles:
             raise HandleCogError(f'Role `{role_name}` not present in the server')
@@ -950,7 +998,7 @@ class Handles(commands.Cog):
         brief='Grants or removes the specified pingable role',
         usage='[give/remove] [vc/duel]',
     )
-    async def role(self, ctx, action: str, which: str):
+    async def role(self, ctx: commands.Context, action: str, which: str) -> None:
         """e.g. ;role remove duel"""
         if which == 'vc':
             await self._generic_remind(ctx, action, 'Virtual Contestant', 'vc')
@@ -960,14 +1008,16 @@ class Handles(commands.Cog):
             raise HandleCogError(f'Invalid role {which}')
 
     @discord_common.send_error_if(HandleCogError, cf_common.HandleIsVjudgeError)
-    async def cog_command_error(self, ctx, error):
+    async def cog_command_error(
+        self, ctx: commands.Context, error: commands.CommandError
+    ) -> None:
         pass
 
     @handle.command(brief='Give the Trusted role to another user')
     @commands.has_any_role(
         constants.TLE_ADMIN, constants.TLE_MODERATOR, constants.TLE_TRUSTED
     )
-    async def refer(self, ctx, target_user: discord.Member):
+    async def refer(self, ctx: commands.Context, target_user: discord.Member) -> None:
         """Allows Trusted users to grant the Trusted role to other users.
 
         The command fails if the target user has the Purgatory role.
@@ -1033,7 +1083,7 @@ class Handles(commands.Cog):
 
     @handle.command(brief='Grant Trusted role to old members without Purgatory role.')
     @commands.has_role(constants.TLE_ADMIN)
-    async def grandfather(self, ctx):
+    async def grandfather(self, ctx: commands.Context) -> None:
         """Grants the Trusted role to all members who joined before April 21, 2025,
         and do not currently have the Purgatory role. April 20 was o3's first contest.
         """
@@ -1143,5 +1193,5 @@ class Handles(commands.Cog):
         await status_message.edit(content=summary_message)
 
 
-async def setup(bot):
+async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Handles(bot))

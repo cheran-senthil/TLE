@@ -1,4 +1,5 @@
 import io
+from collections.abc import Sequence
 
 import discord
 import matplotlib
@@ -10,6 +11,7 @@ from cycler import cycler
 from matplotlib import pyplot as plt
 
 from tle import constants
+from tle.util import codeforces_api as cf
 
 rating_color_cycler = cycler(
     'color', ['#5d4dff', '#009ccc', '#00ba6a', '#b99d27', '#cb2aff']
@@ -26,14 +28,14 @@ fontprop = matplotlib.font_manager.FontProperties(
 # https://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.legend
 # However, this check is only done for actual string objects.
 class StrWrap:
-    def __init__(self, s):
+    def __init__(self, s: str) -> None:
         self.string = s
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.string
 
 
-def get_current_figure_as_file():
+def get_current_figure_as_file() -> discord.File:
     buffer = io.BytesIO()
     plt.savefig(
         buffer,
@@ -47,7 +49,7 @@ def get_current_figure_as_file():
     return discord.File(buffer, filename='plot.png')
 
 
-def plot_rating_bg(ranks):
+def plot_rating_bg(ranks: Sequence[cf.Rank]) -> None:
     ymin, ymax = plt.gca().get_ylim()
     bgcolor = plt.gca().get_facecolor()
     for rank in ranks:

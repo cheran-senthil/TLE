@@ -5,6 +5,8 @@ import json
 import logging
 import time
 from collections import defaultdict, namedtuple
+from collections.abc import Callable, Sequence
+from typing import Any
 
 import discord
 from discord.ext import commands
@@ -39,12 +41,12 @@ class ContestCogError(commands.CommandError):
     pass
 
 
-def _contest_start_time_format(contest, tz):
+def _contest_start_time_format(contest: Any, tz: dt.timezone) -> str:
     start = dt.datetime.fromtimestamp(contest.startTimeSeconds, tz)
     return f'{start.strftime("%d %b %y, %H:%M")} {tz}'
 
 
-def _contest_duration_format(contest):
+def _contest_duration_format(contest: Any) -> str:
     duration_days, duration_hrs, duration_mins, _ = cf_common.time_format(
         contest.durationSeconds
     )
@@ -54,14 +56,16 @@ def _contest_duration_format(contest):
     return duration
 
 
-def _get_formatted_contest_desc(id_str, start, duration, url, max_duration_len):
+def _get_formatted_contest_desc(
+    id_str: str, start: str, duration: str, url: str, max_duration_len: int
+) -> str:
     em = '\N{EN SPACE}'
     sq = '\N{WHITE SQUARE WITH UPPER RIGHT QUADRANT}'
     desc = f'`{em}{id_str}{em}|{em}{start}{em}|{em}{duration.rjust(max_duration_len, em)}{em}|{em}`[`link {sq}`]({url} "Link to contest page")'  # noqa: E501
     return desc
 
 
-def _get_embed_fields_from_contests(contests):
+def _get_embed_fields_from_contests(contests: Sequence[Any]) -> list[tuple[str, str]]:
     infos = [
         (
             contest.name,
@@ -84,14 +88,20 @@ def _get_embed_fields_from_contests(contests):
     return fields
 
 
-async def _send_reminder_at(channel, role, contests, before_secs, send_time):
+async def _send_reminder_at(
+    channel: discord.TextChannel,
+    role: discord.Role,
+    contests: list[Any],
+    before_secs: int,
+    send_time: float,
+) -> None:
     delay = send_time - time.time()
     if delay <= 0:
         return
     await asyncio.sleep(delay)
     values = cf_common.time_format(before_secs)
 
-    def make(value, label):
+    def make(value: int, label: str) -> str:
         tmp = f'{value} {label}'
         return tmp if value == 1 else tmp + 's'
 
@@ -109,42 +119,42 @@ async def _send_reminder_at(channel, role, contests, before_secs, send_time):
 
 
 class Contests(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
+    def __init__(self, bot: commands.Bot) -> None:
+        self.bot: commands.Bot = bot
 
-        self.future_contests = None
-        self.active_contests = None
-        self.finished_contests = None
-        self.start_time_map = defaultdict(list)
-        self.task_map = defaultdict(list)
+        self.future_contests: list[Any] | None = None
+        self.active_contests: list[Any] | None = None
+        self.finished_contests: list[Any] | None = None
+        self.start_time_map: defaultdict[int, list[Any]] = defaultdict(list)
+        self.task_map: defaultdict[int, list[asyncio.Task[None]]] = defaultdict(list)
 
-        self.member_converter = commands.MemberConverter()
-        self.role_converter = commands.RoleConverter()
+        self.member_converter: commands.MemberConverter = commands.MemberConverter()
+        self.role_converter: commands.RoleConverter = commands.RoleConverter()
 
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger: logging.Logger = logging.getLogger(self.__class__.__name__)
 
-    async def _get_ongoing_vc_participants(self):
+    async def _get_ongoing_vc_participants(self) -> set[str]:
         """Returns `member_id` of users who are registered in an ongoing vc."""
         ongoing_vc_ids = await self.bot.user_db.get_ongoing_rated_vc_ids()
         ongoing_vc_participants = set()
         for vc_id in ongoing_vc_ids:
-            vc_participants = set(
-                await self.bot.user_db.get_rated_vc_user_ids(vc_id)
-            )
+            vc_participants = set(await self.bot.user_db.get_rated_vc_user_ids(vc_id))
             ongoing_vc_participants |= vc_participants
         return ongoing_vc_participants
 
     @commands.Cog.listener()
     @discord_common.once
-    async def on_ready(self):
+    async def on_ready(self) -> None:
+        assert isinstance(self._update_task, tasks.Task)
         self._update_task.start()
+        assert isinstance(self._watch_rated_vcs_task, tasks.Task)
         self._watch_rated_vcs_task.start()
 
     @tasks.task_spec(
         name='ContestCogUpdate',
         waiter=tasks.Waiter.for_event(events.ContestListRefresh),
     )
-    async def _update_task(self, _):
+    async def _update_task(self, _: Any) -> None:
         contest_cache = self.bot.cf_cache.contest_cache
         self.future_contests = contest_cache.get_contests_in_phase('BEFORE')
         self.active_contests = (
@@ -168,11 +178,11 @@ class Contests(commands.Cog):
                 self.start_time_map[contest.startTimeSeconds].append(contest)
         await self._reschedule_all_tasks()
 
-    async def _reschedule_all_tasks(self):
+    async def _reschedule_all_tasks(self) -> None:
         for guild in self.bot.guilds:
             await self._reschedule_tasks(guild.id)
 
-    async def _reschedule_tasks(self, guild_id):
+    async def _reschedule_tasks(self, guild_id: int) -> None:
         for task in self.task_map[guild_id]:
             task.cancel()
         self.task_map[guild_id].clear()
@@ -203,7 +213,9 @@ class Contests(commands.Cog):
         )
 
     @staticmethod
-    def _make_contest_pages(contests, title):
+    def _make_contest_pages(
+        contests: list[Any], title: str
+    ) -> list[tuple[str, discord.Embed]]:
         pages = []
         chunks = paginator.chunkify(contests, _CONTESTS_PER_PAGE)
         for chunk in chunks:
@@ -213,7 +225,14 @@ class Contests(commands.Cog):
             pages.append((title, embed))
         return pages
 
-    async def _send_contest_list(self, ctx, contests, *, title, empty_msg):
+    async def _send_contest_list(
+        self,
+        ctx: commands.Context,
+        contests: list[Any] | None,
+        *,
+        title: str,
+        empty_msg: str,
+    ) -> None:
         if contests is None:
             raise ContestCogError('Contest list not present')
         if len(contests) == 0:
@@ -229,11 +248,11 @@ class Contests(commands.Cog):
         )
 
     @commands.hybrid_group(brief='Commands for listing contests', fallback='show')
-    async def clist(self, ctx):
+    async def clist(self, ctx: commands.Context) -> None:
         await ctx.send_help(ctx.command)
 
     @clist.command(brief='List future contests')
-    async def future(self, ctx):
+    async def future(self, ctx: commands.Context) -> None:
         """List future contests on Codeforces."""
         await self._send_contest_list(
             ctx,
@@ -243,7 +262,7 @@ class Contests(commands.Cog):
         )
 
     @clist.command(brief='List active contests')
-    async def active(self, ctx):
+    async def active(self, ctx: commands.Context) -> None:
         """List active contests on Codeforces, namely those in coding phase,
         pending system test or in system test."""
         await self._send_contest_list(
@@ -254,7 +273,7 @@ class Contests(commands.Cog):
         )
 
     @clist.command(brief='List recent finished contests')
-    async def finished(self, ctx):
+    async def finished(self, ctx: commands.Context) -> None:
         """List recently concluded contests on Codeforces."""
         await self._send_contest_list(
             ctx,
@@ -264,21 +283,23 @@ class Contests(commands.Cog):
         )
 
     @commands.hybrid_group(brief='Commands for contest reminders', fallback='show')
-    async def remind(self, ctx):
+    async def remind(self, ctx: commands.Context) -> None:
         await ctx.send_help(ctx.command)
 
     @remind.command(brief='Set reminder settings', with_app_command=False)
     @commands.has_role(constants.TLE_ADMIN)
-    async def here(self, ctx, role: discord.Role, *before: int):
+    async def here(
+        self, ctx: commands.Context, role: discord.Role, *before: int
+    ) -> None:
         """Sets reminder channel to current channel, role to the given role,
         and reminder times to the given values in minutes."""
         if not role.mentionable:
             raise ContestCogError('The role for reminders must be mentionable')
         if not before or any(before_mins <= 0 for before_mins in before):
             raise ContestCogError('Please provide valid `before` values')
-        before = sorted(before, reverse=True)
+        before_sorted = sorted(before, reverse=True)
         await self.bot.user_db.set_reminder_settings(
-            ctx.guild.id, ctx.channel.id, role.id, json.dumps(before)
+            ctx.guild.id, ctx.channel.id, role.id, json.dumps(before_sorted)
         )
         await ctx.send(
             embed=discord_common.embed_success('Reminder settings saved successfully')
@@ -287,13 +308,13 @@ class Contests(commands.Cog):
 
     @remind.command(brief='Clear all reminder settings')
     @commands.has_role(constants.TLE_ADMIN)
-    async def clear(self, ctx):
+    async def clear(self, ctx: commands.Context) -> None:
         await self.bot.user_db.clear_reminder_settings(ctx.guild.id)
         await ctx.send(embed=discord_common.embed_success('Reminder settings cleared'))
         await self._reschedule_tasks(ctx.guild.id)
 
     @remind.command(brief='Show reminder settings')
-    async def settings(self, ctx):
+    async def settings(self, ctx: commands.Context) -> None:
         """Shows the role, channel and before time settings."""
         settings = await self.bot.user_db.get_reminder_settings(ctx.guild.id)
         if settings is None:
@@ -315,7 +336,7 @@ class Contests(commands.Cog):
         embed.add_field(name='Before', value=f'At {before_str} mins before contest')
         await ctx.send(embed=embed)
 
-    async def _get_remind_role(self, guild):
+    async def _get_remind_role(self, guild: discord.Guild) -> discord.Role:
         settings = await self.bot.user_db.get_reminder_settings(guild.id)
         if settings is None:
             raise ContestCogError('Reminders are not enabled.')
@@ -326,7 +347,7 @@ class Contests(commands.Cog):
         return role
 
     @remind.command(brief='Subscribe to contest reminders')
-    async def on(self, ctx):
+    async def on(self, ctx: commands.Context) -> None:
         """Subscribes you to contest reminders. Use ';remind settings' to see
         the current settings.
         """
@@ -345,7 +366,7 @@ class Contests(commands.Cog):
         await ctx.send(embed=embed)
 
     @remind.command(brief='Unsubscribe from contest reminders')
-    async def off(self, ctx):
+    async def off(self, ctx: commands.Context) -> None:
         """Unsubscribes you from contest reminders."""
         role = await self._get_remind_role(ctx.guild)
         if role not in ctx.author.roles:
@@ -363,18 +384,22 @@ class Contests(commands.Cog):
 
     @staticmethod
     def _get_cf_or_ioi_standings_table(
-        problem_indices, handle_standings, deltas=None, *, mode
-    ):
+        problem_indices: Sequence[str],
+        handle_standings: Sequence[tuple[str, Any]],
+        deltas: Sequence[int | None] | None = None,
+        *,
+        mode: str,
+    ) -> tuple[str, str, list[str], list[list[Any]]]:
         assert mode in ('cf', 'ioi')
 
-        def maybe_int(value):
+        def maybe_int(value: Any) -> Any:
             return int(value) if mode == 'cf' else value
 
         header_style = '{:>} {:<}    {:^}  ' + '  '.join(
             ['{:^}'] * len(problem_indices)
         )
         body_style = '{:>} {:<}    {:>}  ' + '  '.join(['{:>}'] * len(problem_indices))
-        header = ['#', 'Handle', '='] + problem_indices
+        header = ['#', 'Handle', '='] + list(problem_indices)
         if deltas:
             header_style += '  {:^}'
             body_style += '  {:>}'
@@ -397,14 +422,18 @@ class Contests(commands.Cog):
         return header_style, body_style, header, body
 
     @staticmethod
-    def _get_icpc_standings_table(problem_indices, handle_standings, deltas=None):
+    def _get_icpc_standings_table(
+        problem_indices: Sequence[str],
+        handle_standings: Sequence[tuple[str, Any]],
+        deltas: Sequence[int | None] | None = None,
+    ) -> tuple[str, str, list[str], list[list[Any]]]:
         header_style = '{:>} {:<}    {:^}  {:^}  ' + '  '.join(
             ['{:^}'] * len(problem_indices)
         )
         body_style = '{:>} {:<}    {:>}  {:>}  ' + '  '.join(
             ['{:<}'] * len(problem_indices)
         )
-        header = ['#', 'Handle', '=', '-'] + problem_indices
+        header = ['#', 'Handle', '=', '-'] + list(problem_indices)
         if deltas:
             header_style += '  {:^}'
             body_style += '  {:>}'
@@ -436,19 +465,24 @@ class Contests(commands.Cog):
         return header_style, body_style, header, body
 
     def _make_standings_pages(
-        self, contest, problem_indices, handle_standings, deltas=None
-    ):
+        self,
+        contest: Any,
+        problem_indices: list[str],
+        handle_standings: list[tuple[str, Any]],
+        deltas: list[int | None] | None = None,
+    ) -> list[tuple[str, None]]:
         pages = []
         handle_standings_chunks = paginator.chunkify(
             handle_standings, _STANDINGS_PER_PAGE
         )
         num_chunks = len(handle_standings_chunks)
-        delta_chunks = (
-            paginator.chunkify(deltas, _STANDINGS_PER_PAGE)
-            if deltas
-            else [None] * num_chunks
-        )
+        delta_chunks: list[Sequence[Any] | None]
+        if deltas:
+            delta_chunks = list(paginator.chunkify(deltas, _STANDINGS_PER_PAGE))  # type: ignore[assignment]
+        else:
+            delta_chunks = [None] * num_chunks
 
+        get_table: Callable[..., tuple[str, str, list[str], list[list[Any]]]]
         if contest.type == 'CF':
             get_table = functools.partial(
                 self._get_cf_or_ioi_standings_table, mode='cf'
@@ -487,7 +521,7 @@ class Contests(commands.Cog):
         return pages
 
     @staticmethod
-    def _make_contest_embed_for_ranklist(ranklist):
+    def _make_contest_embed_for_ranklist(ranklist: Any) -> discord.Embed:
         contest = ranklist.contest
         assert contest.phase != 'BEFORE', f'Contest {contest.id} has not started.'
         embed = discord_common.cf_color_embed(title=contest.name, url=contest.url)
@@ -518,8 +552,10 @@ class Contests(commands.Cog):
 
     @staticmethod
     def _make_contest_embed_for_vc_ranklist(
-        ranklist, vc_start_time=None, vc_end_time=None
-    ):
+        ranklist: Any,
+        vc_start_time: float | None = None,
+        vc_end_time: float | None = None,
+    ) -> discord.Embed:
         contest = ranklist.contest
         embed = discord_common.cf_color_embed(title=contest.name, url=contest.url)
         embed.set_author(name='VC Standings')
@@ -535,7 +571,9 @@ class Contests(commands.Cog):
         return embed
 
     @commands.command(brief='Show ranklist for given handles and/or server members')
-    async def ranklist(self, ctx, contest_id: int, *args: str):
+    async def ranklist(
+        self, ctx: commands.Context, contest_id: int, *args: str
+    ) -> None:
         """
         Shows ranklist for the contest with given contest id. If handles contains
         '+server', all server members are included. No handles defaults to '+server'.
@@ -573,14 +611,14 @@ class Contests(commands.Cog):
 
     async def _show_ranklist(
         self,
-        channel,
+        channel: discord.TextChannel,
         contest_id: int,
-        handles: [str],
-        ranklist,
+        handles: list[str],
+        ranklist: Any,
         vc: bool = False,
-        delete_after: float = None,
-        ctx=None,
-    ):
+        delete_after: float | None = None,
+        ctx: commands.Context | None = None,
+    ) -> None:
         contest = self.bot.cf_cache.contest_cache.get_contest(contest_id)
         if ranklist is None:
             raise ContestCogError('No ranklist to show')
@@ -631,7 +669,9 @@ class Contests(commands.Cog):
     @commands.command(
         brief='Start a rated vc.', usage='<contest_id> <@user1 @user2 ...>'
     )
-    async def ratedvc(self, ctx, contest_id: int, *members: discord.Member):
+    async def ratedvc(
+        self, ctx: commands.Context, contest_id: int, *members: discord.Member
+    ) -> None:
         ratedvc_channel_id = await self.bot.user_db.get_rated_vc_channel(ctx.guild.id)
         if not ratedvc_channel_id or ctx.channel.id != ratedvc_channel_id:
             raise ContestCogError('You must use this command in ratedvc channel.')
@@ -695,7 +735,9 @@ class Contests(commands.Cog):
         embed.set_footer(text='GL & HF')
         await ctx.send(embed=embed)
 
-    async def _make_vc_rating_changes_embed(self, guild, contest_id, change_by_handle):
+    async def _make_vc_rating_changes_embed(
+        self, guild: discord.Guild, contest_id: int, change_by_handle: dict[str, Any]
+    ) -> discord.Embed:
         """Make an embed containing a list of rank changes and rating changes for ratedvc participants."""  # noqa: E501
         contest = self.bot.cf_cache.contest_cache.get_contest(contest_id)
         user_id_handle_pairs = await self.bot.user_db.get_handles_for_guild(guild.id)
@@ -712,7 +754,7 @@ class Contests(commands.Cog):
         member_change_pairs.sort(key=lambda pair: pair[1].newRating, reverse=True)
         rank_to_role = {role.name: role for role in guild.roles}
 
-        def rating_to_displayable_rank(rating):
+        def rating_to_displayable_rank(rating: int) -> str:
             rank = cf.rating2rank(rating).title
             role = rank_to_role.get(rank)
             return role.mention if role else rank
@@ -750,7 +792,7 @@ class Contests(commands.Cog):
         )
         return embed
 
-    async def _watch_rated_vc(self, vc_id: int):
+    async def _watch_rated_vc(self, vc_id: int) -> None:
         vc = await self.bot.user_db.get_rated_vc(vc_id)
         channel_id = await self.bot.user_db.get_rated_vc_channel(vc.guild_id)
         if channel_id is None:
@@ -770,7 +812,7 @@ class Contests(commands.Cog):
             vc.contest_id, handle_to_member_id
         )
 
-        async def has_running_subs(handle):
+        async def has_running_subs(handle: str) -> list[Any]:
             return [
                 sub
                 for sub in await cf.user.status(handle=handle)
@@ -830,7 +872,7 @@ class Contests(commands.Cog):
         name='WatchRatedVCs',
         waiter=tasks.Waiter.fixed_delay(_WATCHING_RATED_VC_WAIT_TIME),
     )
-    async def _watch_rated_vcs_task(self, _):
+    async def _watch_rated_vcs_task(self, _: Any) -> None:
         ongoing_rated_vcs = await self.bot.user_db.get_ongoing_rated_vc_ids()
         if ongoing_rated_vcs is None:
             return
@@ -841,7 +883,7 @@ class Contests(commands.Cog):
         brief='Unregister this user from an ongoing ratedvc', usage='@user'
     )
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
-    async def _unregistervc(self, ctx, user: discord.Member):
+    async def _unregistervc(self, ctx: commands.Context, user: discord.Member) -> None:
         """Unregister this user from an ongoing ratedvc."""
         ongoing_vc_member_ids = await self._get_ongoing_vc_participants()
         if str(user.id) not in ongoing_vc_member_ids:
@@ -855,7 +897,7 @@ class Contests(commands.Cog):
 
     @commands.hybrid_command(brief='Set the rated vc channel to the current channel')
     @commands.has_role(constants.TLE_ADMIN)
-    async def set_ratedvc_channel(self, ctx):
+    async def set_ratedvc_channel(self, ctx: commands.Context) -> None:
         """Sets the rated vc channel to the current channel."""
         await self.bot.user_db.set_rated_vc_channel(ctx.guild.id, ctx.channel.id)
         await ctx.send(
@@ -863,7 +905,7 @@ class Contests(commands.Cog):
         )
 
     @commands.hybrid_command(brief='Get the rated vc channel')
-    async def get_ratedvc_channel(self, ctx):
+    async def get_ratedvc_channel(self, ctx: commands.Context) -> None:
         """Gets the rated vc channel."""
         channel_id = await self.bot.user_db.get_rated_vc_channel(ctx.guild.id)
         channel = ctx.guild.get_channel(channel_id)
@@ -874,7 +916,7 @@ class Contests(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.hybrid_command(brief='Show vc ratings')
-    async def vcratings(self, ctx):
+    async def vcratings(self, ctx: commands.Context) -> None:
         users = []
         for member_id, handle in await self.bot.user_db.get_handles_for_guild(
             ctx.guild.id
@@ -894,7 +936,9 @@ class Contests(commands.Cog):
 
         _PER_PAGE = 10
 
-        def make_page(chunk, page_num):
+        def make_page(
+            chunk: Sequence[Any], page_num: int
+        ) -> tuple[str, discord.Embed]:
             style = table.Style('{:>}  {:<}  {:<}  {:<}')
             t = table.Table(style)
             t += table.Header('#', 'Name', 'Handle', 'Rating')
@@ -920,14 +964,17 @@ class Contests(commands.Cog):
             for k, chunk in enumerate(paginator.chunkify(users, _PER_PAGE))
         ]
         await paginator.paginate(
-            ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
+            ctx.channel,
+            pages,
+            wait_time=5 * 60,
+            set_pagenum_footers=True,
             ctx=ctx,
         )
 
     @commands.command(
         brief='Plot vc rating for a list of at most 5 users', usage='@user1 @user2 ..'
     )
-    async def vcrating(self, ctx, *members: discord.Member):
+    async def vcrating(self, ctx: commands.Context, *members: discord.Member) -> None:
         """Plots VC rating for at most 5 users."""
         members = members or (ctx.author,)
         if len(members) > 5:
@@ -984,9 +1031,11 @@ class Contests(commands.Cog):
         CacheError,
         cf_common.ResolveHandleError,
     )
-    async def cog_command_error(self, ctx, error):
+    async def cog_command_error(
+        self, ctx: commands.Context, error: commands.CommandError
+    ) -> None:
         pass
 
 
-async def setup(bot):
+async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Contests(bot))

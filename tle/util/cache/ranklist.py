@@ -1,9 +1,13 @@
 import logging
 import time
+from typing import TYPE_CHECKING, Any
 
 from tle.util import codeforces_api as cf, codeforces_common as cf_common, events, tasks
 from tle.util.cache._common import CacheError, _is_blacklisted, getUsersEffectiveRating
 from tle.util.ranklist import Ranklist
+
+if TYPE_CHECKING:
+    from tle.util.cache.cache_system import CacheSystem
 
 
 class RanklistCacheError(CacheError):
@@ -11,7 +15,7 @@ class RanklistCacheError(CacheError):
 
 
 class RanklistNotMonitored(RanklistCacheError):
-    def __init__(self, contest):
+    def __init__(self, contest: cf.Contest) -> None:
         super().__init__(f'The ranklist for `{contest.name}` is not being monitored')
         self.contest = contest
 
@@ -19,16 +23,17 @@ class RanklistNotMonitored(RanklistCacheError):
 class RanklistCache:
     _RELOAD_DELAY = 2 * 60
 
-    def __init__(self, cache_master):
+    def __init__(self, cache_master: 'CacheSystem') -> None:
         self.cache_master = cache_master
-        self.monitored_contests = []
-        self.ranklist_by_contest = {}
+        self.monitored_contests: list[cf.Contest] = []
+        self.ranklist_by_contest: dict[int, Ranklist] = {}
         self.logger = logging.getLogger(self.__class__.__name__)
 
-    async def run(self):
+    async def run(self) -> None:
+        assert isinstance(self._update_task, tasks.Task)
         self._update_task.start()
 
-    def get_ranklist(self, contest, show_official):
+    def get_ranklist(self, contest: cf.Contest, show_official: bool) -> Ranklist:
         if show_official or contest.id not in self.ranklist_by_contest:
             raise RanklistNotMonitored(contest)
         return self.ranklist_by_contest[contest.id]
@@ -37,7 +42,7 @@ class RanklistCache:
         name='RanklistCacheUpdate',
         waiter=tasks.Waiter.for_event(events.ContestListRefresh),
     )
-    async def _update_task(self, _):
+    async def _update_task(self, _: Any) -> None:
         contests_by_phase = self.cache_master.contest_cache.contests_by_phase
         running_contests = contests_by_phase['_RUNNING']
 
@@ -53,6 +58,7 @@ class RanklistCache:
         cur_ids = {contest.id for contest in self.monitored_contests}
         new_ids = {contest.id for contest in to_monitor}
         if new_ids != cur_ids:
+            assert isinstance(self._monitor_task, tasks.Task)
             await self._monitor_task.stop()
             if to_monitor:
                 self.monitored_contests = to_monitor
@@ -64,7 +70,7 @@ class RanklistCache:
         name='RanklistCacheUpdate.MonitorActiveContests',
         waiter=tasks.Waiter.fixed_delay(_RELOAD_DELAY),
     )
-    async def _monitor_task(self, _):
+    async def _monitor_task(self, _: Any) -> None:
         cache = self.cache_master.rating_changes_cache
         self.monitored_contests = [
             contest
@@ -79,6 +85,7 @@ class RanklistCache:
         if not self.monitored_contests:
             self.ranklist_by_contest = {}
             self.logger.info('No more active contests for which to monitor ranklists.')
+            assert isinstance(self._monitor_task, tasks.Task)
             await self._monitor_task.stop()
             return
 
@@ -87,7 +94,9 @@ class RanklistCache:
             self.ranklist_by_contest[contest_id] = ranklist
 
     @staticmethod
-    async def _get_contest_details(contest_id, show_unofficial):
+    async def _get_contest_details(
+        contest_id: int, show_unofficial: bool
+    ) -> tuple[cf.Contest, list[cf.Problem], list[cf.RanklistRow]]:
         contest, problems, standings = await cf.contest.standings(
             contest_id=contest_id, show_unofficial=show_unofficial
         )
@@ -101,7 +110,9 @@ class RanklistCache:
 
         return contest, problems, standings
 
-    async def _get_ranklist_with_fetched_changes(self, contest_id, show_unofficial):
+    async def _get_ranklist_with_fetched_changes(
+        self, contest_id: int, show_unofficial: bool
+    ) -> Ranklist | None:
         contest, problems, standings = await self._get_contest_details(
             contest_id, show_unofficial
         )
@@ -124,7 +135,9 @@ class RanklistCache:
 
         return ranklist
 
-    async def _get_ranklist_with_predicted_changes(self, contest_id, show_unofficial):
+    async def _get_ranklist_with_predicted_changes(
+        self, contest_id: int, show_unofficial: bool
+    ) -> Ranklist:
         contest, problems, standings = await self._get_contest_details(
             contest_id, show_unofficial
         )
@@ -159,12 +172,12 @@ class RanklistCache:
 
     async def generate_ranklist(
         self,
-        contest_id,
+        contest_id: int,
         *,
-        fetch_changes=False,
-        predict_changes=False,
-        show_unofficial=True,
-    ):
+        fetch_changes: bool = False,
+        predict_changes: bool = False,
+        show_unofficial: bool = True,
+    ) -> Ranklist:
         assert fetch_changes ^ predict_changes
 
         ranklist = None
@@ -182,7 +195,9 @@ class RanklistCache:
 
         return ranklist
 
-    async def generate_vc_ranklist(self, contest_id, handle_to_member_id):
+    async def generate_vc_ranklist(
+        self, contest_id: int, handle_to_member_id: dict[str, Any]
+    ) -> Ranklist:
         handles = list(handle_to_member_id.keys())
         contest, problems, standings = await cf.contest.standings(
             contest_id=contest_id, show_unofficial=True
@@ -215,17 +230,20 @@ class RanklistCache:
             for handle in handles
         }
         ranklist = Ranklist(contest, problems, standings, now, is_rated=True)
-        delta_by_handle = {}
+        delta_by_handle: dict[str, int] = {}
         for handle in handles:
             mixed_ratings = current_official_rating.copy()
-            mixed_ratings[handle] = current_vc_rating.get(handle)
+            vc_rating = current_vc_rating.get(handle)
+            if vc_rating is not None:
+                mixed_ratings[handle] = vc_rating
             ranklist.predict(mixed_ratings)
-            delta_by_handle[handle] = ranklist.delta_by_handle.get(handle, 0)
+            if ranklist.delta_by_handle is not None:
+                delta_by_handle[handle] = ranklist.delta_by_handle.get(handle, 0)
 
         ranklist.delta_by_handle = delta_by_handle
         return ranklist
 
-    async def _fetch(self, contests):
+    async def _fetch(self, contests: list[cf.Contest]) -> dict[int, Ranklist]:
         ranklist_by_contest = {}
         for contest in contests:
             try:

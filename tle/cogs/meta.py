@@ -12,8 +12,8 @@ from tle.util.codeforces_common import pretty_time_format
 
 # Adapted from numpy sources.
 # https://github.com/numpy/numpy/blob/master/setup.py#L64-85
-def git_history():
-    def _minimal_ext_cmd(cmd):
+def git_history() -> str:
+    def _minimal_ext_cmd(cmd: list[str]) -> bytes:
         # construct minimal environment
         env = {}
         for k in ['SYSTEMROOT', 'PATH']:
@@ -44,25 +44,25 @@ def git_history():
 
 
 class Meta(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.start_time = time.time()
 
     @commands.hybrid_group(brief='Bot control', fallback='show')
-    async def meta(self, ctx):
+    async def meta(self, ctx: commands.Context) -> None:
         """Command the bot or get information about the bot."""
         await ctx.send_help(ctx.command)
 
     @meta.command(brief='Kill TLE')
     @commands.has_role(constants.TLE_ADMIN)
-    async def kill(self, ctx):
+    async def kill(self, ctx: commands.Context) -> None:
         """Shuts down the bot gracefully."""
         await ctx.send('Shutting down...')
         await self.bot.close()
         sys.exit(0)
 
     @meta.command(brief='Is TLE up?')
-    async def ping(self, ctx):
+    async def ping(self, ctx: commands.Context) -> None:
         """Replies to a ping."""
         start = time.perf_counter()
         message = await ctx.send(':ping_pong: Pong!')
@@ -76,12 +76,12 @@ class Meta(commands.Cog):
         )
 
     @meta.command(brief='Get git information')
-    async def git(self, ctx):
+    async def git(self, ctx: commands.Context) -> None:
         """Replies with git information."""
         await ctx.send('```yaml\n' + git_history() + '```')
 
     @meta.command(brief='Prints bot uptime')
-    async def uptime(self, ctx):
+    async def uptime(self, ctx: commands.Context) -> None:
         """Replies with how long TLE has been up."""
         await ctx.send(
             'TLE has been running for '
@@ -90,7 +90,7 @@ class Meta(commands.Cog):
 
     @meta.command(brief='Print bot guilds')
     @commands.has_role(constants.TLE_ADMIN)
-    async def guilds(self, ctx):
+    async def guilds(self, ctx: commands.Context) -> None:
         "Replies with info on the bot's guilds"
         msg = [
             ' | '.join(
@@ -106,5 +106,5 @@ class Meta(commands.Cog):
         await ctx.send('```' + '\n'.join(msg) + '```')
 
 
-async def setup(bot):
+async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Meta(bot))
