@@ -24,8 +24,8 @@ class CacheControl(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.group(
-        brief='Commands to force reload of cache', invoke_without_command=True
+    @commands.hybrid_group(
+        brief='Commands to force reload of cache', fallback='show'
     )
     @commands.has_role(constants.TLE_ADMIN)
     async def cache(self, ctx):

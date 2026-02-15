@@ -64,7 +64,7 @@ class Codeforces(commands.Cog):
         embed.add_field(name='Rating', value=problem.rating)
         await ctx.send(f'Challenge problem for `{handle}`', embed=embed)
 
-    @commands.command(brief='Upsolve a problem')
+    @commands.hybrid_command(brief='Upsolve a problem')
     @cf_common.user_guard(group='gitgud')
     async def upsolve(self, ctx, choice: int = -1):
         """Request an unsolved problem from a contest you participated in
@@ -207,7 +207,8 @@ class Codeforces(commands.Cog):
             make_page(chunk) for chunk in paginator.chunkify(submissions[:100], 10)
         ]
         paginator.paginate(
-            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True
+            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
+            ctx=ctx,
         )
 
     @commands.command(brief='Create a mashup', usage='[handles] [+tag..] [~tag..]')
@@ -272,7 +273,7 @@ class Codeforces(commands.Cog):
         embed = discord_common.cf_color_embed(description=msg)
         await ctx.send(f'Mashup contest for `{str_handles}`', embed=embed)
 
-    @commands.command(brief='Challenge')
+    @commands.hybrid_command(brief='Challenge')
     @cf_common.user_guard(group='gitgud')
     async def gitgud(self, ctx, delta: int = 0):
         """Request a problem for gitgud points.
@@ -317,7 +318,7 @@ class Codeforces(commands.Cog):
         choice = max(random.randrange(len(problems)) for _ in range(2))
         await self._gitgud(ctx, handle, problems[choice], delta)
 
-    @commands.command(brief='Print user gitgud history')
+    @commands.hybrid_command(brief='Print user gitgud history')
     async def gitlog(self, ctx, member: discord.Member = None):
         """Displays the list of gitgud problems issued to the specified member,
         excluding those noguded by admins. If the challenge was completed, time
@@ -349,10 +350,11 @@ class Codeforces(commands.Cog):
 
         pages = [make_page(chunk) for chunk in paginator.chunkify(data, 7)]
         paginator.paginate(
-            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True
+            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
+            ctx=ctx,
         )
 
-    @commands.command(brief='Report challenge completion')
+    @commands.hybrid_command(brief='Report challenge completion')
     @cf_common.user_guard(group='gitgud')
     async def gotgud(self, ctx):
         (handle,) = await cf_common.resolve_handles(
@@ -383,7 +385,7 @@ class Codeforces(commands.Cog):
         else:
             await ctx.send('You have already claimed your points')
 
-    @commands.command(brief='Skip challenge')
+    @commands.hybrid_command(brief='Skip challenge')
     @cf_common.user_guard(group='gitgud')
     async def nogud(self, ctx):
         await cf_common.resolve_handles(ctx, self.converter, ('!' + str(ctx.author),))
@@ -403,7 +405,7 @@ class Codeforces(commands.Cog):
         await self.bot.user_db.skip_challenge(user_id, challenge_id, Gitgud.NOGUD)
         await ctx.send('Challenge skipped.')
 
-    @commands.command(brief='Force skip a challenge')
+    @commands.hybrid_command(brief='Force skip a challenge')
     @cf_common.user_guard(group='gitgud')
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
     async def _nogud(self, ctx, member: discord.Member):
@@ -477,7 +479,8 @@ class Codeforces(commands.Cog):
 
         pages = [make_page(chunk) for chunk in paginator.chunkify(contests, 5)]
         paginator.paginate(
-            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True
+            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
+            ctx=ctx,
         )
 
     @commands.command(
@@ -552,7 +555,8 @@ class Codeforces(commands.Cog):
             make_page(chunk) for chunk in paginator.chunkify(contest_unsolved_pairs, 10)
         ]
         paginator.paginate(
-            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True
+            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
+            ctx=ctx,
         )
 
     @staticmethod

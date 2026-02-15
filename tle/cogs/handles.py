@@ -232,7 +232,7 @@ class Handles(commands.Cog):
     async def on_member_remove(self, member):
         await self.bot.user_db.set_inactive([(member.guild.id, member.id)])
 
-    @commands.command(brief='update status, mark guild members as active')
+    @commands.hybrid_command(brief='update status, mark guild members as active')
     @commands.has_role(constants.TLE_ADMIN)
     async def _updatestatus(self, ctx):
         gid = ctx.guild.id
@@ -297,8 +297,8 @@ class Handles(commands.Cog):
         )
         self.logger.info(f'All guilds updated for contest {contest.id}.')
 
-    @commands.group(
-        brief='Commands that have to do with handles', invoke_without_command=True
+    @commands.hybrid_group(
+        brief='Commands that have to do with handles', fallback='show'
     )
     async def handle(self, ctx):
         """Change or collect information about specific handles on Codeforces"""
@@ -546,7 +546,10 @@ class Handles(commands.Cog):
             rev_lookup[handle] = member
         await self._unmagic_handles(ctx, handles, rev_lookup)
 
-    @handle.command(brief='Show handle resolution for the given handles')
+    @handle.command(
+        brief='Show handle resolution for the given handles',
+        with_app_command=False,
+    )
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
     async def unmagic_debug(self, ctx: commands.Context, *args: str) -> None:
         """See what the resolve logic would do."""
@@ -596,7 +599,7 @@ class Handles(commands.Cog):
             lines += failed
         return discord_common.embed_success('\n'.join(lines))
 
-    @commands.command(brief='Show gudgitters', aliases=['gitgudders'])
+    @commands.hybrid_command(brief='Show gudgitters', aliases=['gitgudders'])
     async def gudgitters(self, ctx):
         """Show the list of users of gitgud with their scores."""
         res = await self.bot.user_db.get_gudgitters()
@@ -628,7 +631,7 @@ class Handles(commands.Cog):
         discord_file = get_gudgitters_image(rankings)
         await ctx.send(file=discord_file)
 
-    @handle.command(brief='Show all handles')
+    @handle.command(brief='Show all handles', with_app_command=False)
     async def list(self, ctx, *countries):
         """Shows members of the server who have registered their handles and
         their Codeforces ratings. You can additionally specify a list of countries
@@ -663,6 +666,7 @@ class Handles(commands.Cog):
             pages,
             wait_time=_PAGINATE_WAIT_TIME,
             set_pagenum_footers=True,
+            ctx=ctx,
         )
 
     async def _update_ranks_all(self, guild):
@@ -801,7 +805,7 @@ class Handles(commands.Cog):
 
         return embeds
 
-    @commands.group(brief='Commands for role updates', invoke_without_command=True)
+    @commands.hybrid_group(brief='Commands for role updates', fallback='show')
     async def roleupdate(self, ctx):
         """Group for commands involving role updates."""
         await ctx.send_help(ctx.command)
@@ -939,7 +943,7 @@ class Handles(commands.Cog):
         else:
             raise HandleCogError(f'Invalid action {action}')
 
-    @commands.command(
+    @commands.hybrid_command(
         brief='Grants or removes the specified pingable role',
         usage='[give/remove] [vc/duel]',
     )

@@ -61,10 +61,21 @@ def strtobool(value: str) -> bool:
     raise ValueError(f'Invalid truth value {value!r}.')
 
 
+class TLEContext(commands.Context):
+    async def send(self, *args, **kwargs):
+        if self.interaction is None and 'reference' not in kwargs:
+            kwargs['reference'] = self.message
+            kwargs.setdefault('mention_author', False)
+        return await super().send(*args, **kwargs)
+
+
 class TLEBot(commands.Bot):
     def __init__(self, nodb, **kwargs):
         super().__init__(**kwargs)
         self.nodb = nodb
+
+    async def get_context(self, message, *, cls=None):
+        return await super().get_context(message, cls=cls or TLEContext)
 
     async def setup_hook(self):
         cogs = [file.stem for file in Path('tle', 'cogs').glob('*.py')]
@@ -72,6 +83,8 @@ class TLEBot(commands.Bot):
             await self.load_extension(f'tle.cogs.{extension}')
         logging.info(f'Cogs loaded: {", ".join(self.cogs)}')
         await cf_common.initialize(self, self.nodb)
+        await self.tree.sync()
+        logging.info('Slash commands synced')
 
     async def close(self):
         try:
@@ -121,6 +134,16 @@ def main():
 
     # Restrict bot usage to inside guild channels only.
     bot.add_check(no_dm_check)
+
+    async def interaction_guild_check(interaction):
+        if interaction.guild is None:
+            await interaction.response.send_message(
+                'Private messages not permitted.', ephemeral=True
+            )
+            return False
+        return True
+
+    bot.tree.interaction_check = interaction_guild_check
 
     @bot.event
     @discord_common.once

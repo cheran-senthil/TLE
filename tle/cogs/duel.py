@@ -108,7 +108,7 @@ class Dueling(commands.Cog):
         )
         return embed
 
-    @commands.group(brief='Duel commands', invoke_without_command=True)
+    @commands.hybrid_group(brief='Duel commands', fallback='show')
     async def duel(self, ctx):
         """Group for commands pertaining to duels"""
         await ctx.send_help(ctx.command)
@@ -137,7 +137,8 @@ class Dueling(commands.Cog):
         await ctx.send(f'{ctx.author.mention} successfully registered as a duelist')
 
     @duel.command(
-        brief='Challenge to a duel', usage='opponent [rating] [+tag..] [~tag..]'
+        brief='Challenge to a duel', usage='opponent [rating] [+tag..] [~tag..]',
+        with_app_command=False,
     )
     async def challenge(self, ctx, opponent: discord.Member, *args):
         """Challenge another server member to a duel. Problem difficulty will
@@ -599,7 +600,8 @@ class Dueling(commands.Cog):
         )
         pages = await self._paginate_duels(data, message, ctx.guild.id, False)
         paginator.paginate(
-            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True
+            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
+            ctx=ctx,
         )
 
     @duel.command(brief='Print user dueling history')
@@ -611,7 +613,8 @@ class Dueling(commands.Cog):
         )
         pages = await self._paginate_duels(data, message, ctx.guild.id, False)
         paginator.paginate(
-            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True
+            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
+            ctx=ctx,
         )
 
     @duel.command(brief='Print recent duels')
@@ -621,7 +624,8 @@ class Dueling(commands.Cog):
             data, 'list of recent duels', ctx.guild.id, True
         )
         paginator.paginate(
-            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True
+            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
+            ctx=ctx,
         )
 
     @duel.command(brief='Print list of ongoing duels')
@@ -655,7 +659,8 @@ class Dueling(commands.Cog):
 
         pages = [await make_page(chunk) for chunk in paginator.chunkify(data, 7)]
         paginator.paginate(
-            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True
+            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
+            ctx=ctx,
         )
 
     @duel.command(brief='Show duelists')
@@ -708,7 +713,8 @@ class Dueling(commands.Cog):
             for k, chunk in enumerate(paginator.chunkify(users, _PER_PAGE))
         ]
         paginator.paginate(
-            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True
+            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
+            ctx=ctx,
         )
 
     async def invalidate_duel(self, ctx, duelid, challenger_id, challengee_id):
@@ -750,7 +756,7 @@ class Dueling(commands.Cog):
         duelid, challenger_id, challengee_id, _, _, _, _, _ = active
         await self.invalidate_duel(ctx, duelid, challenger_id, challengee_id)
 
-    @duel.command(brief='Plot rating', usage='[duelist]')
+    @duel.command(brief='Plot rating', usage='[duelist]', with_app_command=False)
     async def rating(self, ctx, *members: discord.Member):
         """Plot duelist's rating."""
         members = members or (ctx.author,)

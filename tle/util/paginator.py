@@ -48,11 +48,18 @@ class Paginated:
     async def next_page(self):
         await self.show_page(self.cur_page + 1)
 
-    async def paginate(self, bot, channel, wait_time, delete_after: float = None):
+    async def paginate(
+        self, bot, channel, wait_time, delete_after: float = None, ctx=None
+    ):
         content, embed = self.pages[0]
-        self.message = await channel.send(
-            content, embed=embed, delete_after=delete_after
-        )
+        if ctx is not None:
+            self.message = await ctx.send(
+                content, embed=embed, delete_after=delete_after
+            )
+        else:
+            self.message = await channel.send(
+                content, embed=embed, delete_after=delete_after
+            )
 
         if len(self.pages) == 1:
             # No need to paginate.
@@ -89,6 +96,7 @@ def paginate(
     wait_time,
     set_pagenum_footers=False,
     delete_after: float = None,
+    ctx=None,
 ):
     if not pages:
         raise NoPagesError()
@@ -99,4 +107,6 @@ def paginate(
         for i, (_content, embed) in enumerate(pages):
             embed.set_footer(text=f'Page {i + 1} / {len(pages)}')
     paginated = Paginated(pages)
-    asyncio.create_task(paginated.paginate(bot, channel, wait_time, delete_after))
+    asyncio.create_task(
+        paginated.paginate(bot, channel, wait_time, delete_after, ctx=ctx)
+    )

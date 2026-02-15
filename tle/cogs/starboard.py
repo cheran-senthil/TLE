@@ -110,7 +110,7 @@ class Starboard(commands.Cog):
             )
             self.logger.info(f'Added message {message.id} to starboard under {emoji}')
 
-    @commands.group(brief='Starboard commands', invoke_without_command=True)
+    @commands.hybrid_group(brief='Starboard commands', fallback='show')
     async def starboard(self, ctx):
         """Group for commands involving the starboard."""
         await ctx.send_help(ctx.command)

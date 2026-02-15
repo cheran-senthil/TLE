@@ -146,7 +146,7 @@ Now that we're on discord.py 2.x, add modern Discord UX.
 
 | # | Issue | File(s) | What to Do |
 |---|-------|---------|------------|
-| 7a | DPY-07 | All cogs | Convert `@commands.command` to `@commands.hybrid_command` for slash command support |
+| ~~7a~~ | ~~DPY-07~~ | ~~All cogs, `tle/__main__.py`, `tle/util/paginator.py`~~ | ~~DONE - Converted 8 groups to `hybrid_group` (with `fallback='show'`), 12 standalone commands to `hybrid_command`, added `with_app_command=False` to 16 subcommands with variadic `*args`. Added `tree.sync()` in `setup_hook()`, `interaction_guild_check` for slash commands. Added `TLEContext` subclass that auto-replies to prefix command messages. Updated paginator to use `ctx.send()` for proper interaction responses and prefix replies.~~ |
 | 7b | Pagination | `tle/util/paginator.py` | Replace reaction-based pagination with `discord.ui.View` + buttons |
 | 7c | Duel UX | `tle/cogs/duel.py` | Add accept/decline/withdraw buttons using `discord.ui.Button` |
 | 7d | Handle UX | `tle/cogs/handles.py` | Add modal for handle identification flow |

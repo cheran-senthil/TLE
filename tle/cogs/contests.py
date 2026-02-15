@@ -226,9 +226,10 @@ class Contests(commands.Cog):
             pages,
             wait_time=_CONTEST_PAGINATE_WAIT_TIME,
             set_pagenum_footers=True,
+            ctx=ctx,
         )
 
-    @commands.group(brief='Commands for listing contests', invoke_without_command=True)
+    @commands.hybrid_group(brief='Commands for listing contests', fallback='show')
     async def clist(self, ctx):
         await ctx.send_help(ctx.command)
 
@@ -263,11 +264,11 @@ class Contests(commands.Cog):
             empty_msg='No finished contests found',
         )
 
-    @commands.group(brief='Commands for contest reminders', invoke_without_command=True)
+    @commands.hybrid_group(brief='Commands for contest reminders', fallback='show')
     async def remind(self, ctx):
         await ctx.send_help(ctx.command)
 
-    @remind.command(brief='Set reminder settings')
+    @remind.command(brief='Set reminder settings', with_app_command=False)
     @commands.has_role(constants.TLE_ADMIN)
     async def here(self, ctx, role: discord.Role, *before: int):
         """Sets reminder channel to current channel, role to the given role,
@@ -568,6 +569,7 @@ class Contests(commands.Cog):
             contest_id=contest_id,
             handles=handles,
             ranklist=ranklist,
+            ctx=ctx,
         )
 
     async def _show_ranklist(
@@ -578,6 +580,7 @@ class Contests(commands.Cog):
         ranklist,
         vc: bool = False,
         delete_after: float = None,
+        ctx=None,
     ):
         contest = self.bot.cf_cache.contest_cache.get_contest(contest_id)
         if ranklist is None:
@@ -624,6 +627,7 @@ class Contests(commands.Cog):
             pages,
             wait_time=_STANDINGS_PAGINATE_WAIT_TIME,
             delete_after=delete_after,
+            ctx=ctx,
         )
 
     @commands.command(
@@ -835,7 +839,7 @@ class Contests(commands.Cog):
         for rated_vc_id in ongoing_rated_vcs:
             await self._watch_rated_vc(rated_vc_id)
 
-    @commands.command(
+    @commands.hybrid_command(
         brief='Unregister this user from an ongoing ratedvc', usage='@user'
     )
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
@@ -851,7 +855,7 @@ class Contests(commands.Cog):
             )
         )
 
-    @commands.command(brief='Set the rated vc channel to the current channel')
+    @commands.hybrid_command(brief='Set the rated vc channel to the current channel')
     @commands.has_role(constants.TLE_ADMIN)
     async def set_ratedvc_channel(self, ctx):
         """Sets the rated vc channel to the current channel."""
@@ -860,7 +864,7 @@ class Contests(commands.Cog):
             embed=discord_common.embed_success('Rated VC channel saved successfully')
         )
 
-    @commands.command(brief='Get the rated vc channel')
+    @commands.hybrid_command(brief='Get the rated vc channel')
     async def get_ratedvc_channel(self, ctx):
         """Gets the rated vc channel."""
         channel_id = await self.bot.user_db.get_rated_vc_channel(ctx.guild.id)
@@ -871,7 +875,7 @@ class Contests(commands.Cog):
         embed.add_field(name='Channel', value=channel.mention)
         await ctx.send(embed=embed)
 
-    @commands.command(brief='Show vc ratings')
+    @commands.hybrid_command(brief='Show vc ratings')
     async def vcratings(self, ctx):
         users = []
         for member_id, handle in await self.bot.user_db.get_handles_for_guild(
@@ -918,7 +922,8 @@ class Contests(commands.Cog):
             for k, chunk in enumerate(paginator.chunkify(users, _PER_PAGE))
         ]
         paginator.paginate(
-            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True
+            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True,
+            ctx=ctx,
         )
 
     @commands.command(
