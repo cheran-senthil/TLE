@@ -71,7 +71,8 @@ class TestAcceptButton:
         await view.accept_button.callback(interaction)
 
         interaction.response.send_message.assert_awaited_once_with(
-            'Only the challenged user can accept.', ephemeral=True,
+            'Only the challenged user can accept.',
+            ephemeral=True,
         )
 
     async def test_rejects_challenger(self):
@@ -81,7 +82,8 @@ class TestAcceptButton:
         await view.accept_button.callback(interaction)
 
         interaction.response.send_message.assert_awaited_once_with(
-            'Only the challenged user can accept.', ephemeral=True,
+            'Only the challenged user can accept.',
+            ephemeral=True,
         )
 
     async def test_accepts_and_disables_buttons(self):
@@ -104,7 +106,9 @@ class TestAcceptButton:
         guild.get_member.return_value = MagicMock(mention='@user')
         channel = AsyncMock()
         interaction = _make_interaction(
-            user_id=2002, guild=guild, channel=channel,
+            user_id=2002,
+            guild=guild,
+            channel=channel,
         )
 
         with patch('tle.cogs.duel.asyncio.sleep', new_callable=AsyncMock):
@@ -122,7 +126,9 @@ class TestAcceptButton:
         guild.get_member.return_value = MagicMock(mention='@user')
         channel = AsyncMock()
         interaction = _make_interaction(
-            user_id=2002, guild=guild, channel=channel,
+            user_id=2002,
+            guild=guild,
+            channel=channel,
         )
 
         with patch('tle.cogs.duel.asyncio.sleep', new_callable=AsyncMock):
@@ -141,7 +147,8 @@ class TestDeclineButton:
         await view.decline_button.callback(interaction)
 
         interaction.response.send_message.assert_awaited_once_with(
-            'Only the challenged user can decline.', ephemeral=True,
+            'Only the challenged user can decline.',
+            ephemeral=True,
         )
 
     async def test_rejects_challenger(self):
@@ -151,7 +158,8 @@ class TestDeclineButton:
         await view.decline_button.callback(interaction)
 
         interaction.response.send_message.assert_awaited_once_with(
-            'Only the challenged user can decline.', ephemeral=True,
+            'Only the challenged user can decline.',
+            ephemeral=True,
         )
 
     async def test_decline_cancels_duel(self):
@@ -162,7 +170,9 @@ class TestDeclineButton:
         guild.get_member.return_value = MagicMock(mention='@user')
         channel = AsyncMock()
         interaction = _make_interaction(
-            user_id=2002, guild=guild, channel=channel,
+            user_id=2002,
+            guild=guild,
+            channel=channel,
         )
 
         await view.decline_button.callback(interaction)
@@ -180,7 +190,9 @@ class TestDeclineButton:
         guild.get_member.return_value = MagicMock(mention='@user')
         channel = AsyncMock()
         interaction = _make_interaction(
-            user_id=2002, guild=guild, channel=channel,
+            user_id=2002,
+            guild=guild,
+            channel=channel,
         )
 
         await view.decline_button.callback(interaction)
@@ -196,7 +208,8 @@ class TestWithdrawButton:
         await view.withdraw_button.callback(interaction)
 
         interaction.response.send_message.assert_awaited_once_with(
-            'Only the challenger can withdraw.', ephemeral=True,
+            'Only the challenger can withdraw.',
+            ephemeral=True,
         )
 
     async def test_rejects_challengee(self):
@@ -206,7 +219,8 @@ class TestWithdrawButton:
         await view.withdraw_button.callback(interaction)
 
         interaction.response.send_message.assert_awaited_once_with(
-            'Only the challenger can withdraw.', ephemeral=True,
+            'Only the challenger can withdraw.',
+            ephemeral=True,
         )
 
     async def test_withdraw_cancels_duel(self):
@@ -217,7 +231,9 @@ class TestWithdrawButton:
         guild.get_member.return_value = MagicMock(mention='@user')
         channel = AsyncMock()
         interaction = _make_interaction(
-            user_id=1001, guild=guild, channel=channel,
+            user_id=1001,
+            guild=guild,
+            channel=channel,
         )
 
         await view.withdraw_button.callback(interaction)
@@ -235,7 +251,9 @@ class TestWithdrawButton:
         guild.get_member.return_value = MagicMock(mention='@user')
         channel = AsyncMock()
         interaction = _make_interaction(
-            user_id=1001, guild=guild, channel=channel,
+            user_id=1001,
+            guild=guild,
+            channel=channel,
         )
 
         await view.withdraw_button.callback(interaction)
@@ -276,7 +294,8 @@ class TestOnTimeout:
         view.bot.user_db.cancel_duel.return_value = 0
         message = AsyncMock()
         message.edit.side_effect = discord.NotFound(
-            MagicMock(status=404), 'Not found',
+            MagicMock(status=404),
+            'Not found',
         )
         view.message = message
 

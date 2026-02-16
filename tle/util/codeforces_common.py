@@ -300,7 +300,8 @@ async def resolve_handles(
 
 
 async def members_to_handles(
-    members: Iterable[discord.Member], guild_id: int,
+    members: Iterable[discord.Member],
+    guild_id: int,
 ) -> list[str]:
     handles = []
     for member in members:

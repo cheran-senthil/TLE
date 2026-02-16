@@ -101,7 +101,7 @@ class UserDbConn:
 
     @property
     def conn(self) -> aiosqlite.Connection:
-        assert self._conn is not None, "Database not connected. Call connect() first."
+        assert self._conn is not None, 'Database not connected. Call connect() first.'
         return self._conn
 
     async def connect(self) -> None:

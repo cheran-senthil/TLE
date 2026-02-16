@@ -135,9 +135,7 @@ class ContestCache:
             if at > now:
                 delay = min(delay, at - now)
             else:
-                delay = min(
-                    start - now, self._ACTIVE_CONTEST_RELOAD_DELAY
-                )
+                delay = min(start - now, self._ACTIVE_CONTEST_RELOAD_DELAY)
 
         if contests_by_phase['_RUNNING']:
             delay = min(delay, self._ACTIVE_CONTEST_RELOAD_DELAY)

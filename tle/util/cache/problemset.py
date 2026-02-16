@@ -27,9 +27,9 @@ class ProblemsetCache:
 
     def __init__(self, cache_master: 'CacheSystem') -> None:
         self.problems: list[cf.Problem] = []
-        self.problem_to_contests: defaultdict[
-            tuple[str, int | None], list[int]
-        ] = defaultdict(list)
+        self.problem_to_contests: defaultdict[tuple[str, int | None], list[int]] = (
+            defaultdict(list)
+        )
         self.cache_master = cache_master
         self.update_lock = asyncio.Lock()
         self.logger = logging.getLogger(self.__class__.__name__)

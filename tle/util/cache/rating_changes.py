@@ -172,9 +172,7 @@ class RatingChangesCache:
         self.handle_rating_cache = (
             await self.cache_master.conn.get_latest_rating_by_handle()
         )
-        self.logger.info(
-            f'Ratings for {len(self.handle_rating_cache)} handles cached'
-        )
+        self.logger.info(f'Ratings for {len(self.handle_rating_cache)} handles cached')
 
     async def get_users_with_more_than_n_contests(
         self, time_cutoff: int, n: int

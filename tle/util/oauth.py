@@ -55,9 +55,7 @@ class OAuthStateStore:
 
     def revoke(self, user_id: int) -> None:
         """Remove all pending states for a user, invalidating old links."""
-        to_remove = [
-            s for s, p in self._pending.items() if p.user_id == user_id
-        ]
+        to_remove = [s for s, p in self._pending.items() if p.user_id == user_id]
         for s in to_remove:
             del self._pending[s]
 
@@ -103,7 +101,9 @@ async def exchange_code(
 
 
 def decode_id_token(
-    id_token: str, client_secret: str, client_id: str,
+    id_token: str,
+    client_secret: str,
+    client_id: str,
 ) -> dict[str, Any]:
     return jwt.decode(  # type: ignore[no-any-return]
         id_token,

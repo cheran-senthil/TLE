@@ -187,9 +187,7 @@ class TestGimme:
         mock_cf_common.parse_tags.return_value = []
         mock_cf_common.parse_rating.return_value = 3000
         mock_cf_common.is_contest_writer.return_value = False
-        mock_cf_common.user_guard = MagicMock(
-            side_effect=lambda **kwargs: lambda f: f
-        )
+        mock_cf_common.user_guard = MagicMock(side_effect=lambda **kwargs: lambda f: f)
         mock_cf_common.active_groups = {}
 
         # Mock cf.user.status — return no solved submissions
@@ -215,9 +213,7 @@ class TestGimme:
         mock_cf_common.parse_tags.return_value = []
         mock_cf_common.parse_rating.return_value = 9999  # impossible rating
         mock_cf_common.is_contest_writer.return_value = False
-        mock_cf_common.user_guard = MagicMock(
-            side_effect=lambda **kwargs: lambda f: f
-        )
+        mock_cf_common.user_guard = MagicMock(side_effect=lambda **kwargs: lambda f: f)
         mock_cf_common.active_groups = {}
 
         mock_cf.user.status = AsyncMock(return_value=[])

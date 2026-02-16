@@ -159,9 +159,7 @@ class TestPaginateFunction:
 
         await paginate(channel, pages, wait_time=60)
 
-        channel.send.assert_awaited_once_with(
-            'content', embed=embed, delete_after=None
-        )
+        channel.send.assert_awaited_once_with('content', embed=embed, delete_after=None)
 
     async def test_single_page_with_ctx(self):
         channel = AsyncMock()
@@ -171,9 +169,7 @@ class TestPaginateFunction:
 
         await paginate(channel, pages, wait_time=60, ctx=ctx)
 
-        ctx.send.assert_awaited_once_with(
-            'content', embed=embed, delete_after=None
-        )
+        ctx.send.assert_awaited_once_with('content', embed=embed, delete_after=None)
         channel.send.assert_not_awaited()
 
     async def test_multi_page_sends_with_view(self):

@@ -153,8 +153,11 @@ def _get_extremes(
     }
     max_solved: int | None = max(solved.values(), default=None)
     min_unsolved: int | None = min(
-        (r for prob in problemset
-         if prob.index not in solved and (r := prob.rating) is not None),
+        (
+            r
+            for prob in problemset
+            if prob.index not in solved and (r := prob.rating) is not None
+        ),
         default=None,
     )
     return min_unsolved, max_solved
@@ -922,9 +925,7 @@ class Graphs(commands.Cog):
             if rank.low is not None and rank.high is not None
         ]
         colors: list[str] = [
-            rank.color_graph
-            for rank in cf.RATED_RANKS
-            if rank.color_graph is not None
+            rank.color_graph for rank in cf.RATED_RANKS if rank.color_graph is not None
         ]
 
         ratings = self.bot.cf_cache.rating_changes_cache.get_all_ratings()
@@ -1193,7 +1194,8 @@ class Graphs(commands.Cog):
         """
 
         (in_server, zoom), remaining = cf_common.filter_flags(
-            args, ['+server', '+zoom'],
+            args,
+            ['+server', '+zoom'],
         )
         handles: Sequence[str] = remaining
         handles = await cf_common.resolve_handles(
@@ -1343,8 +1345,8 @@ class Graphs(commands.Cog):
                     )
                 )
 
-            time_by_rating: dict[int | None, list[float]] = (
-                collections.defaultdict(list)
+            time_by_rating: dict[int | None, list[float]] = collections.defaultdict(
+                list
             )
             avg_by_rating: dict[int | None, float] = {}
             for events in solved_by_contest.values():

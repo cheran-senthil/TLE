@@ -594,7 +594,9 @@ class Codeforces(commands.Cog):
 
     @staticmethod
     def composeRatings(
-        left: float, right: float, ratings: list[tuple[int | None, int]],
+        left: float,
+        right: float,
+        ratings: list[tuple[int | None, int]],
     ) -> int:
         for _tt in range(20):
             r = (left + right) / 2.0
@@ -602,7 +604,7 @@ class Codeforces(commands.Cog):
             rWinsProbability = 1.0
             for rating, count in ratings:
                 prob = Codeforces.getEloWinProbability(r, rating or 0)
-                rWinsProbability *= prob ** count
+                rWinsProbability *= prob**count
 
             if rWinsProbability < 0.5:
                 left = r

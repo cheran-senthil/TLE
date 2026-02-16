@@ -105,7 +105,8 @@ class TestContestCache:
         with patch('tle.util.cache.contest.cf_common') as mock_cc:
             mock_cc.event_sys = es
             await cache_system.contest_cache._update(
-                [c_finished, c_before], from_api=False,
+                [c_finished, c_before],
+                from_api=False,
             )
         assert len(cache_system.contest_cache.contests_by_phase['FINISHED']) == 1
         assert len(cache_system.contest_cache.contests_by_phase['BEFORE']) == 1
@@ -132,7 +133,8 @@ class TestContestCache:
         with patch('tle.util.cache.contest.cf_common') as mock_cc:
             mock_cc.event_sys = es
             await cache_system.contest_cache._update(
-                [c_coding, c_system], from_api=False,
+                [c_coding, c_system],
+                from_api=False,
             )
         assert len(cache_system.contest_cache.contests_by_phase['_RUNNING']) == 2
 

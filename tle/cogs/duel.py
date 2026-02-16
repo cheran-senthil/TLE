@@ -861,9 +861,7 @@ class Dueling(commands.Cog):
 
         _PER_PAGE = 10
 
-        def make_page(
-            chunk: Sequence[Any], page_num: int
-        ) -> tuple[str, discord.Embed]:
+        def make_page(chunk: Sequence[Any], page_num: int) -> tuple[str, discord.Embed]:
             style = table.Style('{:>}  {:<}  {:<}  {:<}')
             t = table.Table(style)
             t += table.Header('#', 'Name', 'Handle', 'Rating')

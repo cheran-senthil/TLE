@@ -102,51 +102,59 @@ class TestDecodeIdToken:
         return jwt.encode(claims, secret, algorithm='HS256')
 
     def test_valid_token(self):
-        token = self._make_token({
-            'sub': '12345',
-            'iss': 'https://codeforces.com',
-            'aud': 'my_client',
-            'exp': time.time() + 300,
-            'iat': time.time(),
-            'handle': 'tourist',
-        })
+        token = self._make_token(
+            {
+                'sub': '12345',
+                'iss': 'https://codeforces.com',
+                'aud': 'my_client',
+                'exp': time.time() + 300,
+                'iat': time.time(),
+                'handle': 'tourist',
+            }
+        )
         claims = decode_id_token(token, 'my_secret', 'my_client')
         assert claims['handle'] == 'tourist'
         assert claims['iss'] == 'https://codeforces.com'
 
     def test_expired_token_rejected(self):
-        token = self._make_token({
-            'sub': '12345',
-            'iss': 'https://codeforces.com',
-            'aud': 'my_client',
-            'exp': time.time() - 300,
-            'iat': time.time() - 600,
-            'handle': 'tourist',
-        })
+        token = self._make_token(
+            {
+                'sub': '12345',
+                'iss': 'https://codeforces.com',
+                'aud': 'my_client',
+                'exp': time.time() - 300,
+                'iat': time.time() - 600,
+                'handle': 'tourist',
+            }
+        )
         with pytest.raises(jwt.ExpiredSignatureError):
             decode_id_token(token, 'my_secret', 'my_client')
 
     def test_wrong_audience_rejected(self):
-        token = self._make_token({
-            'sub': '12345',
-            'iss': 'https://codeforces.com',
-            'aud': 'wrong_client',
-            'exp': time.time() + 300,
-            'iat': time.time(),
-            'handle': 'tourist',
-        })
+        token = self._make_token(
+            {
+                'sub': '12345',
+                'iss': 'https://codeforces.com',
+                'aud': 'wrong_client',
+                'exp': time.time() + 300,
+                'iat': time.time(),
+                'handle': 'tourist',
+            }
+        )
         with pytest.raises(jwt.InvalidAudienceError):
             decode_id_token(token, 'my_secret', 'my_client')
 
     def test_wrong_issuer_rejected(self):
-        token = self._make_token({
-            'sub': '12345',
-            'iss': 'https://evil.com',
-            'aud': 'my_client',
-            'exp': time.time() + 300,
-            'iat': time.time(),
-            'handle': 'tourist',
-        })
+        token = self._make_token(
+            {
+                'sub': '12345',
+                'iss': 'https://evil.com',
+                'aud': 'my_client',
+                'exp': time.time() + 300,
+                'iat': time.time(),
+                'handle': 'tourist',
+            }
+        )
         with pytest.raises(jwt.InvalidIssuerError):
             decode_id_token(token, 'my_secret', 'my_client')
 

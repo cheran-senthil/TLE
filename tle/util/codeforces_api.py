@@ -177,7 +177,6 @@ class Party(NamedTuple):
     startTimeSeconds: int | None
 
 
-
 CONTEST_PHASES = 'BEFORE CODING PENDING_SYSTEM_TEST SYSTEM_TEST FINISHED'.split()
 
 PARTICIPANT_TYPES = (
@@ -421,7 +420,7 @@ async def _query_api(path: str, data: Any = None) -> Any:
         logger.info(f'Querying CF API at {url} with {data}')
         # Explicitly state encoding (though aiohttp accepts gzip by default)
         headers = {'Accept-Encoding': 'gzip'}
-        assert _session is not None, "Session not initialized. Call initialize() first."
+        assert _session is not None, 'Session not initialized. Call initialize() first.'
         async with _session.post(url, data=data, headers=headers) as resp:
             try:
                 respjson = await resp.json()
@@ -632,7 +631,7 @@ class user:
 
 async def _resolve_redirect(handle: str) -> str | None:
     url = PROFILE_BASE_URL + handle
-    assert _session is not None, "Session not initialized. Call initialize() first."
+    assert _session is not None, 'Session not initialized. Call initialize() first.'
     async with _session.head(url) as r:
         if r.status == 200:
             return handle

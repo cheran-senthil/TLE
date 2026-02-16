@@ -228,7 +228,10 @@ def _make_pages(
             rating_str = 'N/A' if rating is None else str(rating)
             colors = ansi.make_cell_colors(rank, ncols=4, handle_col=2)
             t += table.Data(
-                i + done, name, handle, f'{rating_str} ({rank.title_abbr})',
+                i + done,
+                name,
+                handle,
+                f'{rating_str} ({rank.title_abbr})',
                 colors=colors,
             )
         table_str = '```ansi\n' + str(t) + '\n```'
