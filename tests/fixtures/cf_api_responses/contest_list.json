@@ -1,0 +1,24 @@
+[
+  {
+    "id": 1,
+    "name": "Codeforces Beta Round #1",
+    "type": "CF",
+    "phase": "FINISHED",
+    "frozen": false,
+    "durationSeconds": 7200,
+    "startTimeSeconds": 1265979600,
+    "relativeTimeSeconds": 2147483647,
+    "preparedBy": null
+  },
+  {
+    "id": 566,
+    "name": "VK Cup 2015 - Round 1",
+    "type": "CF",
+    "phase": "FINISHED",
+    "frozen": false,
+    "durationSeconds": 7200,
+    "startTimeSeconds": 1430150400,
+    "relativeTimeSeconds": 2147483647,
+    "preparedBy": "MikeMirzayanov"
+  }
+]

@@ -2,6 +2,8 @@ import asyncio
 import datetime
 import random
 from collections import defaultdict, namedtuple
+from collections.abc import Sequence
+from typing import Any, cast
 
 import discord
 from discord.ext import commands
@@ -24,7 +26,7 @@ _DUEL_RATING_DELTA = -400
 _DUEL_NO_DRAW_TIME = 10 * 60
 _ELO_CONSTANT = 60
 
-DuelRank = namedtuple('Rank', 'low high title title_abbr color_graph color_embed')
+DuelRank = namedtuple('DuelRank', 'low high title title_abbr color_graph color_embed')
 
 DUEL_RANKS = (
     DuelRank(-(10**9), 1300, 'Newbie', 'N', '#CCCCCC', 0x808080),
@@ -40,108 +42,254 @@ DUEL_RANKS = (
 )
 
 
-def rating2rank(rating):
+def rating2rank(rating: int) -> DuelRank | None:
     for rank in DUEL_RANKS:
         if rank.low <= rating < rank.high:
             return rank
+    return None
 
 
 class DuelCogError(commands.CommandError):
     pass
 
 
-def elo_prob(player, opponent):
+def elo_prob(player: float, opponent: float) -> float:
     return (1 + 10 ** ((opponent - player) / 400)) ** -1
 
 
-def elo_delta(player, opponent, win):
+def elo_delta(player: float, opponent: float, win: float) -> float:
     return _ELO_CONSTANT * (win - elo_prob(player, opponent))
 
 
-def get_cf_user(userid, guild_id):
-    handle = cf_common.user_db.get_handle(userid, guild_id)
-    return cf_common.user_db.fetch_cf_user(handle)
-
-
-def complete_duel(
-    duelid, guild_id, win_status, winner, loser, finish_time, score, dtype
-):
-    winner_r = cf_common.user_db.get_duel_rating(winner.id)
-    loser_r = cf_common.user_db.get_duel_rating(loser.id)
-    delta = round(elo_delta(winner_r, loser_r, score))
-    rc = cf_common.user_db.complete_duel(
-        duelid, win_status, finish_time, winner.id, loser.id, delta, dtype
-    )
-    if rc == 0:
-        raise DuelCogError('Hey! No cheating!')
-
-    if dtype == DuelType.UNOFFICIAL:
-        return None
-
-    winner_cf = get_cf_user(winner.id, guild_id)
-    loser_cf = get_cf_user(loser.id, guild_id)
-    desc = (
-        f'Rating change after **[{winner_cf.handle}]({winner_cf.url})**'
-        f' vs **[{loser_cf.handle}]({loser_cf.url})**:'
-    )
-    embed = discord_common.cf_color_embed(description=desc)
-    embed.add_field(
-        name=f'{winner.display_name}',
-        value=f'{winner_r} -> {winner_r + delta}',
-        inline=False,
-    )
-    embed.add_field(
-        name=f'{loser.display_name}',
-        value=f'{loser_r} -> {loser_r - delta}',
-        inline=False,
-    )
-    return embed
-
-
-def check_if_allow_self_register(ctx):
+def check_if_allow_self_register(ctx: commands.Context) -> bool:
     if not constants.ALLOW_DUEL_SELF_REGISTER:
         raise DuelCogError('Self Registration is not enabled.')
     return True
 
 
-class Dueling(commands.Cog):
-    def __init__(self, bot):
+class DuelChallengeView(discord.ui.View):
+    def __init__(
+        self,
+        bot: commands.Bot,
+        duelid: int,
+        challenger_id: int,
+        challengee_id: int,
+        problem_name: str,
+        *,
+        timeout: float,
+    ) -> None:
+        super().__init__(timeout=timeout)
         self.bot = bot
-        self.converter = commands.MemberConverter()
-        self.draw_offers = {}
+        self.duelid = duelid
+        self.challenger_id = challenger_id
+        self.challengee_id = challengee_id
+        self.problem_name = problem_name
+        self.message: discord.Message | None = None
 
-    @commands.group(brief='Duel commands', invoke_without_command=True)
-    async def duel(self, ctx):
+    async def _disable_all(self, interaction: discord.Interaction) -> None:
+        for item in self.children:
+            item.disabled = True
+        await interaction.response.edit_message(view=self)
+        self.stop()
+
+    @discord.ui.button(label='Accept', style=discord.ButtonStyle.success)
+    async def accept_button(
+        self, interaction: discord.Interaction, button: discord.ui.Button[Any]
+    ) -> None:
+        if interaction.user.id != self.challengee_id:
+            await interaction.response.send_message(
+                'Only the challenged user can accept.',
+                ephemeral=True,
+            )
+            return
+
+        await self._disable_all(interaction)
+
+        challenger = interaction.guild.get_member(self.challenger_id)
+        challengee = interaction.guild.get_member(self.challengee_id)
+        channel = interaction.channel
+
+        await channel.send(
+            f'Duel between {challenger.mention} and'
+            f' {challengee.mention} starting in 15 seconds!'
+        )
+        await asyncio.sleep(15)
+
+        start_time = datetime.datetime.now().timestamp()
+        rc = await self.bot.user_db.start_duel(self.duelid, start_time)
+        if rc != 1:
+            await channel.send(
+                f'Unable to start the duel between {challenger.mention}'
+                f' and {challengee.mention}.'
+            )
+            return
+
+        problem = self.bot.cf_cache.problem_cache.problem_by_name[self.problem_name]
+        title = f'{problem.index}. {problem.name}'
+        desc = self.bot.cf_cache.contest_cache.get_contest(problem.contestId).name
+        embed = discord.Embed(title=title, url=problem.url, description=desc)
+        embed.add_field(name='Rating', value=problem.rating)
+        await channel.send(
+            f'Starting duel: {challenger.mention} vs {challengee.mention}',
+            embed=embed,
+        )
+
+    @discord.ui.button(label='Decline', style=discord.ButtonStyle.danger)
+    async def decline_button(
+        self, interaction: discord.Interaction, button: discord.ui.Button[Any]
+    ) -> None:
+        if interaction.user.id != self.challengee_id:
+            await interaction.response.send_message(
+                'Only the challenged user can decline.',
+                ephemeral=True,
+            )
+            return
+
+        await self._disable_all(interaction)
+        rc = await self.bot.user_db.cancel_duel(self.duelid, Duel.DECLINED)
+        challenger = interaction.guild.get_member(self.challenger_id)
+        challengee = interaction.guild.get_member(self.challengee_id)
+        if rc:
+            message = (
+                f'{challengee.mention} declined a challenge by {challenger.mention}.'
+            )
+            embed = discord_common.embed_alert(message)
+            await interaction.channel.send(embed=embed)
+        else:
+            await interaction.channel.send('This duel has already been resolved.')
+
+    @discord.ui.button(label='Withdraw', style=discord.ButtonStyle.secondary)
+    async def withdraw_button(
+        self, interaction: discord.Interaction, button: discord.ui.Button[Any]
+    ) -> None:
+        if interaction.user.id != self.challenger_id:
+            await interaction.response.send_message(
+                'Only the challenger can withdraw.',
+                ephemeral=True,
+            )
+            return
+
+        await self._disable_all(interaction)
+        rc = await self.bot.user_db.cancel_duel(self.duelid, Duel.WITHDRAWN)
+        challenger = interaction.guild.get_member(self.challenger_id)
+        challengee = interaction.guild.get_member(self.challengee_id)
+        if rc:
+            message = (
+                f'{challenger.mention} withdrew a challenge to {challengee.mention}.'
+            )
+            embed = discord_common.embed_alert(message)
+            await interaction.channel.send(embed=embed)
+        else:
+            await interaction.channel.send('This duel has already been resolved.')
+
+    async def on_timeout(self) -> None:
+        for item in self.children:
+            item.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except discord.NotFound:
+                pass
+        rc = await self.bot.user_db.cancel_duel(self.duelid, Duel.EXPIRED)
+        if rc and self.message:
+            challenger = self.message.guild.get_member(self.challenger_id)
+            challengee = self.message.guild.get_member(self.challengee_id)
+            message = (
+                f'{challenger.mention}, your request to duel'
+                f' {challengee.mention} has expired!'
+            )
+            embed = discord_common.embed_alert(message)
+            await self.message.channel.send(embed=embed)
+
+
+class Dueling(commands.Cog):
+    def __init__(self, bot: commands.Bot) -> None:
+        self.bot: commands.Bot = bot
+        self.converter: commands.MemberConverter = commands.MemberConverter()
+        self.draw_offers: dict[int, int] = {}
+
+    async def _get_cf_user(self, userid: int, guild_id: int) -> Any:
+        handle = await self.bot.user_db.get_handle(userid, guild_id)
+        return await self.bot.user_db.fetch_cf_user(handle)
+
+    async def _complete_duel(
+        self,
+        duelid: int,
+        guild_id: int,
+        win_status: Winner,
+        winner: discord.Member,
+        loser: discord.Member,
+        finish_time: float,
+        score: float,
+        dtype: DuelType,
+    ) -> discord.Embed | None:
+        winner_r = await self.bot.user_db.get_duel_rating(winner.id)
+        loser_r = await self.bot.user_db.get_duel_rating(loser.id)
+        delta = round(elo_delta(winner_r, loser_r, score))
+        rc = await self.bot.user_db.complete_duel(
+            duelid, win_status, finish_time, winner.id, loser.id, delta, dtype
+        )
+        if rc == 0:
+            raise DuelCogError('Hey! No cheating!')
+
+        if dtype == DuelType.UNOFFICIAL:
+            return None
+
+        winner_cf = await self._get_cf_user(winner.id, guild_id)
+        loser_cf = await self._get_cf_user(loser.id, guild_id)
+        desc = (
+            f'Rating change after **[{winner_cf.handle}]({winner_cf.url})**'
+            f' vs **[{loser_cf.handle}]({loser_cf.url})**:'
+        )
+        embed = discord_common.cf_color_embed(description=desc)
+        embed.add_field(
+            name=f'{winner.display_name}',
+            value=f'{winner_r} -> {winner_r + delta}',
+            inline=False,
+        )
+        embed.add_field(
+            name=f'{loser.display_name}',
+            value=f'{loser_r} -> {loser_r - delta}',
+            inline=False,
+        )
+        return embed
+
+    @commands.hybrid_group(brief='Duel commands', fallback='show')
+    async def duel(self, ctx: commands.Context) -> None:
         """Group for commands pertaining to duels"""
         await ctx.send_help(ctx.command)
 
     @duel.command(brief='Register a duelist')
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
-    async def register(self, ctx, member: discord.Member):
+    async def register(self, ctx: commands.Context, member: discord.Member) -> None:
         """Register a duelist"""
-        rc = cf_common.user_db.register_duelist(member.id)
+        rc = await self.bot.user_db.register_duelist(member.id)
         if rc == 0:
             raise DuelCogError(f'{member.mention} is already a registered duelist')
         await ctx.send(f'{member.mention} successfully registered as a duelist.')
 
     @duel.command(brief='Register yourself as a duelist')
     @commands.check(check_if_allow_self_register)
-    async def selfregister(self, ctx):
+    async def selfregister(self, ctx: commands.Context) -> None:
         """Register yourself as a duelist"""
-        if not cf_common.user_db.get_handle(ctx.author.id, ctx.guild.id):
+        if not await self.bot.user_db.get_handle(ctx.author.id, ctx.guild.id):
             raise DuelCogError(
                 f'{ctx.author.mention}, you cannot register yourself'
                 ' as a duelist without setting your handle.'
             )
-        rc = cf_common.user_db.register_duelist(ctx.author.id)
+        rc = await self.bot.user_db.register_duelist(ctx.author.id)
         if rc == 0:
             raise DuelCogError(f'{ctx.author.mention} is already a registered duelist')
         await ctx.send(f'{ctx.author.mention} successfully registered as a duelist')
 
     @duel.command(
-        brief='Challenge to a duel', usage='opponent [rating] [+tag..] [~tag..]'
+        brief='Challenge to a duel',
+        usage='opponent [rating] [+tag..] [~tag..]',
+        with_app_command=False,
     )
-    async def challenge(self, ctx, opponent: discord.Member, *args):
+    async def challenge(
+        self, ctx: commands.Context, opponent: discord.Member, *args: str
+    ) -> None:
         """Challenge another server member to a duel. Problem difficulty will
         be the lesser of duelist ratings minus 400. You can alternatively
         specify a different rating. The duel will be unrated if specified
@@ -156,27 +304,28 @@ class Dueling(commands.Cog):
         )
         userids = [challenger_id, challengee_id]
         handles = [
-            cf_common.user_db.get_handle(userid, ctx.guild.id) for userid in userids
+            await self.bot.user_db.get_handle(userid, ctx.guild.id)
+            for userid in userids
         ]
         submissions = [await cf.user.status(handle=handle) for handle in handles]
 
-        if not cf_common.user_db.is_duelist(challenger_id):
+        if not await self.bot.user_db.is_duelist(challenger_id):
             raise DuelCogError(
                 f'{ctx.author.mention}, you are not a registered duelist!'
             )
-        if not cf_common.user_db.is_duelist(challengee_id):
+        if not await self.bot.user_db.is_duelist(challengee_id):
             raise DuelCogError(f'{opponent.mention} is not a registered duelist!')
         if challenger_id == challengee_id:
             raise DuelCogError(f'{ctx.author.mention}, you cannot challenge yourself!')
-        if cf_common.user_db.check_duel_challenge(challenger_id):
+        if await self.bot.user_db.check_duel_challenge(challenger_id):
             raise DuelCogError(f'{ctx.author.mention}, you are currently in a duel!')
-        if cf_common.user_db.check_duel_challenge(challengee_id):
+        if await self.bot.user_db.check_duel_challenge(challengee_id):
             raise DuelCogError(f'{opponent.mention} is currently in a duel!')
 
         tags = cf_common.parse_tags(args, prefix='+')
         bantags = cf_common.parse_tags(args, prefix='~')
         rating = cf_common.parse_rating(args)
-        users = [cf_common.user_db.fetch_cf_user(handle) for handle in handles]
+        users = [await self.bot.user_db.fetch_cf_user(handle) for handle in handles]
         lowest_rating = min(user.rating or 0 for user in users)
         suggested_rating = max(round(lowest_rating, -2) + _DUEL_RATING_DELTA, 500)
         rating = round(rating, -2) if rating else suggested_rating
@@ -192,13 +341,13 @@ class Dueling(commands.Cog):
         seen = {
             name
             for userid in userids
-            for (name,) in cf_common.user_db.get_duel_problem_names(userid)
+            for (name,) in await self.bot.user_db.get_duel_problem_names(userid)
         }
 
-        def get_problems(rating):
+        def get_problems(rating: int) -> list[Any]:
             return [
                 prob
-                for prob in cf_common.cache2.problem_cache.problems
+                for prob in self.bot.cf_cache.problem_cache.problems
                 if prob.rating == rating
                 and prob.name not in solved
                 and prob.name not in seen
@@ -223,42 +372,45 @@ class Dueling(commands.Cog):
             )
 
         problems.sort(
-            key=lambda problem: cf_common.cache2.contest_cache.get_contest(
-                problem.contestId
-            ).startTimeSeconds
+            key=lambda problem: (
+                self.bot.cf_cache.contest_cache.get_contest(
+                    problem.contestId
+                ).startTimeSeconds
+            )
         )
 
         choice = max(random.randrange(len(problems)) for _ in range(2))
         problem = problems[choice]
 
         issue_time = datetime.datetime.now().timestamp()
-        duelid = cf_common.user_db.create_duel(
+        duelid = await self.bot.user_db.create_duel(
             challenger_id, challengee_id, issue_time, problem, dtype
         )
 
         ostr = 'an **unofficial**' if unofficial else 'a'
-        await ctx.send(
-            f'{ctx.author.mention} is challenging'
-            f' {opponent.mention} to {ostr} {rstr}duel!'
+        view = DuelChallengeView(
+            self.bot,
+            duelid,
+            challenger_id,
+            challengee_id,
+            problem.name,
+            timeout=_DUEL_EXPIRY_TIME,
         )
-        await asyncio.sleep(_DUEL_EXPIRY_TIME)
-        if cf_common.user_db.cancel_duel(duelid, Duel.EXPIRED):
-            message = (
-                f'{ctx.author.mention}, your request to duel'
-                f' {opponent.mention} has expired!'
-            )
-            embed = discord_common.embed_alert(message)
-            await ctx.send(embed=embed)
+        view.message = await ctx.send(
+            f'{ctx.author.mention} is challenging'
+            f' {opponent.mention} to {ostr} {rstr}duel!\n\u200b',
+            view=view,
+        )
 
     @duel.command(brief='Decline a duel')
-    async def decline(self, ctx):
-        active = cf_common.user_db.check_duel_decline(ctx.author.id)
+    async def decline(self, ctx: commands.Context) -> None:
+        active = await self.bot.user_db.check_duel_decline(ctx.author.id)
         if not active:
             raise DuelCogError(f'{ctx.author.mention}, you are not being challenged!')
 
         duelid, challenger = active
         challenger = ctx.guild.get_member(challenger)
-        cf_common.user_db.cancel_duel(duelid, Duel.DECLINED)
+        await self.bot.user_db.cancel_duel(duelid, Duel.DECLINED)
         message = (
             f'`{ctx.author.mention}` declined a challenge by {challenger.mention}.'
         )
@@ -266,14 +418,14 @@ class Dueling(commands.Cog):
         await ctx.send(embed=embed)
 
     @duel.command(brief='Withdraw a challenge')
-    async def withdraw(self, ctx):
-        active = cf_common.user_db.check_duel_withdraw(ctx.author.id)
+    async def withdraw(self, ctx: commands.Context) -> None:
+        active = await self.bot.user_db.check_duel_withdraw(ctx.author.id)
         if not active:
             raise DuelCogError(f'{ctx.author.mention}, you are not challenging anyone.')
 
         duelid, challengee = active
         challengee = ctx.guild.get_member(challengee)
-        cf_common.user_db.cancel_duel(duelid, Duel.WITHDRAWN)
+        await self.bot.user_db.cancel_duel(duelid, Duel.WITHDRAWN)
         message = (
             f'{ctx.author.mention} withdrew a challenge to `{challengee.mention}`.'
         )
@@ -281,8 +433,8 @@ class Dueling(commands.Cog):
         await ctx.send(embed=embed)
 
     @duel.command(brief='Accept a duel')
-    async def accept(self, ctx):
-        active = cf_common.user_db.check_duel_accept(ctx.author.id)
+    async def accept(self, ctx: commands.Context) -> None:
+        active = await self.bot.user_db.check_duel_accept(ctx.author.id)
         if not active:
             raise DuelCogError(f'{ctx.author.mention}, you are not being challenged.')
 
@@ -295,16 +447,16 @@ class Dueling(commands.Cog):
         await asyncio.sleep(15)
 
         start_time = datetime.datetime.now().timestamp()
-        rc = cf_common.user_db.start_duel(duelid, start_time)
+        rc = await self.bot.user_db.start_duel(duelid, start_time)
         if rc != 1:
             raise DuelCogError(
                 f'Unable to start the duel between {challenger.mention}'
                 f' and {ctx.author.mention}.'
             )
 
-        problem = cf_common.cache2.problem_cache.problem_by_name[name]
+        problem = self.bot.cf_cache.problem_cache.problem_by_name[name]
         title = f'{problem.index}. {problem.name}'
-        desc = cf_common.cache2.contest_cache.get_contest(problem.contestId).name
+        desc = self.bot.cf_cache.contest_cache.get_contest(problem.contestId).name
         embed = discord.Embed(title=title, url=problem.url, description=desc)
         embed.add_field(name='Rating', value=problem.rating)
         await ctx.send(
@@ -312,8 +464,8 @@ class Dueling(commands.Cog):
         )
 
     @duel.command(brief='Complete a duel')
-    async def complete(self, ctx):
-        active = cf_common.user_db.check_duel_complete(ctx.author.id)
+    async def complete(self, ctx: commands.Context) -> None:
+        active = await self.bot.user_db.check_duel_complete(ctx.author.id)
         if not active:
             raise DuelCogError(f'{ctx.author.mention}, you are not in a duel.')
 
@@ -331,8 +483,8 @@ class Dueling(commands.Cog):
         UNSOLVED = 0
         TESTING = -1
 
-        async def get_solve_time(userid):
-            handle = cf_common.user_db.get_handle(userid, ctx.guild.id)
+        async def get_solve_time(userid: int) -> int:
+            handle = await self.bot.user_db.get_handle(userid, ctx.guild.id)
             subs = [
                 sub
                 for sub in await cf.user.status(handle=handle)
@@ -371,7 +523,7 @@ class Dueling(commands.Cog):
                 win_status = (
                     Winner.CHALLENGER if winner == challenger else Winner.CHALLENGEE
                 )
-                embed = complete_duel(
+                embed = await self._complete_duel(
                     duelid,
                     ctx.guild.id,
                     win_status,
@@ -387,7 +539,7 @@ class Dueling(commands.Cog):
                     embed=embed,
                 )
             else:
-                embed = complete_duel(
+                embed = await self._complete_duel(
                     duelid,
                     ctx.guild.id,
                     Winner.DRAW,
@@ -404,7 +556,7 @@ class Dueling(commands.Cog):
                 )
 
         elif challenger_time:
-            embed = complete_duel(
+            embed = self._complete_duel(
                 duelid,
                 ctx.guild.id,
                 Winner.CHALLENGER,
@@ -419,7 +571,7 @@ class Dueling(commands.Cog):
                 embed=embed,
             )
         elif challengee_time:
-            embed = complete_duel(
+            embed = self._complete_duel(
                 duelid,
                 ctx.guild.id,
                 Winner.CHALLENGEE,
@@ -437,8 +589,8 @@ class Dueling(commands.Cog):
             await ctx.send('Nobody solved the problem yet.')
 
     @duel.command(brief='Offer/Accept a draw')
-    async def draw(self, ctx):
-        active = cf_common.user_db.check_duel_draw(ctx.author.id)
+    async def draw(self, ctx: commands.Context) -> None:
+        active = await self.bot.user_db.check_duel_draw(ctx.author.id)
         if not active:
             raise DuelCogError(f'{ctx.author.mention}, you are not in a duel.')
 
@@ -469,7 +621,7 @@ class Dueling(commands.Cog):
             return
 
         offerer = ctx.guild.get_member(self.draw_offers[duelid])
-        embed = complete_duel(
+        embed = await self._complete_duel(
             duelid, ctx.guild.id, Winner.DRAW, offerer, ctx.author, now, 0.5, dtype
         )
         await ctx.send(
@@ -478,41 +630,46 @@ class Dueling(commands.Cog):
         )
 
     @duel.command(brief='Show duelist profile')
-    async def profile(self, ctx, member: discord.Member = None):
+    async def profile(
+        self, ctx: commands.Context, member: discord.Member = None
+    ) -> None:
         member = member or ctx.author
-        if not cf_common.user_db.is_duelist(member.id):
+        if not await self.bot.user_db.is_duelist(member.id):
             raise DuelCogError(f'{member.mention} is not a registered duelist.')
 
-        user = get_cf_user(member.id, ctx.guild.id)
-        rating = cf_common.user_db.get_duel_rating(member.id)
+        user = await self._get_cf_user(member.id, ctx.guild.id)
+        rating = await self.bot.user_db.get_duel_rating(member.id)
+        rank = rating2rank(rating)
+        rank_title = rank.title if rank else 'Unknown'
+        rank_color = rank.color_embed if rank else None
         desc = (
-            f'Duelist profile of {rating2rank(rating).title} {member.mention}'
+            f'Duelist profile of {rank_title} {member.mention}'
             f' aka **[{user.handle}]({user.url})**'
         )
-        embed = discord.Embed(description=desc, color=rating2rank(rating).color_embed)
+        embed = discord.Embed(description=desc, color=rank_color)
         embed.add_field(name='Rating', value=rating, inline=True)
 
-        wins = cf_common.user_db.get_duel_wins(member.id)
+        wins = await self.bot.user_db.get_duel_wins(member.id)
         num_wins = len(wins)
         embed.add_field(name='Wins', value=num_wins, inline=True)
-        num_losses = cf_common.user_db.get_num_duel_losses(member.id)
+        num_losses = await self.bot.user_db.get_num_duel_losses(member.id)
         embed.add_field(name='Losses', value=num_losses, inline=True)
-        num_draws = cf_common.user_db.get_num_duel_draws(member.id)
+        num_draws = await self.bot.user_db.get_num_duel_draws(member.id)
         embed.add_field(name='Draws', value=num_draws, inline=True)
-        num_declined = cf_common.user_db.get_num_duel_declined(member.id)
+        num_declined = await self.bot.user_db.get_num_duel_declined(member.id)
         embed.add_field(name='Declined', value=num_declined, inline=True)
-        num_rdeclined = cf_common.user_db.get_num_duel_rdeclined(member.id)
+        num_rdeclined = await self.bot.user_db.get_num_duel_rdeclined(member.id)
         embed.add_field(name='Got declined', value=num_rdeclined, inline=True)
 
-        def duel_to_string(duel):
+        async def duel_to_string(duel: tuple[Any, ...]) -> str:
             start_time, finish_time, problem_name, challenger, challengee = duel
             duel_time = cf_common.pretty_time_format(
                 finish_time - start_time, shorten=True, always_seconds=True
             )
             when = cf_common.days_ago(start_time)
             loser_id = challenger if member.id != challenger else challengee
-            loser = get_cf_user(loser_id, ctx.guild.id)
-            problem = cf_common.cache2.problem_cache.problem_by_name[problem_name]
+            loser = await self._get_cf_user(loser_id, ctx.guild.id)
+            problem = self.bot.cf_cache.problem_cache.problem_by_name[problem_name]
             return (
                 f'**[{problem.name}]({problem.url})** [{problem.rating}]'
                 f' versus [{loser.handle}]({loser.url}) {when} in {duel_time}'
@@ -522,31 +679,33 @@ class Dueling(commands.Cog):
             # sort by finish_time - start_time
             wins.sort(key=lambda duel: duel[1] - duel[0])
             embed.add_field(
-                name='Fastest win', value=duel_to_string(wins[0]), inline=False
+                name='Fastest win', value=await duel_to_string(wins[0]), inline=False
             )
             embed.add_field(
-                name='Slowest win', value=duel_to_string(wins[-1]), inline=False
+                name='Slowest win', value=await duel_to_string(wins[-1]), inline=False
             )
 
         embed.set_thumbnail(url=f'{user.titlePhoto}')
         await ctx.send(embed=embed)
 
-    def _paginate_duels(self, data, message, guild_id, show_id):
-        def make_line(entry):
+    async def _paginate_duels(
+        self, data: list[Any], message: str, guild_id: int, show_id: bool
+    ) -> list[tuple[str, discord.Embed]]:
+        async def make_line(entry: Any) -> str:
             duelid, start_time, finish_time, name, challenger, challengee, winner = (
                 entry
             )
             duel_time = cf_common.pretty_time_format(
                 finish_time - start_time, shorten=True, always_seconds=True
             )
-            problem = cf_common.cache2.problem_cache.problem_by_name[name]
+            problem = self.bot.cf_cache.problem_cache.problem_by_name[name]
             when = cf_common.days_ago(start_time)
             idstr = f'{duelid}: '
             if winner != Winner.DRAW:
-                loser = get_cf_user(
+                loser = await self._get_cf_user(
                     challenger if winner == Winner.CHALLENGEE else challengee, guild_id
                 )
-                winner = get_cf_user(
+                winner = await self._get_cf_user(
                     challenger if winner == Winner.CHALLENGER else challengee, guild_id
                 )
                 return (
@@ -555,8 +714,8 @@ class Dueling(commands.Cog):
                     f' vs [{loser.handle}]({loser.url}) {when} in {duel_time}'
                 )
             else:
-                challenger = get_cf_user(challenger, guild_id)
-                challengee = get_cf_user(challengee, guild_id)
+                challenger = await self._get_cf_user(challenger, guild_id)
+                challengee = await self._get_cf_user(challengee, guild_id)
                 return (
                     f'{idstr if show_id else str()}[{name}]({problem.url})'
                     f' [{problem.rating}] drawn by'
@@ -564,25 +723,29 @@ class Dueling(commands.Cog):
                     f' [{challengee.handle}]({challengee.url}) {when} after {duel_time}'
                 )
 
-        def make_page(chunk):
-            log_str = '\n'.join(make_line(entry) for entry in chunk)
+        async def make_page(chunk: Sequence[Any]) -> tuple[str, discord.Embed]:
+            lines = [await make_line(entry) for entry in chunk]
+            log_str = '\n'.join(lines)
             embed = discord_common.cf_color_embed(description=log_str)
             return message, embed
 
         if not data:
             raise DuelCogError('There are no duels to show.')
 
-        return [make_page(chunk) for chunk in paginator.chunkify(data, 7)]
+        return [await make_page(chunk) for chunk in paginator.chunkify(data, 7)]
 
     @duel.command(brief='Print head to head dueling history', aliases=['versushistory'])
     async def vshistory(
-        self, ctx, member1: discord.Member = None, member2: discord.Member = None
-    ):
+        self,
+        ctx: commands.Context,
+        member1: discord.Member = None,
+        member2: discord.Member = None,
+    ) -> None:
         if not member1:
             raise DuelCogError('You need to specify one or two discord members.')
 
         member2 = member2 or ctx.author
-        data = cf_common.user_db.get_pair_duels(member1.id, member2.id)
+        data = await self.bot.user_db.get_pair_duels(member1.id, member2.id)
         wins, losses, draws = 0, 0, 0
         for _, _, _, _, challenger, challengee, winner in data:
             if winner != Winner.DRAW:
@@ -597,87 +760,115 @@ class Dueling(commands.Cog):
             f'`{member1.display_name}` ({wins}/{draws}/{losses})'
             f' `{member2.display_name}`'
         )
-        pages = self._paginate_duels(data, message, ctx.guild.id, False)
-        paginator.paginate(
-            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True
+        pages = await self._paginate_duels(data, message, ctx.guild.id, False)
+        await paginator.paginate(
+            ctx.channel,
+            pages,
+            wait_time=5 * 60,
+            set_pagenum_footers=True,
+            ctx=ctx,
         )
 
     @duel.command(brief='Print user dueling history')
-    async def history(self, ctx, member: discord.Member = None):
+    async def history(
+        self, ctx: commands.Context, member: discord.Member = None
+    ) -> None:
         member = member or ctx.author
-        data = cf_common.user_db.get_duels(member.id)
+        data = await self.bot.user_db.get_duels(member.id)
         message = discord.utils.escape_mentions(
             f'dueling history of `{member.display_name}`'
         )
-        pages = self._paginate_duels(data, message, ctx.guild.id, False)
-        paginator.paginate(
-            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True
+        pages = await self._paginate_duels(data, message, ctx.guild.id, False)
+        await paginator.paginate(
+            ctx.channel,
+            pages,
+            wait_time=5 * 60,
+            set_pagenum_footers=True,
+            ctx=ctx,
         )
 
     @duel.command(brief='Print recent duels')
-    async def recent(self, ctx):
-        data = cf_common.user_db.get_recent_duels()
-        pages = self._paginate_duels(data, 'list of recent duels', ctx.guild.id, True)
-        paginator.paginate(
-            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True
+    async def recent(self, ctx: commands.Context) -> None:
+        data = await self.bot.user_db.get_recent_duels()
+        pages = await self._paginate_duels(
+            data, 'list of recent duels', ctx.guild.id, True
+        )
+        await paginator.paginate(
+            ctx.channel,
+            pages,
+            wait_time=5 * 60,
+            set_pagenum_footers=True,
+            ctx=ctx,
         )
 
     @duel.command(brief='Print list of ongoing duels')
-    async def ongoing(self, ctx, member: discord.Member = None):
-        def make_line(entry):
+    async def ongoing(
+        self, ctx: commands.Context, member: discord.Member = None
+    ) -> None:
+        async def make_line(entry: Any) -> str:
             start_time, name, challenger, challengee = entry
-            problem = cf_common.cache2.problem_cache.problem_by_name[name]
+            problem = self.bot.cf_cache.problem_cache.problem_by_name[name]
             now = datetime.datetime.now().timestamp()
             when = cf_common.pretty_time_format(
                 now - start_time, shorten=True, always_seconds=True
             )
-            challenger = get_cf_user(challenger, ctx.guild.id)
-            challengee = get_cf_user(challengee, ctx.guild.id)
+            challenger = await self._get_cf_user(challenger, ctx.guild.id)
+            challengee = await self._get_cf_user(challengee, ctx.guild.id)
             return (
                 f'[{challenger.handle}]({challenger.url})'
                 f' vs [{challengee.handle}]({challengee.url}):'
                 f' [{name}]({problem.url}) [{problem.rating}] {when}'
             )
 
-        def make_page(chunk):
+        async def make_page(chunk: Sequence[Any]) -> tuple[str, discord.Embed]:
             message = 'List of ongoing duels:'
-            log_str = '\n'.join(make_line(entry) for entry in chunk)
+            lines = [await make_line(entry) for entry in chunk]
+            log_str = '\n'.join(lines)
             embed = discord_common.cf_color_embed(description=log_str)
             return message, embed
 
         member = member or ctx.author
-        data = cf_common.user_db.get_ongoing_duels()
+        data = await self.bot.user_db.get_ongoing_duels()
         if not data:
             raise DuelCogError('There are no ongoing duels.')
 
-        pages = [make_page(chunk) for chunk in paginator.chunkify(data, 7)]
-        paginator.paginate(
-            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True
+        pages = [await make_page(chunk) for chunk in paginator.chunkify(data, 7)]
+        await paginator.paginate(
+            ctx.channel,
+            pages,
+            wait_time=5 * 60,
+            set_pagenum_footers=True,
+            ctx=ctx,
         )
 
     @duel.command(brief='Show duelists')
-    async def ranklist(self, ctx):
+    async def ranklist(self, ctx: commands.Context) -> None:
         """Show the list of duelists with their duel rating."""
-        users = [
+        user_pairs = [
             (ctx.guild.get_member(user_id), rating)
-            for user_id, rating in cf_common.user_db.get_duelists()
+            for user_id, rating in await self.bot.user_db.get_duelists()
         ]
         users = [
-            (member, cf_common.user_db.get_handle(member.id, ctx.guild.id), rating)
-            for member, rating in users
+            (
+                member,
+                await self.bot.user_db.get_handle(member.id, ctx.guild.id),
+                rating,
+            )
+            for member, rating in user_pairs
             if member is not None
-            and cf_common.user_db.get_num_duel_completed(member.id) > 0
+            and await self.bot.user_db.get_num_duel_completed(member.id) > 0
         ]
 
         _PER_PAGE = 10
 
-        def make_page(chunk, page_num):
+        def make_page(chunk: Sequence[Any], page_num: int) -> tuple[str, discord.Embed]:
             style = table.Style('{:>}  {:<}  {:<}  {:<}')
             t = table.Table(style)
             t += table.Header('#', 'Name', 'Handle', 'Rating')
             t += table.Line()
             for index, (member, handle, rating) in enumerate(chunk):
-                rating_str = f'{rating} ({rating2rank(rating).title_abbr})'
+                duel_rank = rating2rank(rating)
+                rating_str = f'{rating} ({duel_rank.title_abbr if duel_rank else "?"})'
                 t += table.Data(
                     _PER_PAGE * page_num + index,
                     f'{member.display_name}',
@@ -696,12 +887,18 @@ class Dueling(commands.Cog):
             make_page(chunk, k)
             for k, chunk in enumerate(paginator.chunkify(users, _PER_PAGE))
         ]
-        paginator.paginate(
-            self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True
+        await paginator.paginate(
+            ctx.channel,
+            pages,
+            wait_time=5 * 60,
+            set_pagenum_footers=True,
+            ctx=ctx,
         )
 
-    async def invalidate_duel(self, ctx, duelid, challenger_id, challengee_id):
-        rc = cf_common.user_db.invalidate_duel(duelid)
+    async def invalidate_duel(
+        self, ctx: commands.Context, duelid: int, challenger_id: int, challengee_id: int
+    ) -> None:
+        rc = await self.bot.user_db.invalidate_duel(duelid)
         if rc == 0:
             raise DuelCogError(f'Unable to invalidate duel {duelid}.')
 
@@ -713,11 +910,11 @@ class Dueling(commands.Cog):
         )
 
     @duel.command(brief='Invalidate the duel')
-    async def invalidate(self, ctx):
+    async def invalidate(self, ctx: commands.Context) -> None:
         """Declare your duel invalid. Use this if you've solved the problem
         prior to the duel. You can only use this functionality during the first
         60 seconds of the duel."""
-        active = cf_common.user_db.check_duel_complete(ctx.author.id)
+        active = await self.bot.user_db.check_duel_complete(ctx.author.id)
         if not active:
             raise DuelCogError(f'{ctx.author.mention}, you are not in a duel.')
 
@@ -730,25 +927,25 @@ class Dueling(commands.Cog):
 
     @duel.command(brief='Invalidate a duel', usage='[duelist]')
     @commands.has_any_role(constants.TLE_ADMIN, constants.TLE_MODERATOR)
-    async def _invalidate(self, ctx, member: discord.Member):
+    async def _invalidate(self, ctx: commands.Context, member: discord.Member) -> None:
         """Declare an ongoing duel invalid."""
-        active = cf_common.user_db.check_duel_complete(member.id)
+        active = await self.bot.user_db.check_duel_complete(member.id)
         if not active:
             raise DuelCogError(f'{member.mention} is not in a duel.')
 
         duelid, challenger_id, challengee_id, _, _, _, _, _ = active
         await self.invalidate_duel(ctx, duelid, challenger_id, challengee_id)
 
-    @duel.command(brief='Plot rating', usage='[duelist]')
-    async def rating(self, ctx, *members: discord.Member):
+    @duel.command(brief='Plot rating', usage='[duelist]', with_app_command=False)
+    async def rating(self, ctx: commands.Context, *members: discord.Member) -> None:
         """Plot duelist's rating."""
         members = members or (ctx.author,)
         if len(members) > 5:
             raise DuelCogError('Cannot plot more than 5 duelists at once.')
 
         duelists = [member.id for member in members]
-        duels = cf_common.user_db.get_complete_official_duels()
-        rating = dict()
+        duels = await self.bot.user_db.get_complete_official_duels()
+        rating: dict[int, int] = {}
         plot_data = defaultdict(list)
         time_tick = 0
         for challenger, challengee, winner, _finish_time in duels:
@@ -778,9 +975,9 @@ class Dueling(commands.Cog):
         min_rating = 1350
         max_rating = 1550
         for rating_data in plot_data.values():
-            for _tick, rating in rating_data:
-                min_rating = min(min_rating, rating)
-                max_rating = max(max_rating, rating)
+            for _tick, r in rating_data:
+                min_rating = min(min_rating, r)
+                max_rating = max(max_rating, r)
 
             x, y = zip(*rating_data, strict=False)
             plt.plot(
@@ -793,7 +990,7 @@ class Dueling(commands.Cog):
                 markeredgewidth=0.5,
             )
 
-        gc.plot_rating_bg(DUEL_RANKS)
+        gc.plot_rating_bg(cast(Sequence[cf.Rank], DUEL_RANKS))
         plt.xlim(0, time_tick - 1)
         plt.ylim(min_rating - 100, max_rating + 100)
 
@@ -814,9 +1011,11 @@ class Dueling(commands.Cog):
         await ctx.send(embed=embed, file=discord_file)
 
     @discord_common.send_error_if(DuelCogError, cf_common.ResolveHandleError)
-    async def cog_command_error(self, ctx, error):
+    async def cog_command_error(
+        self, ctx: commands.Context, error: commands.CommandError
+    ) -> None:
         pass
 
 
-def setup(bot):
-    bot.add_cog(Dueling(bot))
+async def setup(bot: commands.Bot) -> None:
+    await bot.add_cog(Dueling(bot))

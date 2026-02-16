@@ -10,7 +10,7 @@ import numpy as np
 from numpy.fft import fft, ifft
 
 
-def intdiv(x, y):
+def intdiv(x: int, y: int) -> int:
     return -(-x // y) if x < 0 else x // y
 
 
@@ -29,7 +29,7 @@ class Contestant:
 class CodeforcesRatingCalculator:
     """Class to calculate rating changes and seeds based on contest standings."""
 
-    def __init__(self, standings):
+    def __init__(self, standings: list[tuple[str, float, int, int]]) -> None:
         self.contestants = [
             Contestant(handle, points, penalty, rating)
             for handle, points, penalty, rating in standings
@@ -39,18 +39,18 @@ class CodeforcesRatingCalculator:
         self._process()
         self._update_delta()
 
-    def calculate_rating_changes(self):
+    def calculate_rating_changes(self) -> dict[str, int]:
         """Return a mapping between contestants and their corresponding delta."""
         return {contestant.party: contestant.delta for contestant in self.contestants}
 
-    def get_seed(self, rating, me=None):
+    def get_seed(self, rating: int, me: Contestant | None = None) -> float:
         """Get seed given a rating and user."""
         seed = self.seed[rating]
         if me:
             seed -= self.elo_win_prob[rating - me.rating]
-        return seed
+        return float(seed)
 
-    def _precalc_seed(self):
+    def _precalc_seed(self) -> None:
         MAX = 6144
 
         # Precompute the ELO win probability for all possible rating differences.
@@ -64,11 +64,13 @@ class CodeforcesRatingCalculator:
         # Precompute the seed for all possible ratings using FFT.
         self.seed = 1 + ifft(fft(count) * fft(self.elo_win_prob)).real
 
-    def _reassign_ranks(self):
+    def _reassign_ranks(self) -> None:
         """Find the rank of each contestant."""
         contestants = self.contestants
         contestants.sort(key=lambda o: (-o.points, o.penalty))
-        points = penalty = rank = None
+        points: float | None = None
+        penalty: int | None = None
+        rank: float = 0.0
         for i in reversed(range(len(contestants))):
             if contestants[i].points != points or contestants[i].penalty != penalty:
                 rank = i + 1
@@ -76,7 +78,7 @@ class CodeforcesRatingCalculator:
                 penalty = contestants[i].penalty
             contestants[i].rank = rank
 
-    def _process(self):
+    def _process(self) -> None:
         """Process and assign approximate delta for each contestant."""
         for a in self.contestants:
             a.seed = self.get_seed(a.rating, a)
@@ -84,7 +86,7 @@ class CodeforcesRatingCalculator:
             a.need_rating = self._rank_to_rating(mid_rank, a)
             a.delta = intdiv(a.need_rating - a.rating, 2)
 
-    def _rank_to_rating(self, rank, me):
+    def _rank_to_rating(self, rank: float, me: Contestant) -> int:
         """Binary Search to find the performance rating for a given rank."""
         left, right = 1, 8000
         while right - left > 1:
@@ -95,7 +97,7 @@ class CodeforcesRatingCalculator:
                 left = mid
         return left
 
-    def _update_delta(self):
+    def _update_delta(self) -> None:
         """Update the delta of each contestant."""
         contestants = self.contestants
         n = len(contestants)
