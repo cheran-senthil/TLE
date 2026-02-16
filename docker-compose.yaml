@@ -11,6 +11,14 @@ services:
     volumes:
       - ./data:/bot/data
 
-    restart: unless-stopped
+    restart: no
+    cpus: 0.5
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
     environment:
       - TZ=UTC
