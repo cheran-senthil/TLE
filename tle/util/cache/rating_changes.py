@@ -169,12 +169,12 @@ class RatingChangesCache:
         await self._refresh_handle_cache()
 
     async def _refresh_handle_cache(self) -> None:
-        changes = await self.cache_master.conn.get_all_rating_changes()
-        handle_rating_cache = {}
-        for change in changes:
-            handle_rating_cache[change.handle] = change.newRating
-        self.handle_rating_cache = handle_rating_cache
-        self.logger.info(f'Ratings for {len(handle_rating_cache)} handles cached')
+        self.handle_rating_cache = (
+            await self.cache_master.conn.get_latest_rating_by_handle()
+        )
+        self.logger.info(
+            f'Ratings for {len(self.handle_rating_cache)} handles cached'
+        )
 
     async def get_users_with_more_than_n_contests(
         self, time_cutoff: int, n: int

@@ -12,7 +12,6 @@ services:
       - ./data:/bot/data
 
     restart: no
-    cpus: 0.5
 
     logging:
       driver: json-file

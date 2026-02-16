@@ -227,6 +227,19 @@ class CacheDbConn:
         res = await cursor.fetchall()
         return (cf.RatingChange._make(change) for change in res)
 
+    async def get_latest_rating_by_handle(self) -> dict[str, int]:
+        """Return {handle: latest_new_rating} without loading the full table."""
+        query = """
+            SELECT handle, new_rating
+            FROM rating_change
+            ORDER BY rating_update_time
+        """
+        cursor = await self.conn.execute(query)
+        result: dict[str, int] = {}
+        async for handle, new_rating in cursor:
+            result[handle] = new_rating
+        return result
+
     async def get_rating_changes_for_contest(
         self, contest_id: int
     ) -> list[cf.RatingChange]:
