@@ -106,6 +106,8 @@ class UserDbConn:
 
     async def connect(self) -> None:
         self._conn = await aiosqlite.connect(self.db_file)
+        await self._conn.execute('PRAGMA journal_mode=WAL')
+        await self._conn.execute('PRAGMA synchronous=NORMAL')
         self._conn.row_factory = namedtuple_factory
         await self.create_tables()
 

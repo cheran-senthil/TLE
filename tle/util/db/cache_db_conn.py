@@ -20,6 +20,8 @@ class CacheDbConn:
 
     async def connect(self) -> None:
         self._conn = await aiosqlite.connect(self.db_file)
+        await self._conn.execute('PRAGMA journal_mode=WAL')
+        await self._conn.execute('PRAGMA synchronous=NORMAL')
         await self.create_tables()
 
     async def create_tables(self) -> None:
