@@ -1,4 +1,7 @@
-"""Tests for tle.util.tasks — Waiter, ExceptionHandler, Task, TaskSpec, decorators."""
+"""Tests for tle.util.tasks.
+
+Waiter, ExceptionHandler, Task, TaskSpec, decorators.
+"""
 
 import asyncio
 from unittest.mock import AsyncMock, patch
@@ -16,7 +19,6 @@ from tle.util.tasks import (
     task,
     task_spec,
 )
-
 
 # --- Waiter ---
 

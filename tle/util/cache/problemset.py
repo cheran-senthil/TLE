@@ -27,7 +27,9 @@ class ProblemsetCache:
 
     def __init__(self, cache_master: 'CacheSystem') -> None:
         self.problems: list[cf.Problem] = []
-        self.problem_to_contests: defaultdict[tuple[str, int | None], list[int]] = defaultdict(list)
+        self.problem_to_contests: defaultdict[
+            tuple[str, int | None], list[int]
+        ] = defaultdict(list)
         self.cache_master = cache_master
         self.update_lock = asyncio.Lock()
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -83,7 +85,9 @@ class ProblemsetCache:
         else:
             now = time.time()
             for contest in contests:
-                if contest.end_time is not None and now > contest.end_time + self._MONITOR_PERIOD_SINCE_CONTEST_END:
+                end = contest.end_time
+                cutoff = self._MONITOR_PERIOD_SINCE_CONTEST_END
+                if end is not None and now > end + cutoff:
                     continue
                 problemset = await self.cache_master.conn.fetch_problemset(contest.id)
                 if not problemset:

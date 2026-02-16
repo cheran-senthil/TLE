@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import discord
-import pytest
 
 from tle.cogs.duel import DuelChallengeView
 from tle.util.db.user_db_conn import Duel

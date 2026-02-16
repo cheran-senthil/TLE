@@ -102,7 +102,9 @@ async def exchange_code(
         return body  # type: ignore[no-any-return]
 
 
-def decode_id_token(id_token: str, client_secret: str, client_id: str) -> dict[str, Any]:
+def decode_id_token(
+    id_token: str, client_secret: str, client_id: str,
+) -> dict[str, Any]:
     return jwt.decode(  # type: ignore[no-any-return]
         id_token,
         client_secret,

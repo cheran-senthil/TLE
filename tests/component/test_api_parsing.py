@@ -1,4 +1,7 @@
-"""Component tests for CF API response parsing — tests make_from_dict with real JSON fixtures."""
+"""Component tests for CF API response parsing.
+
+Tests make_from_dict with real JSON fixtures.
+"""
 
 import json
 from pathlib import Path

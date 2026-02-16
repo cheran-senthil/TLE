@@ -299,7 +299,9 @@ async def resolve_handles(
     return resolved_handles
 
 
-async def members_to_handles(members: Iterable[discord.Member], guild_id: int) -> list[str]:
+async def members_to_handles(
+    members: Iterable[discord.Member], guild_id: int,
+) -> list[str]:
     handles = []
     for member in members:
         handle = await user_db.get_handle(member.id, guild_id)

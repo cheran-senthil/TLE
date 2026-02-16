@@ -125,7 +125,8 @@ class Starboard(commands.Cog):
     @starboard.command(brief='Add an emoji to starboard list')
     @commands.has_role(constants.TLE_ADMIN)
     async def add(
-        self, ctx: commands.Context, emoji: str, threshold: int, color: str | None = None
+        self, ctx: commands.Context, emoji: str,
+        threshold: int, color: str | None = None,
     ) -> None:
         """Register an emoji with a reaction threshold and optional hex color."""
         clr = int(color, 16) if color else constants._DEFAULT_COLOR

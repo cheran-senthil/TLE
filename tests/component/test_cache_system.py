@@ -86,7 +86,10 @@ class TestCacheSystemInit:
 
 class TestContestCache:
     async def test_update_populates_contests(self, cache_system):
-        contests = [_make_contest(id=1), _make_contest(id=2, name='Round #2', start=2_000_000)]
+        contests = [
+            _make_contest(id=1),
+            _make_contest(id=2, name='Round #2', start=2_000_000),
+        ]
         es = EventSystem()
         with patch('tle.util.cache.contest.cf_common') as mock_cc:
             mock_cc.event_sys = es
@@ -101,7 +104,9 @@ class TestContestCache:
         es = EventSystem()
         with patch('tle.util.cache.contest.cf_common') as mock_cc:
             mock_cc.event_sys = es
-            await cache_system.contest_cache._update([c_finished, c_before], from_api=False)
+            await cache_system.contest_cache._update(
+                [c_finished, c_before], from_api=False,
+            )
         assert len(cache_system.contest_cache.contests_by_phase['FINISHED']) == 1
         assert len(cache_system.contest_cache.contests_by_phase['BEFORE']) == 1
 
@@ -126,7 +131,9 @@ class TestContestCache:
         es = EventSystem()
         with patch('tle.util.cache.contest.cf_common') as mock_cc:
             mock_cc.event_sys = es
-            await cache_system.contest_cache._update([c_coding, c_system], from_api=False)
+            await cache_system.contest_cache._update(
+                [c_coding, c_system], from_api=False,
+            )
         assert len(cache_system.contest_cache.contests_by_phase['_RUNNING']) == 2
 
     async def test_update_dispatches_event(self, cache_system):
@@ -157,7 +164,9 @@ class TestContestCache:
         assert len(fetched) == 1
 
     async def test_try_disk_loads_from_db(self, cache_system):
-        await cache_system.conn.cache_contests([_make_contest(id=10, name='Disk Round')])
+        await cache_system.conn.cache_contests(
+            [_make_contest(id=10, name='Disk Round')],
+        )
         es = EventSystem()
         with patch('tle.util.cache.contest.cf_common') as mock_cc:
             mock_cc.event_sys = es
@@ -193,7 +202,8 @@ class TestProblemCache:
         await cache_with_contests.conn.cache_problems([p])
         await cache_with_contests.problem_cache._try_disk()
         assert len(cache_with_contests.problem_cache.problems) == 1
-        assert cache_with_contests.problem_cache.problem_by_name['DiskProblem'].rating == 1500
+        prob = cache_with_contests.problem_cache.problem_by_name['DiskProblem']
+        assert prob.rating == 1500
 
 
 # --- RatingChangesCache ---

@@ -488,9 +488,8 @@ class Codeforces(commands.Cog):
         ]
 
         def make_line(c: cf.Contest) -> str:
-            return (
-                f'[{c.name}]({c.url}) {cf_common.pretty_time_format(c.durationSeconds or 0)}'
-            )
+            dur = cf_common.pretty_time_format(c.durationSeconds or 0)
+            return f'[{c.name}]({c.url}) {dur}'
 
         def make_page(chunk: Sequence[cf.Contest]) -> tuple[str, discord.Embed]:
             str_handles = '`, `'.join(handles)
@@ -557,7 +556,9 @@ class Codeforces(commands.Cog):
                 # In case of recent contents or cetain bugged contests
                 pass
 
-        contest_unsolved_pairs.sort(key=lambda p: (p[2] - p[1], -(p[0].startTimeSeconds or 0)))
+        contest_unsolved_pairs.sort(
+            key=lambda p: (p[2] - p[1], -(p[0].startTimeSeconds or 0)),
+        )
 
         if not contest_unsolved_pairs:
             raise CodeforcesCogError(
@@ -592,13 +593,16 @@ class Codeforces(commands.Cog):
         return 1.0 / (1 + 10 ** ((rb - ra) / 400.0))
 
     @staticmethod
-    def composeRatings(left: float, right: float, ratings: list[tuple[int | None, int]]) -> int:
+    def composeRatings(
+        left: float, right: float, ratings: list[tuple[int | None, int]],
+    ) -> int:
         for _tt in range(20):
             r = (left + right) / 2.0
 
             rWinsProbability = 1.0
             for rating, count in ratings:
-                rWinsProbability *= Codeforces.getEloWinProbability(r, rating or 0) ** count
+                prob = Codeforces.getEloWinProbability(r, rating or 0)
+                rWinsProbability *= prob ** count
 
             if rWinsProbability < 0.5:
                 left = r

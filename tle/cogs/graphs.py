@@ -153,7 +153,8 @@ def _get_extremes(
     }
     max_solved: int | None = max(solved.values(), default=None)
     min_unsolved: int | None = min(
-        (r for prob in problemset if prob.index not in solved and (r := prob.rating) is not None),
+        (r for prob in problemset
+         if prob.index not in solved and (r := prob.rating) is not None),
         default=None,
     )
     return min_unsolved, max_solved
@@ -403,7 +404,9 @@ class Graphs(commands.Cog):
             raise GraphCogError(f'User {handle} is not rated')
 
         contest_ids = [change.contestId for change in ratingchanges]
-        subs_by_contest_id: dict[int, list[cf.Submission]] = {contest_id: [] for contest_id in contest_ids}
+        subs_by_contest_id: dict[int, list[cf.Submission]] = {
+            contest_id: [] for contest_id in contest_ids
+        }
         for sub in await cf.user.status(handle=handle):
             if sub.contestId in subs_by_contest_id:
                 subs_by_contest_id[sub.contestId].append(sub)
@@ -1189,7 +1192,9 @@ class Graphs(commands.Cog):
         neighborhood of handles.
         """
 
-        (in_server, zoom), remaining = cf_common.filter_flags(args, ['+server', '+zoom'])
+        (in_server, zoom), remaining = cf_common.filter_flags(
+            args, ['+server', '+zoom'],
+        )
         handles: Sequence[str] = remaining
         handles = await cf_common.resolve_handles(
             ctx, self.converter, handles, mincnt=0, maxcnt=20
@@ -1338,7 +1343,9 @@ class Graphs(commands.Cog):
                     )
                 )
 
-            time_by_rating: dict[int | None, list[float]] = collections.defaultdict(list)
+            time_by_rating: dict[int | None, list[float]] = (
+                collections.defaultdict(list)
+            )
             avg_by_rating: dict[int | None, float] = {}
             for events in solved_by_contest.values():
                 sorted_events = sorted(events, key=lambda e: e[0])

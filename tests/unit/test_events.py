@@ -1,4 +1,7 @@
-"""Tests for tle.util.events — Event, Listener, EventSystem, ListenerSpec, decorators."""
+"""Tests for tle.util.events.
+
+Event, Listener, EventSystem, ListenerSpec, decorators.
+"""
 
 import asyncio
 
@@ -15,7 +18,6 @@ from tle.util.events import (
     listener,
     listener_spec,
 )
-
 
 # --- Event types ---
 
