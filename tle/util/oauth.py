@@ -198,6 +198,17 @@ class OAuthServer:
                 constants.OAUTH_REDIRECT_URI,
                 self._session,
             )
+            if 'id_token' not in tokens:
+                logger.error(
+                    'Token response missing id_token. '
+                    'Received keys: %s. Ensure your Codeforces OAuth app '
+                    'has OpenID Connect enabled.',
+                    list(tokens.keys()),
+                )
+                raise ValueError(
+                    'Token response missing id_token; '
+                    'check OAuth app OpenID Connect configuration'
+                )
             claims = decode_id_token(
                 tokens['id_token'],
                 constants.OAUTH_CLIENT_SECRET,
