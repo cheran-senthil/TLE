@@ -19,6 +19,8 @@ from tle.util.db.user_db_conn import Gitgud
 _GITGUD_NO_SKIP_TIME = 3 * 60 * 60
 _GITGUD_SCORE_DISTRIB = (2, 3, 5, 8, 12, 17, 23)
 _GITGUD_MAX_ABS_DELTA_VALUE = 300
+#Minimum rating so that beginners can solve 800-1300 problems. Can change(maybe) to 1100, so they can solve 800-1400. No problem on codeforces with <800 rating
+_GITGUD_MIN_RATING = 1000
 
 
 class CodeforcesCogError(commands.CommandError):
@@ -82,6 +84,8 @@ class Codeforces(commands.Cog):
         )
         user = await self.bot.user_db.fetch_cf_user(handle)
         rating = round(user.effective_rating, -2)
+        #minimum rating so that beginners can solve problems
+        rating = max(rating, _GITGUD_MIN_RATING)
         resp = await cf.user.rating(handle=handle)
         contests = {change.contestId for change in resp}
         submissions = await cf.user.status(handle=handle)
@@ -300,6 +304,8 @@ class Codeforces(commands.Cog):
         )
         user = await self.bot.user_db.fetch_cf_user(handle)
         rating = round(user.effective_rating, -2)
+        #minimum rating so that beginners can solve problems
+        rating = max(rating, _GITGUD_MIN_RATING)
         submissions = await cf.user.status(handle=handle)
         solved = {sub.problem.name for sub in submissions}
         noguds = await self.bot.user_db.get_noguds(ctx.message.author.id)
