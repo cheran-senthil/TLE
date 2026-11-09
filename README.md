@@ -17,6 +17,7 @@ go.
 | **Contests** | shows upcoming & live contests |
 | **Graphs** | rating distributions, solved-set histograms, etc. |
 | **Handles** | link Discord users to CF handles |
+| **Hints** | graded hints for a CF problem, one at a time, via the free LeekCF Hinter API |
 | **Starboard** | pins popular messages to a channel |
 | **CacheControl** | warm-up & manage local caches |
 
